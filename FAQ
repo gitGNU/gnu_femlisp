@@ -135,3 +135,14 @@ Femlisp FAQ
    iterative solvers on MISD architectures.  Parallelization for MIMD
    architectures is also possible using MPI, but would require a major
    restructuring.
+
+* GENERAL
+
+1. Q: Why is Femlisp slow?
+
+   A: There are several answers.  The most important is that it is working
+   with unstructured meshes.  Similar comparable Fortran/C/C++ are also
+   slow compared with programs written for structured meshes.  Second,
+   Femlisp still has to be optimized at several places, the most important
+   being its linear algebra, see above.  This will change in the near
+   future.

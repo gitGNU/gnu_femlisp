@@ -137,7 +137,7 @@ Parameters of the computation: order=~order~, levels=~levels~."
 		 (list "   grad-x (0.5,2.5)" "~19,10,2E"
 		       #'(lambda (blackboard)
 			   (with-items (&key solution) blackboard
-			     (matrix-ref (fe-gradient solution *HR-evaluation-point*) 0))))
+			     (vec-ref (aref (fe-gradient solution *HR-evaluation-point*) 0) 0))))
 		 (list "         ETA" "~12,2,2E"
 		       #'(lambda (blackboard)
 			   (getbb blackboard :global-eta))))))

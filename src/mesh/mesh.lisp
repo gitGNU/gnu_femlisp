@@ -281,6 +281,7 @@ cells of a locally refined hierarchical-mesh structure."
 (defun nr-of-surface-cells (h-mesh)
   (let ((sum 0))
     (doskel (cell h-mesh :dimension :highest :where :surface)
+      (declare (ignore cell))
       (incf sum))
     sum))
 

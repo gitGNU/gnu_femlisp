@@ -156,11 +156,14 @@ with dimension of the cells decreasing, otherwise increasing."
 			      (funcall func cell props)
 			      (funcall func cell))))
 		    etable)))
-    (let ((dim (if (eq dimension :highest) (dimension skel) dimension))
+    (let ((dim (if (eq dimension :highest)
+		   (dimension skel)
+		   dimension))
 	  (etables (if (eq direction :down)
 		       (reverse (etables skel))
 		       (etables skel))))
-    (cond (dim (etable-for-each (etable skel dim)))
+    (cond (dim (unless (minusp dim)
+		 (etable-for-each (etable skel dim))))
 	  (t (loop for etable across etables do
 		   (etable-for-each etable)))))))
 

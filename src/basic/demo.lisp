@@ -246,28 +246,38 @@ generating function.  Uses Edi Weitz' Regex package."
 
 (defun test-all-demos (demo)
   "Performs all demos reachable from demo."
-  (let ((*visited-demos* *visited-demos* #+(or) (make-hash-table :test 'equal)))
-    (with-slots (long short execute leaves input)
+  (let ((*visited-demos* *visited-demos* #+(or) (make-hash-table :test 'equal))
+	(buggy-demos ()))
+    (with-slots (name long short execute leaves input)
 	demo
       (format t "~&~64,,,'*<~>~%~%")
       (when short (format t "~A~%~%" short))
       (when long (format t "~A~%~%" long))
-      (when execute
-	(let ((*user-input-stream*
-	       (and input (make-string-input-stream input))))
-	  (funcall execute)))
-      (loop for leaf in leaves
-	    for name = (name leaf)
-	    unless (gethash name *visited-demos*)
-	    do (test-all-demos leaf))
-      (update-demo-status demo))))
-
+      (update-demo-status demo)
+      (append
+       (when execute
+	 (let ((*user-input-stream*
+		(and input (make-string-input-stream input))))
+	   (when (catch 'trap
+		   (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
+		     (format t "~&~%***** Testing ~A *****~%~%" name)
+		     (funcall execute)
+		     nil))
+	     (push demo buggy-demos))))
+       (loop for leaf in leaves
+	     for name = (name leaf)
+	     unless (gethash name *visited-demos*)
+	     nconcing (test-all-demos leaf))))
+    buggy-demos))
+  
 (defun test-demo ()
   ;; generate and delete a demo
   (let ((demo (make-demo :name "hello" :short "Hello, world!" :long "Simple test"
 			 :execute (lambda () (princ "Hello, world!~%")))))
     (adjoin-demo demo *demo-root*)
     (remove-demo "hello" *demo-root*))
+  (format t "~&The following demos are buggy:~%~A~%"
+	      (mapcar #'name (test-all-demos *demo-root*)))
   )
 
 ;;; (femlisp-demo::test-demo)

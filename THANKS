@@ -1,7 +1,7 @@
 # -*- mode: text; -*-
 
 Femlisp owes thanks mainly to the following people, groups, and
-institutions (in something like chronological order):
+institutions (in something like reverse chronological order):
 
 - The FSF for hosting Femlisp at savannah.nongnu.org.
 
@@ -21,10 +21,10 @@ institutions (in something like chronological order):
 
 - The Matlisp crew for providing this nice LAPACK interface.
 
-- IBM for letting OpenDX become free software.
+- IBM for making OpenDX free software.
 
 - The people from the Guile mailing list which helped me in learning Scheme
-  which led me finally to Common Lisp.
+  which finally led me to Common Lisp.
 
 - Richard Stallman and all other Emacs contributors for writing Emacs.
 

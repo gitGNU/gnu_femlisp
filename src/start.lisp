@@ -78,9 +78,10 @@
 
 (defun femlisp-banner ()
   (format
-   t "~&~%*** Femlisp-0.8.3 ***
+   t "~&~%*** Femlisp-0.8.5 ***
 
-Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+Copyright (C) 2003-2004
+Nicolas Neuss, University of Heidelberg.
 
 Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
 file LICENSE in the Femlisp main directory.  This is free

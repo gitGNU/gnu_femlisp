@@ -550,7 +550,7 @@ the argument mat.  For k=n, this is (abs (det mat))."
   ;;(c::info function c::info (quote algebra::vec-ref))
   (let ((x (make-double-vec 2))
 	(y (make-double-vec 2 1.0d0))
-	(A [[1 2]' [3 4]'])
+	(A (make-real-matrix #2a((1 2) (3 4))))
 	(B (make-real-matrix 2 2)))
     (x<-0 x)
     (x+=y x y)
