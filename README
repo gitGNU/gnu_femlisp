@@ -3,9 +3,8 @@ Femlisp - a Common Lisp FEM framework
 
 Femlisp is a FEM (finite element method) framework for the solution of
 partial differential equations.  It is written entirely in Common Lisp and
-runs in a Linux environment using the Common Lisp implementation CMUCL from
-CMU, see http://www.cons.org/cmucl.  It also uses the following CL
-extensions:
+runs in a Linux environment using the Common Lisp implementation CMUCL, see
+http://www.cons.org/cmucl.  It also uses the following CL extensions:
 
 - Matlisp: a CL interface to LAPACK (see ...)
 - CL-PPCRE: regular expressions for CL (see ...)

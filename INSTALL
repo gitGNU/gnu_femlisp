@@ -6,7 +6,8 @@
 
  Non-Lisp software:
   - f77, for compiling the LAPACK library for Matlisp
-  - gnuplot, dx (Data Explorer) for graphics
+  - gnuplot, 
+  - OpenDX, see http://www.opendx.org
 
  Common Lisp software:
   - CMUCL, see http://www.cons.org/cmucl/
@@ -23,16 +24,19 @@
 
 ** Installation
 
-  0. Make sure that f77, dx and gnuplot are available and working.
+  0. Make sure that f77 (bundled with gcc), dx and gnuplot are available
+     and working.
 
-  1. Create a directory CL-HOME for all Lisp stuff you will be installing.
-     Put also the Femlisp directory there.
+  1. Create a directory for all Lisp stuff you will be installing.  Put
+     also the Femlisp directory there.  Set the shell variable $CL-HOME to
+     point to this directory.
 
-  2. Install CMUCL.  Load the binaries for your machine (two files) and (my
-     suggestion) also the sources for your version.
+  2. Install CMUCL.  Load the binaries for your machine (two files).  I
+     would suggest to install also the sources because they are sometimes
+     referenced in error messages.
 
-  3. If you want a true Lisp environment either use XEmacs or install Ilisp
-     for GNU Emacs.
+  3. For editing / writing Lisp code I recomend using emacs with Ilisp / or
+     Xemacs (where ilisp comes preinstalled in the standard installation).
 
   4. An indispensable resource for Common Lisp is the ANSI CL specification
      (Hyperspec), which you should get as well.
@@ -56,7 +60,7 @@ as Debian packages (maybe in 'testing').  The following are not yet.]
         '(("**;*.*.*" "cl:femlisp;**;*.*.*")))
 
   9. Look at the files femlisp/start.lisp and femlisp/femlisp-config.lisp
-     if they do what you want.
+     and check if they do what you want.
 
   10. Compile and load Femlisp using (load "femlisp:start").
 
