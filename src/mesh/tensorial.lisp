@@ -443,7 +443,6 @@ reference cell."
   (ensure-tensorial '(3 1))
   (ensure-tensorial '(2 2))
   (ensure-tensorial '(1 3))
-  (make-tensorial-class-and-refcell '(1 3))
   (= 0.5 (aref (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #(0.5 0.5)) 0))
   (describe (refcell-skeleton *unit-quadrangle*))
   (describe (refcell-refinement-skeleton *unit-quadrangle* 1))
