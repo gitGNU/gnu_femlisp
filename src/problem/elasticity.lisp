@@ -35,7 +35,7 @@
 (in-package :cl-user)
 
 (defpackage "ELASTICITY"
-  (:use "COMMON-LISP" "MACROS" "UTILITIES" #.cl-user::*matlisp-package*
+  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP.MATLISP"
 	"ALGEBRA" "MESH" "PROBLEM")
   (:export
    "<ELASTICITY-PROBLEM>" "ISOTROPIC-ELASTICITY-TENSOR"
