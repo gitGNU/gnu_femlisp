@@ -101,14 +101,14 @@ region."))
 
 (defmethod refine-cell! :after ((cell <cell>) (mesh <mesh>) (refined-mesh <mesh>) refined-region)
   "First, the domain patch is copied to the children.  Then, cell mappings
-are modified for parametric meshes."
+are modified for boundary-approximating meshes."
   ;; set patch
   (loop with patch = (patch-of-cell cell mesh)
 	for child across (children cell mesh) do
 	(setf (patch-of-cell child refined-mesh) patch))
   
-  ;; For parametric meshes, we have additionally to modify cell mappings
-  ;; at the boundary.  More precisely, we abandon the mappings from
+  ;; For meshes approximating smooth boundaries, we have additionally to
+  ;; modify cell mapping.  More precisely, we abandon the mappings from
   ;; interior children and create finer parametric ones for the boundary
   ;; neighbors.
   (let ((parametric (parametric mesh))
@@ -117,14 +117,13 @@ are modified for parametric meshes."
     (when (and parametric
 	       (not (eq parametric :from-domain))
 	       (= (dimension patch) (dimension mesh)))
-      (loop for child across (children cell mesh)
-	    do
+      (loop for child across (children cell mesh) do
 	    (unless (vertex? child)
-	      (setf (mapping child)
-		    (and (find patch (boundary child)
-			       :key (rcurry #'patch-of-cell refined-mesh) :test-not #'eq)
-			 (funcall parametric child)))))))
-  )
+	      (if (every #'(lambda (side) ; tests if inside some patch
+			    (eq (patch-of-cell side refined-mesh) patch))
+			(boundary child))
+		  (change-class child (unmapped-cell-class (class-of child)))
+		  (setf (mapping child) (funcall parametric child))))))))
 
 (defmethod update-refinement! ((mesh <mesh>) (refined-mesh <mesh>)
 			       &key region test refined)

@@ -35,36 +35,48 @@
 (in-package :mesh)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; <vertex>
+;;;; Vertex class and reference vertex generation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; The class definition is contained in cell.lisp
+;;; The class <vertex> has already been defined in cell.lisp.  For
+;;; completeness, we define also mapped vertices.
 
-(defun print-vertex (vtx stream depth)
-  (declare (ignore depth))
-  (print-unreadable-object
-   (vtx stream :type t :identity t)
-   (princ (vertex-position vtx) stream)))
+(defclass <mapped-vertex> (<mapped-cell> <vertex>)
+  ()
+  (:documentation "At the moment, this class is not needed because vertices
+are not mapped."))
 
-(defun reference-vertex ()
-  (find-reference-cell-with #'(lambda (refcell) (zerop (dimension refcell)))))
+(defmethod initialize-instance :after ((cell <mapped-vertex>) &key &allow-other-keys)
+  (error "Up to now, the <mapped-vertex> should not be used."))
 
-(defun make-vertex (position)
-  "The vertex constructor."
-  (make-<vertex>
-   :cell-class *vertex-class*
-   :mapping (if (typep position 'double-vec)
-		position
-		(map 'double-vec #'identity position))))
+(let ((empty-cell-vec #()))
+  (defmethod boundary ((vtx <vertex>))
+    "Returns the empty boundary for vertices."
+    empty-cell-vec))
 
+(defun make-vertex (position &optional mapping)
+  "General vertex constructor."
+  (let ((pos (coerce position 'double-vec)))
+    (if mapping
+	(make-instance '<mapped-vertex> :position pos :mapping mapping)
+	(make-instance '<vertex> :position pos))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Routines
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun vertex? (cell) (typep cell '<vertex>))
+(defmethod copy-cell ((vtx <vertex>))
+  "Copy constructor for vertex."
+  (make-instance (class-of vtx) :position (vertex-position vtx)))
 
 (defmethod vertices ((vtx <vertex>)) (list vtx))
+
+(defmethod cell-mapping ((vtx <vertex>))
+  "For vertices, this returns a <special-function> evaluating to the vertex
+position."
+  (with-slots (position) vtx
+    (make-instance '<constant-function> :domain-dimension 0
+		   :image-dimension (length position) :value position)))
 
 (defmethod l2g ((vtx <vertex>) local-pos)
   "Same as local->global for vertices."
@@ -73,10 +85,7 @@
 
 (defmethod manifold-dimension ((vtx <vertex>))
   "Anchor for recursive definition."
-  (let ((mapping (mapping vtx)))
-    (if (vectorp mapping)
-	(length mapping)
-	(image-dimension mapping))))
+  (length (vertex-position vtx)))
 
 (defmethod l2Dg ((vtx <vertex>) local-pos)
   (assert (equalp local-pos (double-vec)))
@@ -102,6 +111,11 @@ derivative."
     (double-vec)))
 
 (defmethod global->local ((vtx <vertex>) global-pos)
+  (when (equalp global-pos (vertex-position vtx))
+    (double-vec)))
+
+(defmethod global->local ((vtx <mapped-vertex>) global-pos)
+  (assert "Should not be called under the current system.")
   (when (equalp global-pos (evaluate (mapping vtx) (double-vec)))
     (double-vec)))
 
@@ -115,42 +129,48 @@ derivative."
 ;;; refinement
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod primary-refine-info ((refcell <vertex>))
-  "Construction of the refinement information." 
-  (vector
-   (make-<child-info>
-    :class *vertex-class*
-    :barycentric-corners
-    (list (list (make-double-vec 1 1.0d0)))  ; not perfect, because no real factor
-    :boundary-paths ())))
+(defmethod generate-refine-info ((refcell <vertex>))
+  "Construction of the refinement information which is to copy the vertex."
+  (with-cell-information (refine-info)
+    refcell
+    (setq refine-info
+	  (vector
+	   (make-<child-info>
+	    :reference-cell refcell
+	    :barycentric-corners
+	    (list (list (make-double-vec 1 1.0d0))) ; not perfect, because no real factor
+	    :boundary-paths ())))))
 
-(defmethod update-refine-info! ((refcell <vertex>)) nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Activation of the vertex class
+;;; Initialization of the vertex class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ensure-vertex ()
-  (or (reference-vertex)
-      (initialize-cell-class *reference-vertex*)
-      *reference-vertex*))
-
-(ensure-vertex)
+(defvar *reference-vertex*
+  (let ((refcell (make-vertex (double-vec))))
+    (initialize-cell-class refcell ())
+    refcell)
+  "The reference vertex.")
 
 
 ;;;; Testing: (test-vertex)
 (defun test-vertex ()
   (assert (= 0 (manifold-dimension *reference-vertex*)))
-  (assert (eq *reference-vertex* (reference-cell *reference-vertex*)))
-  (reference-cell? *reference-vertex*)
-    (describe (etable (skeleton *reference-vertex*) 0))
+  (assert (reference-cell-p *reference-vertex*))
+  (reference-cell-p *reference-vertex*)
+  (reference-cell *reference-vertex*)
+  (dimension (skeleton *reference-vertex*))
+  (describe (etable (skeleton *reference-vertex*) 0))
   (describe *reference-vertex*)
   (skeleton-boundary (skeleton *reference-vertex*))
   ;;
   (refine-info *reference-vertex*)
+  (cell-class-information *reference-vertex*)
+  *
   (describe (refcell-skeleton *reference-vertex*))
   (describe (refcell-refinement-skeleton *reference-vertex* 1))
   (describe (refcell-skeleton *reference-vertex*))
+  (describe (refine-globally (skeleton *reference-vertex*)))
   (refcell-refinement-vertices *reference-vertex* 2)
   )
 

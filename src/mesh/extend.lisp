@@ -125,5 +125,6 @@ the given direction."
       #+(or)(plot:plot mesh)))
   )
 
+;;; (test-extend)
 (tests:adjoin-femlisp-test 'test-extend)
   

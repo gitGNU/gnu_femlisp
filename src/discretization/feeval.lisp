@@ -34,19 +34,16 @@
 
 (in-package :discretization)
 
-(defmethod fe-value ((asv <ansatz-space-vector>) pos)
-  "Evaluates a finite element function at point pos."
-  (declare (optimize (debug 3)))
-  (let* ((cell (find-cell-from-position (mesh asv) pos))
-	 (local (global->local cell pos))
-	 (fe (get-fe (fe-class asv) cell))
+(defmethod fe-local-value ((asv <ansatz-space-vector>) cell local-pos)
+  "Evaluates a finite element function in cell at local coordinates local-pos."
+  (let* ((fe (get-fe (fe-class asv) cell))
 	 (f-values (get-local-from-global-vec cell fe asv))
 	 (nr-comps (nr-of-components fe))
 	 (components (components fe))
 	 (result (make-array nr-comps :initial-element nil)))
     (dotimes (comp nr-comps result)
       (let ((shape-vals
-	     (ensure-matlisp (map 'double-vec (rcurry #'evaluate local)
+	     (ensure-matlisp (map 'double-vec (rcurry #'evaluate local-pos)
 				  (fe-basis (aref components comp)))
 			     :row)))
 	(setf (aref result comp)
@@ -54,22 +51,34 @@
 				 (aref f-values comp)
 				 f-values)))))))
 
-(defmethod fe-gradient ((asv <ansatz-space-vector>) pos)
+(defmethod fe-value ((asv <ansatz-space-vector>) pos)
   "Evaluates a finite element function at point pos."
-  (declare (type <ansatz-space-vector> asv))
-  (let* ((cell (find-cell-from-position (mesh asv) pos))
-	 (local (global->local cell pos))
-	 (fe (get-fe (fe-class asv) cell))
+  (let ((cell (find-cell-from-position (mesh asv) pos)))
+    (fe-local-value asv cell (global->local cell pos))))
+
+(defmethod fe-local-gradient ((asv <ansatz-space-vector>) cell local-pos)
+  "Evaluates a finite element gradient on cell at local coordinates local-pos."
+  (let* ((fe (get-fe (fe-class asv) cell))
 	 (f-values (get-local-from-global-vec cell fe asv))
-	 (result nil))
-    (loop with Dphi^-1 = (m/ (local->Dglobal cell local))
-	  for shape in (fe-basis fe)
-	  and i from 0 do
-	  (m-incf result
-		  (scal (vec-ref f-values i)
-			(m* (ensure-matlisp (evaluate-gradient shape local) :row)
-			    Dphi^-1))))
-    result))
+	 (nr-comps (nr-of-components fe))
+	 (components (components fe))
+	 (result (make-array nr-comps :initial-element nil)))
+    (dotimes (comp nr-comps result)
+      (loop with Dphi^-1 = (m/ (local->Dglobal cell local-pos))
+	    and f-values = (if (vectorp f-values)
+			       (aref f-values comp)
+			       f-values)
+	    for shape in (fe-basis (aref components comp))
+	    and i from 0 do
+	    (m-incf (aref result comp)
+		    (scal (vec-ref f-values i)
+			  (m* (ensure-matlisp (evaluate-gradient shape local-pos) :row)
+			      Dphi^-1)))))))
+
+(defmethod fe-gradient ((asv <ansatz-space-vector>) pos)
+  "Evaluates a finite element gradient at point pos."
+  (let ((cell (find-cell-from-position (mesh asv) pos)))
+    (fe-local-gradient asv cell (global->local cell pos))))
 
 (defmethod cell-integrate (cell x &key (initial-value 0.0d0) (combiner #'+) (key #'identity))
   (let* ((fe-class (fe-class x))

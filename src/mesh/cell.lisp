@@ -34,70 +34,207 @@
 
 (in-package :mesh)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; The standard cell subclass construction works as follows:
-;;;;
-;;;; 1. Generate the subclass.
-;;;; 2. Generate a reference cell (with factor-simplices).
-;;;; 3. Initialize the reference cell (puts it also in dictionary).
-;;;; 4. The refinement information is generated as it is needed.
-;;;;
-;;;; This is done separately in vertex.lisp, simplex.lisp and
-;;;; tensorial.lisp.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <cell> class
+;;; Cell class definition
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct (<cell-class> (:conc-name cell-class-))
-  (dimension -1 :type fixnum)
-  (nr-of-sides -1 :type fixnum)
-  (nr-of-vertices -1 :type fixnum)
-  ;; ordered subcell access
-  (nr-of-subcells -1 :type fixnum)
-  (subcell-parent-indices (fixnum-vec) :type fixnum-vec)
-  (subcell-boundary-indices (fixnum-vec) :type fixnum-vec)
-  (factor-simplices ())
-  (reference-cell () :type t))
+(defclass <cell> ()
+  ()
+  (:documentation "The basic cell class."))
 
 (deftype cell-vec () '(simple-array <cell> (*)))
 
-(defstruct (<cell> (:conc-name nil) (:print-function print-<cell>))
-  (cell-class nil :type (or <cell-class> null))
-  (boundary #() :type cell-vec)
-  (mapping nil))
+(defparameter *print-cell* :midpoint
+  "If set to :MIDPOINT, prints the midpoint of a cell.")
 
-#+ignore
-(defclass <cell> ()
-  ((cell-class :reader cell-class :initarg :cell-class :type (or <cell-class> null))
-   (boundary :reader boundary :initarg :boundary :initform #() :type cell-vec)
-   (mapping :reader mapping :initarg :mapping nil))
-  (:documentation "The basic cell class.  Every cell consists of its class
-collecting all class information, an array of boundary cells and a mapping
-slot.  That slot contains the position for vertices and a possibly
-nonlinear mapping for other cells.  A value of nil means that multilinear
-interpolation between the corners is used for constructing the mapping."))
+(defmethod print-object ((cell <cell>) stream)
+  (call-next-method)
+  (case *print-cell*
+    (:midpoint (format stream "{MP=~A}" (midpoint cell)))))
 
-(defvar *default-cell* (make-<cell>))
+(defclass <standard-cell> (<cell>)
+  ((boundary :reader boundary :initarg :boundary
+	     :type cell-vec
+	     :documentation "A vector of boundary cells."))
+  (:documentation "The standard cell in Femlisp is defined via its boundary."))
 
-(defparameter *print-cell* :corners
-  "If set to :corners, prints the corners of a cell.")
+;;; Specializing for vertices is needed very soon.  Therefore, we specify
+;;; the vertex class without initializing its class information
+;;; immediately.
+(defclass <vertex> (<cell>)
+  ((position :reader vertex-position :initarg :position :type double-vec))
+  (:documentation "The vertex class."))
 
-(defun print-<cell> (cell stream depth)
-  (declare (ignore depth))
-  (print-unreadable-object
-   (cell stream :type t :identity t)))
+(declaim (inline vertex? vertex-p))
+(defun vertex? (cell) (typep cell '<vertex>))
+(defun vertex-p (cell) (typep cell '<vertex>))
 
-(defun copy-cell (cell)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; class information for cells
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defstruct (cell-class-information (:conc-name ci-))
+  "Structure containing information necessary for cell handling."
+  (dimension -1 :type fixnum)
+  (reference-cell nil)
+  (refcell-skeleton nil)
+  (factor-simplices ())
+  (nr-of-sides -1 :type fixnum)
+  (nr-of-vertices -1 :type fixnum)
+  (nr-of-subcells -1 :type fixnum)
+  (subcell-parent-indices (fixnum-vec) :type fixnum-vec)
+  (subcell-boundary-indices (fixnum-vec) :type fixnum-vec)
+  (refine-info nil))
+
+(declaim (notinline cell-class-information
+		 cell-dimension reference-cell factor-simplices
+		 nr-of-sides nr-of-vertices nr-of-subcells
+		 refcell-skeleton refine-info))
+
+(defun cell-class-information (obj)
+  "Returns the cell information for the class which is stored as a property
+of the class symbol."
+  (get (etypecase obj
+	 (symbol obj)
+	 (<cell> (class-name (class-of obj)))
+	 (standard-class (class-name obj)))
+       'cell-class-information))
+
+(defun (setf cell-class-information) (value obj)
+  "This function should only be used during class initialization."
+  (setf (get (etypecase obj
+	       (symbol obj)
+	       (<cell> (class-name (class-of obj)))
+	       (standard-class (class-name obj)))
+	     'cell-class-information)
+	value))
+
+(defmacro with-ci-slots (slots ci &body body)
+  "Multiple and write access to cell-information slots."
+  `(symbol-macrolet
+    ,(loop for item in slots
+	   for accessor = `(,(intern (concatenate 'string "CI-" (symbol-name item))) ,ci)
+	   collect `(,item ,accessor))
+    ,@body))
+
+(defmacro with-cell-class-information (slots cell-class &body body)
+  "Multiple and write access to cell-information slots."
+  (with-gensyms (ci)
+    `(let ((,ci (cell-class-information ,cell-class)))
+      (with-ci-slots ,slots ,ci ,@body))))
+
+(defmacro with-cell-information (slots cell &body body)
+  (with-gensyms (class)
+    `(let ((,class (class-of ,cell)))
+      (with-cell-class-information ,slots ,class ,@body))))
+
+(defun refcell-skeleton (cell)
+  "Returns the skeleton of the reference cell."
+  (with-cell-information (refcell-skeleton) cell refcell-skeleton))
+(defun factor-simplices (cell)
+  "Returns the factor-simplices."
+  (with-cell-information (factor-simplices) cell factor-simplices))
+(defun nr-of-sides (cell)
+  "Returns the number of boundary faces."
+  (with-cell-information (nr-of-sides) cell nr-of-sides))
+(defun nr-of-vertices (cell)
+  "Returns the number of vertices."
+  (with-cell-information (nr-of-vertices) cell nr-of-vertices))
+(defun nr-of-subcells (cell)
+  "Returns the number of subcells."
+  (with-cell-information (nr-of-subcells) cell nr-of-subcells))
+(defun refine-info (cell)
+  "Returns refinement information for the cell."
+  (with-cell-information (refine-info) cell refine-info))
+
+;;; because of their nice names, the following are implemented as generic
+;;; functions
+(defmethod dimension ((cell <cell>))
+  "Returns the dimension of the cell."
+  (with-cell-information (dimension) cell dimension))
+
+(defmethod reference-cell ((cell <cell>))
+  "Returns the cell's or cell-classes reference-cell."
+  (with-cell-information (reference-cell) cell reference-cell))
+
+(defmethod reference-cell ((class standard-class))
+  "Returns the cell information also when called for a cell class."
+  (with-cell-class-information (reference-cell) class reference-cell))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Parametrized cell classes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <mapped-cell> ()
+  ((mapping :accessor mapping :initarg :mapping))
+  (:documentation "A mixin which distinguishes cells which are mapped by a
+special mapping."))
+
+(definline mapped-p (cell) (subtypep (class-of cell) '<mapped-cell>))
+
+(defun mapped-cell-class (class)
+  "Constructs a cell class with <mapped-cell> mixin."
+  (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
+	      (find-package :mesh)))
+  (if (subtypep class '<mapped-cell>)
+      class
+      (let* ((unmapped-class (class-name class))
+	     (mapped-class
+	      (intern (concatenate 'string "<MAPPED-"
+				   (subseq (symbol-name unmapped-class) 1))
+		      :mesh)))
+	(or (find-class mapped-class nil)
+	    (let ((new-class (eval `(defclass ,mapped-class
+				     (mesh::<mapped-cell> ,unmapped-class) ()))))
+	      (setf (cell-class-information new-class)
+		    (cell-class-information class))
+	      new-class)))))
+
+(defun unmapped-cell-class (class)
+  "Returns the cell class without mapping mixin."
+  (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
+	      (find-package :mesh)))
+  (if (subtypep class '<mapped-class>)
+      (let* ((mapped-class (class-name class))
+	     (unmapped-class
+	      (intern (concatenate 'string "<" (subseq (symbol-name mapped-class) 8))
+		      :mesh)))
+	(find-class unmapped-class nil))
+      class))
+
+(defmethod mapping ((cell <cell>))
+  "No mapping for ordinary cells."
+  nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Further routines
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric vertices (cell)
+  (:documentation "Returns a list of all vertices of the cell."))
+
+(definline reference-cell-p (cell)
+  "Tests if a cell is a reference cell."
+  (eq (reference-cell cell) cell))
+
+(defmethod copy-cell ((cell <cell>))
   "Copy constructor for cells."
-  (copy-structure cell))
+  (make-instance (class-of cell) :boundary (boundary cell)))
+
+(defmethod copy-cell ((cell <mapped-cell>))
+  (let ((copy (call-next-method)))
+    (setf (slot-value copy 'mapping)
+	  (slot-value cell 'mapping))
+    copy))
 
 (defmethod check ((cell <cell>))
   (loop with side-dim = (1- (dimension cell))
 	for side across (boundary cell)	do
-	(assert (= side-dim (dimension side))))
-  (whereas ((mapping (and (not (vertex? cell)) (mapping cell))))
+	(assert (= side-dim (dimension side)))))
+
+(defmethod check :after ((cell <mapped-cell>))
+  (with-slots (mapping) cell
     ;; check if mapping is reasonable
     (when (differentiable-p mapping)
       (let* ((mp (local-coordinates-of-midpoint cell))
@@ -106,23 +243,7 @@ interpolation between the corners is used for constructing the mapping."))
 	(assert (< (norm (m- grad numgrad))
 		   (* 1.0e-2 (max (norm grad) (norm numgrad)))))))))
 
-;;; accessors
-(declaim (ftype (function (*) positive-fixnum) dimension))
-(defmethod dimension ((cell <cell>))
-  (cell-class-dimension (cell-class cell)))
-(defmethod nr-of-sides ((cell <cell>))
-  (cell-class-nr-of-sides (cell-class cell)))
-(defmethod nr-of-vertices ((cell <cell>))
-  (cell-class-nr-of-vertices (cell-class cell)))
-(defmethod nr-of-subcells ((cell <cell>))
-  (cell-class-nr-of-subcells (cell-class cell)))
-(defmethod factor-simplices ((cell <cell>))
-  (cell-class-factor-simplices (cell-class cell)))
-(defmethod factor-dimensions ((cell <cell>))
-  (mapcar #'dimension (factor-simplices cell)))
-(defmethod reference-cell ((cell <cell>))
-  (cell-class-reference-cell (cell-class cell)))
-
+#+(or)
 (defmethod describe-object ((cell <cell>) stream)
   (format stream "~&~A~%" cell))
 
@@ -130,75 +251,21 @@ interpolation between the corners is used for constructing the mapping."))
   (describe cell)
   (mapc #'describe-all (boundary cell)))
 
-; (defun print-cell (cell stream depth)
-;   (print-unreadable-object (cell-class cell))
-;   (print (boundary cell))
-;   (print-unreadable-object (mapping cell)))
-
-;;; Ordered access (i.e. the ordering depends only on the cells class) to
+;;; Ordered access (i.e. the ordering depends only on the cell's class) to
 ;;; sub-cells
 
-(defun subcells (cell)
+(defmethod subcells ((cell <cell>))
   "Returns a vector containing all subcells of a given cell."
-  (declare (type <cell> cell))
-  (let ((subcells (make-array (nr-of-subcells cell)))
-	(parent-indices (cell-class-subcell-parent-indices (cell-class cell)))
-	(boundary-indices (cell-class-subcell-boundary-indices (cell-class cell))))
-    (setf (aref subcells 0) cell)
-    (do ((k 1 (1+ k)))
-	((= k (nr-of-subcells cell)) subcells)
-      (setf (aref subcells k)
-	    (aref (boundary (aref subcells (aref parent-indices k)))
-		  (aref boundary-indices k))))))
-
-
-(defun create-subcell-info (cell)
-  "Initializes the slots necessary for subcell access."
-  (let* ((all-subcells (list cell))
-	 (subcell-tail all-subcells)
-	 (parent-indices (list -1))
-	 (boundary-indices (list -1))
-	 (nr-of-subcells 1))
-    (do ((subcells all-subcells (cdr subcells))
-	 (parent-index 0 (1+ parent-index)))
-	
-	 ;; end of loops: set subcell info in class slots
-	((null subcells)
-	 (let ((cell-class (cell-class cell)))
-	   (setf (cell-class-nr-of-subcells cell-class) nr-of-subcells)
-	   (setf (cell-class-subcell-parent-indices cell-class)
-		 (map 'fixnum-vec #'identity
-		      (nreverse parent-indices)))
-	   (setf (cell-class-subcell-boundary-indices cell-class)
-		 (map 'fixnum-vec #'identity
-		      (nreverse boundary-indices)))
-	   cell))
-      
-      ;; boundary loop
-      (dotimes (boundary-index (length (boundary (car subcells))))
-	(let ((side (aref (boundary (car subcells)) boundary-index)))
-	  (unless (member side all-subcells)
-	    (incf nr-of-subcells)
-	    (push parent-index parent-indices)
-	    (push boundary-index boundary-indices)
-	    (nconc subcell-tail (list side))))))))
-
-(defmethod subcells-of ((cell <cell>) (dim fixnum))
-  (labels ((test (subcell) (= dim (dimension subcell))))
-    (let* ((subcells (subcells cell))
-	   (first-with-dim (position-if #'test subcells))
-	   (last-with-dim (position-if #'test subcells :from-end t)))
-    (make-array (1+ (- last-with-dim first-with-dim))
-		:displaced-to subcells
-		:displaced-index-offset first-with-dim))))
-
-;;; This could be defined in this way, but we want a special ordering in
-;;; simplex.lisp and tensorial.lisp.  Thus, this method is overloaded in
-;;; those files.
-(defmethod vertices ((cell <cell>))
-  (subcells-of cell 0)
-  (error "This should be overloaded (because the cell mappings need another
-ordering)."))
+  (with-cell-information (nr-of-subcells subcell-parent-indices
+					 subcell-boundary-indices)
+    cell
+    (let ((subcells (make-array nr-of-subcells)))
+      (setf (aref subcells 0) cell)
+      (do ((k 1 (1+ k)))
+	  ((= k (nr-of-subcells cell)) subcells)
+	(setf (aref subcells k)
+	      (aref (boundary (aref subcells (aref subcell-parent-indices k)))
+		    (aref subcell-boundary-indices k)))))))
 
 (defmethod corners ((cell <cell>))
   (mapcar #'(lambda (vtx) (local->global vtx (double-vec)))
@@ -213,19 +280,18 @@ ordering)."))
 for vertices."
   (manifold-dimension (aref (boundary cell) 0)))
 
-(defun cell-mapping (cell)
-  "Returns either the mapping slot or, if it is NIL, a <special-function>
-which is equivalent to calling l2g and l2Dg."
-  (let ((mapping (mapping cell)))
-    (if mapping
-	(if (vectorp mapping)
-	    (make-instance '<constant-function> :domain-dimension 0
-			   :image-dimension (length mapping) :value mapping)
-	    mapping)
-	(make-instance
-	 '<special-function>
-	 :domain-dimension (dimension cell) :image-dimension (manifold-dimension cell)
-	 :evaluator (curry #'l2g cell) :gradient (curry #'l2Dg cell)))))
+(defmethod cell-mapping ((cell <cell>))
+  "For non-mapped cells, this returns a <special-function> which is
+equivalent to calling l2g and l2Dg."
+  (make-instance
+   '<special-function>
+   :domain-dimension (dimension cell) :image-dimension (manifold-dimension cell)
+   :evaluator (curry #'l2g cell) :gradient (curry #'l2Dg cell)))
+
+(defmethod cell-mapping ((cell <mapped-cell>))
+  "Return the mappingFor non-mapped cells, this returns a <special-function> which is
+equivalent to calling l2g and l2Dg."
+  (slot-value cell 'mapping))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; local->global for isoparametric cells (as an after method)
@@ -243,14 +309,14 @@ then the function l2Dg is called which gives the gradient for a multilinear
 interpolation from the cell's corners."))
 
 (defmethod local->global ((cell <cell>) local-pos)
-  (aif (mapping cell)
-       (evaluate it local-pos)
-       (l2g cell local-pos)))
+  (l2g cell local-pos))
+(defmethod local->global ((cell <mapped-cell>) local-pos)
+  (evaluate (slot-value cell 'mapping) local-pos))
 
 (defmethod local->Dglobal ((cell <cell>) local-pos)
-  (aif (mapping cell)
-       (evaluate-gradient it local-pos)
-       (l2Dg cell local-pos)))
+  (l2Dg cell local-pos))
+(defmethod local->Dglobal ((cell <mapped-cell>) local-pos)
+  (evaluate-gradient (slot-value cell 'mapping) local-pos))
 
 ;;; Only these functions (specialized to multilinear mappings) are
 ;;; different for each cell class.
@@ -341,143 +407,69 @@ distance to global-pos is returned."))
 It calls coordinates-inside? which is defined for every cell class."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Reference cell dictionary
+;;;; Initialization of a cell class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; (display-ht *reference-cells*)
-(defvar *reference-cells* (make-hash-table :test #'eq)
-  "Table of all reference cells.")
+(defgeneric generate-refine-info (refcell)
+  (:documentation "Generates the refinement information for the reference
+cell."))
 
-(defun find-reference-cell-with (func)
-  (let ((elems (find-reference-cells-with func)))
-    (cond ((null elems) nil)
-	  ((single? elems) (car elems))
-	  (t (error "not unique")))))
+(defgeneric skeleton (cell-or-cells)
+  (:documentation "Returns a skeleton for the given cell or the given
+cells."))
 
-(defun find-reference-cells-with (func)
-  (loop for cell being each hash-key of *reference-cells*
-	when (funcall func cell) collect cell))
-
-(defun find-reference-cell-from-factors (factors)
-  (find-reference-cell-with
-   #'(lambda (cell)
-       (equal (factor-simplices cell) factors))))
-
-(defun find-reference-cell-from-factor-dimensions (factor-dims)
-  (find-reference-cell-with
-   #'(lambda (cell)
-       (equal (mapcar #'dimension (factor-simplices cell))
-	      factor-dims))))
-
-(defun reference-cell? (cell)
-  (and (gethash cell *reference-cells*) t))
-
-(defun add-reference-cell! (refcell)
-  (setf (gethash refcell *reference-cells*) t))
-
-(defun remove-reference-cell! (refcell)
-  (remhash refcell *reference-cells*))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Activation protocol of a cell-class
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; The activation of a cell-class is done in the following way:
-;;; 1. Generate an cell-class containing the factor simplices.
-;;; 2. Generate a reference cell for this class
-;;; 3. Call initialize-cell-class on this reference cell.
-;;;
-;;; An exception is the initialization of the vertex class which is
-;;; initialized by hand because it is needed by general refinement.
-
-(defvar *cell-class-initialization-functions* ()
-  "Register of cell-class initialization functions.")
-
-(defun adjoin-cell-class-initialization-function (sym)
-  "Add sym to the end of the initialization protocol, if it is not yet
-included."
-  (unless (member sym *cell-class-initialization-functions*)
-    (push sym *cell-class-initialization-functions*)))
-
-(defun setup-cell-class (refcell)
-  "Initializes the cell-class slots from refcell and factor-simplices and
-registers the reference element."
-  (let ((cell-class (cell-class refcell)))
-    (setf (cell-class-reference-cell cell-class) refcell)
-    (setf (cell-class-dimension cell-class)
-	  (if (zerop (length (boundary refcell)))
-	      0
-	      (1+ (dimension (aref (boundary refcell) 0)))))
-    (setf (cell-class-nr-of-sides cell-class) (length (boundary refcell)))
-    (create-subcell-info refcell)
-    (setf (cell-class-nr-of-vertices cell-class) (length (subcells-of refcell 0)))))
-
-(defun initialize-cell-class (refcell)
-  "Initializes the cell-class by calling the initialization functions in
-reverse order."
-  (when (find-reference-cell-from-factors (factor-simplices refcell))
-    (error "A reference cell with the same factors already exists."))
-  (setup-cell-class refcell)
-  ;; this is a potential problem
-  (let ((initialization-done nil))
-    (add-reference-cell! refcell)	; add temporarily
-    (unwind-protect
-	 (progn
-	   (loop for sym in (reverse *cell-class-initialization-functions*)
-		 do (funcall sym refcell))
-	   (setq initialization-done t))
-      (remove-reference-cell! refcell))
-    (when initialization-done
-      ;; add reference cell
-      (add-reference-cell! refcell))))
-
-;;; add this function to the initialization protocol
-(adjoin-cell-class-initialization-function 'setup-cell-class)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Vertex class
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; The vertex class and reference class are generated here, because they
-;;; are needed for the initialization protocol.  On the other hand, the
-;;; initialization of the *cell-class* information is postponed so that
-;;; actions on vertices are not yet possible.
-
-(defstruct (<vertex> (:conc-name vertex-) (:include <cell>)
-		     (:print-function print-vertex))
-  "The basic (zero-dimensional) vertex.  This is a cell where the mapping
-slot is usually filled with a position vector.  This class is used in
-skeleton.lisp and is therefore defined immediately.")
-
-(definline vertex-position (vtx) (mapping vtx))
-
-#+(or)
-(defclass <vertex> (<cell>)
-  ()
-  (:documentation "The basic (zero-dimensional) vertex.  This is a cell
-where the mapping slot is usually filled with a position vector."))
-
-(defvar *vertex-class* (make-<cell-class> :factor-simplices ())
-  "The class of a vertex.")
-
-(defun make-vertex (position)
-  "The vertex constructor."
-  (make-<vertex>
-   :cell-class *vertex-class*
-   :mapping (if (typep position 'double-vec)
-		position
-		(map 'double-vec #'identity position))))
-  
-(defvar *reference-vertex* (make-vertex (double-vec))
-  "The reference vertex.")
-
+(defun initialize-cell-class (refcell factors)
+  "Initializes the per-class information for the given reference cell."
+  (let ((cell-class-information
+	 (or (cell-class-information (class-of refcell))
+	     (setf (cell-class-information (class-of refcell))
+		   (make-cell-class-information
+		    :reference-cell refcell :factor-simplices factors)))))
+    (with-ci-slots
+	(dimension reference-cell factor-simplices nr-of-sides nr-of-vertices
+		   nr-of-subcells subcell-parent-indices subcell-boundary-indices
+		   refcell-skeleton)
+      cell-class-information
+      (setq reference-cell refcell)
+      (setq factor-simplices factors)
+      (setq dimension (if (zerop (length (boundary refcell)))
+			  0
+			  (1+ (dimension (aref (boundary refcell) 0)))))
+      (setq nr-of-sides (length (boundary refcell)))
+      ;; create the subcell information
+      (let ((all-subcells (list refcell))
+	    (parent-indices (list -1))
+	    (boundary-indices (list -1))
+	    (n 1))
+	(do ((subcells all-subcells (cdr subcells))
+	     (parent-index 0 (1+ parent-index)))
+	    ((null subcells)
+	     ;; end of loops: set subcell info in class slots
+	     (setf nr-of-subcells n)
+	     (setf subcell-parent-indices
+		   (coerce (nreverse parent-indices) 'fixnum-vec))
+	     (setf subcell-boundary-indices
+		   (coerce (nreverse boundary-indices) 'fixnum-vec)))
+	  (loop for side across (boundary (car subcells))
+		and boundary-index from 0 do
+		(unless (member side all-subcells)
+		  (incf n)
+		  (push parent-index parent-indices)
+		  (push boundary-index boundary-indices)
+		  (nconc all-subcells (list side))))))
+      (setq nr-of-vertices
+	    (count-if #'zerop (subcells refcell) :key #'dimension))
+      ;; set the reference skeleton
+      (setf refcell-skeleton (skeleton refcell))
+      ;; set the refinement info
+      (generate-refine-info refcell)
+      nil
+      )))
 
 ;;; Testing: in mesh-tests.lisp
 
 (defun test-cell ()
   "Tests are done when initializing the classes."
-  (display-ht *reference-cells*)
-  *cell-class-initialization-functions*
   )
 
 (tests::adjoin-femlisp-test 'test-cell)

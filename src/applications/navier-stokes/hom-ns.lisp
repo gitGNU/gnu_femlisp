@@ -215,4 +215,4 @@ Parameters: order=~D, max-levels=~D~%~%"
 (defun hom-ns-tests ()
   (stokes-darcy-demo
    (ns-hole-cell-problem 2)
-   :order 4 :levels 2 :output :all :plot nil :delta 2))
+   :order 4 :levels 2 :plot nil :delta 2))

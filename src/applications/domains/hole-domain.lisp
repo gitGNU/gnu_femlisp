@@ -39,7 +39,7 @@
   (let* ((skel1 (copy-skeleton
 		 (skeleton-boundary
 		  (refcell-refinement-skeleton (n-cube dim) refinements))))
-	 (1->2 (nth-value 1 (linearly-transform-skeleton
+	 (1->2 (nth-value 1 (linearly-transformed-skeleton
 			     skel1 :A (scal 0.5 (eye dim))
 			     :b (make-double-vec dim 0.25d0)))))
     (change-class (telescope skel1 1->2) '<domain>)))
@@ -58,14 +58,7 @@ using n-cube patches."
 	 (midpoint (make-double-vec dim 0.5))
 	 (projection (project-to-ellipsoid midpoint A))
 	 (1->2 (nth-value
-		1 (transform-skeleton-copy
-		   skel1
-		   #'(lambda (cell)
-		       (let ((mapping (cell-mapping cell)))
-			 (setf (mapping cell)
-			       (if (vertex? cell)
-				   (evaluate projection (evaluate mapping #()))
-				   (compose-2 projection mapping)))))))))
+		1 (transformed-skeleton skel1 :transformation projection))))
     (change-class (telescope skel1 1->2) '<domain>)))
 
 (defun n-cell-with-ellipsoidal-hole (dim &key (refinements 0) A)

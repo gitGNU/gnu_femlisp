@@ -37,7 +37,7 @@
 (defun n-cube-with-cubic-inlay (dim &key (refinements 0))
   "Generates an n-cube-domain with an n-cube inlay."
   (multiple-value-bind (inlay)
-      (linearly-transform-skeleton
+      (linearly-transformed-skeleton
        (refcell-refinement-skeleton (n-cube dim) refinements)
        :A (scal 0.5 (eye dim))
        :b (make-double-vec dim 0.25d0))
@@ -55,20 +55,14 @@
   (let* ((outer-skel (skeleton-boundary (refcell-refinement-skeleton
 					 (n-cube dim) refinements)))
 	 (midpoint (make-double-vec dim 0.5))
-	 (sphere-projection (project-to-sphere midpoint radius))
+	 (projection (project-to-sphere midpoint radius))
 	 (outer->middle
 	  (nth-value
-	   1 (transform-skeleton-copy
-	      outer-skel
-	      #'(lambda (cell)
-		  (let ((mapping (cell-mapping cell)))
-		    (setf (mapping cell)
-			  (if (vertex? cell)
-			      (evaluate sphere-projection (evaluate mapping #()))
-			      (compose-2 sphere-projection mapping)))))))))
+	   1 (transformed-skeleton
+	      outer-skel :transformation projection))))
     (multiple-value-bind (center-block unit-cell->center-block)
 	(let ((factor (/ radius (sqrt dim))))
-	  (linearly-transform-skeleton
+	  (linearly-transformed-skeleton
 	   (refcell-refinement-skeleton (n-cube dim) refinements)
 	   :A (scal factor (eye dim))
 	   :b (scal (- 1.0d0 factor) midpoint)))

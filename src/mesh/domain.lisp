@@ -32,8 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package mesh)
-
+(in-package :mesh)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Domain class
@@ -56,10 +55,10 @@ properties.")
 
 (defun patch-identification (patch domain)
   "Returns a list of identified cells."
-  (get-patch-property patch domain 'IDENTIFIED))
+  (getf (skel-ref domain patch) 'IDENTIFIED))
 (defun (setf patch-identification) (patch-list patch domain)
   "Sets the identification of patch to a list of identified patches."
-  (setf (get-patch-property patch domain 'IDENTIFIED) patch-list))
+  (setf (getf (skel-ref domain patch) 'IDENTIFIED) patch-list))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Domain generation
@@ -189,7 +188,6 @@ cube with its opposite sides identified."
 
 (defun n-ball-domain (dim)
   "Generates an n-dimensional ball domain with 2^n simplex patches."
-  (ensure-simplex dim)
   (let* ((cell-list (make-hash-table :test #'equalp))
 	 (domain (make-instance '<domain> :dimension dim)))
     ;; generate and intern the cells into domain
@@ -204,14 +202,15 @@ cube with its opposite sides identified."
 			      (map 'cell-vec #'(lambda (side-ids) (gethash side-ids cell-list))
 				   (mapcar #'(lambda (corner) (remove corner corners)) corners)))))))
 	       (unless (vertex? cell)
-		 (setf (mapping cell)
-		       (make-instance
-			'<special-function>
-			:domain-dimension (1- (length corners))
-			:image-dimension dim
-			:evaluator #'(lambda (x) (funcall #'n-ball-phi (l2g cell x)))
-			:gradient #'(lambda (x) (m* (funcall #'n-ball-Dphi (l2g cell x))
-						    (l2Dg cell x))))))
+		 (change-class
+		  cell (mapped-cell-class (class-of cell))
+		  :mapping (make-instance
+			    '<special-function>
+			    :domain-dimension (1- (length corners))
+			    :image-dimension dim
+			    :evaluator #'(lambda (x) (funcall #'n-ball-phi (l2g cell x)))
+			    :gradient #'(lambda (x) (m* (funcall #'n-ball-Dphi (l2g cell x))
+							(l2Dg cell x))))))
 	       (setf (gethash corners cell-list) cell)
 	       (insert-cell! domain cell))))
     
@@ -226,7 +225,6 @@ cube with its opposite sides identified."
     ;; finally ensure the boundary
     (ensure-secondary-information domain)
     domain))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Special domains (mainly for testing purposes)
@@ -275,14 +273,10 @@ cube with its opposite sides identified."
 	  ;; the precise mappings for now.  Nevertheless, these would be needed,
 	  ;; if we wanted to work with completely nonlinear (and not only
 	  ;; isoparametric) cell mappings.
-	  (let ((tri-1 (make-simplex (vector seg-en seg-cn seg-ce)
-				     :mapping nil))
-		(tri-2 (make-simplex (vector seg-nw seg-cw seg-cn)
-				     :mapping nil))
-		(tri-3 (make-simplex (vector seg-ws seg-cs seg-cw)
-				     :mapping nil))
-		(tri-4 (make-simplex (vector seg-es seg-cs seg-ce)
-				     :mapping nil)))
+	  (let ((tri-1 (make-simplex (vector seg-en seg-cn seg-ce)))
+		(tri-2 (make-simplex (vector seg-nw seg-cw seg-cn)))
+		(tri-3 (make-simplex (vector seg-ws seg-cs seg-cw)))
+		(tri-4 (make-simplex (vector seg-es seg-cs seg-ce))))
 	    ;; Finally, construct the domain
 	    (make-instance '<domain> :cells (list tri-1 tri-2 tri-3 tri-4)))))))
   "This definition of a circle domain gives somewhat better results than

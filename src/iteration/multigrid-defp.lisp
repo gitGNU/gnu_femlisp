@@ -33,8 +33,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "MULTIGRID"
-  (:use "COMMON-LISP" "GENERAL" "MACROS" "UTILITIES" "ALGEBRA" "MATLISP"
-	"TESTS" "ITERATION" "FEMLISP-DEBUG")
+  (:use "COMMON-LISP" "GENERAL" "MACROS" "UTILITIES" "FEMLISP.MATLISP"
+	"ALGEBRA" "TESTS" "ITERATION" "FEMLISP-DEBUG")
   (:export				; multigrid.lisp
    "<MG-ITERATION>" "PRE-SMOOTH" "PRE-STEPS" "POST-SMOOTH" "POST-STEPS"
    "BASE-LEVEL" "COARSE-GRID-ITERATION" "FMG"

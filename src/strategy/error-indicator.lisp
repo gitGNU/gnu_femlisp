@@ -128,7 +128,7 @@ error estimator yields a large eta."
 	(let ((hash-table (make-hash-table)))
 	  (if (and (>= (top-level mesh) from-level) eta)
 	      ;; error estimator could work out a value
-	      (let ((sorted (sort (list->vector 'simple-vector (hash-table-keys eta)) #'>
+	      (let ((sorted (sort (coerce (hash-table-keys eta) 'simple-vector) #'>
 				  :key #'(lambda (key) (abs (gethash key eta))))))
 		(loop with upper-part = (and fraction (ceiling (* (length sorted) fraction)))
 		      with pivot = (and pivot-factor

@@ -38,7 +38,7 @@
 ;;; matlisp corrections
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod print-element ((matrix real-matrix) element stream)
+(defmethod matlisp:print-element ((matrix real-matrix) element stream)
   (format stream "~13,9,,,,,'Eg" element))
 
 (setq matlisp::*print-matrix* 5)
@@ -50,20 +50,20 @@
 ;;; from matlisp
 (defun make-column-vector (seq)
   (let* ((n (length seq))
-	 (store (make-array n :element-type 'real-matrix-element-type)))
+	 (store (make-array n :element-type 'matlisp:real-matrix-element-type)))
     (declare (type fixnum n))
     (dotimes (k n)
       (declare (type fixnum k))
-      (setf (aref store k) (coerce (elt seq k) 'real-matrix-element-type)))
+      (setf (aref store k) (coerce (elt seq k) 'matlisp:real-matrix-element-type)))
     (make-instance 'real-matrix :nrows n :ncols 1 :store store)))
 
 (defun make-row-vector (seq)
   (let* ((n (length seq))
-	 (store (make-array n :element-type 'real-matrix-element-type)))
+	 (store (make-array n :element-type 'matlisp:real-matrix-element-type)))
     (declare (type fixnum n))
     (dotimes (k n)
       (declare (type fixnum k))
-      (setf (aref store k) (coerce (elt seq k) 'real-matrix-element-type)))
+      (setf (aref store k) (coerce (elt seq k) 'matlisp:real-matrix-element-type)))
     (make-instance 'real-matrix :nrows 1 :ncols n :store store)))
 
 (definline double-vec->matlisp-column-vector (dv)
@@ -427,11 +427,6 @@ then result is set to increment."
     (setf (vec-ref vec i) 1.0d0)
     vec))
 
-(defmethod print-cell ((matrix real-matrix)
-			  cell
-			  stream)
-  (format stream "~18,10,,,'*,,'EE" cell))
-
 ;;; copying of arrays
 
 (defmethod copy ((mat array))
@@ -450,7 +445,7 @@ then result is set to increment."
 (defun det-from-lr (lr pivot)
   "This routine computes the determinant using a given LR decomposition."
   (loop with prod of-type double-float = 1.0d0
-	for i below (number-of-rows lr) do
+	for i below (nrows lr) do
 	(setq prod (* prod (mat-ref lr i i)))
 	(unless (= (aref pivot i) (1+ i)) (setq prod (- prod)))
 	finally (return prod)))

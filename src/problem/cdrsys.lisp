@@ -35,7 +35,7 @@
 (in-package :cl-user)
 
 (defpackage "CDRSYS"
-  (:use "COMMON-LISP" "MATLISP" "MACROS" "UTILITIES" "MESH" "PROBLEM")
+  (:use "COMMON-LISP" "FEMLISP.MATLISP" "MACROS" "UTILITIES" "MESH" "PROBLEM")
   (:export "<CDRSYS-PROBLEM>"))
 
 (in-package :cdrsys)

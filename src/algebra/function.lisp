@@ -162,9 +162,9 @@ computation are trivial."))
   (cond ((= k 0) (value f))
 	((= k 1) (make-float-matrix (image-dimension f) (domain-dimension f)))
 	(t (make-real-tensor
-	    (list->fixnum-vec
-	     (cons (image-dimension f)
-		   (make-list k :initial-element (domain-dimension f))))))))
+	    (coerce (cons (image-dimension f)
+			  (make-list k :initial-element (domain-dimension f)))
+		    'fixnum-vec)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; transformed functions

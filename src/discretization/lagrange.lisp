@@ -167,7 +167,7 @@ lower-dimensional shapes and coordinates."
 	      (compose
 	       (memoize-1
 		#'(lambda (refcell)
-		    (assert (reference-cell? refcell))
+		    (assert (reference-cell-p refcell))
 		    (make-instance
 		     '<fe> :cell refcell :discretization disc
 		     :dofs (lagrange-dofs refcell order type)
@@ -197,7 +197,7 @@ lower-dimensional shapes and coordinates."
 (defun lagrange-reference-parameters (refcell order type)
   "Computes an energy-minimizing extension to the interior for the
 boundary lagrangian."
-  (assert (reference-cell? refcell))
+  (assert (reference-cell-p refcell))
   (let* ((fe-class (lagrange-fe order :type type))
 	 (fe (get-fe fe-class refcell))
 	 (nr-inner-dofs (nr-of-inner-dofs fe))
@@ -288,19 +288,21 @@ by interpolating the boundary map via Lagrange interpolation."
   (lagrange-dofs *unit-tetrahedron* 3 :uniform)
   (lagrange-basis *unit-triangle* 1 :uniform)
   (lagrange-dofs *unit-cube* 2 :uniform)
-  (lagrange-basis *unit-cube* 2 :uniform)
+  (time (let ()
+	  (lagrange-basis-simplex *unit-triangle* 15 :uniform)
+	  nil))  ; 1.0-1.2s (toba)
   (lagrange-inner-coords *unit-quadrangle* 3 :uniform)
   (time (lagrange-reference-parameters *unit-quadrangle* 7 :uniform))
 
   ;; Isoparametric stuff
-  (let ((center (mesh::make-vertex #(0.0d0 -4.0d0)))
-	(east-vtx (mesh::make-vertex #(-1.0d0 1.0d0)))
-	(north-vtx (mesh::make-vertex #(0.0d0 1.0d0))))
+  (let ((center (make-vertex #(0.0d0 -4.0d0)))
+	(east-vtx (make-vertex #(-1.0d0 1.0d0)))
+	(north-vtx (make-vertex #(0.0d0 1.0d0))))
     ;; line segments
-    (let ((seg-ce (mesh::make-line center east-vtx))
-	  (seg-cn (mesh::make-line center north-vtx))
-	  (seg-en (mesh::make-line east-vtx north-vtx)))
-      (let ((tri (mesh::make-simplex (vector seg-en seg-cn seg-ce)))
+    (let ((seg-ce (make-line center east-vtx))
+	  (seg-cn (make-line center north-vtx))
+	  (seg-en (make-line east-vtx north-vtx)))
+      (let ((tri (make-simplex (vector seg-en seg-cn seg-ce)))
 	    (lcoord #(0.2d0 0.3d0)))
 	(princ (det (local->Dglobal tri lcoord))) (terpri)
 	(princ (local->global tri lcoord))

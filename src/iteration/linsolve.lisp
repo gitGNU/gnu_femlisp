@@ -78,8 +78,7 @@ solving a linear system."
 (defparameter *lu-solver*
   (make-instance
    '<linear-solver> :iteration *lu-iteration*
-   :success-if '(>= :step 1)
-   :output t)
+   :success-if '(>= :step 1) :output nil)
   "LU decomposition without pivoting.")
 
 (defclass <special-solver> (<iterative-solver>)

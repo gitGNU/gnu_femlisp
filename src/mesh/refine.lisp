@@ -37,7 +37,15 @@
 ;;;; This module provides the basic structure of refinement information and
 ;;;; for the regular refinement of skeletons.  The actual form of
 ;;;; refinement information depends on the cell type and is provided
-;;;; separately in the modules (simplex) and (tensorial).
+;;;; separately in the files vertex.lisp, simplex.lisp, and tensorial.lisp.
+;;;;
+;;;; A refinement is a mapping from a skeleton to arrays of children.  It
+;;;; is based on the cell refinement which assumes that the cell boundary
+;;;; is already refined.
+;;;;
+;;;; The skeleton refinement proceeds from 0-dimensional vertices to
+;;;; higher-dimensional cells.  On each level of the skeleton the method
+;;;; refine-cell! is called on each cell.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <child-info>
@@ -60,17 +68,13 @@ the refine-info vector of the boundary's parent.
 
 transform-A, transform-b:  determine the transformation mapping for the child"
   
-  (class nil :type (or <cell-class> null))
+  (reference-cell (ext:required-argument) :type <cell>)
   (barycentric-corners () :type list)
   (boundary-paths () :type list)
   (transform-A nil)
   (transform-b nil))
 
 (deftype child-info-vec () '(simple-array <child-info> (*)))
-
-(defparameter *refinement-symbols* '(PARENT CHILDREN)
-  "This list contains symbols used in the skeleton property list of
-cells.")
 
 (definline children (cell skeleton)
   (the (or null (simple-array <cell> (*)))
@@ -95,14 +99,13 @@ cells.")
 ;;;; refinement-skeleton generation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; This is called inside the generation of refine-info!
-
+;;; TODO: put in refinement information in cell classes
 (let ((refcell-refinement-table (make-hash-table :test 'equal)))
   (defun refcell-refinement-skeleton (refcell &optional (level 1))
     "This function is needed in its whole generality e.g. for plotting.
 Calling it for large level arguments may cause a breakdown of the program,
 thus the level argument is bounded conservatively."
-    (assert (reference-cell? refcell))
+    (assert (reference-cell-p refcell))
     (assert (<= level 4))
     (or (gethash (cons refcell level) refcell-refinement-table)
 	(let ((result
@@ -135,14 +138,14 @@ thus the level argument is bounded conservatively."
 reference cells.  This is needed for plotting."
   (let ((index-table (make-hash-table))
 	(index -1))
-    (skel-for-each-cell #'(lambda (vtx) (setf (gethash vtx index-table) (incf index)))
-			(refcell-refinement-skeleton refcell level)
-			:dimension 0)
+    (skel-for-each #'(lambda (vtx) (setf (gethash vtx index-table) (incf index)))
+		   (refcell-refinement-skeleton refcell level)
+		   :dimension 0)
     index-table))
 
 (defmemo refcell-refinement-vertices (refcell level)
   "Transforms refcell-refinement-index-table into a vector."
-  (assert (reference-cell? refcell))
+  (assert (reference-cell-p refcell))
   (let* ((index-table (refcell-refinement-index-table refcell level))
 	 (vertex-array (make-array (hash-table-count index-table))))
     (maphash #'(lambda (vtx index) (setf (aref vertex-array index) vtx))
@@ -159,36 +162,16 @@ reference cells.  This is needed for plotting."
 ;;;; refine-info generation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric primary-refine-info (refcell)
-  (:documentation "Allocates a refine-info vector for refcell and does a
-partial setup."))
+(defmethod generate-refine-info :before (refcell)
+  (assert (reference-cell-p refcell)))
 
-(defgeneric update-refine-info! (refcell)
-  (:documentation "Fills derived refine-info components."))
-
-(let ((refine-info-table (make-hash-table :test 'eq)))
-  (defun refcell-refine-info (refcell)
-    "Because results are memoized, this function should only be called for
-reference cells."
-    (or (gethash refcell refine-info-table)
-	(prog1 (setf (gethash refcell refine-info-table)
-		     (primary-refine-info refcell))
-	  (update-refine-info! refcell)))))
-
-(defun refine-info (cell)
-  "This function may be called for every cell."
-  (declare (values (array <child-info> (*))))
-  (refcell-refine-info (reference-cell cell)))
-
-(defmethod primary-refine-info :before (refcell)
-  (assert (reference-cell? refcell)))
-
-(defmethod update-refine-info! :after (refcell)
+(defmethod generate-refine-info :after (refcell)
   "Generates the transformation mappings."
   ;; we have to ensure that the refined skeleton exists.  This refinement
   ;; of the standard cells needs the incomplete refine-info.
+  ;; TODO: put in cell class information
   (check (refcell-refinement-skeleton refcell 1))
-  (loop for child-info across (refcell-refine-info refcell)
+  (loop for child-info across (refine-info refcell)
 	and child across (inner-refcell-children refcell) do
 	(let ((corner (car (corners child))))
 	  (setf (child-transform-b child-info) corner)
@@ -206,21 +189,7 @@ global refinement mapping which is represented by the skeleton
 `refinement'.  It needs and ensures that the boundary of `cell' is
 already refined.  An existing refinement of `cell' is simply kept."))
 
-(defmethod refine-cell! ((vtx <vertex>) (skel <skeleton>) (refined-skel <skeleton>) refined-region)
-  "This method may be modified by more specific methods.  Especially for
-meshes the domain patches have to be put in the properties."
-  (declare (optimize (speed 3)))
-  (unless (refined-p vtx skel)
-    (let* ((child (make-vertex (vertex-position vtx)))
-	   (children-vector (vector child)))
-      (when refined-region
-	(setf (skel-ref refined-region vtx) children-vector))
-      (setf (parent child refined-skel) vtx)
-      (setf (children vtx skel) children-vector)
-      nil)))
-
 (defmethod refine-cell! ((cell <cell>) (skel <skeleton>) (refined-skel <skeleton>) refined-region)
-  ;;(declare (optimize (speed 3)))
   (unless (refined-p cell skel)
     ;; first ensure that the boundary is already refined
     (loop for side across (boundary cell)
@@ -238,16 +207,15 @@ meshes the domain patches have to be put in the properties."
       (dotimes (i nr-of-children children-vector)
 	(setf (aref children-vector i)
 	      (let* ((child-info (aref refine-info i))
-		     (child-class (child-class child-info)))
-		(if (eq child-class *vertex-class*)
+		     (child-refcell (child-reference-cell child-info)))
+		(if (vertex-p child-refcell)
 		    ;; inner vertices appear only once in refinements of products of 1-simplices
 		    (make-vertex (local->global cell (make-double-vec (dimension cell) 0.5d0)))
 		    ;; we want to keep the class of the cell,
 		    ;; therefore we copy a reference cell and
 		    ;; reinitialize the boundary and mapping slot
-		    (let ((new-cell (copy-structure
-				     (cell-class-reference-cell child-class))))
-		      (setf (boundary new-cell) 
+		    (let ((new-cell (make-instance (class-of child-refcell))))
+		      (setf (slot-value new-cell 'boundary)
 			    (labels ((find-side (cell path)
 				       (if (single? path)
 					   (aref (children cell skel) (car path))
@@ -255,14 +223,13 @@ meshes the domain patches have to be put in the properties."
 						      (cdr path)))))
 			      (map 'cell-vec #'(lambda (path) (find-side cell path))
 				   (child-boundary-paths child-info))))
-		      (setf (mapping new-cell)
-			    (whereas ((cell-map (mapping cell)))
-			      (transform-function
-			       cell-map
-			       :domain-transform
-			       (list
-				(child-transform-A child-info)
-				(child-transform-b child-info)))))
+		      (when (typep cell '<mapped-cell>)
+			(change-class
+			 new-cell (mapped-cell-class (class-of new-cell))
+			 :mapping (transform-function (mapping cell)
+						      :domain-transform
+						      (list (child-transform-A child-info)
+							    (child-transform-b child-info)))))
 		      new-cell)))))
       ;; finally, insert the children in the refined skeleton.
       (loop for child across children-vector do
@@ -311,24 +278,12 @@ cell thus filling a refined-skel."
       (refine-cell! cell skel refined-skel nil))
     refined-skel))
 
-;;; For simplices and tensorial cells the construction of the refine-info
-;;; and the refinement entry is done in the files simplex.lisp and
-;;; tensorial.lisp.
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; cell-class activation
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; we add refcell-refine-info to the cell-class activation procedure
-(adjoin-cell-class-initialization-function 'refcell-refine-info)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-skeleton-refinement ()
   "More tests are done when initializing other classes than vertex."
-  (describe (refine-globally (skeleton *reference-vertex*)))
   )
 
 ;;; (test-skeleton-refinement)

@@ -114,27 +114,26 @@ graphs."
 	  (format stream "~G ~G~%" (index->xpos index)
 		  (if values (aref values index) 0.0)))))))
 
-;;;; Testing
+;;;; Testing: (test-plot-gnuplot)
 (defun test-plot-gnuplot ()
-  (unless tests:*femlisp-test-internal*
-    (let ((graph '(("graph-1" #(1.0 2.0) #(3.0 4.0)))))
-      (plot graph :debug t))
-    (let ((graph '("graph-2" #(1.0 2.0) #(3.0 4.0))))
-      (plot graph :debug t))
-    (plot
-     (list
-      (cons
-       "{/Symbol \\266W}"
-       (loop for phi from 0.0 upto (* 2 pi) by (* 0.005 pi)
-	     collect (vector (cos phi) (sin phi))))
-      (cons
-       "{/Symbol \\266W^e}"
-       (loop for phi from 0.0 upto (* 2 pi) by (* 0.005 pi)
-	     for r = #I"1.1 + 0.05*sin(phi)^^2*sin(40*phi)"
-	     collect (vector (* r (cos phi)) (* r (sin phi))))))
-     :border nil :tics nil
-     :terminal #-(or)"postscript eps enhanced color" #+(or) "epslatex color"
-     :left -1.7 :right 1.7 :top 1.15 :bottom -1.15 :linewidth 3)
-    ))
+  (let ((graph '(("graph-1" #(1.0 2.0) #(3.0 4.0)))))
+    (plot graph :debug t))
+  (let ((graph '("graph-2" #(1.0 2.0) #(3.0 4.0))))
+    (plot graph :debug t))
+  (plot
+   (list
+    (cons
+     "{/Symbol \\266W}"
+     (loop for phi from 0.0 upto (* 2 pi) by (* 0.005 pi)
+	   collect (vector (cos phi) (sin phi))))
+    (cons
+     "{/Symbol \\266W^e}"
+     (loop for phi from 0.0 upto (* 2 pi) by (* 0.005 pi)
+	   for r = #I"1.1 + 0.05*sin(phi)^^2*sin(40*phi)"
+	   collect (vector (* r (cos phi)) (* r (sin phi))))))
+   :border nil :tics nil
+   :terminal #-(or)"postscript eps enhanced color" #+(or) "epslatex color"
+   :left -1.7 :right 1.7 :top 1.15 :bottom -1.15 :linewidth 3)
+  )
 (tests::adjoin-femlisp-test 'test-plot-gnuplot)
 

@@ -34,8 +34,8 @@
 
 (in-package "COMMON-LISP-USER")
 (defpackage "CDRSYS-FE"
-  (:use "COMMON-LISP" "MATLISP" "MACROS" "UTILITIES" "MESH" "PROBLEM" "CDRSYS"
-	"DISCRETIZATION")
+  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP.MATLISP"
+	"MESH" "PROBLEM" "CDRSYS" "DISCRETIZATION")
   (:export))
 (in-package :cdrsys-fe)
 

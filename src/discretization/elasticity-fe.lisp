@@ -34,7 +34,7 @@
 
 (in-package :cl-user)
 (defpackage "ELASTICITY-FE"
-  (:use "COMMON-LISP" "MATLISP" "MACROS" "UTILITIES" "ALGEBRA"
+  (:use "COMMON-LISP" "FEMLISP.MATLISP" "MACROS" "UTILITIES" "ALGEBRA"
 	"MESH" "PROBLEM" "ELASTICITY" "DISCRETIZATION")
   (:export))
 (in-package :elasticity-fe)

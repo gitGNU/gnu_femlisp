@@ -35,43 +35,14 @@
 (in-package :mesh)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; class <simplex>
+;;;; abstract class <simplex>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct (<simplex> (:conc-name simplex-) (:include <cell>)
-		      (:print-function print-simplex))
-  "The simplicial cell structure.")
-
-#+ignore
-(defclass <simplex> (<cell>)
+(defclass <simplex> ()
   ()
-  (:documentation "The simplicial cell structure."))
+  (:documentation "A mixin for simplicial cells."))
 
-(defun print-simplex (simplex stream depth)
-  (declare (ignore depth))
-  (print-unreadable-object
-   (simplex stream :type t :identity t)
-   (when *print-cell*
-     (whereas ((cell-class (cell-class simplex)))
-       (format stream "{DIM=~A}" (cell-class-dimension cell-class)))
-     (case *print-cell*
-       (:corners (format stream "{MP=~A}" (midpoint simplex)))))))
-
-(defun simplex? (obj)
-  (or (typep obj '<simplex>)
-      (typep obj '<vertex>)))
-
-(defun reference-simplex (dim)
-  (find-reference-cell-with
-   #'(lambda (cell)
-       (and (= (dimension cell) dim) (simplex? cell)))))
-
-(defun simplex-class (dim)
-  (whereas ((refcell (reference-simplex dim)))
-    (cell-class refcell)))
-
-(defun reference-simplices ()
-  (find-reference-cells-with #'simplex?))
+(definline simplex-p (obj) (typep obj '<simplex>))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; vertices
@@ -91,31 +62,27 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun euclidean->barycentric (pos)
-  (let ((vec (make-double-vec (1+ (length pos)))))
-    (setf (aref vec 0) (reduce #'- pos :initial-value 1.0d0))
-    (dotimes (i (length pos) vec)
-      (setf (aref vec (1+ i)) (aref pos i)))))
-
-;;; the weight-vector of local-pos gives the weight for each corner for
-;;; evaluation of the linear cell mapping at local-pos
-(defmethod weight-vector ((simplex <simplex>) (local-pos array))
-  (euclidean->barycentric local-pos))
-
-;;; local->global for simplices
-
-;;; This is probably a kludge:-(. We allow situation where boundaries may be
-;;; parametrized but the cell itself is not.  In that case we take the global
-;;; position of the corresponding vertices.
+  (let ((vec (make-double-vec (1+ (length pos))))
+	(sum 1.0d0))
+    (declare (type double-float sum))
+    (dotimes (i (length pos))
+      (decf sum (setf (aref vec (1+ i)) (aref pos i))))
+    (setf (aref vec 0) sum)
+    ;; return result
+    vec))
 
 (defmethod l2g ((cell <simplex>) (local-pos array))
+  "Evaluate the linear transformation defined by the coordinates of the
+simplex corners."
   (loop with result = (make-double-vec (manifold-dimension cell))
 	for bc across (euclidean->barycentric local-pos)
 	and corner in (corners cell) do
 	(x+=s*y result bc corner)
 	finally (return result)))
 
-;;; only a first approximation...
 (defmethod l2Dg ((simplex <simplex>) (local-pos array))
+  "Returns the linear transformation defined by the coordinates of the
+simplex corners."
   (let* ((dim (dimension simplex))
 	 (corners (corners simplex))
 	 (origin (car corners))
@@ -178,7 +145,7 @@ Example: (freudenthal-refinement 1) -> ((#(2 0) #(1 1)) (#(1 1) #(0 2)))"
     (loop for indices in (two-sorted-parts n)
 	  collect
 	  (let ((index-vector (permutation-shifted-inverse
-			       (list->fixnum-vec (apply #'append indices))))
+			       (coerce (apply #'append indices) 'fixnum-vec)))
 		(vi 0)
 		(vj (length (car indices))))
 	    (cons (aref positions vi vj)
@@ -237,9 +204,8 @@ vector and fills the barycentric-corners field."
 		    (adjust-array refine-info (1+ (length refine-info))
 				  :initial-element
 				  (make-<child-info>
-				   :class (cell-class
-					   (reference-simplex
-					    (1- (length corners-of-sub-simplex))))
+				   :reference-cell
+				   (ensure-simplex (1- (length corners-of-sub-simplex)))
 				   :barycentric-corners (list corners-of-sub-simplex)
 				   :boundary-paths nil))
 		    ;; return reversed path
@@ -259,17 +225,18 @@ the ordering of the corners."
 				 simplex (remove corner child-corners :test #'equalp) '() t))
 			    child-corners))))))
 
-(defmethod primary-refine-info ((refcell <simplex>))
-  "We allocate an empty vector which we fill in update-refine-info."
-  (make-array 0 :adjustable t))
-
-(defmethod update-refine-info! ((refcell <simplex>))
-  ;; fill refine-info with barycentric corners
-  (loop for subcells-of-dim in (sub-cells-of-children (dimension refcell)) do
-	(loop for corners-of-sub-simplex in subcells-of-dim do
-	      (get-path-create refcell corners-of-sub-simplex '() t)))
-  ;; ...and from there the boundary paths
-  (create-boundary-paths refcell))
+(defmethod generate-refine-info ((refcell <simplex>))
+  "Allocates an empty vector of children which is then filled calling
+GET-PATH-CREATE and CREATE-BOUNDARY-PATHS."
+  (with-cell-information (refine-info)
+    refcell
+    (setq refine-info (make-array 0 :adjustable t))
+    ;; fill refine-info with barycentric corners
+    (loop for subcells-of-dim in (sub-cells-of-children (dimension refcell)) do
+	  (loop for corners-of-sub-simplex in subcells-of-dim do
+		(get-path-create refcell corners-of-sub-simplex '() t)))
+    ;; ...and from there the boundary paths
+  (create-boundary-paths refcell)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; simplex class definition/generation
@@ -293,63 +260,60 @@ the zero-vector.  The others are equal to (unit-vector dim 1-i)."
     ;; then intern the other cells
     (loop for subset in (k->l-subsets corners 2 (1+ dim)) do
 	  (setf (gethash subset simplex-ht)
-		(make-<simplex>
-		 :cell-class (simplex-class (1- (length subset)))
-		 :boundary (loop with bdry-vec = (make-array (length subset)
-							     :element-type '<cell>
-							     :initial-element *default-cell*)
-				 for corner in subset and i from 0 do
-				 (setf (aref bdry-vec i)
-				       (gethash (remove corner subset :test #'equalp) simplex-ht))
-				 finally (return bdry-vec)))))
+		(make-instance
+		 (simplex-class (1- (length subset)))
+		 :boundary (coerce (loop for corner in subset collecting
+					 (gethash (remove corner subset :test #'equalp)
+						  simplex-ht))
+				   'cell-vec))))
     ;; the entry for corners is the desired simplex
     (gethash corners simplex-ht)))
 
+(defun simplex-class (dim &optional mapped)
+  "Returns the n-simplex class."
+  (let* ((class-name (intern (format nil "<~D-SIMPLEX>" dim) :mesh))
+	 (class (find-class class-name nil)))
+    (cond (class (if mapped (mapped-cell-class class) class))
+	  (t
+	   (prog1
+		(eval `(defclass ,class-name (<simplex> <standard-cell>) ()))
+	      (let ((refcell (make-reference-simplex dim)))
+		(initialize-cell-class refcell (list refcell))))))))
+
 (defun ensure-simplex (dim)
-  "If the reference simplex of the given dimension exists, it is returned.
-Otherwise, this function creates the simplex class, makes a reference simplex,
-and initializes all its parameters.  All lower-dimensional simplices are
-generated as well if it is necessary."
-  (or (reference-simplex dim)
-      (progn
-	;; ensure that all lower dimensional simplices exist
-	(for< (i 0 dim) (ensure-simplex i))
-	;; generate reference cell and class
-	(let* ((refcell (make-reference-simplex dim))
-	       (cell-class (make-<cell-class> :factor-simplices (list refcell))))
-	  (setf (cell-class refcell) cell-class)
-	  ;; initialize
-	  (initialize-cell-class refcell)
-	  ;; finally, return the reference-cell
-	  refcell))))
+  "Returns the reference simplex of the given dimension."
+  (if (zerop dim)
+      *reference-vertex*
+      (reference-cell (simplex-class dim))))
+
+(defun n-simplex (dim)
+  "Returns the reference simplex of the given dimension."
+  (ensure-simplex dim))
 
 ;;; access to commonly used simplices - this is also a check for consistency
 (defparameter *unit-interval* (ensure-simplex 1))
-(defparameter *1-simplex* (cell-class *unit-interval*))
 (defparameter *unit-triangle* (ensure-simplex 2))
-(defparameter *2-simplex* (cell-class *unit-triangle*))
 (defparameter *unit-tetrahedron* (ensure-simplex 3))
-(defparameter *3-simplex* (cell-class *unit-tetrahedron*))
-
-;;; and lazy access to rarely used ones
-(defun n-simplex (dim) (ensure-simplex dim))
-(defun n-simplex-class (dim) (cell-class (ensure-simplex dim)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Mesh construction
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun make-simplex (boundary &key (check t) mapping)
+  "This function is probably not too helpful.  For building a mesh the
+functions from skeleton-build should be prefered."
   (let ((dim (1- (length boundary))))
     (when check
-      (assert (every #'(lambda (side)
-			 (= (dimension side) (1- dim)))
-		     boundary))
-      (assert (or (= dim 1) (closed? (skeleton boundary)))))
-    (make-<simplex>
-     :cell-class (simplex-class dim)
-     :boundary boundary
-     :mapping mapping)))
+      (unless (apply #'= (1- dim) (map 'list #'dimension boundary))
+	(error "Dimension of boundary cells does not fit."))
+      (unless (or (= dim 1) (closed? (skeleton boundary)))
+	(error "Boundary is not closed.")))
+    (if mapping
+	(make-instance (simplex-class dim mapping)
+		       :boundary (coerce boundary 'cell-vec)
+		       :mapping mapping)
+	(make-instance (simplex-class dim)
+		       :boundary (coerce boundary 'cell-vec)))))
 
 (defun make-line (from-vtx to-vtx &key (check t) mapping)
   (make-simplex (vector to-vtx from-vtx) :check check :mapping mapping))
@@ -360,6 +324,11 @@ generated as well if it is necessary."
 
 (defun test-simplex ()
   (refine-info *unit-triangle*)
+  (describe *unit-triangle*)
+  (loop for x across (boundary *unit-triangle*) do
+	(describe x))
+  (cell-class-information *unit-triangle*)
+  (assert (= (length (subcells *unit-triangle*)) 7))
   (describe (refcell-skeleton *unit-triangle*))
   (describe (refcell-refinement-skeleton *unit-triangle* 1))
   (describe (refcell-refinement-skeleton *unit-triangle* 1))
@@ -375,8 +344,9 @@ generated as well if it is necessary."
   (n-simplex 5)
   (describe (refine-globally (skeleton *unit-tetrahedron*)))
   (refine-info *unit-interval*)
+  (assert (eq (reference-cell *unit-interval*)
+	      (reference-cell (n-simplex 1))))
   )
 
 ;;; (test-simplex)
 (tests::adjoin-femlisp-test 'test-simplex)
-

@@ -127,9 +127,10 @@ See make-smoother-demo for more information."
      (multiple-value-bind (mat rhs)
 	 (discretize-globally problem mm fe-class)
        (let ((result
-	      (nth-value 1 (linsolve mat rhs :output output :iteration smoother
-				     :maxsteps 10 :threshold 1.0e-10))))
-       (values (getf result :last-step-reduction) result)))))
+	      (solve (make-instance '<linear-solver> :iteration smoother
+				    :success-if '(> :step 10) :output output)
+		     (blackboard :matrix mat :rhs rhs))))
+       (values (getbb result :step-reduction) result)))))
 
 #+(or)
 (let ((dim 1) (order 6))
@@ -166,8 +167,7 @@ dimensions."
       (adjoin-demo demo *multigrid-demo*))))
 
 #+(or)(make-smoother-demo *gauss-seidel* "GS")
-#+(or)(make-smoother-demo (geometric-ssc) "VC-BGS")
-#+(or)(make-smoother-demo (geometric-ssc) "CC-BGS")
+#+(or)(make-smoother-demo (geometric-ssc) "VC-SSC")
 
 (defun smoother-graph-execute (smoother)
   (lambda ()
@@ -204,5 +204,9 @@ problem on cubes of different dimensions."
       (adjoin-demo demo *multigrid-demo*))))
 
 (make-smoother-performance-graph-demo *gauss-seidel* "GS")
-(make-smoother-performance-graph-demo (geometric-ssc) "VC-BGS")
+(make-smoother-performance-graph-demo (geometric-ssc) "VC-SSC")
 
+(defun test-multigrid-demos ()
+  (smoother-performance-test :dim 1 :order 6 :smoother (geometric-ssc))
+  (smoother-performance-test :dim 3 :order 4 :level 3 :simplex t :smoother (geometric-ssc))
+  )

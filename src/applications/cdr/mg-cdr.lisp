@@ -65,24 +65,18 @@
       ))))
 
 ;;; geometric V-cycle for higher-order problems
-(let* ((dim 2) (level 3) (order 1)
-       (problem (cdr-model-problem dim))
-       (v-cycle (geometric-cs :base-level 1)))
+(let* ((dim 3) (level 4) (order 3)
+       (problem (cdr-model-problem (n-simplex-domain dim)))
+       (smoother (geometric-ssc))
+       (v-cycle (geometric-cs :base-level 1 :pre-steps 1 :pre-smooth smoother
+			      :post-steps 1 :post-smooth smoother)))
   (multiple-value-bind (A b)
       (problem-discretization problem :level level :order order)
-    #+(or)
-    (let ((mg-data (multilevel-decomposition v-cycle A)))
-      (show (aref (getbb mg-data :a-vec) 0)))
-    #+(or)
-    (let ((mg-data (multilevel-decomposition v-cycle A)))
-      (show (aref (getbb mg-data :i-vec) 0)))
-    #+(or)(plot (mesh b))
-    #-(or)
     (setq *result*
-	  (linsolve A b :output t :iteration v-cycle
-		    :maxsteps 10 :threshold 1.0e-10))
-    ))
-(plot *result*)
+	  (solve (make-instance '<linear-solver> :output t :iteration v-cycle
+				:success-if '(> :step 10))
+		 (blackboard :matrix A :rhs b)))))
+(plot (getbb *result* :solution))
 
 (defun mg-cdr-tests ()
 ;;; test if CR is small enough

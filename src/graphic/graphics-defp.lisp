@@ -37,8 +37,6 @@
 (defpackage "GRAPHICS"
   (:use "COMMON-LISP" "UTILITIES" "MACROS")
   (:import-from "COMMON-LISP-USER" "*DX-PATH*" "*GNUPLOT-PATH*" "*IMAGES-DIRECTORY*")
-  ;;(:import-from "MATLISP" "M+" "M-" "M/" "SCAL" "NCOLS" "NROWS")
-  ;;(:import-from "ALGEBRA" "MAT-REF" "VEC-REF")
   (:export
    "*DEFAULT-GRAPHIC-PROGRAM*"
    "GRAPHIC-FILE-NAME"

@@ -47,7 +47,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <integration-rule> ()
-  ((cell :accessor reference-cell :initarg :cell :type <cell>)
+  ((cell :initarg :cell :type <cell>)
    (order :initarg :order :type fixnum)
    (ips :accessor integration-points :initarg :ips)))
 
@@ -225,11 +225,9 @@ occur for the inexact arithmetic."
 (defun test-quadrature ()
   (interval-method (make-polynomial '(0.1 1)) -1.0 1.0 1e-5)
   (gauss-rule () 2)
-  (gauss-rule-for-weight 1 3)
+  (time (let () (gauss-rule-for-weight 2 10) nil)) ; 0.5-0.8 on toba
   (gauss-points-for-weight 2 6)
   
-  (time (zeros-of-separating-family
-	 #'(lambda (n) (jacobi-polynomial 0 0 n)) 15 1.0e-16))
   ;;; Maxima:
   (gauss-rule-for-simplex 2 3)
   (gauss-lobatto-points 2)

@@ -34,22 +34,13 @@
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "FEMLISP-CMUCL-PATCHES"
+(defpackage "FEMLISP.PATCHES"
   (:use "COMMON-LISP")
   (:export))
 
-(in-package :femlisp-cmucl-patches)
+(in-package :femlisp.patches)
 
-
-;;;; for gerds-cmucl-2003-02-22
-(in-package :profile)
-
-#+(or)
-(defmacro unprofile (&rest names)
-  "Unwraps the profiling code around the named functions.  Names defaults to
-  the list of all currently profiled functions."
-  `(dolist (name ,(if names `',names '*timed-functions*) (values))
-     (unprofile-1-function name)))
+;;; no patches at the moment for any implementations
 
 
 

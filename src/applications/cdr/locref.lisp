@@ -44,8 +44,8 @@
   (multiple-value-bind (mat rhs)
 	(discretize-globally problem h-mesh fe-class)
     (let ((sol (m* (sparse-ldu mat) rhs)))
-      (unless *femlisp-test-internal* (plot sol))
-      #-(or) (show sol))))
+      ;;(plot sol)
+      (show sol))))
 
 
 ;; boundary refinement
@@ -68,7 +68,7 @@
       (show (aref (getbb mg-data :i-vec) 1)))
     (let ((sol #-(or) (linsolve mat rhs :output t :iteration (geometric-cs) :maxsteps 10)
 	       #+(or) (m* (sparse-ldu mat) rhs)))
-      #+(or)(unless *femlisp-test-internal* (plot sol))
+      ;; (plot sol)
       #-(or)(show sol))))
 
 ;; interior refinement
@@ -80,8 +80,8 @@
       (discretize-globally problem h-mesh fe-class)
     (let ((sol #+(or) (linsolve mat rhs :output t :iteration (f-cycle :problem problem))
 	       #-(or) (m* (sparse-ldu mat) rhs)))
-      #+(or) (plot sol)
-      #-(or) (show sol))))
+      ;; (plot sol)
+      (show sol))))
 
 ;; 2D case
 (time
@@ -107,8 +107,8 @@
 	(discretize-globally problem h-mesh fedisc)
     (let ((sol #+(or) (linsolve mat rhs :output t :iteration (f-cycle :problem problem))
 		 #-(or) (m* (sparse-ldu mat) rhs)))
-	#+(or) (plot sol)
-	#-(or) (show sol))))
+      ;; (plot sol)
+      (show sol))))
   
   ;; end of local refinement tests
 )

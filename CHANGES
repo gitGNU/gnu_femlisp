@@ -1,5 +1,20 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.8.4 to Femlisp-0.8.5:
+
+The mesh module was improved.  Especially, cells are now CLOS classes
+instead of structures (as it was already written down in my article on
+Femlisp).  The classes are automatically generated at runtime.
+
+A new package called FEMLISP.MATLISP was introduced which acts at the
+moment as an interface to MATLISP.  The next move will be to plug in my
+Matlisp replacement.  (This replacement is ready up to some polishing.)
+
+The regression test suite was improved.  Especially, all demos are now
+tested as well.
+
+Some errors were removed.
+
 * From Femlisp-0.8.3 to Femlisp-0.8.4:
 
 The iteration module was improved.  Iterative solvers and problem solution
@@ -15,9 +30,9 @@ Several smaller changes.
 
 * From Femlisp-0.8.2 to Femlisp-0.8.3:
 
-Removed bug in refinement of product cells which contained simplices of
+Removed a bug in the refinement of product cells which contain simplices of
 dimension >=3.
 
-Adaption to the new Matlisp. MATRIX-REF is a macro dispatching to
+Adaption to the new Matlisp.  MATRIX-REF is a macro dispatching to
 MATRIX-REF-1D and MATRIX-REF-2D.  We also unexport MATLISP:REAL after
 loading Matlisp, because it interferes with COMMON-LISP:REAL.

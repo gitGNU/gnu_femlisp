@@ -194,7 +194,7 @@
 	(offsets (offsets tensor)))
     (let ((inds (mapcar #'car index-settings))
 	  (vals (mapcar #'cdr index-settings)))
-      (assert (set? inds))
+      (assert (set-p inds))
       (let ((rinds (get-remaining-inds (rank tensor) inds)))
 	(make-instance
 	 (tensor-class-for (tensor-element-type tensor))
@@ -209,7 +209,7 @@
 	(offsets (offsets tensor))
 	(entries (entries tensor)))
     (let ((inds (mapcar #'car index-settings)))
-      (assert (set? inds))
+      (assert (set-p inds))
       (let* ((vals (mapcar #'cdr index-settings))
 	     (rinds (get-remaining-inds (rank tensor) inds))
 	     (rdims (map 'fixnum-vec (curry #'aref dimensions) rinds))
@@ -268,7 +268,7 @@
 (defun rearrange-tensor (tensor permutation)
   (declare (type <real-tensor> tensor))
   (setq permutation (coerce permutation 'fixnum-vec))
-  (assert (permutation? permutation))
+  (assert (permutation-p permutation))
   (let ((dimensions (dimensions tensor))
 	(offsets (offsets tensor))
 	(offset0 (offset0 tensor))
@@ -318,7 +318,7 @@ contracted index pair fit."
 	(setf (aref result (incf k)) i)
 	finally (return result)))
 
-(defun consecutive? (offsets dims)
+(defun consecutive-p (offsets dims)
   (loop for off across offsets
 	and dim across dims
 	and accumulated-off = 1 then (* accumulated-off dim)
@@ -341,10 +341,14 @@ contracted index pair fit."
 	     (rinds2 (get-remaining-inds rank2 cinds2))
 	     (perm1 (concatenate 'fixnum-vec cinds1 rinds1))
 	     (perm2 (concatenate 'fixnum-vec cinds2 rinds2))
-	     (shuffled1 (if (and (identity-permutation? perm1) (zerop off0-1) (consecutive? offsets1 dims1))
+	     (shuffled1 (if (and (identity-permutation-p perm1)
+				 (zerop off0-1)
+				 (consecutive-p offsets1 dims1))
 			    tensor1
 			    (time (rearrange-tensor tensor1 perm1))))
-	     (shuffled2 (if (and (identity-permutation? perm2) (zerop off0-2) (consecutive? offsets2 dims2))
+	     (shuffled2 (if (and (identity-permutation-p perm2)
+				 (zerop off0-2)
+				 (consecutive-p offsets2 dims2))
 			    tensor2
 			    (time (rearrange-tensor tensor2 perm2))))
 	     (entries1 (entries shuffled1))

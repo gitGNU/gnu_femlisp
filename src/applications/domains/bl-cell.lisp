@@ -34,6 +34,33 @@
 
 (in-package :application)
 
+(defun bottom-mapping (dim f &optional grad-f)
+  (let ((dim-1 (- dim 1)))
+    (make-instance
+     '<special-function>
+     :domain-dimension dim :image-dimension dim
+     :evaluator
+     #'(lambda (x)
+	 (let* ((s (1- (vec-ref x dim-1)))
+		(x1 (vector-slice x 0 dim-1))
+		(value (funcall f x1))
+		(result (copy x)))
+	   (setf (vec-ref result dim-1) (* s value))
+	   result))
+     :gradient
+     (and grad-f
+	  #'(lambda (x)
+	      (let* ((s (1- (aref x dim-1)))
+		     (x1 (vector-slice x 0 dim-1))
+		     (value (funcall f x1))
+		     (gradient (funcall grad-f x1))
+		     (result (eye dim)))
+		(dotimes (i dim-1)
+		  (setf (matrix-ref result dim-1 i)
+			(* (vec-ref gradient i) s)))
+		(setf (matrix-ref result dim-1 dim-1) value)
+		result))))))
+
 (defun oscillating-boundary-domain (dim f &key grad-f (refinements 0))
   "Returns a domain with an oscillating lower boundary at $x_n=-1$ where
 the oscillation is defined by a scaling function $f$ with values in $\R^+$.
@@ -41,22 +68,12 @@ Usually, also $grad-f$ should be provided, because it makes possible an
 enhanced domain approximation."
   (assert (zerop refinements) () "Please improve bl-patch-on-lower-boundary
 before using a positive value for refinements.")
-  (let* ((upper-cell (copy-skeleton
-		      (refcell-refinement-skeleton (n-cube dim) refinements)))
-	 (lower-cell (shift-skeleton upper-cell (scal -1.0 (unit-vector dim (1- dim)))))
-	 (distortion (xn-distortion-function f grad-f dim)))
-    (change-class
-     (skel-add!
-      upper-cell
-      (transform-skeleton-copy
-       lower-cell
-       #'(lambda (cell)
-	   (let ((mapping (cell-mapping cell)))
-	     (setf (mapping cell)
-		   (if (vertex? cell)
-		       (evaluate distortion (evaluate mapping #()))
-		       (compose-2 distortion mapping)))))))
-     '<domain>)))
+  (let ((upper-cell (copy-skeleton
+		     (refcell-refinement-skeleton (n-cube dim) refinements))))
+    (change-class (skel-add! upper-cell
+			     (transformed-skeleton upper-cell :transformation
+						   (bottom-mapping dim f grad-f)))
+		  '<domain>)))
 
 (defun boundary-layer-cell-domain (dim f &key grad-f (refinements 0) (extensible t)
 				   &allow-other-keys)
@@ -149,8 +166,9 @@ acts."
 
 ;;;; Testing: (test-bl-cell)
 (defun test-bl-cell ()
-  (cubic-spline #(-1.0 -0.8))
-  (spline-interpolated-bl-cell #(-1.0 -0.8))
+  (cubic-spline #(1.0d0 0.8d0))
+  (spline-interpolated-bl-cell #(1.0d0 0.8d0))
+  (check (sinusoidal-bl-cell 2))
   (describe (sinusoidal-bl-cell 2))
   (let* ((domain (sinusoidal-bl-cell 2))
 	 (mesh (uniformly-refined-hierarchical-mesh

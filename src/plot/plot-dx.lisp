@@ -49,8 +49,8 @@ data-- or some function mapping cells to a list of corner values."
 	 (values (and cell->values
 			    (compute-all-position-values
 			     cells position-indices depth cell->values)))
-	 (simplices (remove-if-not #'simplex? cells))
-	 (cubes (remove-if #'simplex? cells)))
+	 (simplices (remove-if-not #'simplex-p cells))
+	 (cubes (remove-if #'simplex-p cells)))
 	 
     ;; write positions
     (format stream "object 1 class array type float rank 1 shape ~D items ~D data follows~%"

@@ -268,8 +268,6 @@ generating function.  Uses Edi Weitz' Regex package."
 			 :execute (lambda () (princ "Hello, world!~%")))))
     (adjoin-demo demo *demo-root*)
     (remove-demo "hello" *demo-root*))
-  ;; test all demos
-  (test-all-demos *demo-root*)
   )
 
 ;;; (femlisp-demo::test-demo)

@@ -129,9 +129,8 @@ for the load functional."
 	 :order order :max-levels max-levels rest))
 
 #+(or) (cdr-bl-computation
-	2 4 2 :plot t :amplitude 0.15 :extensible nil :output :all)
+	2 4 3 :plot t :amplitude 0.15 :extensible nil :output :all)
 
-#+(or) (show (getf *result* :matrix))
 ;; before change (+ 1 sec on another run)
 ;;    2        36       784    1.8   9.3593619483d-01   6.6484919470d-04
 ;;    8       172      4462   10.9   9.4073588298d-01   1.6845432818d-04
@@ -160,9 +159,14 @@ for the load functional."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-cdr-bl ()
+  (multiple-value-bind (f Df)
+      (cubic-spline #(1.2d0 1.2d0 1.2d0))
+    (describe 
+     (oscillating-boundary-domain
+     2 f :grad-f Df)))
   
-  (bl-computation :domain (spline-interpolated-bl-cell #(1.0d0 0.8d0 0.7d0))
-		  :order 4 :max-levels 4 :plot t)
+  (bl-computation :domain (spline-interpolated-bl-cell #(1.2d0 1.2d0 1.2d0))
+		  :order 2 :max-levels 2 :plot t :output :all)
   
   ;; testing if identification with only one cell width works
   (let* ((problem (sinusoidal-boundary-layer-cell-problem 2))

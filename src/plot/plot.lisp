@@ -38,10 +38,20 @@
 ;;;; Public interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric plot (object &rest rest &key &allow-other-keys)
+(defgeneric plot (object &key &allow-other-keys)
   (:documentation "Plot is a generic function which dispatches depending on
 the type of object it receives.  Its behaviour can additionally be modified
 by keyword parameters."))
+
+(defparameter *plot* t
+  "If set to NIL, plotting is disabled.  If set to :message, a message is
+printed to *trace-output* instead of plotting.")
+
+(defmethod plot :around (object &key &allow-other-keys)
+  "Handles the *plot* parameter."
+  (case *plot*
+    (t (call-next-method))
+    (:message (format *trace-output* "~&<Plotting>~%"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; graphic-write-data
@@ -82,20 +92,21 @@ that are discontinuous across cell boundaries."
 consisting of cell and vertex indices."
   (let ((connection-list ()))
     (dolist (cell cells connection-list)
-      (skel-for-each-cell-of-highest-dimension
+      (skel-for-each
        #'(lambda (mini-cell)
 	   (push
 	    (mapcar
 	     #'(lambda (local-vtx) (gethash (make-key cell local-vtx) position-indices))
 	     (let ((vertices (vertices mini-cell)))
 	       ;; check orientation, if necessary swap vertices
-	       (if (and (simplex? mini-cell)
+	       (if (and (simplex-p mini-cell)
 			(minusp (det (local->Dglobal
 				      mini-cell (local-coordinates-of-midpoint mini-cell)))))
 		   (cons (cadr vertices) (cons (car vertices) (cddr vertices)))
 		   vertices)))
 	    connection-list))
-       (mesh::refcell-refinement-skeleton (reference-cell cell) depth)))))
+       (mesh::refcell-refinement-skeleton (reference-cell cell) depth)
+       :dimension :highest))))
 
 (defun compute-all-position-values (cells position-indices depth cell->values)
   "Computes the values at the positions."

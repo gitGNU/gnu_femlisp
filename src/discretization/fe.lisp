@@ -255,7 +255,7 @@ and reference cell."))
   "Standard quadrature rule for fe."
   (let ((refcell (reference-cell fe))
 	(order (discretization-order fedisc)))
-    (gauss-rule (factor-dimensions refcell)
+    (gauss-rule (mapcar #'dimension (factor-simplices refcell))
 		(if (typep refcell '<simplex>)
 		    order
 		    (1+ order)))))
@@ -376,7 +376,7 @@ cell->fe mapping given as a class slot."))
 
 (defun Q-nomials-of-degree (cell deg &optional (type '=))
   "Builds the Qn = Pn-Pn-Pn ... on a tensorial cell."
-  (cond ((simplex? cell)
+  (cond ((or (vertex-p cell) (simplex-p cell))
 	 (P-nomials-of-degree cell deg type))
 	((eq type '<=)
 	 (apply #'map-product
@@ -414,10 +414,10 @@ functionals wrt a given pairing."
   (unless (= (length vectors) (length functionals))
     (error "number of vectors and functionals must agree"))
   (let ((inverse-gram (m/ (gram-matrix vectors functionals pairing))))
-    (loop for row from 0 below (number-of-rows inverse-gram)
+    (loop for row from 0 below (nrows inverse-gram)
 	  collect
 	  (loop with sum = (zero (first vectors))
-		for col from 0 below (number-of-cols inverse-gram)
+		for col from 0 below (ncols inverse-gram)
 		and vec in vectors do
 		(setq sum (vec+ sum (vec-s* (mat-ref inverse-gram row col) vec)))
 		finally (return sum)))))

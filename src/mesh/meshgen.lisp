@@ -61,9 +61,11 @@ mappings."
 	(unless (eq parametric :from-domain)
 	  ;; drop possible mappings for all cells of highest dimension
 	  (unless (or (vertex? cell) (< (dimension cell) domain-dim))
-	    (setf (mapping cell)
-		  (and parametric
-		       (funcall parametric cell))))))
+	    (if parametric
+		(change-class cell (mapped-cell-class (class-of cell))
+			      :mapping (and parametric
+					    (funcall parametric cell)))
+		(change-class cell (unmapped-cell-class (class-of cell)))))))
       (change-class mesh '<mesh> :domain domain :parametric parametric))))
 
 (defun copy-mesh (mesh)
@@ -98,7 +100,7 @@ corners->cell has to be an equalp hash-table mapping corners to the
 corresponding cell.  It is updated by this function."
   (assert (flat-mesh-p mesh))
   (or (gethash corners corners->cell)
-      (let* ((refcell (cell-class-reference-cell cell-class))
+      (let* ((refcell (reference-cell cell-class))
 	     (refcell-corners (corners refcell)))
 	(assert (= (length refcell-corners) (length corners)))
 	(flet ((refcell-corner->corner (refcell-corner)
@@ -106,15 +108,16 @@ corresponding cell.  It is updated by this function."
 	  (let ((cell (if (vertex? refcell)
 			  (make-vertex (car corners))
 			  (copy-cell refcell))))
-	    (setf (boundary cell)
-		  (vector-map
-		   #'(lambda (refcell-side)
-		       (let ((side-corners (mapcar #'refcell-corner->corner
-						   (corners refcell-side))))
-			 (insert-cell-from-corners
-			  mesh corners->cell
-			  (cell-class refcell-side) side-corners properties)))
-		   (boundary refcell)))
+	    (unless (vertex-p cell)
+	      (setf (slot-value cell 'boundary)
+		    (vector-map
+		     #'(lambda (refcell-side)
+			 (let ((side-corners (mapcar #'refcell-corner->corner
+						     (corners refcell-side))))
+			   (insert-cell-from-corners
+			    mesh corners->cell
+			    (class-of refcell-side) side-corners properties)))
+		     (boundary refcell))))
 	    (setf (skel-ref mesh cell) properties)
 	    (setf (gethash corners corners->cell) cell))))))
 
@@ -125,7 +128,7 @@ cells."
 	(mesh (make-instance '<mesh> :domain domain)))
     (doskel (patch domain)
       (let* ((patch-dim (dimension patch))
-	     (cell-class (cell-class (n-cube patch-dim)))
+	     (cell-class (class-of (n-cube patch-dim)))
 	     (N-patch (funcall patch->mesh-sizes patch)))
 	(multi-for (ivec (make-fixnum-vec patch-dim 1) N-patch)
 	  (let ((corners ()))
@@ -192,11 +195,11 @@ midpoint."
     (error "NYI.  Should be a Kuhn decomposition."))
   (let ((new-mesh (make-instance '<mesh> :domain (domain mesh)))
 	(copy-table (make-hash-table)))
-    (doskel ((cell properties) mesh)
-      (if (simplex? cell)
-	  (let ((new-cell (copy-structure cell)))
+    (doskel ((cell properties) mesh :dimension :highest)
+      (if (simplex-p cell)
+	  (let ((new-cell (copy-cell cell)))
 	    (setf (gethash cell copy-table) new-cell)
-	    (setf (boundary new-cell)
+	    (setf (slot-value new-cell 'boundary)
 		  (vector-map (rcurry #'gethash copy-table)
 			      (boundary cell)))
 	    (setf (skel-ref new-mesh new-cell) properties))
@@ -240,5 +243,6 @@ midpoint."
     (loop repeat 1 do (refine h-mesh :test (rcurry #'inside-cell? #(0.25))))
     (describe (refinement-interface h-mesh)))
   )
+
 (tests::adjoin-femlisp-test 'test-meshgen)
 

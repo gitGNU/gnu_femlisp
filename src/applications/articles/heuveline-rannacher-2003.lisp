@@ -168,7 +168,7 @@ Parameters of the computation: order=~order~, levels=~levels~."
 (make-heuveline-rannacher-demo 4 4)
 
 #| Konvergenzraten durchweg gut...
-* (heuveline-rannacher-computation 4 8 :output :all)
+* (heuveline-rannacher-computation 4 8 :output t)
 auf toba?:
  CELLS     DOFS  MENTRIES   TIME   grad-x (0.5,2.5)                ETA
     2        45      1225    2.1   1.0098237387d+00   2.2392139252d-02

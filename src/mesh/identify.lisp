@@ -42,16 +42,6 @@
 ;;; IDENTIFIED.  This property must be identical (eq) for all their
 ;;; members.
 
-(definline cell-identification (cell skel)
-  (getf (skel-ref skel cell) 'IDENTIFIED))
-
-(definline (setf cell-identification) (identified-cells cell mesh)
-  (setf (getf (skel-ref mesh cell) 'IDENTIFIED)
-	identified-cells))
-
-(defun identified-p (cell skel)
-  (cell-identification cell skel))
-
 (defun identify (identified-cells skel)
   "Identifies the given cells in skel."
   (dolist (cell identified-cells)

@@ -36,7 +36,7 @@
 
 (defpackage "PROBLEM"
   (:use "COMMON-LISP" "MACROS" "UTILITIES" "MESH" "ALGEBRA")
-  (:import-from "MATLISP" "HELP" "EYE")
+  (:import-from "FEMLISP.MATLISP" "EYE")
   (:export				; problem.lisp
    "<PROBLEM>" "PATCH->COEFFICIENTS" "MULTIPLICITY"
    "SELF-ADJOINT-P" "DUAL-PROBLEM" "MAP-DOMAIN-TO-PROBLEM"

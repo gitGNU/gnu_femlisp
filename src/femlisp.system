@@ -66,8 +66,14 @@
        (:file "utilities-defp" :load-only t)
        (:file "utilities" :depends-on ("utilities-defp" "macros"))
        (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))))
-      (:module "algebra"
+      (:module "matlisp"
        :depends-on ("basic")
+       :source-pathname "src;matlisp"
+       :source-extension "lisp"
+       :components
+       ((:file "matlisp-defp" :load-only t)))
+     (:module "algebra"
+       :depends-on ("basic" "matlisp")
        :source-pathname "src;algebra"
        :source-extension "lisp"
        :components

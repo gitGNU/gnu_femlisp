@@ -34,8 +34,8 @@
 
 (in-package :cl-user)
 (defpackage "CDR-FE"
-  (:use "COMMON-LISP" "MACROS" "UTILITIES" "MESH" "MATLISP"
-	"PROBLEM" "CDR" "DISCRETIZATION" "ALGEBRA")
+  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP.MATLISP"
+	"MESH" "PROBLEM" "CDR" "DISCRETIZATION" "ALGEBRA")
   (:export ))
 (in-package :cdr-fe)
 

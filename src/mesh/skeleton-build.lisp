@@ -45,7 +45,7 @@ Warning: does not handle identifications yet."
 				(find cell-to-remove subcells)))))
 		 skel))))
 
-(defmethod copy-skeleton (skel &key properties)
+(defmethod copy-skeleton (skel &key properties transformation)
   "Copies a skeleton.  Properties is a list of properties to be copied."
   (let ((new-skel (make-analog skel))
 	(table (make-hash-table)))
@@ -54,13 +54,13 @@ Warning: does not handle identifications yet."
 	     (if (vertex? cell)
 		 (make-vertex (copy-seq (vertex-position cell)))
 		 (let ((copy (copy-cell cell)))
-		   (setf (boundary copy)
-			 (vector-map (rcurry #'gethash table) (boundary cell)))
+		   (setf (slot-value copy 'boundary)
+			 (map 'cell-vec (rcurry #'gethash table) (boundary cell)))
 		   copy))))
-	(setf (getskel new-cell new-skel) ())
+	(setf (skel-ref new-skel new-cell) ())
 	(dolist (prop properties)
-	  (whereas ((prop-val (getf (getskel cell skel) prop)))
-	    (setf (getf (getskel new-cell new-skel) prop)
+	  (whereas ((prop-val (getf (skel-ref skel cell) prop)))
+	    (setf (getf (skel-ref new-skel new-cell) prop)
 		  prop-val)))
 	(setf (gethash cell table) new-cell)))
     ;; transfer identification information
@@ -74,6 +74,9 @@ Warning: does not handle identifications yet."
 		(loop for cell2 in identified-cells2 do
 		      (setf (cell-identification cell2 new-skel)
 			    identified-cells2))))))))
+    ;; when a transformation is defined, call it
+    (when transformation
+      (maphash transformation table))
     ;; return copy (and copy-table for further use)
     (values new-skel table)))
 
@@ -103,7 +106,8 @@ their counterpart in skel-1."
 		       (equalp (boundary cell-1) bdry)))
 	       (or active-skel-1 skel-1) :dimension (dimension cell-2))))
 	(cond ((null twins)		; add cell-2 to skel-1
-	       (setf (boundary cell-2) bdry)
+	       (unless (vertex-p cell-2)
+		 (setf (slot-value cell-2 'boundary) bdry))
 	       (setf (skel-ref skel-1 cell-2) (skel-ref skel-2 cell-2)))
 	      (t			; insert cell-2 in overlap
 	       (unless (= (length twins) 1)
@@ -114,31 +118,35 @@ their counterpart in skel-1."
 	       (setf (gethash cell-2 overlap) (car twins))))))
     (values skel-1 skel-2 overlap)))
 
-(defmethod transform-skeleton-copy ((skel <skeleton>) transform &key properties) 
-  "Transforms skel by transforming each cell mapping."
-  (multiple-value-bind (new-skel copy-table)
-      (copy-skeleton skel :properties properties)
-    (doskel (cell new-skel)
-      (funcall transform cell))
-    (values new-skel copy-table)))
-
-(defmethod linearly-transform-skeleton ((skel <skeleton>) &key A b properties)
+(defmethod transformed-skeleton ((skel <skeleton>) &key transformation properties)
   "Transforms skel by transforming the vertex positions."
-  (transform-skeleton-copy
-   skel #'(lambda (cell)
-	    (if (zerop (dimension cell))
-		(x<-y (vertex-position cell)
-		      (vec+ (m* A (vertex-position cell)) b))
-		(when (mapping cell)
-		  (setf (mapping cell)
-			(transform-function (mapping cell)
-					    :image-transform (list A b))))))
-   :properties properties))
+  (copy-skeleton
+   skel :properties properties :transformation
+   #'(lambda (old-cell new-cell)
+       (if (zerop (dimension old-cell))
+	   (x<-y (vertex-position new-cell)
+		 (evaluate transformation (vertex-position old-cell)))
+	   (let ((mapping (cell-mapping old-cell)))
+	     (change-class new-cell (mapped-cell-class (class-of new-cell))
+			   :mapping (compose-2 transformation mapping)))))))
+
+(defmethod linearly-transformed-skeleton ((skel <skeleton>) &key A b properties)
+  "Transforms skel by transforming the vertex positions."
+  (copy-skeleton
+   skel :properties properties :transformation
+   #'(lambda (old-cell new-cell)
+       (if (zerop (dimension old-cell))
+	   (x<-y (vertex-position new-cell)
+		 (vec+ (m* A (vertex-position old-cell)) b))
+	   (when (mapped-p old-cell)
+	     (setf (mapping new-cell)
+		   (transform-function
+		    (mapping old-cell) :image-transform (list A b))))))))
 
 (defmethod shift-skeleton ((skel <skeleton>) shift &key properties)
   "Shifts skel by vec.  vec has to be a vector of dimension
 \(manifold-dimension skel\)."
-  (linearly-transform-skeleton
+  (linearly-transformed-skeleton
    skel :A (eye (dimension skel)) :b shift :properties properties))
 
 (defmethod subskeleton ((skel <skeleton>) test)
@@ -159,10 +167,12 @@ their counterpart in skel-1."
 	    (gethash cell left->right)))
     ;; fill the space between the two skeleta
     (doskel (cell left-skel :direction :up)
-      (let ((new-cell (make-tensorial-cell *unit-interval* cell product-table)))
-	(setf (mapping new-cell)
-	      (homotopy (cell-mapping cell)
-			(cell-mapping (gethash cell left->right))))
+      (let ((new-cell (make-product-cell *unit-interval* cell product-table)))
+	(change-class new-cell
+		      (mapped-cell-class (class-of new-cell))
+		      :mapping
+		      (homotopy (cell-mapping cell)
+				(cell-mapping (gethash cell left->right))))
 	(setf (gethash (list *unit-interval* cell) product-table)
 	      new-cell)))
     ;; and generate the telescope skeleton

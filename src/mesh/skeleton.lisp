@@ -78,17 +78,9 @@ constructor by giving a cell-list."
 (defun cells-of-highest-dim (skel)
   (hash-table-keys (etable-of-highest-dim skel)))
 
-(defun getskel (cell skel)
-  (and (<= (dimension cell) (dimension skel))
-       (gethash cell (etable skel (dimension cell)))))
-
-(defun (setf getskel) (value cell skel)
-  (and (<= (dimension cell) (dimension skel))
-       (setf (gethash cell (etable skel (dimension cell)))
-	     value)))
-
 (defun member-of-skeleton? (cell skel)
-  (nth-value 1 (getskel cell skel)))
+  (and (<= (dimension cell) (dimension skel))
+       (nth-value 1 (gethash cell (etable skel (dimension cell))))))
 
 (defun skel-ref (skel cell)
   (nth-value 0 (gethash cell (etable skel (dimension cell)))))
@@ -96,12 +88,26 @@ constructor by giving a cell-list."
 (defun (setf skel-ref) (value skel cell)
   (setf (gethash cell (etable skel (dimension cell))) value))
 
-(defun get-cell-property (cell skel property)
+(definline get-cell-property (cell skel property)
   "Returns the value of the property."
   (getf (skel-ref skel cell) property))
-(defun (setf get-cell-property) (value cell skel property)
+(definline (setf get-cell-property) (value cell skel property)
   "Sets the value of the property."
   (setf (getf (skel-ref skel cell) property) value))
+
+;;;; Identification
+
+(definline cell-identification (cell skel)
+  (get-cell-property cell skel 'IDENTIFIED))
+
+(definline (setf cell-identification) (identified-cells cell skel)
+  (setf (get-cell-property cell skel 'IDENTIFIED)
+	identified-cells))
+
+(defun identified-p (cell skel)
+  (cell-identification cell skel))
+
+;;; Building tools
 
 (defun insert-cell! (skel cell)
   "Inserts a cell and its boundary into a skeleton."
@@ -139,51 +145,32 @@ constructor by giving a cell-list."
   (whereas ((cell (get-arbitrary-key-from-hash-table (etable skel 0))))
     (manifold-dimension cell)))
 
-(defun skel-for-each (func skel &key direction dimension)
+(defun skel-for-each (func skel &key direction dimension where with-properties)
   "Loops through a skeleton applying func.  When direction is :down then loops
 with dimension of the cells decreasing, otherwise increasing."
-  (if (and dimension (>= dimension 0))
-      (maphash func (etable skel dimension))
-      (loop for etable across (if (eq direction :down)
-				  (reverse (etables skel))
-				  (etables skel))
-	    do (maphash func etable))))
-
-(defun skel-for-each-cell (func skel &key (direction :up) dimension)
-  "Loops through a skeleton applying func on each cell.  When direction
-is :down then loops with dimension of the cells decreasing, otherwise
-increasing."
-  (flet ((etable-for-each-cell (etable)
-	   (loop for cell being each hash-key of etable do
-		 (funcall func cell))))
-    (if (and dimension (>= dimension 0))
-	(etable-for-each-cell (etable skel dimension))
-	(loop for etable across (if (eq direction :down)
-				    (reverse (etables skel))
-				    (etables skel))
-	do (etable-for-each-cell etable)))))
+  (flet ((etable-for-each (etable)
+	   (maphash #'(lambda (cell props)
+			(unless (and (eq where :surface)
+				     (refined-p cell skel))
+			  (if with-properties
+			      (funcall func cell props)
+			      (funcall func cell))))
+		    etable)))
+    (let ((dim (if (eq dimension :highest) (dimension skel) dimension))
+	  (etables (if (eq direction :down)
+		       (reverse (etables skel))
+		       (etables skel))))
+    (cond (dim (etable-for-each (etable skel dim)))
+	  (t (loop for etable across etables do
+		   (etable-for-each etable)))))))
 
 (defmacro doskel ((looping-var skel &key (direction :up) where dimension) &body body)
   "Loops through a skeleton.  If looping-var is an atom, it loops through
 all cells, otherwise it loops through cells and properties."
-  (let ((looping-var (if (consp looping-var) looping-var (list looping-var)))
-	(skel-for-each (if (consp looping-var) `skel-for-each `skel-for-each-cell))
-	(skel-var (gensym "SKEL")))
-    `(block nil
-      (let ((,skel-var ,skel))
-	(,skel-for-each
-	 #'(lambda ,looping-var
-	     ,@(if (eq where :surface)
-		   `((unless (refined-p ,(car looping-var) ,skel-var)
-		       ,@body))
-		   body))
-	 ,skel-var
-	 :direction ,direction :dimension
-	 ,(if (eq dimension :highest) `(dimension ,skel) dimension))))))
-
-
-(definline skel-for-each-cell-of-highest-dimension (func skel)
-  (skel-for-each-cell func skel :dimension (dimension skel)))
+  (let ((arguments (if (consp looping-var) looping-var (list looping-var))))
+    `(skel-for-each #'(lambda ,arguments ,@body)
+      ,skel :direction ,direction :dimension ,dimension :where ,where
+      :with-properties ,(consp looping-var))))
 
 (defun skel-map (func skel)
   (let ((new-skel (make-analog skel)))
@@ -191,10 +178,10 @@ all cells, otherwise it loops through cells and properties."
       (setf (skel-ref new-skel cell) (funcall func cell value)))
     new-skel))
 
-(defun find-cells (test skel &key dimension with-properties)
+(defun find-cells (test skel &key dimension with-properties where)
   "Returns a list of cells contained in skel and satisfying test."
   (let ((result ()))
-    (doskel ((cell props) skel :dimension dimension)
+    (doskel ((cell props) skel :dimension dimension :where where)
       (when (if with-properties
 		(funcall test cell props)
 		(funcall test cell))
@@ -238,9 +225,9 @@ all cells, otherwise it loops through cells and properties."
 	   (if *print-skeleton-values*
 	       (format stream " -> ~A~%" value)
 	       (terpri stream)))
-       skel :direction :up
-       :dimension (when (eq *print-skeleton* :cells-of-highest-dimension)
-		    (dimension skel))))))
+       skel :with-properties t :direction :up :dimension
+       (when (eq *print-skeleton* :cells-of-highest-dimension)
+	 (dimension skel))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Checking skeletons
@@ -293,18 +280,6 @@ have only one neighbor."
 boundaries of skeletons."
   (minusp (dimension (skeleton-boundary skel))))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Cell-class activation part
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmemo refcell-skeleton (refcell)
-  (assert (reference-cell? refcell))
-  (skeleton refcell))
-
-;; add this memoized functions to the cell-class activation procedure
-(adjoin-cell-class-initialization-function 'refcell-skeleton)
-
 ;;;; Testing: (test-skeleton)
 
 (defun test-skeleton ()
@@ -312,8 +287,6 @@ boundaries of skeletons."
   (make-instance '<skeleton> :dimension -1)
   (macroexpand-1 '(doskel (cell (skeleton *unit-interval*) :direction :down)
 		   (format t "~A~%" (corners cell))))
-  (dimension (skeleton *reference-vertex*))
-  (skeleton-boundary (skeleton *reference-vertex*))
   (make-instance '<skeleton> :dimension -1))
     
 (tests:adjoin-femlisp-test 'test-skeleton)

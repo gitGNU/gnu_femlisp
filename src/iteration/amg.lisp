@@ -82,9 +82,9 @@ function 'coarsen' is called to do a single coarsening step."
 	    (when output
 	      (format t "~3D~6T~8D~16T~9D~%" i (nrows mat) (nr-of-entries mat))))
       (when output (terpri))
-      (blackboard :a-vec (list->vector 'simple-vector mats)
-		  :i-vec (list->vector 'simple-vector pmats)
-		  :r-vec (list->vector 'simple-vector rmats)))))
+      (blackboard :a-vec (coerce mats 'simple-vector)
+		  :i-vec (coerce pmats 'simple-vector)
+		  :r-vec (coerce rmats 'simple-vector)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; coarsen - do one coarsening step

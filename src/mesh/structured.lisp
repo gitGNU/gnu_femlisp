@@ -49,14 +49,8 @@
 (defun make-double-vec (dim &optional (init 0.0d0))
   "make-double-vec: double-vec constructor"
   (make-array dim :element-type 'double-float :initial-element init))
-(defun list->vector (type lst)
-  "Maps lists (or even vectors) to other vectors.  If the result is
-typed then the cells have to be of the correct type."
-  (map type #'identity lst))
-(defun list->fixnum-vec (lst)
-  (list->vector 'fixnum-vec lst))
 (defun fixnum-vec (&rest cells)
-  (list->fixnum-vec cells))
+  (coerce cells 'fixnum-vec))
 
 (defclass structured-grid ()
   ((dimensions :accessor dimensions :initarg :dimensions :type fixnum-vec)

@@ -51,9 +51,6 @@
 (defparameter *femlisp-bugs* ()
   "List of Femlisp bugs, i.e. failing tests that have not yet been fixed.")
 
-(defparameter *femlisp-test-internal* nil
-  "True if only internal features should be tested, e.g. without plotting.")
-
 (defun adjoin-femlisp-test (fsym)
   "Adjoins a test to the Femlisp test suite."
   (pushnew fsym *femlisp-tests*))
@@ -90,7 +87,7 @@
 	      (loop initially (format t "~&~%The following tests failed:~%")
 		    for (sym . error) in failed do
 		    (format t "~%~%Test: ~A.~%Result:~A~%" sym error))
-	    (format t "~%All tests passed.~%"))))
+	      (format t "~%All tests passed.~%"))))
   
   ;; report also remaining bugs
   (when *femlisp-bugs*
@@ -99,3 +96,6 @@
   )
 
 ;;; (tests::test-femlisp)
+;;;
+;;; Test without plotting:
+;;; (let ((plot::*plot* nil)) (tests::test-femlisp))

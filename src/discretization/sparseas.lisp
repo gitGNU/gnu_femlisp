@@ -93,10 +93,7 @@ these matrices change when mesh or discretization are adapted."))
 
 (defmethod** print-key (ansatz-space)
   (declare (ignore ansatz-space))
-  #'(lambda (key)
-      (if (vertex? key)
-	  (print-vertex key t t)
-	  (princ key))))
+  #'(lambda (key) (princ key)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; ansatz-space objects
@@ -318,7 +315,7 @@ reference finite element is collected into an interpolation matrix."
 		     (when (eq (representative child-id) child)
 		       ;; we have to add only one sample for identified cells
 		       (m+! mblock (mat-ref imat child-id subcell-id)))))))))
-      (skel-for-each-cell #'insert-local-imat (or region level-mesh)))
+      (skel-for-each #'insert-local-imat (or region level-mesh)))
     imat))
 
 (defun constrained-interpolation-matrix (ansatz-space &key level where imat)
@@ -360,7 +357,7 @@ finite element is copied into the global projection matrix."
 		     (dotensor ((k . pmat-block) local-pmat)
 		       (setf (mat-ref pmat cell-id (cell-key (aref subcell-children k) h-mesh))
 			     pmat-block))))))))
-      (skel-for-each-cell #'insert-local-pmat (or region level-mesh)))
+      (skel-for-each #'insert-local-pmat (or region level-mesh)))
     pmat))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -225,7 +225,7 @@
 (defmethod evaluate ((poly <polynomial>) (x list))
   (poly-eval (poly-coeffs poly) x))
 (defmethod evaluate ((poly <polynomial>) (x array))
-  (poly-eval (poly-coeffs poly) (vector->list x)))
+  (poly-eval (poly-coeffs poly) (coerce x 'list)))
 (defmethod evaluate ((poly <polynomial>) (x number))
   (poly-eval (poly-coeffs poly) (list x)))
 
@@ -233,8 +233,8 @@
 ;;; neutral cells for ring operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; generates a list that has the same nestedness asthenon lst and contains
-;;; cell as single cell
+;;; generates a list that has the same nestedness as lst and contains cell
+;;; as single cell
 (defun make-inner (lst cell)
   (if (consp lst)
       (list (make-inner (car lst) cell))

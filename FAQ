@@ -41,6 +41,15 @@ Femlisp FAQ
 
 * MESH MANAGEMENT
 
+1. Q: Which types of cells are available?
+
+   A: Femlisp has simplices and simplex-product cells.  I.e. it has the
+   interval in 1D, triangle and square in 2D, tetrahedron, prism, and cube
+   in 3D, and so on for higher dimensions.  It does not have pyramids.  It
+   would be rather easy to incorporate also those in the mesh module, but
+   it is not clear how the construction does look like in higher
+   dimensions.
+
 
 * LINEAR ALGEBRA
 
@@ -51,7 +60,8 @@ Femlisp FAQ
    Matlisp matrix object (or something else).  This means that generic
    functions have to be used for handling those entries.  Of course, the
    overhead for generic functions and hash-table is large, especially
-   in the case of scalar equations with low-order discretizations.
+   in the case of scalar equations with low-order discretizations.  Also
+   the FFI is slow.
 
 2. Q: Is it possible to improve the linear algebra?
 
@@ -70,8 +80,7 @@ Femlisp FAQ
    often by an order of magnitude.  Concerning execution speed, I admit
    that Femlisp is too slow at the moment, but I think that this situation
    will soon improve such that it will be in the same speed range for most
-   problems.  In general, it is more difficult to make Lisp run optimally
-   fast than it is for C/C++, and a factor of 2 in speed does not count.
+   problems.
 
 
 * PROBLEMS
@@ -107,8 +116,8 @@ Femlisp FAQ
    A: No, not yet.  It would be really useful and not too difficult, if
    someone would extend the file iterations/krylow.lisp in this direction.
 
-2. Q: Wouldn't it be useful to include also an interface to solvers like
-   SuperLU?
+2. Q: Wouldn't it be useful to include also an interface to sparse direct
+   solvers like SuperLU?
 
    A: Yes, but I do not have the time to do it now.
 
@@ -117,3 +126,12 @@ Femlisp FAQ
    A: Rather soon.  Almost everything necessary is available, but at the
    moment I do not have time to put it together.
 
+* PARALLELIZATION
+
+1. Q: What about parallelization?
+
+   A: This has not yet been started.  Probably, I will first parallelize
+   computationally intensive parts like mesh management, assembly, and
+   iterative solvers on MISD architectures.  Parallelization for MIMD
+   architectures is also possible using MPI, but would require a major
+   restructuring.

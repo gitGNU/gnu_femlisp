@@ -38,6 +38,9 @@
 ;;;; Functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun required-argument ()
+  (error "A required keyword argument was not supplied."))
+
 (defun compose (&rest funcs)
   "Returns the composition of the given functions."
   (destructuring-bind (func1 . rest) (reverse funcs)
@@ -112,14 +115,6 @@ factorials)."
 (definline vector-map (func vec)
   (map (type-of vec) func vec))
 
-(definline vector->list (vec)
-  (coerce vec 'list))
-
-(definline list->vector (type lst)
-  "Maps lists (or even vectors) to other vectors.  If the result is
-typed then the elements have to be of the correct type."
-  (coerce lst type))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Special typed vectors
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -136,8 +131,6 @@ typed then the elements have to be of the correct type."
 
 (deftype fixnum-vec () '(simple-array fixnum (*)))
 
-(definline list->fixnum-vec (lst)
-  (coerce lst 'fixnum-vec))
 (definline fixnum-vec (&rest elements)
   (coerce elements 'fixnum-vec))
 
@@ -626,10 +619,10 @@ the default value."
 ;;; Sets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun set? (lst)
+(defun set-p (lst)
   (or (null lst)
       (and (not (member (car lst) (cdr lst)))
-	   (set? (cdr lst)))))
+	   (set-p (cdr lst)))))
 
 (defun maximally-connected (connected disconnected &key (test #'eql) (combine #'adjoin))
   "Finds a maximally connected set by taking the union of the elements in
@@ -687,14 +680,6 @@ Example: (maximally-connected '(1 2) '((3 4) (2 3) (5 6)) :test #'intersection :
 (defun subsets (set) (k->l-subsets set 0 (length set)))
 (defun nonempty-subsets (set) (k->l-subsets set 1 (length set)))
 
-(defun subset? (set1 set2 &key (test #'eql))
-  (every #'(lambda (item) (member item set2 :test test))
-	 set1))
-
-(defun set-equal? (set1 set2 &key (test #'eql))
-  (and (subset? set1 set2 :test test)
-       (subset? set2 set1 :test test)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Ordered partitions of natural numbers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -731,13 +716,13 @@ Example: (positive-partitions-of-k 3) -> ((1 2) (2 1))"
 ;;; We characterize a permutation pi by a vector consisting of indices from
 ;;; 0,..., N-1.  
 
-(defun permutation? (perm)
+(defun permutation-p (perm)
   "Checks if the argument is a possible permutation vector."
   (loop for i below (length perm)
 	unless (find i perm) do (return nil)
 	finally (return t)))
 
-(defun identity-permutation? (perm)
+(defun identity-permutation-p (perm)
   "Checks if the permutation is the identity."
   (dotimes (i (length perm) t)
     (unless (= i (aref perm i))

@@ -76,11 +76,12 @@ can be described by its dimensions nrows=2, ncols=5 together with the pattern
      :nrows nrows :ncols ncols
      :nr-of-entries (length offsets)
      :store-size current-offset
-     :row-starts (list->fixnum-vec
+     :row-starts (coerce
 		  (cons 0 (loop for row in pattern
 				sum (length row) into rs
-				collect rs)))
-     :offsets (list->fixnum-vec offsets)
+				collect rs))
+		  'fixnum-vec)
+     :offsets (coerce offsets 'fixnum-vec)
      :col-inds (map 'fixnum-vec #'cdr flattened-pattern))))
 
 (defun full-crs-pattern (nrows ncols)
@@ -90,13 +91,13 @@ can be described by its dimensions nrows=2, ncols=5 together with the pattern
      :nrows nrows :ncols ncols
      :nr-of-entries N
      :store-size N
-     :row-starts (list->fixnum-vec
-		  (loop for i from 0 upto nrows
-			collect (* i ncols)))
-     :offsets (list->fixnum-vec (range 0 (1- N)))
-     :col-inds (list->fixnum-vec
-		(loop for i from 0 below N
-		      collect (mod i ncols))))))
+     :row-starts (coerce (loop for i from 0 upto nrows
+			       collect (* i ncols))
+			 'fixnum-vec)
+     :offsets (coerce (range 0 (1- N)) 'fixnum-vec)
+     :col-inds (coerce (loop for i from 0 below N
+			     collect (mod i ncols))
+		       'fixnum-vec))))
 
 (defun pattern->full-pattern (pattern)
   (full-crs-pattern (nrows pattern) (ncols pattern)))
@@ -261,12 +262,12 @@ its actual offsets in the sparse graph."))
 #|
 ;;; Testing
 (let* ((crs-pat (make-crs-pattern 2 5 '( ((* . 0) (a . 4))  ((a . 1)) )))
-       (store1 (list->double-vec '(2.0d0 2.0d0)))
+       (store1 (double-vec 2.0d0 2.0d0))
        (A (make-crs-matrix crs-pat store1))
-       (store2 (list->double-vec '(1.0d0 1.0d0)))
+       (store2 (double-vec 1.0d0 1.0d0))
        (B (make-crs-matrix crs-pat store2))
-       (x (list->double-vec '(2.0d0 2.0d0)))
-       (y (list->double-vec '(1.0d0 1.0d0 1.0d0 1.0d0 1.0d0))))
+       (x (double-vec 2.0d0 2.0d0))
+       (y (double-vec 1.0d0 1.0d0 1.0d0 1.0d0 1.0d0)))
   ;(describe (vec+ A B))
   ;(describe (vec- A B))
   ;(describe (x+=Ay x A y))
