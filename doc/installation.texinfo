@@ -70,14 +70,18 @@ apt-get -t testing install cmucl sbcl cl-infix cl-asdf
 apt-get -t testing install gnuplot dx hyperspec wget
 apt-get -t testing blas blas-dev lapack3 lapack3-dev
 
-# something like the following
-# apt-get -t testing blas atlas3-sse2 atlas3-sse2-dev
+# something like the following (depends on your machine)
+# apt-get -t testing atlas3-sse2 atlas3-sse2-dev
 
 # highly recommended
-apt-get -t testing libumfpack4 libsuperlu3
+apt-get -t testing libsuperlu3 libsuperlu3-dev libumfpack4 libumfpack4-dev
 
 cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
+
+# get Femlisp by CVS or FTP
+#cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
 wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
+
 cd femlisp
 make superlu
 make umfpack
