@@ -36,7 +36,7 @@
 
 ;;;; This is old code.  It was used only for odes in a NM1 course.
 
-(in-package iterations)
+(in-package :iteration)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; newton iteration

@@ -89,14 +89,14 @@
       :source-pathname "src;iteration"
       :source-extension "lisp"
       :components
-      ((:file "iterations-defp" :load-only t)
-       (:file "solve" :depends-on ("iterations-defp"))
-       (:file "newton" :depends-on ("iterations-defp"))
-       (:file "linit" :depends-on ("iterations-defp"))
-       (:file "blockit" :depends-on ("iterations-defp"))
+      ((:file "iteration-defp" :load-only t)
+       (:file "solve" :depends-on ("iteration-defp"))
+       (:file "newton" :depends-on ("iteration-defp"))
+       (:file "linit" :depends-on ("iteration-defp"))
+       (:file "blockit" :depends-on ("iteration-defp"))
        (:file "linsolve" :depends-on ("linit"))
        (:file "krylow" :depends-on ("linit"))
-       (:file "multigrid-defp" :depends-on ("iterations-defp"))
+       (:file "multigrid-defp" :depends-on ("iteration-defp"))
        (:file "multigrid" :depends-on ("linit" "multigrid-defp"))
        (:file "amg" :depends-on ("multigrid"))
        (:file "selection-amg" :depends-on ("amg"))
