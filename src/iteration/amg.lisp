@@ -43,7 +43,7 @@
 (defclass <algebraic-mg> (<correction-scheme> <mg-iteration>)
   ((max-depth :reader max-depth :initform most-positive-fixnum
 	      :initarg :max-depth)
-   (cg-max-size :reader cg-max-size :initform 50
+   (cg-max-size :reader cg-max-size :initform 1000
 		:initarg :cg-max-size)
    (output :initform nil :initarg :output))
   (:documentation "The algebraic multigrid iteration is a multigrid
