@@ -39,7 +39,7 @@
 
 (defpackage "FEMLISP-DEBUG"
   (:use "COMMON-LISP")
-  (:export "DBG-ON" "DBG-OFF" "DBG" "DBG-INDENT"))
+  (:export "DBG-ON" "DBG-OFF" "DBG" "DBG-INDENT" "WHEN-DBG"))
 
 (in-package :femlisp-debug)
 
@@ -53,14 +53,17 @@
   "Stop dbg on ids.  With no ids, stop dbg altogether."
   (setf *dbg-ids* (and ids (set-difference *dbg-ids* ids))))
 
+(defmacro when-dbg (id &body body)
+  "Perform a check only if debugging."
+  `(when (member ,id *dbg-ids*)
+    ,@body))
+
 (defun dbg (id format-string &rest args)
   "Output of status information."
-  (when (member id *dbg-ids*)
-    (format *debug-io* "~&~?" format-string args)))
+  (when-dbg id (format *debug-io* "~&~?" format-string args)))
 
 (defun dbg-indent (id indent format-string &rest args)
   "Indented output of status information."
-  (when (member id *dbg-ids*)
-    (format *debug-io* "~&~VT~?" indent format-string args)))
+  (when-dbg id (format *debug-io* "~&~VT~?" indent format-string args)))
 
 

@@ -108,7 +108,9 @@ modified immediately."
       ,@body)))
 
 (defmacro with-items (props assembly-line &body body)
-  "Introduce property list members as variables.  Use:
+  "Introduce property list members as variables.  If a parameter is a list,
+the second one is the default value and the third is an alias to be used to
+refer to this parameter.  Example:
    (with-items (&key sol (rhs nil rhs-high))
        assembly-line
      (setq sol rhs-high))"
@@ -131,7 +133,7 @@ modified immediately."
 		       prop-name)
 		   prop-names)))))
   `(progn
-    (assert (eq (car ,assembly-line) :assembly-line))
+    (assert (eq (car ,assembly-line) :blackboard))
     ,(with-items-expander-2 prop-vars prop-names prop-defaults
 			    `(cddr ,assembly-line) body))))
 

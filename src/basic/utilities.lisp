@@ -286,30 +286,6 @@ Example: (map-product #'cons '(2 3) '(1 4)) -> ((2 . 1) (2 . 4) (3 . 1) (3 . 4))
 		 (null dims))))
     (rec trees (tree-uniform-number-of-branches trees))))
 
-(defun walk-tree (func tree)
-  "Maps a tree with func on its nodes.  Descends if func returns identity
-on a node.  Otherwise the return value is used as a replacement for the
-node.
-Example: (walk-tree #'(lambda (x) (if (eql x 1) 3 x)) '((1 2) ((1))))"
-  (labels ((rec (node)
-	     (let ((new (funcall func node)))
-	       (if (eq new node)
-		   (if (listp node)
-		       (mapcar #'rec node)
-		       node)
-		   new))))
-    (rec tree)))
-
-
-(defun remove-from-tree (item tree &key (test #'eql))
-  "Removes item from tree."
-  (if (atom tree)
-      tree
-      (if (funcall test (car tree) item)
-	  (remove-from-tree item (cdr tree))
-	  (cons (remove-from-tree item (car tree))
-		(remove-from-tree item (cdr tree))))))
-
 (defun on-leaves (func tree)
   "Executes func on the leaves of a tree."
   (labels ((rec (node)
@@ -318,15 +294,27 @@ Example: (walk-tree #'(lambda (x) (if (eql x 1) 3 x)) '((1 2) ((1))))"
 		 (funcall func node))))
     (rec tree)))
 
-(defun tree-member (item tree &key (test #'eql) key)
-  "Checks if an item is in a tree."
-  (labels ((tree-member (item tree)
-	     (if (consp tree)
-		 (or (tree-member item (car tree))
-		     (tree-member item (cdr tree)))
-		 (funcall test item
-			  (if key (funcall key tree) tree)))))
-    (tree-member item tree)))
+(defun rfind-if (func tree)
+  "From Graham's book"
+  (if (atom tree)
+      (and (funcall func tree) tree)
+      (or (rfind-if func (car tree))
+          (if (cdr tree) (rfind-if func (cdr tree))))))
+
+(defun rfind (item tree &key (key #'identity) (test #'eql))
+  (rfind-if #'(lambda (item2) (funcall test item (funcall key item2)))
+	    tree))
+
+(defun rmember-if (func tree)
+  "From Graham's book"
+  (if (atom tree)
+      (funcall func tree)
+      (or (rmember-if func (car tree))
+          (if (cdr tree) (rmember-if func (cdr tree))))))
+
+(defun rmember (item tree &key (key #'identity) (test #'eql))
+  (rmember-if #'(lambda (item2) (funcall test item (funcall key item2)))
+	    tree))
 
 (defun check-properties (place properties)
   "Checks if all of the properties are in place."
@@ -451,18 +439,19 @@ Example: (walk-tree #'(lambda (x) (if (eql x 1) 3 x)) '((1 2) ((1))))"
   "Loops through a hash-table.  If looping-var is an atom it loops through
 the keys, if it is a list of one element it loops through the values, if it
 is a list of two items it loops through key and value."
-  (let ((key (if (single? looping-var)
-		 (gensym)
-		 (if (atom looping-var) looping-var (car looping-var))))
-	(value (if (atom looping-var)
+  (flet ((single? (lst) (and (consp lst) (null (cdr lst)))))
+    (let ((key (if (single? looping-var)
 		   (gensym)
-		   (car (last looping-var)))))
-    `(maphash
-      #'(lambda (,key ,value)
-	  ,@(when (atom looping-var) `((declare (ignore ,value))))
-	  ,@(when (single? looping-var) `((declare (ignore ,key))))
-	  ,@body)
-      ,hash-table)))
+		   (if (atom looping-var) looping-var (car looping-var))))
+	  (value (if (atom looping-var)
+		     (gensym)
+		     (car (last looping-var)))))
+      `(maphash
+	#'(lambda (,key ,value)
+	    ,@(when (atom looping-var) `((declare (ignore ,value))))
+	    ,@(when (single? looping-var) `((declare (ignore ,key))))
+	    ,@body)
+	,hash-table))))
 
 (defun map-hash-table (func ht)
   "Calls func given in the first argument on each key of the
@@ -574,23 +563,32 @@ non-recursive functions."
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Assembly lines
+;;; Assembly lines / blackboards
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun make-assembly-line (&rest items)
-  "Makes items into an assembly line."
-  (if (eq (car items) :assembly-line)
+(declaim (inline make-blackboard getbb make-assembly-line get-al))
+
+(defun make-blackboard (&rest items)
+  "Makes items into an blackboard."
+  (if (eq (car items) :blackboard)
       items
-      (list* :assembly-line t (copy-seq items))))
+      (list* :blackboard t (copy-seq items))))
 
+(defun getbb (blackboard key &optional default)
+  "Gets an item from the blackboard.  If there is no such item it returns
+the default value."
+  (getf (cddr blackboard) key default))
+
+(defun (setf getbb) (value blackboard key)
+  "Setter for an blackboard."
+  (setf (getf (cddr blackboard) key) value))
+
+(defun make-assembly-line (&rest items)
+  (apply #'make-blackboard items))
 (defun get-al (assembly-line key &optional default)
-  "Gets an item from the assembly-line.  If there is no such item it
-returns the default value."
-  (getf (cddr assembly-line) key default))
-
+  (getbb assembly-line key default))
 (defun (setf get-al) (value assembly-line key)
-  "Setter for an assembly-line."
-  (setf (getf (cddr assembly-line) key) value))
+  (setf (getbb assembly-line key) value))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Association list operations
@@ -781,7 +779,6 @@ from 0,...,n-1)."
 	    (format t "~&~A -> ~A~%" key value))
     (dohash (key ht) (format t "~A~%" key))
     (dohash ((value) ht) (format t "~A~%" value)))
-  (walk-tree #'(lambda (x) (if (eql x 1) 2 x)) '((1 2) ((1))))
   )
 
 ;; (test-utilities)

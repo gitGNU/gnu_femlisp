@@ -44,6 +44,7 @@
 ;;;; for gerds-cmucl-2003-02-22
 (in-package :profile)
 
+#+(or)
 (defmacro unprofile (&rest names)
   "Unwraps the profiling code around the named functions.  Names defaults to
   the list of all currently profiled functions."
