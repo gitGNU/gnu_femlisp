@@ -126,6 +126,8 @@ transformer function, as always (e.g. #'abs if you want the L1-norm)."
   (let* ((fe-class (fe-class x))
 	 (fe (get-fe fe-class cell))
 	 (x-values (get-local-from-global-vec cell fe x)))
+    (unless (vectorp x-values)
+      (setf x-values (vector x-values)))
     (dotimes (k (length x-values))
       (let ((comp-values (aref x-values k)))
 	(dotimes (j (multiplicity x))
