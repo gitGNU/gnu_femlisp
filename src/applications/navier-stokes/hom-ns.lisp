@@ -74,7 +74,7 @@
 ;;;; Demos
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun stokes-darcy-demo (problem &key order levels plot output store-p (delta 1))
+(defun stokes-darcy-demo (problem &key order levels plot (output 1) store-p (delta 1))
   "Stokes-Darcy - Computes a Darcy permeability tensor
 
 Computes the effective permeability for Stokes flow in a domain
@@ -88,7 +88,8 @@ The solution to this cell problem in ~d~ dimensions consists of
 ~d~ velocity/pressure pairs, i.e. in total ~d~*(~d~+1)
 components."
   (let* ((domain (domain problem))
-	 (dim (dimension domain)))
+	 (dim (dimension domain))
+	 (*output-depth* output))
     (defparameter *result*
       (solve
        (make-instance
@@ -105,13 +106,10 @@ components."
 	    '<geometric-cs>
 	    :coarse-grid-iteration
 	    (make-instance '<multi-iteration> :nr-steps 3 :base smoother)
-	    :pre-steps 1 :pre-smooth smoother
-	    :post-steps 1 :post-smooth smoother
-	    :gamma 2))
+	    :smoother smoother :pre-steps 1 :post-steps 1 :gamma 2))
 	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
-	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (>= :defnorm 1.0e-9))
-	 :output (eq output :all))
-	:output t :observe
+	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (>= :defnorm 1.0e-9)))
+	:observe
 	(append *stationary-fe-strategy-observe*
 		(list
 		 (list (format nil "~19@A~19@A~19@A" "K_00" "K_01" "K_11") "~57A"
@@ -121,7 +119,7 @@ components."
 				    (and tensor (mref tensor 0 0))
 				    (and tensor (mref tensor 0 1))
 				    (and tensor (mref tensor 1 1)))))))))
-       (blackboard :problem problem :output t)))
+       (blackboard :problem problem)))
     (when plot
       ;; plot components of cell solution tensor
       (dotimes (i dim)
@@ -134,7 +132,7 @@ components."
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 2)
-		   :order 4 :levels 2 :output :all :plot t :delta 2)
+		   :order 4 :levels 5 :output :all :plot t :delta 1)
 #+(or)(plot (getbb *result* :solution) :component 0 :index 0)
 
 #+(or)

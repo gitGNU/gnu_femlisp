@@ -40,7 +40,9 @@
 	"FL.PROBLEM" "FL.CDR" "FL.ELASTICITY" "FL.NAVIER-STOKES"
 	"FL.DISCRETIZATION" "FL.CDR-FE" "FL.ELASTICITY-FE" "FL.NAVIER-STOKES-FE"
 	"FL.ITERATION" "FL.MULTIGRID" "FL.GEOMG"
-	"FL.STRATEGY" "FL.PLOT")
+	"FL.STRATEGY" "FL.PLOT"
+	"FL.DOMAINS")
+  (:import-from "FL.PORT" "QUIT")
   (:export )
   (:documentation "This package uses most other Femlisp packages.  It is
 meant to be the package a Femlisp user works in."))

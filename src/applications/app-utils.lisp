@@ -51,7 +51,7 @@
       (let* ((coeffs (coefficients-of-cell cell mesh problem))
 	     (diffusion-function (getf coeffs 'FL.CDR::DIFFUSION))
 	     (fe (get-fe fe-class cell))
-	     (qrule (quadrature-rule fe-class fe))
+	     (qrule (quadrature-rule fe))
 	     (values (transpose (get-local-from-global-vec cell fe asv))))  ; (dim x n-basis)
 	(loop for shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
 	      and ip in (integration-points qrule) do

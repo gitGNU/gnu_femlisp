@@ -54,15 +54,14 @@ elements of order @var{order}."
     (loop repeat level do (refine mm))
     (discretize-globally problem mm fedisc)))
 
-(defun iteration-test (linit &rest args &key (maxsteps 200) output &allow-other-keys)
+(defun iteration-test (linit &rest args &key (maxsteps 200) &allow-other-keys)
   "Tests the linear iteration @var{linit} on a model problem specified via
 keyword parameters in @var{args}."
   (multiple-value-bind (A b)
       (apply #'model-problem-discretization args)
     (let ((x (random-ansatz-space-vector (ansatz-space A)))
 	  (ls (make-instance '<linear-solver> :iteration linit
-			     :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps))
-			     :output output)))
+			     :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps)))))
       (setq *result* (solve ls (blackboard :problem (lse :matrix A :rhs b :solution x))))
       (getbb *result* :report))))
 
@@ -78,7 +77,7 @@ general solving together with a more flexible customization."
 (defun check-h-convergence (problem min-level max-level
 			    &key order position (solver (lu-solver)))
   (format t "~%Dimension = ~D, order = ~D, midpoint = ~A:~%"
-	  (dimension (domain problem)) order position)
+	  (domain-dimension problem) order position)
   (format t "Level :  u_h(midpoint)  :  (u_h-u_2h)(midpoint)~%")
   (loop for level from min-level upto max-level
 	for value = (fe-value (solve-laplace problem level order :solver solver)
@@ -92,7 +91,7 @@ general solving together with a more flexible customization."
 (defun check-p-convergence (problem min-order max-order
 			    &key level position isopar (solver (lu-solver)))
   (format t "~%Dimension = ~D, level = ~D, midpoint = ~A:~%"
-	  (dimension (domain problem)) level position)
+	  (domain-dimension problem) level position)
   (format t "Order :  u_h(midpoint)  :  (u_h-u_2h)(midpoint)~%")
   (loop for order from min-order upto max-order
 	for value =

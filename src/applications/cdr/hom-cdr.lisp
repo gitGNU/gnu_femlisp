@@ -60,20 +60,29 @@
 
 ;;; cell problems defined by the coefficient function on regular meshes
 
-(defun cell-problem (dim &key diffusion-function)
-  "Returns cell problem on the n-cell-domain of the given dimension.  Gamma
-yields dim right hand sides of the form A e_k, i.e. the columns of the
-diffusion tensor."
-  (make-instance
-   '<cdr-problem> :domain (n-cell-domain dim)
-   :multiplicity dim :patch->coefficients
-   #'(lambda (patch)
-       (when (= (dimension patch) dim)
-	 (list 'FL.CDR::DIFFUSION (ensure-coefficient diffusion-function)
-	       'FL.CDR::GAMMA (constant-coefficient (eye dim)))))))
+(defun cdr-cell-problem (dim/domain &key diffusion-function)
+  "Returns the cell problem on the n-cell-domain of the given dimension.
+Gamma yields dim right hand sides of the form A e_k, i.e. the columns of
+the diffusion tensor."
+  (multiple-value-bind (dim domain)
+      (etypecase dim/domain
+	(number (values dim/domain (n-cell-domain dim/domain)))
+	(<domain> (values (dimension dim/domain) dim/domain)))
+    (ensure diffusion-function (constantly (eye dim)))
+    (make-instance
+     '<cdr-problem> :domain domain
+     :multiplicity dim :patch->coefficients
+     #'(lambda (patch)
+	 (cond
+	   ((= (dimension patch) dim)
+	    (list 'FL.CDR::DIFFUSION (ensure-coefficient diffusion-function)
+		  'FL.CDR::GAMMA (constant-coefficient (eye dim))))
+	   ((mzerop (midpoint patch))
+	    (list 'CONSTRAINT (constant-coefficient 0.0)))))
+	 )))
 
 (defun simple-square-inlay-cell-problem (dim)
-  (cell-problem
+  (cdr-cell-problem
    dim :diffusion-function
    #'(lambda (x) 
        (let ((result (eye dim)))
@@ -82,14 +91,14 @@ diffusion tensor."
 	  result))))
 
 (defun smooth-coefficient-cell-problem (dim)
-  (cell-problem
+  (cdr-cell-problem
    dim :diffusion-function
    #'(lambda (x)
        (scal (reduce #'* (map 'vector #'(lambda (xc) #I(2.0+sin(2*pi*xc))) x))
 	     (eye dim)))))
   
 (defun simple-ball-inlay-cell-problem (dim eps)
-  (cell-problem
+  (cdr-cell-problem
    dim :diffusion-function
    #'(lambda (x)
        (let ((result (eye dim)))
@@ -100,7 +109,7 @@ diffusion tensor."
 (defun chequerboard-problem (dim eps)
   "Returns cell problem on the n-cell-domain of the given dimension with
 a chequerboard pattern."
-  (cell-problem
+  (cdr-cell-problem
    dim :diffusion-function
    #'(lambda (x)
        (scal! (if (evenp (loop for coord across x count (>= coord 0.5)))
@@ -123,23 +132,17 @@ inlay and the component of the cell vector."
 	  'FL.CDR::GAMMA (constant-coefficient (eye dim)))))))
 
 (defun porous-cell-problem (dim &key (radius 0.3) A)
-  (make-instance
-   '<cdr-problem> :domain
+  (cdr-cell-problem
    (if A
        (n-cell-with-ellipsoidal-hole dim :A A)
-       (n-cell-with-n-ball-hole dim :radius radius))
-   :multiplicity dim :patch->coefficients
-   #'(lambda (patch)
-       (when (= (dimension patch) dim)
-	 (list 'FL.CDR::DIFFUSION (constant-coefficient (eye dim))
-	       'FL.CDR::GAMMA (constant-coefficient (eye dim)))))))
-
+       (n-cell-with-n-ball-hole dim :radius radius))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Demos
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun cdr-interior-effective-coeff-demo (problem order levels &key (output t) plot)
+(defun cdr-interior-effective-coeff-demo (problem order levels
+					  &key (output *output-depth*) plot)
   "Computes an effective diffusion tensor for different configurations.
 The approximation is done with isoparametric finite elements.  Uniform
 refinement is used, the linear solver is a geometric multigrid scheme used
@@ -147,46 +150,48 @@ in a nested iteration fashion.  The solution to the cell problem is a
 vector field whose components are plotted one after the other.  The setting
 has cubic symmetry, from which one can easily see that the effective tensor
 must be a scalar multiple of the identity."
-  (defparameter *result*
-    (solve
-     (make-instance
-      '<stationary-fe-strategy> :fe-class (lagrange-fe order)
-      :estimator (make-instance '<projection-error-estimator>)
-      :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
-      :success-if `(>= :nr-levels ,levels)
-      :solver
-      (make-instance
-       '<linear-solver> :iteration
-       (let ((smoother
-	      (if (>= (dimension (domain problem)) 3)
-		  *gauss-seidel*
-		  (geometric-ssc :store-p nil))))
-	 (geometric-cs
-	  :gamma 2 :fmg nil :coarse-grid-iteration
-	  (make-instance '<multi-iteration> :base smoother
-			 :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
-	  :pre-steps 2 :pre-smooth smoother :post-steps 2 :post-smooth smoother))
-	       :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
-	       :failure-if `(> :step 20)
-	       :output (eq output :all))
-      :output output :observe
-      (append *stationary-fe-strategy-observe*
-	      (list (list (format nil "~19@A" "Ahom") "~19,10,2E"
-			  #'(lambda (blackboard)
-			      (mref (effective-tensor blackboard) 0 0))))))
-     (blackboard :problem problem)))
-  ;; plot cell solutions and compute the homogenized coefficient
-  (when plot
-    (let ((solution (getbb *result* :solution)))
-      (plot solution :index 0)
-      (sleep 1.0)
-      (plot solution :index 1)))
-  (format t "The effective tensor is:~%~A~%"
-	  (effective-tensor *result*)))
+  (let ((*output-depth* output))
+    (defparameter *result*
+      (solve
+       (make-instance
+	'<stationary-fe-strategy> :fe-class (lagrange-fe order)
+	:estimator (make-instance '<projection-error-estimator>)
+	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
+	:success-if `(>= :nr-levels ,levels)
+	:solver
+	(make-instance
+	 '<linear-solver> :iteration
+	 (let ((smoother
+		(if (>= (domain-dimension problem) 3)
+		    *gauss-seidel*
+		    (geometric-ssc :store-p nil))))
+	   (geometric-cs
+	    :gamma 2 :fmg nil :coarse-grid-iteration
+	    (make-instance '<multi-iteration> :base smoother
+			   :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
+	    :smoother smoother :pre-steps 2 :post-steps 2))
+	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
+	 :failure-if `(> :step 20))
+	:observe
+	(append *stationary-fe-strategy-observe*
+		(list (list (format nil "~19@A" "Ahom") "~19,10,2E"
+			    #'(lambda (blackboard)
+				(mref (effective-tensor blackboard) 0 0))))))
+       (blackboard :problem problem)))
+    ;; plot cell solutions and compute the homogenized coefficient
+    (when plot
+      (let ((solution (getbb *result* :solution)))
+	(plot solution :index 0)
+	(sleep 1.0)
+	(plot solution :index 1)))
+    (format t "The effective tensor is:~%~A~%"
+	    (effective-tensor *result*))))
 
 ;;; Testing:
-#+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t :output :all)
-#+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 2 :output :all)
+#+(or)
+(let ((*output-depth* 2))
+	(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t))
+#+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 2 :output t)
 #+(or)
 (let ((A (FL.algebra::ellipse-matrix 0.25 0.3 0.7854)))
   (cdr-interior-effective-coeff-demo (porous-cell-problem 2 :A A) 4 2 :plot t))
@@ -313,7 +318,7 @@ must be a scalar multiple of the identity."
 	 (geometric-cs
 	  :gamma 2 :fmg t :coarse-grid-iteration
 	  (make-instance '<multi-iteration> :base *gauss-seidel* :nr-steps 10)
-	  :pre-steps 2 :pre-smooth smoother :post-steps 2 :post-smooth smoother))
+	  :smoother smoother :pre-steps 2 :post-steps 2))
        :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
        :failure-if `(> :step 20))))))
 
@@ -322,6 +327,7 @@ must be a scalar multiple of the identity."
 (plot (getbb *result* :solution) :index 1)
 
 ;;; an adaptive calculation (working?)
+#+(or)
 (defparameter *result*
   (time
    (let ((dim 2) (order 2))
@@ -338,6 +344,7 @@ must be a scalar multiple of the identity."
 
 (effective-tensor *result*)
 (getbb *result* :global-eta)
+(fe-extreme-values (getbb *result* :solution))
 
 ;; chequerboard cell
 (let ((dim 2) (order 1))

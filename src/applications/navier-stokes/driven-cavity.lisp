@@ -92,9 +92,11 @@ Taylor-Hood finite elements (Q^{k+1})^~dim~/Q^k with k=~order~."
 
 (defun test-driven-cavity ()
   (describe (driven-cavity 2))
+  (describe (domain (driven-cavity 2 :smooth-p nil)))
   (ns-driven-cavity-demo 2 1 4 :output :all :plot nil)
   (let ((sol (getbb *result* :solution)))
     (fe-value sol #d(0.5 0.5)))
+  #+(or)
   (defparameter *result*
     (let* ((dim 2) (order 3) (delta 1)
 	   (problem (driven-cavity dim :smooth-p nil))
@@ -112,11 +114,12 @@ Taylor-Hood finite elements (Q^{k+1})^~dim~/Q^k with k=~order~."
 	   (as (make-fe-ansatz-space (navier-stokes-lagrange-fe order dim delta)
 				     problem mesh)))
       (solve (blackboard :problem problem :mesh mesh :ansatz-space as
-			 :output t :success-if '(> :time 30.0) :observe
+			 :output :all :success-if '(> :time 30.0) :observe
 			 (append *stationary-fe-strategy-observe*
 				 (list (watch-dc-center-velocity dim)))))))
-  (plot (getbb *result* :solution) :component 1)
   (fe-extreme-values (getbb *result* :solution))
+  (time (plot (getbb *result* :solution) :component 1))
+  (time (plot (component (getbb *result* :solution) 0)))
 )
 
 ;;; (test-driven-cavity)

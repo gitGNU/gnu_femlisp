@@ -63,7 +63,7 @@ midpoint of the domain."
 	    :name (format nil title dim)
 	    :short (format nil short dim)
 	    :long long
-	    :execute (lambda () (bratu-computation dim :plot t :output 1)))))
+	    :execute (lambda () (bratu-computation dim :plot t)))))
       (adjoin-demo demo *cdr-demo*))))
 
 ;;; 2D and 3D Bratu problem
@@ -72,7 +72,7 @@ midpoint of the domain."
 (make-bratu-demo 3)
 
 (defun bratu-tests ()
-  (bratu-computation 1 :output 1)
+  (bratu-computation 1 :output :all)
   )
 
 ;;; (fl.application::bratu-tests)

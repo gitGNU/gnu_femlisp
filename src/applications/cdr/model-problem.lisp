@@ -87,7 +87,7 @@ for the value u(1/2,1/2,1/2).
 				 (* k1 k2 k3 (+ (* k1 k1) (* k2 k2) (* k3 k3)))))))))))
 
 
-(defun model-problem-computation (domain &key output plot)
+(defun model-problem-computation (domain &key (output 1) plot)
   "~A - Solve the Laplace equation on a ~A.
 
 Solves the Laplace problem with rhs identical 1 on the given domain.  The
@@ -96,8 +96,7 @@ seconds have passed after a step."
   (defparameter *result*
     (solve (blackboard
 	    :problem (cdr-model-problem domain)
-	    :output output :plot-mesh t
-	    :success-if `(> :time 5.0))))
+	    :plot-mesh t :output output :success-if `(> :time 5.0))))
   (when plot
     (plot (getbb *result* :solution))))
 
@@ -110,14 +109,13 @@ seconds have passed after a step."
 	    :short (format nil short domain-name)
 	    :long long
 	    :execute (lambda ()
-		       (model-problem-computation
-			domain :plot t :output t)))))
+		       (model-problem-computation domain :plot t)))))
       (adjoin-demo demo *laplace-demo*))))
 
 (make-model-problem-demo (n-simplex-domain 1) "unit-interval")
 (make-model-problem-demo (n-simplex-domain 2) "unit-triangle")
 (make-model-problem-demo (n-cube-domain 2) "unit-quadrangle")
-(make-model-problem-demo (n-simplex-domain 2) "unit-tetrahedron")
+(make-model-problem-demo (n-simplex-domain 3) "unit-tetrahedron")
 (make-model-problem-demo (tensorial-domain '(1 2)) "unit-wedge-1-2")
 (make-model-problem-demo (tensorial-domain '(2 1)) "unit-wedge-2-1")
 (make-model-problem-demo (n-cube-domain 3) "unit-cube")
@@ -157,5 +155,5 @@ seconds have passed after a step."
     (check-p-convergence problem 1 4 :level 0 :position #d(0.5 0.5 0.5)))
   )
 
-;;; (FL.application::test-laplace-model-problem)
+;;; (fl.application::test-laplace-model-problem)
 (fl.tests:adjoin-test 'test-laplace-model-problem)

@@ -43,17 +43,18 @@ eigenvalue/eigenvector pairs for convection-diffusion-reaction problems.")
    :short "Some eigenvalue problems"))
 (adjoin-demo *laplace-eigenvalue-demo* *laplace-demo*)
 
-(defun laplace-eigenvalue-computation (domain &key output plot (lambda 0.0) (dirichlet 0.0))
+(defun laplace-eigenvalue-computation (domain &key output plot (lambda 0.0) (mu 1.0) (dirichlet 0.0))
   "~A - Eigenvalues of Laplace on a ~A.
 
 Computes eigenvalues for the Laplace operator on the given domain.  The
 solution strategy does uniform refinement and terminates if more than 20
 seconds have passed after a step."
-  (let ((problem (cdr-model-problem domain :evp `(lambda ,lambda)
-				    :dirichlet dirichlet)))
+  (let ((problem (cdr-model-problem
+		  domain :evp (list :lambda (box lambda) :mu (box mu))
+		  :dirichlet dirichlet)))
     (defparameter *result*
       (solve (blackboard
-	      :problem problem :base-level 2
+	      :problem problem :base-level 3
 	      :success-if '(or (>= :time 20) (>= :nr-levels 5))
 	      :output output :observe
 	      (append *stationary-fe-strategy-observe*
@@ -62,10 +63,6 @@ seconds have passed after a step."
 					    (unbox (slot-value problem 'lambda)))))))))
     (when plot
       (plot (getbb *result* :solution)))))
-
-#+nil
-(laplace-eigenvalue-computation
- (n-cube-domain 1) :dirichlet nil :lambda 10.0 :output t :plot t)
 
 (defun make-laplace-eigenvalue-demo (domain domain-name)
   (multiple-value-bind (title short long)
@@ -85,17 +82,21 @@ seconds have passed after a step."
 (make-laplace-eigenvalue-demo (n-simplex-domain 1) "unit-interval")
 (make-laplace-eigenvalue-demo (n-cube-domain 2) "unit-quadrangle")
 
+;;;; Testing
 
 (defun evp-cdr-test ()
+  (plot (laplace-eigenvalue-computation
+	 (n-cube-domain 1) :dirichlet nil :lambda (* 9 pi pi) :output t :plot t))
+
   ;; the following is used in the manual
-  (let ((problem (cdr-model-problem 2 :evp '(lambda 50))))
+  (let ((problem (cdr-model-problem 2 :evp (list :lambda (box 50.0) :mu (box 1.0)))))
     (defparameter *result*
       (solve (blackboard :problem problem
-			 :success-if '(or (>= :time 20) (>= :nr-levels 5))
+			 :success-if '(or (>= :time 5) (>= :nr-levels 5))
 			 :output 1))))
   (slot-value (getbb *result* :problem) 'lambda)
   (plot (getbb *result* :solution))
   )
 
-
-
+;;; (evp-cdr-test)
+(fl.tests:adjoin-test 'evp-cdr-test)

@@ -32,28 +32,25 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :fl.application)
+(in-package :fl.domains)
 
-(defun n-cube-with-cubic-inlay (dim &key (refinements 0))
+(defun n-cube-with-cubic-inlay (dim)
   "Generates an n-cube-domain with an n-cube inlay."
   (multiple-value-bind (inlay)
-      (linearly-transformed-skeleton
-       (refcell-refinement-skeleton (n-cube dim) refinements)
-       :A (scal 0.5 (eye dim))
-       :b (make-double-vec dim 0.25))
+      (linearly-transformed-skeleton (skeleton (n-cube dim))
+				     :A (scal 0.5 (eye dim))
+				     :b (make-double-vec dim 0.25))
     (change-class
-     (skel-add! inlay (n-cube-with-cubic-hole dim :refinements refinements))
+     (skel-add! inlay (n-cube-with-cubic-hole dim))
      '<domain>)))
 
-(defun n-cell-with-cubic-inlay (dim &key (refinements 0))
+(defun n-cell-with-cubic-inlay (dim)
   "Generates an n-dimensional cell domain with an n-cube hole."
-  (identify-unit-cell-faces
-   (n-cube-with-cubic-inlay dim :refinements refinements)))
+  (identify-unit-cell-faces (n-cube-with-cubic-inlay dim)))
 
-(defun n-cube-with-n-ball-inlay (dim &key (refinements 0) (radius 0.25))
+(defun n-cube-with-n-ball-inlay (dim &key (radius 0.25))
   "Generates an n-cube-domain with an n-ball inlay using n-cube patches."
-  (let* ((outer-skel (skeleton-boundary (refcell-refinement-skeleton
-					 (n-cube dim) refinements)))
+  (let* ((outer-skel (skeleton-boundary (skeleton (n-cube dim))))
 	 (midpoint (make-double-vec dim 0.5))
 	 (projection (project-to-sphere midpoint radius))
 	 (outer->middle
@@ -62,10 +59,9 @@
 	      outer-skel :transformation projection))))
     (multiple-value-bind (center-block unit-cell->center-block)
 	(let ((factor (/ radius (sqrt dim))))
-	  (linearly-transformed-skeleton
-	   (refcell-refinement-skeleton (n-cube dim) refinements)
-	   :A (scal factor (eye dim))
-	   :b (scal (- 1.0 factor) midpoint)))
+	  (linearly-transformed-skeleton (skeleton (n-cube dim))
+					 :A (scal factor (eye dim))
+					 :b (scal (- 1.0 factor) midpoint)))
       (let ((center-skin (skeleton-boundary center-block))
 	    (center->middle (make-hash-table)))
 	;; fill center->middle table
@@ -78,10 +74,10 @@
 	(skel-add! center-block (telescope outer-skel outer->middle))
 	(change-class center-block '<domain>)))))
 
-(defun n-cell-with-n-ball-inlay (dim &key (radius 0.25) (refinements 0))
+(defun n-cell-with-n-ball-inlay (dim &key (radius 0.25))
   "Generates an n-dimensional cell domain with an n-ball inlay."
   (identify-unit-cell-faces
-   (n-cube-with-n-ball-inlay dim :radius radius :refinements refinements)))
+   (n-cube-with-n-ball-inlay dim :radius radius)))
 
 (defun patch-in-inlay-p (patch)
   "Checks if the patch is part of the inlay including its boundary."
@@ -94,7 +90,7 @@
 ;;; Testing
 (defun test-inlay-domain ()
   (n-cube-with-cubic-inlay 2)
-  (let* ((domain (n-cell-with-n-ball-inlay 2 :radius 0.3 :refinements 0))
+  (let* ((domain (n-cell-with-n-ball-inlay 2 :radius 0.3))
 	 (chars (domain-characteristics domain)))
     (assert (and (getf chars :exact) (getf chars :curved)))
     (doskel (cell domain)

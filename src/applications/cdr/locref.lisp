@@ -35,8 +35,8 @@
 (in-package :fl.application)
 
 (file-documentation
- "This file contains tests concerning the solving of CDR problems with
-local refinement.")
+ "This file contains tests for solving of CDR problems with local
+refinement.")
 
 (defun test-refined-laplace-problem ()
 
@@ -45,21 +45,16 @@ local refinement.")
        (fe-class (lagrange-fe 1))
        (h-mesh (uniformly-refined-hierarchical-mesh
 		(domain problem) (if boundary-p 1 2)))
-       (v-cycle (geometric-cs :base-level 1)))
-  (loop repeat 1 do
-	(refine h-mesh :test (rcurry #'inside-cell?
-				     (if boundary-p #d(0.0) #d(0.5)))))
+       (v-cycle (geometric-cs :base-level 0 :post-steps 0 :pre-steps 0)))
+  (loop repeat 1 do (refine h-mesh :indicator (rcurry #'inside-cell? (if boundary-p #d(0.0) #d(0.5)))))
   (multiple-value-bind (mat rhs)
       (discretize-globally problem h-mesh fe-class)
-    #+(or)
+      (show rhs)
+      (show mat)
     (let ((mg-data (multilevel-decomposition v-cycle mat)))
-      (show (aref (getbb mg-data :a-vec) (if boundary-p 2 3))))
-    (let ((mg-data (multilevel-decomposition v-cycle mat)))
-      (show (aref (getbb mg-data :i-vec) 1)))
-    (let ((sol #-(or) (linsolve mat rhs :output t :iteration (geometric-cs) :maxsteps 10)
-	       #+(or) (getrs (sparse-ldu mat) rhs)))
-      ;; (plot sol)
-      #-(or)(show sol))))
+      (show (aref (getbb mg-data :a-vec) 0))
+      #+(or)(show (aref (getbb mg-data :i-vec) 0))
+      )))
 
 (let* ((problem (cdr-model-problem
 		 (n-cube-domain 1)
@@ -79,7 +74,7 @@ local refinement.")
 	(problem (cdr-model-problem (n-cube-domain dim)))
 	(fedisc (lagrange-fe order))
 	(h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
-   #-(or) (loop repeat 2 do (refine h-mesh :test (rcurry #'inside-cell? #d(0.25 0.25))))
+   #-(or) (loop repeat 2 do (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25 0.25))))
    #+(or) (plot h-mesh)
    (multiple-value-bind (mat)
        (discretize-globally problem h-mesh fedisc)
@@ -91,12 +86,12 @@ local refinement.")
        (fedisc (lagrange-fe 1))
        (h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
   #+(or) (loop repeat 1 do (refine h-mesh) (refine h-mesh) (refine h-mesh))
-  #-(or) (loop repeat 3 do (refine h-mesh :test (rcurry #'inside-cell? #d(0.25 0.25))))
+  #-(or) (loop repeat 3 do (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25 0.25))))
   #+(or) (plot h-mesh)
   (multiple-value-bind (mat rhs)
-	(discretize-globally problem h-mesh fedisc)
+      (discretize-globally problem h-mesh fedisc)
     (let ((sol #+(or) (linsolve mat rhs :output t :iteration (f-cycle :problem problem))
-		 #-(or) (getrs (sparse-ldu mat) rhs)))
+	       #-(or) (getrs (sparse-ldu mat) rhs)))
       ;; (plot sol)
       (show sol))))
   

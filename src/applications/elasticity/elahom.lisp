@@ -34,7 +34,24 @@
 
 (in-package :fl.application)
 
-(defun elasticity-inlay-cell-problem (domain &key (inlay-p #'patch-in-inlay-p))
+(defun elasticity-cell-problem-gamma (dim)
+  "Returns a right-hand side for an elasticity cell problem."
+  (ensure-coefficient
+   (let* ((gamma (make-array dim)))
+     (dotimes (j dim)
+       (setf (aref gamma j)
+	     (let ((entry (zeros dim (* dim dim))))
+	       (dotimes (mu dim)
+		 (dotimes (k dim)
+		   (dotimes (nu dim)
+		     (and (= mu nu) (= k j)
+			  (setf (mref entry mu (+ nu (* dim k)))
+				1.0)))))
+	       entry)))
+     gamma)))
+
+(defun elasticity-inlay-cell-problem (domain &key (inlay-p #'patch-in-inlay-p)
+				      (interior 100.0))
   "Generates the inlay cell problem.  The coefficient is of the
 form $A^{ij}_{\lambda \mu}$ and the equation to be solved is in
 variational form
@@ -63,23 +80,10 @@ A^{lk}_{ji} N^{lr}_q = F[k*dim+i] . N[r*dim+q]."
 	    (constant-coefficient
 	     (check-elasticity-tensor
 	      (if (funcall inlay-p patch)
-		  (isotropic-elasticity-tensor :dim dim :lambda 100 :mu 100)
-		  (isotropic-elasticity-tensor :dim dim :lambda 1 :mu 1))))
+		  (isotropic-elasticity-tensor :dim dim :lambda interior :mu interior)
+		  (isotropic-elasticity-tensor :dim dim :lambda 1.0 :mu 1.0))))
 	    'FL.ELASTICITY::GAMMA
-	    (constant-coefficient
-	     (let* ((gamma (make-array dim)))
-	       (dotimes (j dim)
-		 (setf (aref gamma j)
-		       (let ((entry (zeros dim (* dim dim))))
-			 (dotimes (mu dim)
-			   (dotimes (k dim)
-			     (dotimes (nu dim)
-			       (and (= mu nu) (= k j)
-				    (setf (mref entry mu (+ nu (* dim k)))
-					  1.0)))))
-			 entry)))
-	       gamma))
-	    ))))))
+	    (elasticity-cell-problem-gamma dim)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; utilities
@@ -105,7 +109,7 @@ against the size of the coefficient jump."
 ;;;; Demos
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun elasticity-interior-effective-coeff-demo (problem &key order levels plot output)
+(defun elasticity-interior-effective-coeff-demo (problem &key order levels plot (output 1))
   "Computes the effective elasticity for a certain periodic
 medium.  The approximation is done with finite elements and
 blending.  Uniform refinement is used, the linear solver is a
@@ -117,7 +121,8 @@ coefficient jump.
 The solution to this cell problem is a tensor field of rank 3
 with dim^3 components which are plotted one after the other."
   (let* ((domain (domain problem))
-	 (dim (dimension domain)))
+	 (dim (dimension domain))
+	 (*output-depth* output))
     (defparameter *result*
       (solve
        (make-instance
@@ -137,12 +142,10 @@ with dim^3 components which are plotted one after the other."
 	    (make-instance '<multi-iteration> :nr-steps 10 :base
 			   (make-instance '<custom-ssc>
 					  :block-setup #'inlay-block-decomposition))
-	    :pre-steps 2 :pre-smooth smoother
-	    :post-steps 2 :post-smooth smoother
+	    :smoother smoother :pre-steps 2 :post-steps 2
 	    :gamma 2 :fmg t))
 	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
-	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (> :defnorm 1.0e-9))
-	 :output (eq output :all))
+	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (> :defnorm 1.0e-9)))
 	:observe
 	(append *stationary-fe-strategy-observe*
 		(list
@@ -152,8 +155,7 @@ with dim^3 components which are plotted one after the other."
 			     (format nil "~19,10,2E~19,10,2E~19,10,2E"
 				     (and tensor (mref (aref tensor 0 0) 0 0))
 				     (and tensor (mref (aref tensor 0 0) 1 1))
-				     (and tensor (mref (aref tensor 1 0) 1 0))))))))
-	:output t)
+				     (and tensor (mref (aref tensor 1 0) 1 0)))))))))
        (blackboard :problem problem)))
     (when plot
       ;; plot components of cell solution tensor
@@ -239,60 +241,27 @@ Parameters: order=~D, levels=~D~%~%"
      
 (defun test-homogenization-elasticity ()
 
-(time (elasticity-interior-effective-coeff-demo
-       (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2)) :order 4 :levels 2))
-(show (getbb *result* :rhs))
-;; we should have N^{lr}_q = N^{lq}_r
+  (time (elasticity-interior-effective-coeff-demo
+	 (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2)) :order 4 :levels 2))
+  ;; we should have N^{lr}_q = N^{lq}_r
 
-(let ((average-tensor
-       (average-coefficient (getbb *result* :ansatz-space)
-			    :coefficient 'FL.ELASTICITY::ELASTICITY))
-      (correction-tensor
-       (convert-correction
-	(correction-tensor (getbb *result* :solution)
-			   (getbb *result* :rhs)))))
-  (check-elasticity-tensor average-tensor 0.0)
-  (check-elasticity-tensor correction-tensor 1.0e-4)
-  (check-elasticity-tensor (m- average-tensor correction-tensor)))
-(effective-tensor *result*)
+  (let ((average-tensor
+	 (average-coefficient (getbb *result* :ansatz-space)
+			      :coefficient 'FL.ELASTICITY::ELASTICITY))
+	(correction-tensor
+	 (convert-correction
+	  (correction-tensor (getbb *result* :solution)
+			     (getbb *result* :rhs)))))
+    (check-elasticity-tensor average-tensor 0.0)
+    (check-elasticity-tensor correction-tensor 1.0e-4)
+    (check-elasticity-tensor (m- average-tensor correction-tensor)))
+  (effective-tensor *result*)
 
-(isotropic-elasticity-tensor :dim 2 :lambda 100 :mu 100)
+  (isotropic-elasticity-tensor :dim 2 :lambda 100 :mu 100)
 
-(defparameter *result*
-  (time
-   (let* ((dim 2) (level 0) (order 1)
-	  (domain (n-cell-with-n-ball-hole 2))
-	  (problem (elasticity-inlay-cell-problem domain))
-	  (mm (uniformly-refined-hierarchical-mesh
-	       domain level :parametric (lagrange-mapping (max 2 order))))
-	  (fe-class (lagrange-fe order :nr-comps dim)))
-     (multiple-value-bind (mat rhs)
-	 (discretize-globally problem mm fe-class)
-       (show rhs)
-       ;;(plot rhs :component 1 :index 0))))
-       #-(or)
-       (let* ((smoother #+(or)(geometric-ssc)
-			#+(or) (make-instance '<ilu>)
-			#-(or) *gauss-seidel*)
-	      (cs (geometric-cs
-		   :gamma 2 :coarse-grid-iteration
-		   (make-instance '<multi-iteration> :nr-steps 10 :base
-		    (make-instance '<block-gauss-seidel> :blocks #'inlay-block-decomposition))
-		   :pre-steps 1 :pre-smooth smoother :post-steps 1 :post-smooth smoother)))
-	 (linsolve mat rhs :output t :iteration cs :maxsteps 5
-		   :reduction nil #+(or) (* 0.1 (expt 0.5 (* 2 (+ order 1))))))
-       #+(or)(solve (s1-reduction-amg-solver order) (blackboard :matrix mat :rhs rhs))
-       #+(or)(solve *lu-solver* (blackboard :matrix mat :rhs rhs))
-       ))))
+  (plot (getbb *result* :solution) :component 1 :index 0)
 
-(plot *result* :component 1 :index 0)
-(plot (mesh *result*))
-(nr-of-cells (mesh *result*))
-(let ((sum 0))
-  (for-each-entry #'(lambda (block) (incf sum (length (fl.matlisp::store block))))
-		  *result*)
-  sum)
-;; L=0: 2.65 User, L=1:
+  )
 
-)
-
+;;; (test-homogenization-elasticity)
+(fl.tests:adjoin-test 'test-homogenization-elasticity)

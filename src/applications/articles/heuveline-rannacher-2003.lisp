@@ -95,10 +95,12 @@ function assumes that a structured cube mesh is used!"
 	       #'heuveline-rannacher-dual-problem-rhs)))))
 
 (defun heuveline-rannacher-dual-problem ()
+  "Only for testing purposes, otherwise such a problem is
+automatically generated inside the error estimator cycle."
   (dual-problem (heuveline-rannacher-problem)
 		(heuveline-rannacher-dual-problem-fe-rhs)))
 
-(defun heuveline-rannacher-computation (order levels &key output plot)
+(defun heuveline-rannacher-computation (order levels &key (output 1) plot)
   "HR2003-1 - Solves problem 1 in [Heuveline-Rannacher 2003]
 
 Solves for the functional $J(phi)=dphi/dx(0.5,2.5)$ evaluated
@@ -110,33 +112,32 @@ $$  u(x,y) = sin(pi/2*(x+1))*sin(3/4*pi*(y+1))  $$
 Thus, the precise value is 1.026172152977031.
 Parameters of the computation: order=~order~, levels=~levels~."
   (defparameter *result*
-    (solve
-     (make-instance
-      '<stationary-fe-strategy>
-      :fe-class (lagrange-fe order)
-      :estimator (make-instance '<duality-error-estimator> :functional
-				(heuveline-rannacher-dual-problem-fe-rhs))
-      :indicator (make-instance '<largest-eta-indicator>
-				:pivot-factor 0.2 :from-level 1)
-      :success-if `(or (<= :global-eta 1.0e-10) (= :max-level ,(1- levels)))
-      :plot-mesh plot :output output :observe
-      (append *stationary-fe-strategy-observe*
-	      (list
-	       (list " grad-x (0.5,2.5)" "~17,10,2E"
-		     #'(lambda (blackboard)
-			 (with-items (&key solution) blackboard
-			   (vref (aref (fe-gradient solution *HR-evaluation-point*) 0) 0))))
-	       *eta-observe*)))
-     (let ((problem (heuveline-rannacher-problem)))
-       (blackboard :problem problem :mesh
-		   (change-class (uniform-mesh-on-box-domain (domain problem) #(1 2))
-				 '<hierarchical-mesh>)))))
+    (let ((*output-depth* output))
+      (solve
+       (make-instance
+	'<stationary-fe-strategy>
+	:fe-class (lagrange-fe order)
+	:estimator (make-instance '<duality-error-estimator> :functional
+				  (heuveline-rannacher-dual-problem-fe-rhs))
+	:indicator (make-instance '<largest-eta-indicator>
+				  :pivot-factor 0.2 :from-level 1)
+	:success-if `(or (<= :global-eta 1.0e-10) (= :max-level ,(1- levels)))
+	:plot-mesh plot :observe
+	(append *stationary-fe-strategy-observe*
+		(list
+		 (list " grad-x (0.5,2.5)" "~17,10,2E"
+		       #'(lambda (blackboard)
+			   (with-items (&key solution) blackboard
+			     (vref (aref (fe-gradient solution *HR-evaluation-point*) 0) 0))))
+		 *eta-observe*)))
+       (let ((problem (heuveline-rannacher-problem)))
+	 (blackboard :problem problem :mesh
+		     (change-class (uniform-mesh-on-box-domain (domain problem) #(1 2))
+				   '<hierarchical-mesh>))))))
     (when plot
       (plot (getbb *result* :solution) :depth 3)))
 
-
-
-#+(or) (heuveline-rannacher-computation 4 6 :output :all :plot t)
+#+(or) (heuveline-rannacher-computation 4 4 :output :all :plot t)
 
 (defun make-heuveline-rannacher-demo (order levels)
   (multiple-value-bind (title short long)
@@ -148,7 +149,7 @@ Parameters of the computation: order=~order~, levels=~levels~."
 	    :name title :short short :long long
 	    :execute (lambda ()
 		       (heuveline-rannacher-computation
-			order levels :output t :plot t)))))
+			order levels :output 1 :plot t)))))
       (adjoin-demo demo *articles-demo*))))
 
 (make-heuveline-rannacher-demo 4 4)
@@ -190,6 +191,3 @@ Parameters of the computation: order=~order~, levels=~levels~."
   (plot *result*)
 
   )  
-  
-  
-

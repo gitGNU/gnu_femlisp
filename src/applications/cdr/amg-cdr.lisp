@@ -39,27 +39,17 @@
 	     :short "AMG solving of C-D-R eqns"))
 (adjoin-demo *amg-cdr-demo* *laplace-demo*)
 
-(defun amg-computation (problem &key output plot)
-  (defparameter *result*
-    (solve (blackboard
-	    :problem problem
-	    :output output :plot-mesh t
-	    :success-if `(> :time 10.0))))
-  (when plot
-    (plot (getbb *result* :solution))))
-
-(defparameter *amg-cdr-solver*
+(defun amg-cdr-solver ()
+  "The standard AMG solver for the demos in this file."
   (make-instance '<linear-solver>
-		 :iteration (make-instance '<stueben> :output t) :output t
+		 :iteration (make-instance '<stueben> :cg-max-size 16 :output t)
 		 :success-if '(or (< :defnorm 1.0e-10)
 			       (and (> :step 2) (> :step-reduction 0.9)))
-		 :failure-if '(> :time 10.0))
-  "The standard AMG solver for the demos in this file.")
+		 :failure-if '(> :time 10.0)))
 
 ;;; A demo 
 
 (adjoin-demo
- *amg-cdr-demo*
  (make-demo
   :name "anisotropy-Q" :short "Solving anisotropy with Q1-FE"
   :long
@@ -76,19 +66,20 @@ aligned grids."
 		:output t :plot-mesh t
 		:success-if `(> :time 10.0)
 		:fe-class (lagrange-fe 1) :base-level 1
-		:solver *amg-cdr-solver*))))
-    )))
+		:solver (amg-cdr-solver))))))
+  :test-input "0.01~%")
+ *amg-cdr-demo*)
 
-(defun test-amg ()
+(defun test-amg-cdr ()
 
 ;;; Testing the S1-reduction AMG
 (time
- (let* ((dim 1) (level 2) (order 2)
+ (let* ((dim 2) (level 4) (order 2)
 	(problem (cdr-model-problem dim)))
    (multiple-value-bind (A b)
        (problem-discretization problem :level level :order order)
      (let ((amg (s1-reduction-amg-solver order :reduction 1.0d-10 :output t)))
-       (solve amg (blackboard :matrix A :rhs b :output t))))))
+       (solve (blackboard :solver amg :matrix A :rhs b :output t))))))
 
 ;;; k-fold jump in refinement depth
 (time
@@ -97,13 +88,14 @@ aligned grids."
 	(fedisc (lagrange-fe order))
 	(h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
    #-(or) (loop repeat 1 do (refine h-mesh))
-   #-(or) (loop repeat 2 do (refine h-mesh :test (rcurry #'inside-cell? (make-double-vec dim 0.25))))
+   #-(or) (loop repeat 2 do
+	       (refine h-mesh :indicator (rcurry #'inside-cell? (make-double-vec dim 0.25))))
    #-(or) (plot h-mesh)
    #-(or)
    (multiple-value-bind (mat rhs)
        (discretize-globally problem h-mesh fedisc)
-     (let ((amg (s1-reduction-amg-solver order :output t :maxsteps 10 :reduction 1.0e-10)))
-       (solve amg (blackboard :matrix mat :rhs rhs))))))
+     (let ((amg (s1-reduction-amg-solver order :maxsteps 10 :reduction 1.0e-10)))
+       (solve (blackboard :solver amg :matrix mat :rhs rhs :output t))))))
 
 (time
  (let* ((dim 2) (order 2)
@@ -111,12 +103,15 @@ aligned grids."
 	(fedisc (lagrange-fe order))
 	(h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
    #-(or) (loop repeat 1 do (refine h-mesh))
-   #-(or) (loop repeat 2 do (refine h-mesh :test (rcurry #'inside-cell? #d(0.25 0.25))))
+   #-(or) (loop repeat 2 do
+	       (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25 0.25))))
    #+(or) (plot h-mesh)
    #-(or)
    (multiple-value-bind (mat rhs)
        (discretize-globally problem h-mesh fedisc)
-     (let ((amg (s1-reduction-amg-solver order :output t :reduction 1.0e-5 :maxsteps 5)))
-       (solve amg (blackboard :matrix mat :rhs rhs))))))
-
+     (let ((amg (s1-reduction-amg-solver order :reduction 1.0e-5 :maxsteps 5)))
+       (solve (blackboard :solver amg :matrix mat :rhs rhs :output t))))))
 )
+
+;;; (test-amg-cdr)
+(fl.tests:adjoin-test 'test-amg-cdr)

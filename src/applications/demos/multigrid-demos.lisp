@@ -72,8 +72,8 @@ with an initial random guess and right-hand side 0."
   (unless it-name (setq it-name (class-name (class-of iteration))))
   (let ((demo
 	 (make-demo
-	  :name (format nil "~A-error-~DD" it-name dim)
-	  :short (format nil "Error development for ~A." it-name)
+	  :name (format nil "~A-error-O~D-~DD" it-name order dim)
+	  :short (format nil "Error development for ~A (order=~D, d=~D)." it-name order dim)
 	  :long (format nil "~A~%Parameters: dim=~D, order=~D, level=~D, iteration=~A~%"
 			(documentation 'plot-iteration-behavior 'function)
 			dim order level it-name)
@@ -85,7 +85,9 @@ with an initial random guess and right-hand side 0."
 		 (linsolve A b :sol x :output t :iteration iteration :maxsteps 1)))))))
     (adjoin-demo demo *multigrid-demo*)))
 
-(make-plot-iteration-behavior-demo 1 5 1 *gauss-seidel* :it-name "GS")
+(make-plot-iteration-behavior-demo 1 1 5 *gauss-seidel* :it-name "GS")
+(make-plot-iteration-behavior-demo 2 1 3 *gauss-seidel* :it-name "GS")
+(make-plot-iteration-behavior-demo 1 3 3 *gauss-seidel* :it-name "GS")
 
 (defun make-two-grid-behavior-demo (dim order level)
   (let* ((cgc (geometric-cs :gamma 1 :pre-steps 0 :post-steps 0
@@ -117,7 +119,7 @@ with an initial random guess and right-hand side 0."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun smoother-performance-test (&key dim order (level 2) smoother
-				  output simplex)
+				  (output 1) simplex)
   "Tests performance of smoother on a Laplace model problem.
 See make-smoother-demo for more information."
   (let* ((problem (cdr-model-problem (if simplex (n-simplex-domain dim) dim)))
@@ -127,9 +129,10 @@ See make-smoother-demo for more information."
      (multiple-value-bind (mat rhs)
 	 (discretize-globally problem mm fe-class)
        (let ((result
-	      (solve (make-instance '<linear-solver> :iteration smoother
-				    :success-if '(> :step 10) :output output)
-		     (blackboard :matrix mat :rhs rhs))))
+	      (solve (blackboard :problem (lse :matrix mat :rhs rhs) :solver
+				 (make-instance '<linear-solver> :iteration smoother
+						:success-if '(> :step 10))
+				 :output output))))
        (values (getbb result :step-reduction) result)))))
 
 #+(or)
@@ -206,7 +209,13 @@ problem on cubes of different dimensions."
 (make-smoother-performance-graph-demo *gauss-seidel* "GS")
 (make-smoother-performance-graph-demo (geometric-ssc) "VC-SSC")
 
+;;;; Testing:
+
 (defun test-multigrid-demos ()
+  (smoother-performance-test :dim 1 :order 1 :smoother *gauss-seidel* :output t)
   (smoother-performance-test :dim 1 :order 6 :smoother (geometric-ssc))
   (smoother-performance-test :dim 3 :order 4 :level 3 :simplex t :smoother (geometric-ssc))
   )
+
+;;; (test-multigrid-demos)
+(fl.tests:adjoin-test 'test-multigrid-demos)

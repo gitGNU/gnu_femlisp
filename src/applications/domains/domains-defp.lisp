@@ -1,10 +1,10 @@
-;;; -*- mode: lisp; fill-column: 64; -*-
+;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; refinement-demos.lisp
+;;; porous-domains.lisp - Generating periodic porous domains
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2005 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -32,34 +32,23 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :fl.application)
-
-(defun create-refinement-demo (name object &key transformation)
-  (adjoin-demo
-   (make-demo :name name
-	      :short (format nil "Shows the regular refinement of a ~A." name)
-	      :execute
-	      #'(lambda ()
-		  (loop repeat 3
-		     for skel = (skeleton object) then (refine skel)
-		     do (plot skel :transformation transformation)
-		       (sleep 1.0))))
-   *refinement-demos*))
-
-(create-refinement-demo "triangle" (n-simplex 2))
-(create-refinement-demo "quadrangle" (n-cube 2))
-(create-refinement-demo "tetrahedron" (n-simplex 3))
-(create-refinement-demo "1-2-wedge" (ensure-tensorial '(1 2)))
-(create-refinement-demo "2-1-wedge" (ensure-tensorial '(2 1)))
-(create-refinement-demo "cube" (n-cube 3))
-(create-refinement-demo
- "4-cube" (n-cube 4)
-  :transformation
-  (make-instance '<linear-function>
-		 :A #m((1.0 0.0   0.0  0.0)
-		       (0.0 0.8  -0.6  0.0)
-		       (0.0 0.56  0.57 0.6))))
-
-
-
-
+(defpackage "FL.DOMAINS"
+  (:use "COMMON-LISP"
+	"FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+	"FL.DEBUG" "FL.DEMO"
+	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH")
+  (:export ; inlay-domain.lisp
+   "N-CUBE-WITH-CUBIC-INLAY" "N-CELL-WITH-CUBIC-INLAY"
+   "N-CUBE-WITH-N-BALL-INLAY" "N-CELL-WITH-N-BALL-INLAY"
+   "PATCH-IN-INLAY-P")
+  (:export ; hole-domain.lisp
+   "N-CUBE-WITH-CUBIC-HOLE" "N-CELL-WITH-CUBIC-HOLE"
+   "N-CUBE-WITH-ELLIPSOIDAL-HOLE" "N-CELL-WITH-ELLIPSOIDAL-HOLE"
+   "N-CUBE-WITH-N-BALL-HOLE" "N-CELL-WITH-N-BALL-HOLE"
+   "PATCH-ON-INNER-BOUNDARY-P")
+  (:export ; bl-cell.lisp
+   "OSCILLATING-BOUNDARY-DOMAIN" "SINUSOIDAL-BL-CELL"
+   "SPLINE-INTERPOLATED-BL-CELL"
+   "BL-PATCH-ON-LOWER-BOUNDARY" "BL-PATCH-ON-PELLET-BOUNDARY"
+   "BL-PATCH-ON-UPPER-BOUNDARY" "BL-PATCH-ON-ARTIFICIAL-BOUNDARY")
+  (:documentation "Femlisp package for domain definitions."))

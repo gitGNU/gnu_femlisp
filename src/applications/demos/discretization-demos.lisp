@@ -74,15 +74,21 @@
 ;;; Stiffness matrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun display-stiffness-matrix (dim level order)
-  "Shows the stiffness matrix for several refinements.  Maybe
-you will have to use hscroll-mode in your Emacs buffer for
-comfortably looking at the matrix."
+(defun model-problem-stiffness-matrix (dim level order)
+  "Returns the stiffness matrix for the @arg{dim}-dimensional
+model problem discretized on level @arg{level} with finite
+elements of order @arg{order}."
   (let* ((problem (cdr-model-problem dim))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order)))
-    (let ((mat (discretize-globally problem h-mesh fedisc)))
-      (display mat :order (sort-lexicographically (row-keys mat))))))
+    (discretize-globally problem h-mesh fedisc)))
+
+(defun display-stiffness-matrix (&rest args)
+  "Shows the stiffness matrix of the model problem.  Maybe you
+will have to use hscroll-mode in your Emacs buffer for
+comfortably looking at the matrix."
+  (let ((mat (apply 'model-problem-stiffness-matrix args)))
+    (display mat :order (sort-lexicographically (row-keys mat)))))
 
 (defun make-stiffness-matrix-demo (dim max-level order)
   (let ((demo

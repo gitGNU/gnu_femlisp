@@ -47,7 +47,7 @@
 	(n-cube-domain dim) :lambda 1.0 :mu 1.0
 	:force (constant-coefficient (make-array dim :initial-element (ones 1))))
        :output t :success-if '(> :nr-levels 2))))))
-(plot (getbb *result* :solution) :component 1)
+(plot (getbb *result* :solution) :component 0)
 
 ;;; Test for diffusion problem
 (defparameter *result*

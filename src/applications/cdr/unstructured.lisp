@@ -59,7 +59,7 @@ non-structured meshes and/or on domains with curved boundary."
   ;; 2D tests
   (format t "~%2d Laplace test on a triangle domain~%")
   
-  (let ((problem (cdr-model-problem *unit-triangle-domain*)))
+  (let ((problem (cdr-model-problem (n-simplex-domain 2))))
     (check-h-convergence
      problem 2 6 :order 1 :position #d(0.33 0.33)
      :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)
@@ -94,7 +94,7 @@ non-structured meshes and/or on domains with curved boundary."
   ;; 3D tests
   (format t "~%3d Laplace test on a tetrahedron~%")
   (time
-   (let ((problem (cdr-model-problem *unit-tetrahedron-domain*)))
+   (let ((problem (cdr-model-problem (n-simplex-domain 2))))
      (check-h-convergence
       problem 2 3 :order 1 :position #d(0.25 0.25 0.25)
      :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t :base-level 2)
@@ -102,7 +102,7 @@ non-structured meshes and/or on domains with curved boundary."
      (check-p-convergence problem 1 3 :level 2 :position #d(0.25 0.25 0.25))))
 
   (format t "~%Laplace with exact solution u=x*y*z(1-x-y-z), i.e. u(1/4,1/4,1/4)=1/256=3.90625e-3~%")
-  (let* ((domain *unit-tetrahedron-domain*)
+  (let* ((domain (n-simplex-domain 3))
 	 (problem
 	  (cdr-model-problem
 	   domain :source #'(lambda (x) #I(2.0*(x[1]*x[2]+x[0]*x[2]+x[0]*x[1]))))))
@@ -124,6 +124,6 @@ non-structured meshes and/or on domains with curved boundary."
     )
   )
 
-;;; (FL.application::further-laplace-tests)
+;;; (fl.application::further-laplace-tests)
 (fl.tests:adjoin-test 'further-laplace-tests)
 

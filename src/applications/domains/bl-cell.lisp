@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :fl.application)
+(in-package :fl.domains)
 
 (defun bottom-mapping (dim f &optional grad-f)
   (let ((dim-1 (- dim 1)))

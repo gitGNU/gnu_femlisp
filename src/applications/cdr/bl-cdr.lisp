@@ -94,13 +94,13 @@ the load functional."
 	      :problem (boundary-layer-cell-problem domain)
 	      :fe-class (lagrange-fe order)
 	      :estimator
-	      (make-instance '<duality-error-estimator>
-			     :functional :load-functional)
+	      #+(or)(make-instance '<projection-error-estimator>)
+	      #-(or)(make-instance '<duality-error-estimator> :functional :load-functional)
 	      :indicator
 	      #+(or)(make-instance '<uniform-refinement-indicator>)
 	      (make-instance '<largest-eta-indicator> :pivot-factor 0.01
 			     :from-level 1 :block-p t)
-	      :output output :plot-mesh t
+	      :plot-mesh t :output output
 	      :observe (append *stationary-fe-strategy-observe*
 			       (list *cbl-observe* *eta-observe*))
 	      :success-if `(= :max-level ,(1- max-levels)))))
@@ -109,11 +109,13 @@ the load functional."
   *result*)
 
 #+(or) (cdr-bl-computation
-	2 4 2 :plot t :amplitude 0.15 :shift 1.0 :extensible nil :output :all)
+	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil :output 4)
+
 #|
 (profile:unprofile)
 (profile:report-time)
 (profile:reset-time)
+(profile:profile sparse-matrix->ccs)
 (profile:profile fl.discretization::increment-global-by-local-vec)
 (profile:profile fl.discretization::increment-global-by-local-mat)
 (profile:profile fl.discretization::get-local-from-global-vec)
@@ -192,11 +194,10 @@ the load functional."
   
   ;; testing if identification with only one cell width works
   (let* ((problem (sinusoidal-boundary-layer-cell-problem 2))
-	 (mesh (make-hierarchical-mesh-from-domain (domain problem)))
-	 (fe-class (lagrange-fe 1)))
-    (refine mesh :test #'(lambda (cell) (<= (aref (midpoint cell) 1) 0.0)))
+	 (mesh (make-hierarchical-mesh-from-domain (domain problem))))
+    (refine mesh :indicator #'(lambda (cell) (<= (aref (midpoint cell) 1) 0.0)))
     (multiple-value-bind (mat rhs)
-	(discretize-globally problem mesh fe-class)
+	(discretize-globally problem mesh (lagrange-fe 1))
       #+(or)(show mat)
       #-(or)
       (plot (linsolve mat rhs :iteration (make-instance '<lu>))
@@ -218,7 +219,7 @@ the load functional."
   (plot (getbb *result* :solution))
 
   ;; reiteration
-  (solve (s1-reduction-amg-solver 4 :reduction 1.0e-3 :output t) *result*)
+  (solve (s1-reduction-amg-solver 4 :reduction 1.0e-3) *result*)
   (plot (getbb *result* :solution))
   (plot (getbb *result* :mesh))
   (getbb *result* :global-eta)
