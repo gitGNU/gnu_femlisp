@@ -84,9 +84,20 @@ wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
 
 cd femlisp
 make infix
+make triangle
+
+# after checking the library paths in "femlisp/interface/Makefile"
 make superlu
 make umfpack
-make triangle
+
+make femlisp
+
+# if you work with CMUCL the following gives you an executable
+# make femlisp-core 
+
+# generate the documentation
+make doc
+
 @end example
 
 Now you should be in the @femlisp{} directory and you can continue
