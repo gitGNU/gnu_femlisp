@@ -77,5 +77,5 @@ Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the file LICENSE
 in the Femlisp main directory.  This is free software, and you are welcome
 to redistribute it under certain conditions.
 
-Type (demo) to get a guided tour through Femlisp.")
+Type (femlisp-demo:demo) to get a guided tour through Femlisp.")
 

@@ -1,3 +1,5 @@
+# -*- mode: text; -*-
+
 * Femlisp installation in a Unix environment
 
 ** Software needed
@@ -44,7 +46,7 @@ as Debian packages (maybe in 'testing').  The following are not yet.]
 
   7. Get the infix package.
 
-  8. In your initialization files do something like:
+  8. In your Lisp initialization file do something like:
 
   ;;; *cl-home* should be a string containing the absolute path to CL-HOME
   (setf (logical-pathname-translations "cl")
@@ -57,6 +59,11 @@ as Debian packages (maybe in 'testing').  The following are not yet.]
      if they do what you want.
 
   10. Compile and load Femlisp using (load "femlisp:start").
+
+  11. Switch to the application package by typing "(in-package
+      :application)" into the Lisp listener.  Then you can start the demos
+      by typing "(demo)".
+
 
 ** Possible problems:
 
