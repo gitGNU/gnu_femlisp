@@ -1,0 +1,10 @@
+# -*- mode: text; -*-
+
+For convenience, this directory contains some software by other parties and
+which some parts of Femlisp call.  This is the following:
+
+- Dan Barlow's ASDF system definition utility.  This is bundled with SBCL
+  but not yet with CMUCL.  This software is part of the CCLAN project
+  hosted at www.sourceforge.net.
+
+- Mark Kantrowitz' INFIX package from the CMU AI repository.
