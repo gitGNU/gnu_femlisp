@@ -83,6 +83,7 @@ cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
 wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
 
 cd femlisp
+make infix
 make superlu
 make umfpack
 make triangle
@@ -248,7 +249,7 @@ make slime
 @end example
 
 from within the @femlisp{} directory @path{femlisp}.  This will try to
-download a CVS version of SLIME in @path{femlisp/external}.
+download a version of SLIME in @path{femlisp/external}.
 
 Finally, put the following lines in the file @file{.emacs} in your home
 directory.

@@ -77,7 +77,7 @@ Checks if all of the @arg{properties} are in the property list
 @end deffn
 
 @anchor{fun-fl.utilities-common-lisp-speed}
-@deffn Function COMMON-LISP-SPEED &KEY (@var{CACHE} 0.5d0) (@var{MEMORY} 0.5d0)
+@deffn Function COMMON-LISP-SPEED &KEY (@var{CACHE} 0.5) (@var{MEMORY} 0.5)
 @findex COMMON-LISP-SPEED
 Returns the speed which should be characteristic for the setting
 determined by the keyword arguments.
@@ -984,7 +984,7 @@ Returns a deep copy of X.
 @end deffn
 
 @anchor{fun-fl.matlisp-copy!}
-@deffn Function COPY! @var{X} @var{Y}
+@deffn Function COPY! @var{A} @var{B}
 @findex COPY!
 Y <- X
 @end deffn
@@ -1031,7 +1031,7 @@ Loops on indices and entries of a vector.  Examples:
 @end deffn
 
 @anchor{fun-fl.matlisp-element-type}
-@deffn Function ELEMENT-TYPE @var{VECTOR}
+@deffn Function ELEMENT-TYPE @var{MATRIX}
 @findex ELEMENT-TYPE
 Type of the elements of the vector/matrix.
 @end deffn
@@ -1117,14 +1117,14 @@ General matrix-matrix multiplication: Z <- alpha * X * Y
 @end deffn
 
 @anchor{fun-fl.matlisp-gemm-nt!}
-@deffn Function GEMM-NT! @var{ALPHA} @var{X} @var{Y} @var{BETA} @var{Z}
+@deffn Function GEMM-NT! @var{ALPHA} @var{A} @var{Y} @var{BETA} @var{X}
 @findex GEMM-NT!
 General matrix-matrix multiplication: Z <- alpha * X * Y'
 + beta * Z
 @end deffn
 
 @anchor{fun-fl.matlisp-gemm-tn!}
-@deffn Function GEMM-TN! @var{ALPHA} @var{X} @var{Y} @var{BETA} @var{Z}
+@deffn Function GEMM-TN! @var{ALPHA} @var{A} @var{Y} @var{BETA} @var{X}
 @findex GEMM-TN!
 General matrix-matrix multiplication: Z <- alpha * X' * Y
 + beta * Z
@@ -1150,7 +1150,7 @@ Rewriting for GETRF  in terms of GETRF!.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrf!}
-@deffn Function GETRF! @var{MAT} &OPTIONAL @var{IPIV}
+@deffn Function GETRF! @var{A} &OPTIONAL @var{IPIV}
 @findex GETRF!
 Computes the PLU decomposition of X (overwriting X).
 Returns X and as a second value the permuations vector.
@@ -1163,7 +1163,7 @@ Rewriting for GETRS in terms of GETRS!.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrs!}
-@deffn Function GETRS! @var{LR} @var{B} &OPTIONAL @var{IPIV}
+@deffn Function GETRS! @var{LDU} @var{RESULT} &OPTIONAL @var{IPIV}
 @findex GETRS!
 Solves the given PLU decomposition for the rhs b while
 overwriting b.
@@ -1257,7 +1257,7 @@ M/! is an easier interface for GESV!.
 @end deffn
 
 @anchor{fun-fl.matlisp-make-double-vec}
-@deffn Function MAKE-DOUBLE-VEC @var{DIM} &OPTIONAL (@var{INIT} 0.0d0)
+@deffn Function MAKE-DOUBLE-VEC @var{DIM} &OPTIONAL (@var{INIT} 0.0)
 @findex MAKE-DOUBLE-VEC
 Returns a @class{double-vec} of length @arg{dim} and initial value
 @arg{init}.
@@ -1274,7 +1274,7 @@ structure defining the contents matrix.
 @end deffn
 
 @anchor{fun-fl.matlisp-make-real-vector}
-@deffn Function MAKE-REAL-VECTOR @var{DIM} &OPTIONAL (@var{VALUE} 0.0d0)
+@deffn Function MAKE-REAL-VECTOR @var{DIM} &OPTIONAL (@var{VALUE} 0.0)
 @findex MAKE-REAL-VECTOR
 Generates a real matrix of dimension @arg{dim} x 1.
 @end deffn
@@ -1361,13 +1361,13 @@ Returns alpha * X.  Uses SCAL! and COPY.
 @end deffn
 
 @anchor{fun-fl.matlisp-scal!}
-@deffn Function SCAL! @var{ALPHA} @var{X}
+@deffn Function SCAL! @var{VAL} @var{POLY}
 @findex SCAL!
 X -> alpha X
 @end deffn
 
 @anchor{fun-fl.matlisp-scalar-type}
-@deffn Function SCALAR-TYPE @var{VECTOR}
+@deffn Function SCALAR-TYPE @var{MATRIX}
 @findex SCALAR-TYPE
 Type of the scalars for the vector class.
 @end deffn
@@ -1431,7 +1431,7 @@ Returns the specified subvector.
 @end deffn
 
 @anchor{fun-fl.matlisp-vlength}
-@deffn Function VLENGTH @var{MAT}
+@deffn Function VLENGTH @var{SEQ}
 @findex VLENGTH
 Length of vector.
 @end deffn
@@ -1927,7 +1927,7 @@ Reduces identifications to maximally connected sets.
 @end deffn
 
 @anchor{fun-fl.mesh-compare-lexicographically}
-@deffn Function COMPARE-LEXICOGRAPHICALLY &KEY (@var{FUZZY} 1.0d-12) @var{DIRECTION}
+@deffn Function COMPARE-LEXICOGRAPHICALLY &KEY (@var{FUZZY} 1.0e-12) @var{DIRECTION}
 @findex COMPARE-LEXICOGRAPHICALLY
 Returns a function which compares two vectors lexicographically.
 @end deffn
@@ -2371,7 +2371,7 @@ Warning: does not handle identifications yet.
 @end deffn
 
 @anchor{fun-fl.mesh-sort-lexicographically}
-@deffn Function SORT-LEXICOGRAPHICALLY @var{ELIST} &KEY (@var{FUZZY} 1.0d-12)
+@deffn Function SORT-LEXICOGRAPHICALLY @var{ELIST} &KEY (@var{FUZZY} 1.0e-12)
 @findex SORT-LEXICOGRAPHICALLY
 Sorts a cell list lexicographically by the coordinates of their
 midpoint.
@@ -2851,7 +2851,7 @@ Superclasses: <PDE-PROBLEM>
 @end deftp
 
 @anchor{fun-fl.elasticity-check-elasticity-tensor}
-@deffn Function CHECK-ELASTICITY-TENSOR @var{TENSOR} &OPTIONAL (@var{THRESHOLD} 1.0d-6)
+@deffn Function CHECK-ELASTICITY-TENSOR @var{TENSOR} &OPTIONAL (@var{THRESHOLD} 1.0e-6)
 @findex CHECK-ELASTICITY-TENSOR
 Checks the symmetries in the elasticity tensor.
 @end deffn
@@ -3111,7 +3111,7 @@ Direct slots:
 @end deftp
 
 @anchor{fun-fl.discretization-assemble-interior}
-@deffn Function ASSEMBLE-INTERIOR @var{ANSATZ-SPACE} &KEY @var{LEVEL} (@var{WHERE} @var{SURFACE}) @var{MATRIX} @var{RHS} @var{SOLUTION} (@var{MASS-FACTOR} 0.0d0) (@var{STIFFNESS-FACTOR} 1.0d0) &ALLOW-OTHER-KEYS
+@deffn Function ASSEMBLE-INTERIOR @var{ANSATZ-SPACE} &KEY @var{LEVEL} (@var{WHERE} @var{SURFACE}) @var{MATRIX} @var{RHS} @var{SOLUTION} (@var{MASS-FACTOR} 0.0) (@var{STIFFNESS-FACTOR} 1.0) &ALLOW-OTHER-KEYS
 @findex ASSEMBLE-INTERIOR
 Assemble the interior, i.e. ignore constraints arising from boundaries
 and hanging nodes.  Discretization is done using the ansatz space
@@ -3775,7 +3775,7 @@ iteration iter.
 @end deffn
 
 @anchor{fun-fl.iteration-linsolve}
-@deffn Function LINSOLVE @var{MAT} @var{RHS} &KEY @var{SOL} @var{RES} @var{OUTPUT} @var{ITERATION} (@var{RESIDUAL-NORM} (@var{FUNCTION} @var{NORM})) (@var{THRESHOLD} 1.0d-12) @var{REDUCTION} (@var{MAXSTEPS} 100) @var{SUCCESS-IF} @var{FAILURE-IF} &ALLOW-OTHER-KEYS
+@deffn Function LINSOLVE @var{MAT} @var{RHS} &KEY @var{SOL} @var{RES} @var{OUTPUT} @var{ITERATION} (@var{RESIDUAL-NORM} (@var{FUNCTION} @var{NORM})) (@var{THRESHOLD} 1.0e-12) @var{REDUCTION} (@var{MAXSTEPS} 100) @var{SUCCESS-IF} @var{FAILURE-IF} &ALLOW-OTHER-KEYS
 @findex LINSOLVE
 Old and deprecated interface for solving linear problems.
 @end deffn
@@ -4282,7 +4282,7 @@ Write the data file for @arg{program} to
 @end deffn
 
 @anchor{fun-fl.graphic-send-graphic-commands}
-@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{PARAS} &KEY @var{FILENAME} @var{FORMAT} (@var{HEIGHT} 480) (@var{WIDTH} 480) (@var{RESOLUTION} 480) (@var{BACKGROUND} @var{BLACK}) @var{DIMENSION} (@var{PLOT} @var{T}) &ALLOW-OTHER-KEYS
+@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{PARAS} &KEY (@var{OUTPUT} "gnuplot.out") (@var{TERMINAL} "x11") (@var{TICS} @var{T}) (@var{BORDER} @var{T}) @var{BOTTOM} @var{TOP} @var{RIGHT} @var{LEFT} &ALLOW-OTHER-KEYS
 @findex SEND-GRAPHIC-COMMANDS
 Routine for sending commands to the graphics server.
 @end deffn
