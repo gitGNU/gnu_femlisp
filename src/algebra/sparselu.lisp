@@ -176,7 +176,6 @@
 @arg{row-ranges} may be used for extracting even subblocks of the entries.
 This is a rather difficult routine, which might suggest switching to CCS
 completely."
-  (declare (optimize debug))
   (ensure row-keys keys) (ensure col-keys keys)
   (unless row-keys
     (setq row-keys (coerce (row-keys A) 'vector))
@@ -200,64 +199,66 @@ completely."
     (let* ((nrows (vector-last row-offsets))
 	   (ncols (vector-last col-offsets))
 	   (n (loop for ck across col-keys
-		    and cs across col-sizes summing
-		    (* cs (let ((count 0))
-			    (for-each-key-in-col
-			     #'(lambda (rk)
-				 (whereas ((row-index (gethash rk row-numbering)))
-				   (incf count (aref row-sizes row-index))))
-			     A ck)
-			    count))))
-	   (column-starts (make-uint-vec (1+ ncols)))
-	   (row-indices (make-uint-vec n))
+		 and cs across col-sizes summing
+		 (* cs (let ((count 0))
+			 (for-each-key-in-col
+			  #'(lambda (rk)
+			      (whereas ((row-index (gethash rk row-numbering)))
+				(incf count (aref row-sizes row-index))))
+			  A ck)
+			 count))))
+	   (column-starts (make-int-vec (1+ ncols)))
+	   (row-indices (make-int-vec n))
 	   (store (make-double-vec n))
 	   (column-index 0) (pos 0))
       (setf (aref column-starts ncols) n)
       ;; loop through columns
       (loop
-       for ci from 0 and ck across col-keys do
-       ;; sort the block columns ...
-       (let* ((sorted-block-column
-	       (sort (remove nil (mapcar #'(lambda (x) (gethash x row-numbering))
-					 (hash-table-keys (matrix-column A ck))))
-		      #'<))
-	      (column-width (aref col-sizes ci))
-	      (col-range-start (if col-ranges
-				   (car (aref col-ranges ci))
-				   0))
-	      (column-length
-	       (loop for ri in sorted-block-column
-		     summing (aref row-sizes ri))))
-	 ;; and put in the ccs store
-	 (loop with pos1 = pos
-	       for ri in sorted-block-column
-	       for row-range-start = (if row-ranges
-					 (car (aref row-ranges ri))
-					 0)
-	       for row-offset = (aref row-offsets ri)
-	       for entry = (mref A (aref row-keys ri) ck) do
-	       (dotimes (i (aref row-sizes ri))
-		 (dotimes (j column-width)
-		   (let ((k (+ pos1 (* j column-length))))
-		     (setf (aref row-indices k) (+ i row-offset))
-		     (setf (aref store k)
-			   (mref entry (+ i row-range-start) (+ j col-range-start)))))
-		 (incf pos1)))
-	 ;; set column-starts
-	 (loop for i below column-width do
-	       (setf (aref column-starts column-index)
-		     (+ pos (* i column-length)))
-	       (incf column-index))
-	 ;; next block column
-	 (incf pos (* column-length column-width))))
-      (let ((pattern (make-instance
-		      'ccs-pattern :nrows nrows :ncols ncols
-		      :column-starts column-starts :row-indices row-indices)))
-	(make-instance (ccs-matrix 'double-float) :pattern pattern :store store)))))
+	 for ci from 0 and ck across col-keys do
+	 ;; sort the block columns ...
+	 (let* ((sorted-block-column
+		 (sort (remove nil (mapcar #'(lambda (x) (gethash x row-numbering))
+					   (hash-table-keys (matrix-column A ck))))
+		       #'<))
+		(column-width (aref col-sizes ci))
+		(col-range-start (if col-ranges
+				     (car (aref col-ranges ci))
+				     0))
+		(column-length
+		 (loop for ri in sorted-block-column
+		    summing (aref row-sizes ri))))
+	   ;; and put in the ccs store
+	   (loop with pos1 = pos
+	      for ri in sorted-block-column
+	      for row-range-start = (if row-ranges
+					(car (aref row-ranges ri))
+					0)
+	      for row-offset = (aref row-offsets ri)
+	      for entry = (mref A (aref row-keys ri) ck) do
+	      (dotimes (i (aref row-sizes ri))
+		(dotimes (j column-width)
+		  (let ((k (+ pos1 (* j column-length))))
+		    (setf (aref row-indices k) (+ i row-offset))
+		    (setf (aref store k)
+			  (mref entry (+ i row-range-start) (+ j col-range-start)))))
+		(incf pos1)))
+	   ;; set column-starts
+	   (loop for i below column-width do
+		(setf (aref column-starts column-index)
+		      (+ pos (* i column-length)))
+		(incf column-index))
+	   ;; next block column
+	   (incf pos (* column-length column-width))))
+      ;; return the result
+      (values
+       (let ((pattern (make-instance
+		       'ccs-pattern :nrows nrows :ncols ncols
+		       :column-starts column-starts :row-indices row-indices)))
+	 (make-instance (ccs-matrix 'double-float) :pattern pattern :store store))
+       row-keys col-keys))))
 
 (defun key->index (mat keys type)
   "Returns a hash-table mapping keys to CCS offsets."
-  (declare (optimize debug))
   (let ((numbering (make-hash-table))
 	(k 0))
     (map nil #'(lambda (ck)
@@ -322,7 +323,7 @@ associated with each key."
 
 (defmethod gesv! ((smat <sparse-matrix>) (svec <sparse-vector>))
   "Solve the system by calling an external sparse solver."
-  (let* ((keys (keys svec))
+  (let* ((keys (row-keys smat))
 	 (ccs (sparse-matrix->ccs smat :keys (coerce keys 'vector)))
 	 (cvec (sparse-vector->matlisp svec keys)))
     (gesv! ccs cvec)

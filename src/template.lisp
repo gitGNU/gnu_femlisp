@@ -4,7 +4,7 @@
 ;;; __FILENAME__.lisp - Sample header for a Femlisp source file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2004 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2005 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,9 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :cl-user)
+(in-package :fl.application)
 
-;;; Note: For including a source file written by someone else into Femlisp
-;;; I will probably require adequate written permissions.
+(file-documentation
+ "Note that for including substantial contributions of someone else into
+Femlisp I will need adequate written permissions.")
+

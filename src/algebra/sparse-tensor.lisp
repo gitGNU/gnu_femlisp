@@ -208,7 +208,7 @@ index in the sorted list."
 		   (format t "~&")
 		   (format t "~&>~VT" (* level 4)))
 	       (format t "~D  --> ~A" index entry)
-	       (if (or (typep entry '<tensor>)  (typep entry '<sparse-tensor>))
+	       (if (or (typep entry 'full-tensor)  (typep entry '<sparse-tensor>))
 		   (show-tensor entry (1+ level))))))
     (show-tensor tensor 0)
     (format t "~%")))

@@ -209,7 +209,7 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <sparse-matrix> ()
+(defclass <sparse-matrix> (<matrix>)
   ((row-table :accessor row-table :initarg :row-table
 	      :initform (make-hash-table :test #'eq) :type hash-table
 	      :documentation "Table of rows.")
@@ -415,21 +415,11 @@ means a lot of consing."
 ;;; Vector operation support
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
 (defmethod for-each-key ((fn function) (smat <sparse-matrix>))
   (maphash
    #'(lambda (row-key row-dic)
        (loop for col-key being each hash-key of row-dic do
-	     (funcall fn row-key col-key)))
-   (row-table smat)))
-
-(defmethod for-each-key-and-entry ((fn function) (smat <sparse-matrix>))
-  (maphash
-   #'(lambda (row-key row-dic)
-       (maphash
-	#'(lambda (col-key entry)
-	    (funcall fn row-key col-key entry))
-	  row-dic))
+	     (funcall fn (cons row-key col-key))))
    (row-table smat)))
 
 (defmethod for-each-entry ((fn function) (smat <sparse-matrix>))
@@ -437,17 +427,12 @@ means a lot of consing."
 	(loop for entry being the hash-values of row-dic do
 	      (funcall fn entry))))
 
-(defmethod for-each-entry-of-vec1 ((fn function) (smat1 <sparse-matrix>) (smat2 <sparse-matrix>))
-  (for-each-key-and-entry
-   #'(lambda (row-key col-key entry)
-       (funcall fn entry (mref smat2 row-key col-key)))
-   smat1))
-
-(defmethod for-each-entry-of-vec2 ((fn function) (smat1 <sparse-matrix>) (smat2 <sparse-matrix>))
-  (for-each-key-and-entry
-   #'(lambda (row-key col-key entry)
-       (funcall fn (mref smat1 row-key col-key) entry))
-   smat2))
+(defmethod for-each-key-and-entry ((fn function) (smat <sparse-matrix>))
+  (maphash #'(lambda (row-key row-dic)
+	       (maphash #'(lambda (col-key entry)
+			    (funcall fn (cons row-key col-key) entry))
+			row-dic))
+	   (row-table smat)))
 
 (defmethod for-each-row-key ((fn function) (smat <sparse-matrix>))
   "Loop through row keys."
@@ -518,12 +503,12 @@ means a lot of consing."
 (defmethod symmetric-p ((smat <sparse-matrix>) &key (threshold 0.0) output)
   (let ((flag t))
     (for-each-key-and-entry
-     #'(lambda (rk ck entry)
-	 (let ((entry2 (mref smat ck rk)))
+     #'(lambda (keys entry)
+	 (let ((entry2 (mref smat (cdr keys) (car keys))))
 	   (when (> (norm (m- entry2 (transpose entry))) threshold)
 	     (when output
-	       (format t "~&Mismatch~%i=~A, j=~A:~%Aij=~A~%Aji=~A~%~%"
-		       rk ck entry entry2))
+	       (format t "~&Mismatch~%(i,j)=~A:~%Aij=~A~%Aji=~A~%~%"
+		       keys entry entry2))
 	     (setq flag nil))))
      smat)
     flag))
@@ -539,8 +524,8 @@ means a lot of consing."
 
 (defmethod transpose! ((x <sparse-matrix>) (y <sparse-matrix>))
   (for-each-key-and-entry
-     #'(lambda (rk ck entry)
-	 (setf (mref y ck rk) (transpose entry)))
+     #'(lambda (keys entry)
+	 (setf (mref y (cdr keys) (car keys)) (transpose entry)))
      x)
   y)
 
@@ -604,22 +589,22 @@ means a lot of consing."
 (defmethod mat-diff ((smat1 <sparse-matrix>) (smat2 <sparse-matrix>))
   (format t "Missing in [2]~%")
   (for-each-key-and-entry
-   #'(lambda (rk ck entry)
-       (unless (matrix-block smat2 rk ck)
-	 (format t "~A : ~A~%~A~%" rk ck entry)))
+   #'(lambda (keys entry)
+       (unless (matrix-block smat2 (car keys) (cdr keys))
+	 (format t "~A:~%~A~%" keys entry)))
    smat1)
   (format t "Missing in [1]~%")
   (for-each-key-and-entry
-   #'(lambda (rk ck entry)
-       (unless (matrix-block smat1 rk ck)
-	 (format t "~A : ~A~%~A~%" rk ck entry)))
+   #'(lambda (keys entry)
+       (unless (matrix-block smat1 (car keys) (cdr keys))
+	 (format t "~A:~%~A~%" keys entry)))
    smat2)
   (format t "Differences~%")
   (for-each-key-and-entry
-   #'(lambda (rk ck entry)
-       (whereas ((entry2 (matrix-block smat2 rk ck)))
+   #'(lambda (keys entry)
+       (whereas ((entry2 (matrix-block smat2 (car keys) (cdr keys))))
 	 (unless (mzerop (m- entry entry2))
-	   (format t "~A : ~A~%" rk ck)
+	   (format t "~A :~%" keys)
 	   (format t "~A~%~A~%" entry entry2))))
    smat1))
 
@@ -833,9 +818,9 @@ sparse, the complexity of this routine is much lower."))
   "Extracts a sub-matrix from a sparse matrix."
   (let ((sub-mat (make-analog smat)))
     (for-each-key-and-entry
-     #'(lambda (row-key col-key entry)
-	 (when (funcall test row-key col-key entry)
-	   (setf (mref sub-mat row-key col-key) entry)))
+     #'(lambda (keys entry)
+	 (when (funcall test (car keys) (cdr keys) entry)
+	   (setf (vref sub-mat keys) entry)))
      smat)
     sub-mat))
 

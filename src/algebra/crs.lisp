@@ -4,7 +4,7 @@
 ;;; crs.lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2005 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-package :fl.algebra)
+
+(file-documentation
+ "This is rather old code which is almost not used.  It should be
+coordinated and combined with @file{ccs.lisp} in the @package{FL.MATLISP}
+package.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; crs-pattern : sparse matrix pattern
@@ -125,17 +130,12 @@ its actual offsets in the sparse graph."))
 ;;; crs-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass crs-matrix (<store-vector> <matrix>)
+(defclass crs-matrix (store-vector <matrix>)
   ((pattern :reader pattern :initarg :pattern :type crs-pattern
 	    :documentation "The pattern of the CRS matrix.  This is kept
-separate such that the same pattern can be used for many matrices.")
-   (store :reader store :initarg :store :type double-vec
-	  :documentation "The entries of the CRS matrix."))
+separate such that the same pattern can be used for many matrices."))
   (:documentation "The class @class{crs-matrix} combines a crs-pattern and
 a value vector."))
-
-(defmethod scalar-type ((crs-mat crs-matrix))
-  (array-element-type (store crs-mat)))
 
 (defmethod nrows ((A crs-matrix))
   (slot-value (pattern A) 'nrows))
@@ -146,11 +146,24 @@ a value vector."))
 (defmethod nr-of-entries ((A crs-matrix))
   (slot-value (pattern A) 'nr-of-entries))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun crs-matrix (type)
+    "Construct a CRS matrix with entries of @arg{type}."
+    (fl.amop:find-programmatic-class
+     (list (find-class 'crs-matrix) (store-vector type)))))
+
+(defmethod initialize-instance :after ((crs crs-matrix) &key &allow-other-keys)
+  (assert (typep crs 'store-vector))
+  (with-slots (store pattern) crs
+    (unless (slot-boundp crs 'store)
+      (setf store (make-array (slot-value pattern 'store-size)
+			      :element-type (element-type crs))))))
+
 (defun make-crs-matrix (pattern store)
   "make-crs-matrix: crs-matrix constructor."
   (unless (= (slot-value pattern 'store-size) (length store))
     (error "pattern does not fit with value vector"))
-  (make-instance 'crs-matrix :pattern pattern :store store))
+  (make-instance (crs-matrix 'double-float) :pattern pattern :store store))
 
 (defun make-full-crs-matrix (nrows ncols)
   (make-crs-matrix (full-crs-pattern nrows ncols)
@@ -184,38 +197,11 @@ a value vector."))
 ;;; vector blas operations for crs-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; These are given because crs-matrix is a <store-vector>.
+;;; These are given because crs-matrix is a store-vector.
 
-(defmethod copy ((mat crs-matrix))
-  (make-crs-matrix (pattern mat) (copy-seq (store mat))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; matrix-vector blas operations
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(definline x-op-Ay (x op A y)
-  (let* ((store (store A))
-	 (pattern (pattern A))
-	 (offsets (slot-value pattern 'offsets))
-	 (col-inds (slot-value pattern 'col-inds))
-	 (row-starts (slot-value pattern 'row-starts)))
-    (dotimes (row (nrows pattern) x)
-      (setf (aref x row)
-	    (let ((acc (if (eq op '=) 0.0 (aref x row))))
-	      (loop for k from (aref row-starts row) below (aref row-starts (1+ row))
-		    for val = (* (aref y (aref col-inds k))
-				 (aref store (aref offsets k)))
-		    do (if (eq op '-)
-			   (decf acc val)
-			 (incf acc val))
-		    finally (return acc)))))))
-
-(defmethod x<-Ay ((x array) (A crs-matrix) (y array))
-  (x-op-Ay x '= A y))
-(defmethod x+=Ay ((x array) (A crs-matrix) (y array))
-  (x-op-Ay x '+ A y))
-(defmethod x-=Ay ((x array) (A crs-matrix) (y array))
-  (x-op-Ay x '- A y))
+(defmethod make-analog ((mat crs-matrix))
+  (make-instance (crs-matrix (element-type mat))
+		 :pattern (pattern mat)))
 
 ;;;; Testing
 
@@ -223,13 +209,12 @@ a value vector."))
   (let* ((crs-pat (make-instance 'crs-pattern
 				 :nrows 2 :ncols 5
 				 :pattern '( ((* . 0) (a . 4))  ((a . 1)) )))
-	 (A (make-crs-matrix crs-pat #d(2.0 2.0)))
-	 (B (make-crs-matrix crs-pat #d(2.0 1.0)))
-	 (x #d(2.0 2.0))
-	 (y #d(1.0 1.0 1.0 1.0 1.0)))
+	 (A (make-instance (crs-matrix 'double-float)
+			   :pattern crs-pat :store #d(2.0 2.0)))
+	 (B (make-instance (crs-matrix 'double-float)
+			   :pattern crs-pat :store #d(2.0 1.0))))
     (describe (m+ A B))
     (describe (m- A B))
-    (describe (x+=Ay x A y))
     (describe A)
     (x<-0 A)
     (describe A)
