@@ -141,6 +141,7 @@ abstract class which is made concrete by mixing it with a store-vector."))
 (defvar *default-ccs-solver*
   #+superlu 'fl.alien::superlu
   #-superlu #+umfpack 'fl.alien::umfpack
+  #-(or superlu umfpack) nil
   "Default solver for the CCS format.  At the moment this can be UMFPACK or
 SuperLU.")
 
