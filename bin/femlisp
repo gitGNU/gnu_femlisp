@@ -11,8 +11,8 @@ case $CL_TYPE in
     *) echo "Unknown CL type"; exit 1;;
 esac
 
-if test -x $FEMLISP_DIR/bin/femlisp.core; then
+if test -f $FEMLISP_DIR/bin/femlisp.core; then
     exec $FEMLISP_CL $core $FEMLISP_DIR/bin/femlisp.core $eval "(progn (ext::print-herald) (cl-user::femlisp-banner))" $noinit;
 else
-    $FEMLISP_CL $load "$FEMLISP_DIR/femlisp-init.lisp" $eval "(progn (load \"$FEMLISP_DIR/start.lisp\") (in-package :fl.application) (import #+cmu 'ext::quit #+sbcl 'sb-ext::quit))" "$@";
+    $FEMLISP_CL $eval "(progn (load \"$FEMLISP_DIR/start.lisp\") (in-package :fl.application) (import #+cmu 'ext::quit #+sbcl 'sb-ext::quit))" "$@";
 fi
