@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :algebra)
+(in-package :fl.function)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; function class
@@ -155,12 +155,12 @@ computation are trivial."))
 
 (defmethod evaluate-gradient ((f <constant-function>) x)
   (assert (eq (length x) (domain-dimension f)))
-  (make-float-matrix (image-dimension f) (domain-dimension f)))
+  (make-real-matrix (image-dimension f) (domain-dimension f)))
 
 (defmethod evaluate-k-jet ((f <constant-function>) (k fixnum) x)
   (assert (eq (length x) (domain-dimension f)))
   (cond ((= k 0) (value f))
-	((= k 1) (make-float-matrix (image-dimension f) (domain-dimension f)))
+	((= k 1) (make-real-matrix (image-dimension f) (domain-dimension f)))
 	(t (make-real-tensor
 	    (coerce (cons (image-dimension f)
 			  (make-list k :initial-element (domain-dimension f)))
@@ -197,14 +197,14 @@ transforms also the result."))
 			   (m* (domain-A func) domain-A)
 			   (domain-A func)))
 	(setq domain-b (if domain-b
-			   (m+ (m* (domain-A func) domain-b) (domain-b func))
+			   (gemm 1.0 (domain-A func) domain-b 1.0 (domain-b func))
 			   (domain-b func))))
       (when (image-A func)
 	(setq image-A (if image-A
 			  (m* image-A (image-A func))
 			  (image-A func)))
 	(setq image-b (if image-b
-			  (m+ image-b (m* image-A (image-b func)))
+			  (gemm 1.0 image-A (image-b func) 1.0 image-b)
 			  (image-b func)))))
     (make-instance
      '<linearly-transformed-function>
@@ -218,14 +218,14 @@ transforms also the result."))
 
 (defun intermediate-coordinates (func pos)
   (if (domain-A func)
-      (m+ (m* (domain-A func) pos) (domain-b func))
+      (gemm 1.0 (domain-A func) pos 1.0 (domain-b func))
       pos))
 
 (defmethod evaluate ((func <linearly-transformed-function>) pos)
   (let ((result1 (evaluate (original func)
 			   (intermediate-coordinates func pos))))
     (if (image-A func)
-	(m+ (m* (image-A func) result1) (image-b func))
+	(gemm 1.0 (image-A func) result1 1.0 (image-b func))
 	result1)))
 
 (defmethod differentiable-p ((f <linearly-transformed-function>) &optional (k 1))
@@ -262,8 +262,8 @@ parameter."
      #'(lambda (x)
 	 (let ((s (aref x 0))
 	       (xrest (vector-slice x 1 domain-dim)))
-	   (vec+ (scal (- 1.0 s) (evaluate func1 xrest))
-		 (scal s (evaluate func2 xrest)))))
+	   (axpy! (- 1.0 s) (evaluate func1 xrest)
+		  (scal s (evaluate func2 xrest)))))
      :gradient
      (and (differentiable-p func1) (differentiable-p func2)
 	  #'(lambda (x)
@@ -272,7 +272,7 @@ parameter."
 		(join (ensure-matlisp
 		       (m- (evaluate func2 xrest) (evaluate func1 xrest)))
 		      (axpy! (- 1.0 s) (evaluate-gradient func1 xrest)
-			    (scal s (evaluate-gradient func2 xrest))))))))))
+			     (scal s (evaluate-gradient func2 xrest))))))))))
   
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -312,10 +312,10 @@ parameter."
 
 (defun ellipse-matrix (radius excentricity phi)
   "Returns a matrix A suitable for describing the ellipse as (Ax,x)=1."
-  (let ((ev1 [(cos phi) (- (sin phi))]')
-	(ev2 [(sin phi) (cos phi)]'))
-    (m+ (scal #I"((1+excentricity)/radius)^^2" (m* ev1 (transpose ev1)))
-	(scal #I"((1-excentricity)/radius)^^2" (m* ev2 (transpose ev2))))))
+  (let ((ev1 (make-real-matrix `(,(cos phi) ,(- (sin phi)))))
+	(ev2 (make-real-matrix `(,(sin phi) ,(cos phi)))))
+    (gemm-nt! #I"((1+excentricity)/radius)^^2" ev1 ev1
+	      #I"((1-excentricity)/radius)^^2" (m* ev2 (transpose ev2)))))
 
 (defun project-to-ellipsoid (midpoint A)
   "Returns a function which projects to the ellipsoid given by
@@ -334,7 +334,9 @@ A."
 		(Az (m* A z))
 		(Qz (dot z Az))
 		(norm-z (sqrt Qz)))
-	   (m- (scal (/ norm-z) (eye dim))
+	   #-(or)(gemm-nt! (/ -1 norm-z Qz) z Az
+		     (/ norm-z) (eye dim))
+	   #+(or)(m- (scal (/ norm-z) (eye dim))
 	       (scal (/ 1 norm-z Qz) (m* z (transpose Az)))))))))
 
 (defun project-to-sphere (midpoint radius)
@@ -344,29 +346,9 @@ radius."
    midpoint
    (scal (/ (* radius radius)) (eye (length midpoint)))))
 
-#+(or)
-(defun project-to-sphere (midpoint radius)
-  "Returns a function which projects to the sphere with given midpoint and
-radius."
-  (let ((dim (length midpoint)))
-    (make-instance
-     '<special-function> :domain-dimension dim :image-dimension dim
-     :evaluator
-     #'(lambda (x)
-	 (let ((z (m- x midpoint)))
-	   (axpy (/ radius (norm z)) z midpoint)))
-     :gradient
-     #'(lambda (x)
-	 (let* ((z (ensure-matlisp (m- x midpoint)))
-		(norm-z (norm z))
-		(unit-z (scal (/ norm-z) z)))
-	   (scal (/ radius norm-z)
-		 (gemm -1.0 unit-z unit-z 1.0 (eye dim) :nt)))))))
-
 (defun xn-distortion-function (f grad-f dim)
   "Returns a function which distorts the xn-coordinate by a factor f(x').
 Also grad-f has to be provided."
-  (declare (optimize (debug 3)))
   (let ((dim-1 (- dim 1)))
     (make-instance
      '<special-function>
@@ -374,8 +356,8 @@ Also grad-f has to be provided."
      :evaluator
      #'(lambda (x)
 	 (let ((z (copy x)))
-	   (setf (vec-ref z dim-1)
-		 (* (vec-ref z dim-1)
+	   (setf (aref z dim-1)
+		 (* (aref z dim-1)
 		    (funcall f (vector-slice x 0 dim-1))))
 	   z))
      :gradient
@@ -387,11 +369,10 @@ Also grad-f has to be provided."
 		     (gradient (funcall grad-f xrest))
 		     (result (eye dim)))
 		(dotimes (i dim-1)
-		  (setf (matrix-ref result dim-1 i)
-			(* (vec-ref gradient i) xn)))
-		(setf (matrix-ref result dim-1 dim-1) value)
+		  (setf (mref result dim-1 i)
+			(* (vref gradient i) xn)))
+		(setf (mref result dim-1 dim-1) value)
 		result))))))
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -405,9 +386,11 @@ Also grad-f has to be provided."
        (make-real-matrix
 	(loop with dim = (length pos)
 	      for k below dim collect
-	      (scal (/ (* 2 shift))
-		    (m- (evaluate func (axpy shift (unit-vector dim k) pos))
-			(evaluate func (axpy (- shift) (unit-vector dim k) pos)))))))))
+	      (coerce
+	       (scal (/ (* 2 shift))
+		     (m- (evaluate func (axpy shift (unit-vector dim k) pos))
+			 (evaluate func (axpy (- shift) (unit-vector dim k) pos))))
+	       'list))))))
 
 (defun interval-method (func a b accuracy)
   "Finds zeros of functions in 1d by the interval method."
@@ -429,25 +412,26 @@ Also grad-f has to be provided."
 	(t (interval-method a b))))))
 
 
-;;;; Testing: (test-function)
+;;;; Testing
 
 (defun test-function ()
-  (let ((project (project-to-sphere (double-vec 0.5 0.5) 0.5)))
-    (evaluate project (double-vec 1.0 0.5))
-    (evaluate-gradient project (double-vec 1.0 0.5)))
-  (evaluate (project-to-ellipsoid #(0.0d0 0.0d0) (eye 2)) #(3.0d0 4.0d0))
-  (evaluate-gradient (project-to-ellipsoid #(-1.0d0 0.0d0) (eye 2)) #(3.0d0 4.0d0))
-  (evaluate-gradient (project-to-sphere #(-1.0d0 0.0d0) 1.0) #(3.0d0 4.0d0))
+  (let ((project (project-to-sphere #d(0.5 0.5) 0.5)))
+    (evaluate project #d(2.0 0.5))
+    (evaluate-gradient project #d(2.0 0.5)))
+  (evaluate (project-to-ellipsoid #d(0.0 0.0) (eye 2)) #d(3.0 4.0))
+  (evaluate-gradient (project-to-ellipsoid #d(-1.0 0.0) (eye 2)) #d(3.0 4.0))
+  (evaluate-gradient (project-to-sphere #d(-1.0 0.0) 1.0) #d(3.0 4.0))
   (let ((distortion
 	 (xn-distortion-function #'(lambda (x) #I"1+0.5*sin(x[0])")
 				 #'(lambda (x) (vector #I"0.5*cos(x[0])"))
 				 2))
-	(pos #(1.7 1.0)))
+	(pos #d(1.7 1.0)))
     (evaluate distortion pos)
     (let ((grad (evaluate-gradient distortion pos))
 	  (num-grad (evaluate (numerical-gradient distortion) pos)))
       (assert (< (norm (m- grad num-grad)) 1.0e-4))))
   (interval-method #'(lambda (x) (- (* x x) 2.0)) 0.0 2.0 1e-16))
 
-(tests::adjoin-femlisp-test 'test-function)
+;;; (test-function)
+(fl.tests:adjoin-test 'test-function)
      

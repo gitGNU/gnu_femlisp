@@ -35,7 +35,7 @@
 (in-package :discretization)
 
 (defmethod fe-local-value ((asv <ansatz-space-vector>) cell local-pos)
-  "Evaluates a finite element function in cell at local coordinates local-pos."
+  "Evaluates a finite element function in CELL at LOCAL-POS."
   (let* ((fe (get-fe (fe-class asv) cell))
 	 (f-values (get-local-from-global-vec cell fe asv))
 	 (nr-comps (nr-of-components fe))
@@ -51,10 +51,10 @@
 				 (aref f-values comp)
 				 f-values)))))))
 
-(defmethod fe-value ((asv <ansatz-space-vector>) pos)
-  "Evaluates a finite element function at point pos."
-  (let ((cell (find-cell-from-position (mesh asv) pos)))
-    (fe-local-value asv cell (global->local cell pos))))
+(defmethod fe-value ((asv <ansatz-space-vector>) global-pos)
+  "Evaluates a finite element function at GLOBAL-POS."
+  (let ((cell (find-cell-from-position (mesh asv) global-pos)))
+    (fe-local-value asv cell (global->local cell global-pos))))
 
 (defmethod fe-local-gradient ((asv <ansatz-space-vector>) cell local-pos)
   "Evaluates a finite element gradient on cell at local coordinates local-pos."
@@ -71,8 +71,10 @@
 	    for shape in (fe-basis (aref components comp))
 	    and i from 0 do
 	    (m-incf (aref result comp)
-		    (scal (vec-ref f-values i)
-			  (m* (ensure-matlisp (evaluate-gradient shape local-pos) :row)
+		    (scal (vref f-values i)
+			  (m* (ensure-matlisp
+			       (coerce (evaluate-gradient shape local-pos) 'double-vec)
+			       :row)
 			      Dphi^-1)))))))
 
 (defmethod fe-gradient ((asv <ansatz-space-vector>) pos)
@@ -80,7 +82,7 @@
   (let ((cell (find-cell-from-position (mesh asv) pos)))
     (fe-local-gradient asv cell (global->local cell pos))))
 
-(defmethod cell-integrate (cell x &key (initial-value 0.0d0) (combiner #'+) (key #'identity))
+(defmethod cell-integrate (cell x &key (initial-value 0.0) (combiner #'+) (key #'identity))
   (let* ((fe-class (fe-class x))
 	 (fe (get-fe fe-class cell))
 	 (qrule (quadrature-rule fe-class fe))
@@ -104,7 +106,7 @@
     result))
 
 (defmethod fe-integrate ((asv <ansatz-space-vector>) &key cells skeleton
-			 (initial-value 0.0d0) (combiner #'+) (key #'identity))
+			 (initial-value 0.0) (combiner #'+) (key #'identity))
   "Integrates a finite element function over the domain.  key is a
 transformer function, as always (e.g. #'abs if you want the L1-norm)."
   (let ((result initial-value))
@@ -127,10 +129,10 @@ transformer function, as always (e.g. #'abs if you want the L1-norm)."
     (dotimes (k (length x-values))
       (let ((comp-values (aref x-values k)))
 	(dotimes (j (multiplicity x))
-	  (symbol-macrolet ((min_kj (matrix-ref minimum k j))
-			    (max_kj (matrix-ref maximum k j)))
+	  (symbol-macrolet ((min_kj (mref minimum k j))
+			    (max_kj (mref maximum k j)))
 	    (dotimes (i (nrows comp-values))
-	      (let ((entry (matrix-ref comp-values i j)))
+	      (let ((entry (mref comp-values i j)))
 		(if initialized-p
 		    (progn 
 		      (setf min_kj (min min_kj entry))

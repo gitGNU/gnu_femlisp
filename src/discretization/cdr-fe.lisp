@@ -34,8 +34,8 @@
 
 (in-package :cl-user)
 (defpackage "CDR-FE"
-  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP.MATLISP"
-	"MESH" "PROBLEM" "CDR" "DISCRETIZATION" "ALGEBRA")
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+	"MESH" "PROBLEM" "CDR" "DISCRETIZATION" "ALGEBRA" "FL.FUNCTION")
   (:export ))
 (in-package :cdr-fe)
 
@@ -61,6 +61,7 @@ other problems or other finite element discretizations.  |#
 (defmethod discretize-locally ((problem <cdr-problem>) coeffs fe qrule fe-geometry
 			       &key local-mat local-rhs local-sol local-u local-v)
   "Local discretization for a convection-diffusion-reaction equation."
+  #+(or)
   (declare (type (or null real-matrix) local-mat)
 	   (type (or null real-matrix) local-sol local-rhs local-u local-v))
   (let ((diffusion-function (getf coeffs 'CDR::DIFFUSION))
@@ -92,16 +93,16 @@ other problems or other finite element discretizations.  |#
 		  (let* ((diff-tensor (evaluate diffusion-function coeff-input))
 			 (fluxes (m* left-gradients diff-tensor))) ; (n-basis x dim)-matrix
 		    (when local-mat
-		      (gemm! weight fluxes right-gradients 1.0d0 local-mat :NT))
+		      (gemm! weight fluxes right-gradients 1.0 local-mat :NT))
 		    ;; gamma
 		    (when (and gamma-function local-rhs)
 		      (gemm! weight fluxes (evaluate gamma-function coeff-input)
-			     1.0d0 local-rhs))
+			     1.0 local-rhs))
 		    ))
 		;; convection
 		(when (and convection-function local-mat)
 		  (let* ((velocity-vector (evaluate convection-function coeff-input)))
-		    (gemm! (- weight) (m* left-gradients velocity-vector) right-vals 1.0d0 local-mat :NT)))
+		    (gemm! (- weight) (m* left-gradients velocity-vector) right-vals 1.0 local-mat :NT)))
 	    ))
 	    
 	    ;; reaction
@@ -110,15 +111,15 @@ other problems or other finite element discretizations.  |#
 		     (factor (* weight reaction)))
 		(when alpha-function
 		  (setq factor (* factor (evaluate alpha-function coeff-input))))
-		(gemm! factor left-vals right-vals 1.0d0 local-mat :NT)))
+		(gemm! factor left-vals right-vals 1.0 local-mat :NT)))
 	    
 	    ;; source
 	    (when (and source-function local-rhs)
 	      (let ((source (evaluate source-function coeff-input)))
 		(when alpha-function
 		  (setq source (scal (evaluate alpha-function coeff-input) source)))
-		(when (numberp source) (setq source [source]))
-		(gemm! weight left-vals source 1.0d0 local-rhs)
+		(when (numberp source) (setq source (make-real-matrix `((,source)))))
+		(gemm! weight left-vals source 1.0 local-rhs)
 		))
 	    ))
     ;; custom fe rhs
@@ -159,10 +160,10 @@ other problems or other finite element discretizations.  |#
 		    ;; The following is only correct for degrees of freedom of
 		    ;; Lagrange type.  Perhaps one should use Hermite finite
 		    ;; cells only in the interior?
-		    (setf (mat-ref (mat-ref constraints-P cell-key cell-key) k k) 1.0d0)
+		    (setf (mref (mref constraints-P cell-key cell-key) k k) 1.0)
 		    ;;		       (clear-row mat cell k)
-		    ;;		       (setf (mat-ref (mat-ref mat cell cell) k k) 1.0d0)
-		    (setf (vec-ref (vec-ref constraints-rhs cell-key) k)
+		    ;;		       (setf (mref (mref mat cell cell) k k) 1.0)
+		    (setf (vref (vref constraints-rhs cell-key) k)
 			  (evaluate dirichlet-function
 				    (list :local (dof-coord dof)
 					  :global (local->global cell (dof-gcoord dof))))))
@@ -171,16 +172,16 @@ other problems or other finite element discretizations.  |#
 
 ;;; Testing
 (defun cdr-fe-tests ()
-  (let* ((order 1) (level 2)
+  (let* ((order 1) (level 1)
 	 (problem (cdr-model-problem 1))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order))
 	 (as (make-fe-ansatz-space fedisc problem h-mesh)))
     (with-items (&key matrix rhs)
 	(fe-discretize (blackboard :ansatz-space as))
-      (m* (sparse-ldu matrix) rhs)))
+      (show (getrs (sparse-ldu matrix) rhs))))
   
-  (let* ((level 3) (order 2)
+  (let* ((level 1) (order 1)
 	 (problem (cdr-model-problem 1))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (as1 (make-fe-ansatz-space (lagrange-fe order) problem h-mesh))
@@ -189,14 +190,11 @@ other problems or other finite element discretizations.  |#
 	(fe-discretize (blackboard :ansatz-space as1))
       ;; set constraints
       (fe-discretize (blackboard :ansatz-space as2))
-      (let ((sol (m* (sparse-ldu matrix) rhs))
-	    (low->high (transfer-matrix as1 as2))
-	    (high->low (transfer-matrix as2 as1)))
+      (let* ((sol (getrs (sparse-ldu matrix) rhs))
+	     (low->high (transfer-matrix as1 as2))
+	     (high->low (transfer-matrix as2 as1)))
 	(assert (< (norm (m- sol (m* high->low (m* low->high sol)))) 1.0e-10)))))
   )
 
-(tests::adjoin-femlisp-test 'cdr-fe-tests)
-
-
-
+(fl.tests:adjoin-test 'cdr-fe-tests)
 

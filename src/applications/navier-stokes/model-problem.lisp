@@ -53,8 +53,8 @@
       #+(or)
       (make-instance '<special-solver> :solver-function
 		     #'(lambda (&key matrix rhs &allow-other-keys)
-			 (m* (sparse-ldu matrix :ordering (boundary-last-order matrix))
-			     rhs)))
+			 (getrs (sparse-ldu matrix :ordering (boundary-last-order matrix))
+				rhs)))
       #-(or)  ; no local mg here yet
       (make-instance
        '<linear-solver> :iteration
@@ -135,4 +135,4 @@
   ;;(fe-extreme-values  (getbb *result* :solution))
 )
 
-(adjoin-femlisp-test 'test-ns-model-problem)
+(fl.tests:adjoin-test 'test-ns-model-problem)

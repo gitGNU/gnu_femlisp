@@ -63,7 +63,7 @@
 
 (defun euclidean->barycentric (pos)
   (let ((vec (make-double-vec (1+ (length pos))))
-	(sum 1.0d0))
+	(sum 1.0))
     (declare (type double-float sum))
     (dotimes (i (length pos))
       (decf sum (setf (aref vec (1+ i)) (aref pos i))))
@@ -71,32 +71,37 @@
     ;; return result
     vec))
 
-(defmethod l2g ((cell <simplex>) (local-pos array))
+(defmethod l2g ((cell <simplex>) local-pos)
   "Evaluate the linear transformation defined by the coordinates of the
 simplex corners."
-  (loop with result = (make-double-vec (manifold-dimension cell))
-	for bc across (euclidean->barycentric local-pos)
-	and corner in (corners cell) do
-	(x+=s*y result bc corner)
-	finally (return result)))
+  (let ((dim (manifold-dimension cell)))
+    (declare (type fixnum dim))
+    (let ((result (make-double-vec dim)))
+      (declare (type double-vec result))
+      (loop for bc of-type double-float across (euclidean->barycentric local-pos)
+	    and corner of-type double-vec in (corners cell) do
+	    (dotimes (i dim)
+	      (declare (optimize (speed 3)))
+	      (incf (aref result i) (* bc (aref corner i))))
+	    finally (return result)))))
 
-(defmethod l2Dg ((simplex <simplex>) (local-pos array))
+(defmethod l2Dg ((simplex <simplex>) local-pos)
   "Returns the linear transformation defined by the coordinates of the
 simplex corners."
   (let* ((dim (dimension simplex))
 	 (corners (corners simplex))
 	 (origin (car corners))
 	 (mdim (length origin))
-	 (mat (make-float-matrix mdim dim)))
+	 (mat (make-real-matrix mdim dim)))
     (assert (= (length corners) (1+ dim)))
     (loop for corner in (cdr corners)
 	  for col from 0 do
 	  (dotimes (row mdim)
-	    (setf (mat-ref mat row col)
+	    (setf (mref mat row col)
 		  (- (aref corner row) (aref origin row))))
 	  finally (return mat))))
 
-(defmethod l2jet ((simplex <simplex>) (local-pos array) (k integer))
+(defmethod l2jet ((simplex <simplex>) local-pos (k integer))
   "The jet of a simplex with linear cell mapping is 0 above the first
 derivative."
   (loop with dim = (dimension simplex)
@@ -109,11 +114,11 @@ derivative."
 
 (defmethod coordinates-inside? ((cell <simplex>) local-pos)
   (and (not (some #'minusp local-pos))
-       (<= (reduce #'+ local-pos) 1.0d0)))
+       (<= (reduce #'+ local-pos) 1.0)))
 
 (defmethod local-coordinates-of-midpoint ((cell <simplex>))
   (let ((dim (dimension cell)))
-    (make-double-vec dim (/ 1.0d0 (1+ dim)))))
+    (make-double-vec dim (/ 1.0 (1+ dim)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Regular simplex refinement by Freudenthal/Bey
@@ -141,7 +146,7 @@ Example: (freudenthal-refinement 1) -> ((#(2 0) #(1 1)) (#(1 1) #(0 2)))"
     (for (i 0 n)
       (for (j i n)
 	(setf (aref positions i j)
-	      (vec-s* 0.5d0 (vec+ (unit-vector n+1 i) (unit-vector n+1 j))))))
+	      (scal 0.5 (m+ (unit-vector n+1 i) (unit-vector n+1 j))))))
     (loop for indices in (two-sorted-parts n)
 	  collect
 	  (let ((index-vector (permutation-shifted-inverse
@@ -336,11 +341,11 @@ functions from skeleton-build should be prefered."
   (mapcar #'corners
 	  (cells-of-highest-dim
 	   (refcell-refinement-skeleton *unit-triangle* 1)))
-  (l2g *unit-triangle* #(0.5d0 0.5d0))
-  (let ((bc (euclidean->barycentric #(0.5d0 0.5d0)))
+  (l2g *unit-triangle* #(0.5 0.5))
+  (let ((bc (euclidean->barycentric #(0.5 0.5)))
 	(corners (corners *unit-triangle*)))
-    (mapc #'vec-s* (coerce bc 'list) corners))
-  (local->global *unit-triangle* #(0.5d0 0.5d0))
+    (mapc #'scal (coerce bc 'list) corners))
+  (local->global *unit-triangle* #(0.5 0.5))
   (n-simplex 5)
   (describe (refine-globally (skeleton *unit-tetrahedron*)))
   (refine-info *unit-interval*)
@@ -349,4 +354,4 @@ functions from skeleton-build should be prefered."
   )
 
 ;;; (test-simplex)
-(tests::adjoin-femlisp-test 'test-simplex)
+(fl.tests:adjoin-test 'test-simplex)

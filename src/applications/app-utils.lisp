@@ -91,7 +91,7 @@
 (defmethod correction-tensor ((solution <ansatz-space-vector>) (rhs <ansatz-space-vector>))
   (let ((result (make-real-matrix (multiplicity solution) (multiplicity rhs))))
     (dovec ((key) solution)
-      (gemm! 1.0 (vec-ref solution key) (vec-ref rhs key) 1.0 result :tn))
+      (gemm! 1.0 (vref solution key) (vref rhs key) 1.0 result :tn))
     result))
 
 (defun convert-correction (mat)
@@ -103,9 +103,9 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
       (dotimes (j dim)
 	(setf (aref result i j) (make-real-matrix dim))))
     (multi-for (index (make-fixnum-vec 4) (make-fixnum-vec 4 (1- dim)))
-      (setf (mat-ref (aref result (aref index 0) (aref index 1))
+      (setf (mref (aref result (aref index 0) (aref index 1))
 		     (aref index 2) (aref index 3))
-	    (mat-ref mat
+	    (mref mat
 		     (+ (* dim (aref index 0)) (aref index 2))
 		     (+ (* dim (aref index 1)) (aref index 3) ))))
     result))

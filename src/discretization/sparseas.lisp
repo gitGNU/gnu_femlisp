@@ -52,7 +52,7 @@ This class is used as a mixin for deriving the classes
 <ansatz-space-vector> and <ansatz-space-matrix> from <sparse-vector> and
 <sparse-matrix>, respectively."))
 
-(defmethod** hierarchical-mesh ((as <ansatz-space>))
+(defmethod hierarchical-mesh ((as <ansatz-space>))
   "h-mesh accessor for ansatz-space.  Use it for emphasizing that you work
 with a hierarchical mesh."
   (the <hierarchical-mesh> (mesh as)))
@@ -85,13 +85,13 @@ these matrices change when mesh or discretization are adapted."))
   "Gets a representative cell for some key."
   (if (listp obj) (car obj) obj))
 
-(defmethod** key->size (ansatz-space)
+(defmethod key->size (ansatz-space)
   (let ((fe-class (fe-class ansatz-space)))
     #'(lambda (key)
 	(nr-of-inner-dofs
 	 (get-fe fe-class (representative key))))))
 
-(defmethod** print-key (ansatz-space)
+(defmethod print-key (ansatz-space)
   (declare (ignore ansatz-space))
   #'(lambda (key) (princ key)))
 
@@ -167,7 +167,7 @@ vector shares part of the values."
      #'(lambda (key entry)
 	 (let ((fe (funcall cell->fe (representative key))))
 	   (when (plusp (nr-of-inner-dofs fe))
-	     (setf (vec-ref comp-asv key)
+	     (setf (vref comp-asv key)
 		   (make-instance '<submatrix> :matrix entry
 				  :row-keys (inner-dof-indices fe)
 				  :col-keys indices)))))
@@ -263,7 +263,7 @@ accelerated by taking member-checks out of the loop."
      #'(lambda (row-key col-key entry)
 	 (when (and (or (not row?) (member-of-skeleton? (representative row-key) skel))
 		    (or (not col?) (member-of-skeleton? (representative col-key) skel)))
-	   (setf (mat-ref sub-mat row-key col-key) entry)))
+	   (setf (mref sub-mat row-key col-key) entry)))
      asa)
     sub-mat))
 
@@ -277,12 +277,12 @@ accelerated by taking member-checks out of the loop."
 	  (setf (aref decomposed k) (extract-level as-obj k)))
     decomposed))
 
-(defmethod make-row-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
+(defmethod make-domain-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
   (when multiplicity
     (assert (= multiplicity (multiplicity (problem (ansatz-space A))))))
   (make-ansatz-space-vector (ansatz-space A)))
 
-(defmethod make-column-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
+(defmethod make-image-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
   (when multiplicity
     (assert (= multiplicity (multiplicity (problem (ansatz-space A))))))
   (make-ansatz-space-vector (ansatz-space A)))
@@ -314,7 +314,7 @@ reference finite element is collected into an interpolation matrix."
 			  (subcell-id (cell-key (aref subcells j) h-mesh)))
 		     (when (eq (representative child-id) child)
 		       ;; we have to add only one sample for identified cells
-		       (m+! mblock (mat-ref imat child-id subcell-id)))))))))
+		       (m+! mblock (mref imat child-id subcell-id)))))))))
       (skel-for-each #'insert-local-imat (or region level-mesh)))
     imat))
 
@@ -355,7 +355,7 @@ finite element is copied into the global projection matrix."
 		   (let ((subcell-children (subcell-children cell h-mesh))
 			 (cell-id (cell-key cell h-mesh)))
 		     (dotensor ((k . pmat-block) local-pmat)
-		       (setf (mat-ref pmat cell-id (cell-key (aref subcell-children k) h-mesh))
+		       (setf (mref pmat cell-id (cell-key (aref subcell-children k) h-mesh))
 			     pmat-block))))))))
       (skel-for-each #'insert-local-pmat (or region level-mesh)))
     pmat))
@@ -420,7 +420,7 @@ masters."
 				   local-prol
 				   :from-row 0 :from-col l
 				   :nrows nrows :ncols subcell-ndofs)
-				 (mat-ref prol key subcell-key))))))))))))
+				 (mref prol key subcell-key))))))))))))
     ;; next pass: eliminate hanging nodes
     (for-each-col-key
      #'(lambda (j)
@@ -434,7 +434,7 @@ masters."
 		 #'(lambda (k Q_jk)
 		     (assert (not (eq j k)))
 		     #+debug (format t "     substituting ~A ~A~%" k Q_jk)
-		     (gemm! 1.0d0 prol_ij Q_jk 1.0d0 (mat-ref prol i k)))
+		     (gemm! 1.0 prol_ij Q_jk 1.0 (mref prol i k)))
 		 domain-constraints-Q j))
 	    prol j)
 	   (remove-column prol j)))
@@ -449,7 +449,7 @@ masters."
     prol))
 
 
-;;;; Testing: (test-sparseas)
+;;;; Testing
 (defun test-sparseas ()
   ;; tests if projection and interpolation with third order finite elements
   ;; yield identity on a quadratic polynomial
@@ -460,12 +460,14 @@ masters."
 	 (x (make-ansatz-space-vector ansatz-space))
 	 (I (interpolation-matrix ansatz-space))
 	 (P (projection-matrix ansatz-space)))
-    (set-lagrange-ansatz-space-vector x #'(lambda (coord) #I"coord[0]*(1.0d0-coord[0])"))
+    (set-lagrange-ansatz-space-vector x #'(lambda (coord) #I"coord[0]*(1.0-coord[0])"))
     (let ((y (sparse-m* P x :sparsity :B)))
       (let ((z (sparse-m* I y :sparsity :B)))
 	(show x)
 	(show z)
-	(assert (< (norm (m- z x)) 1.0d-10)))))
+	(assert (< (norm (m- z x)) 1.0d-10))
+	(symbol-package (class-name (class-of z)))
+	)))
   (let* ((dim 1) (domain (n-cell-domain dim))
 	 (mesh (uniformly-refined-hierarchical-mesh domain 1))
 	 (dummy-problem (make-instance '<problem> :domain domain))
@@ -494,5 +496,6 @@ masters."
       (assert (midentity-p (sparse-m* tm2->1 tm1->2) 1.0e-10))))
   )
 
-(tests:adjoin-femlisp-test 'test-sparseas)
+;;; (test-sparseas)
+(fl.tests:adjoin-test 'test-sparseas)
 

@@ -142,13 +142,13 @@ the Galerkin product A_C = I^t A I."
   (for-each-key-in-col
    #'(lambda (row-key)
        (or (eq key row-key)
-	   (mzerop (mat-ref mat row-key key))
+	   (mzerop (mref mat row-key key))
 	   (return-from slave-dof-p nil)))
    mat key)
   (for-each-key-in-row
    #'(lambda (col-key)
        (or (eq key col-key)
-	   (mzerop (mat-ref mat key col-key))
+	   (mzerop (mref mat key col-key))
 	   (return-from slave-dof-p t)))
    mat key)
   nil)
@@ -159,7 +159,7 @@ the fine grid."
   (for-each-key-in-row
    #'(lambda (col-key)
        (or (eq key col-key)
-	   (mzerop (mat-ref mat key col-key))
+	   (mzerop (mref mat key col-key))
 	   (return-from dirichlet-dof-p nil)))
    mat key)
   t)
@@ -266,7 +266,7 @@ avoiding generic arithmetic."
 		   (let ((R_kl*A_lm (m* R_kl A_lm)))
 		     (for-each-key-and-entry-in-row
 		      #'(lambda (n P_mn) ; loop through row m of P
-			  (let ((result-entry (mat-ref result k n))) 
+			  (let ((result-entry (mref result k n))) 
 			    (assert (= (nrows R_kl*A_lm) (nrows result-entry)))
 			    (assert (= (ncols R_kl*A_lm) (nrows P_mn)))
 			    (assert (= (ncols P_mn) (ncols result-entry)))

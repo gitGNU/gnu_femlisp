@@ -40,10 +40,10 @@
 
 ;;; *** Convergence of different methods on a small matrix
 #+(or)
-(let ((A [[ 2.0 -1.0  0.0]'
-	  [-1.0  2.0 -1.0]'
-	  [ 0.0 -1.0  2.0]'])
-      (b [1.0 2.0 1.0]'))
+(let ((A #m((2.0 -1.0  0.0)
+	    (-1.0  2.0 -1.0)
+	    ( 0.0 -1.0  2.0)))
+      (b #m((1.0) (2.0) (1.0))))
  ;(linsolve A b :output t :iteration *undamped-jacobi*)
   ;(linsolve A b :output t :iteration *gauss-seidel*)
   (linsolve A b :output t :iteration (make-instance '<sor> :omega 1.18))
@@ -109,7 +109,7 @@
     (model-problem-discretization :dim 2 :level 4)
     (model-problem-discretization :level 5)
   (let ((x (copy b)))
-    (x<-0 b) (x<-random x 1.0d0)
+    (x<-0 b) (fill-random! x 1.0)
     (loop repeat 20 do
 	  (plot x) (sleep 0.5)
 	  (linsolve A b :sol x :output t :iteration
@@ -130,7 +130,7 @@
   (multiple-value-bind (A b)
       (problem-discretization problem :level level :order 1)
     (let ((x (copy b)))
-      (x<-0 b) (x<-random x 1.0d0)
+      (x<-0 b) (fill-random! x 1.0)
       (loop repeat 10 do
 	    (plot x) (sleep duration)
 	    (linsolve A b :sol x :output t :iteration *gauss-seidel* :maxsteps 3)
@@ -153,8 +153,8 @@
 #+(or)
 (progn
   #+(or)
-  (plot (inlay-cell-problem 2 0.1d0) :refinements 2
-	:coefficient 'CDR::DIFFUSION :key (rcurry #'mat-ref 0 0))
+  (plot (inlay-cell-problem 2 0.1) :refinements 2
+	:coefficient 'CDR::DIFFUSION :key (rcurry #'mref 0 0))
   ;; first order approximation
   (homogenized-diffusion-tensor
    (cell-solve (inlay-cell-problem 2 0.1 0) :level 1
@@ -192,7 +192,7 @@
        (problem (convection-problem dim 1/1000))
        (sol (solve-laplace problem 5 2)))
   (plot sol)
-  (loop for x from 0.9d0 upto 1.0d0 by 0.01d0 do
+  (loop for x from 0.9 upto 1.0 by 0.01 do
 	(format t "x=~10,5F val = ~10,5F~%" x (fe-value sol (vector x))))
   )
 

@@ -34,14 +34,14 @@
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "FEMLISP-DEMO"
-  (:use "COMMON-LISP" "MACROS" "UTILITIES")
+(defpackage "FL.DEMO"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES")
   (:export "DEMO" "LEAVES" "MAKE-DEMO" "ADJOIN-DEMO"
 	   "REMOVE-DEMO" "FIND-DEMO"
 	   "*DEMO-ROOT*"
 	   "USER-INPUT" "EXTRACT-DEMO-STRINGS"))
 
-(in-package :femlisp-demo)
+(in-package :fl.demo)
 
 (defclass <demo> ()
   ((name :accessor name :initarg :name :type string
@@ -280,5 +280,5 @@ generating function.  Uses Edi Weitz' Regex package."
 	      (mapcar #'name (test-all-demos *demo-root*)))
   )
 
-;;; (femlisp-demo::test-demo)
-(tests::adjoin-femlisp-test 'test-demo)
+;;; (fl.demo::test-demo)
+(fl.tests:adjoin-test 'test-demo)

@@ -41,7 +41,7 @@
 		  (refcell-refinement-skeleton (n-cube dim) refinements))))
 	 (1->2 (nth-value 1 (linearly-transformed-skeleton
 			     skel1 :A (scal 0.5 (eye dim))
-			     :b (make-double-vec dim 0.25d0)))))
+			     :b (make-double-vec dim 0.25)))))
     (change-class (telescope skel1 1->2) '<domain>)))
 
 (defun n-cell-with-cubic-hole (dim &key (refinements 0))
@@ -83,11 +83,12 @@ using n-cube patches."
 
 ;;; Testing: (test-hole-domain)
 (defun test-hole-domain ()
-  (n-cube-with-cubic-hole 2)
+  (check (n-cube-with-cubic-hole 2))
+  (check (n-cube-with-n-ball-hole 2))
   (let ((skel (n-cell-with-n-ball-hole 2 :radius 0.3 :refinements 0)))
     (doskel (cell skel)
       (whereas ((id (cell-identification cell skel)))
 	(format t "~A~% --> ~A~%" cell id))))
   )
 
-(adjoin-femlisp-test 'test-hole-domain)
+(fl.tests:adjoin-test 'test-hole-domain)

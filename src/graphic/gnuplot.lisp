@@ -38,6 +38,12 @@
 ;;;; Routines for establishing the communication line
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defparameter *gnuplot-pathname*
+  (or (whereas ((gnuplot-name cl-user::*gnuplot-path*))
+	(probe-file (pathname gnuplot-name)))
+      (fl.port:find-executable "gnuplot"))
+  "Pathname to Gnuplot.")
+
 (defvar *gnuplot-stream* nil
   "Stream to gnuplot.  Should perhaps be coalesced with the CLOCC
 version.")
@@ -47,19 +53,21 @@ version.")
 	(if (and *gnuplot-stream* (open-stream-p *gnuplot-stream*))
 	    *gnuplot-stream*
 	    (whereas ((process
-		       (ext::run-program *gnuplot-path* '() :input :stream
-					 :output nil :wait nil)))
-	      (ext::process-input process))))
+		       (fl.port:run-program
+			*gnuplot-pathname* '() :input :stream
+			:output nil :wait nil)))
+	      (fl.port:process-input process))))
   (unless *gnuplot-stream*
-    (format *error-output*
-	    "Could not open stream to Gnuplot.  Please ensure that the
-special variable CL-USER::*GNUPLOT-PATH* has a reasonable value.  Usually,
-this is set in femlisp:src;femlisp-config.lisp."))
+    (format
+     *error-output*
+     "Could not open stream to Gnuplot.  Please ensure that the Gnuplot
+executable is in your path or set the special variable
+CL-USER::*GNUPLOT-PATH* to its pathname.  Usually, this is set in
+femlisp:src;femlisp-config.lisp."))
   *gnuplot-stream*)
 
 (defmethod graphic-stream ((program (eql :gnuplot)))
   (ensure-gnuplot-stream))
-
 
 #+(or)  ; (ensure-gnuplot-stream)
 (progn
@@ -105,7 +113,8 @@ trick to avoid writing the file while our gnuplot job is still reading.")
       (format stream "set xtics~%set ytics~%")
       (format stream "set noxtics~%set noytics~%"))
   (format stream "set size 1.0,1.0; set terminal ~A~%" terminal)
-  (format stream "set output ~S~%" (concatenate 'string *images-directory* output))
+  (format stream "set output ~S~%"
+	  (concatenate 'string (namestring *images-pathname*) output))
   (loop for script-command in (apply #'graphic-commands object program paras) do
 	(format stream "~A~%" script-command))
   (force-output stream))

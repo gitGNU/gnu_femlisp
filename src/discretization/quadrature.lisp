@@ -68,7 +68,7 @@
   "Integrates a polynomial over the reference simplex.  This is done by
 splitting into monomials and computing
  \int_S(n) x^alpha = (alpha1! alpha2! ...) / (n+alpha1+...)!"
-  (loop for (coeff . mono) in (split-into-monomials (poly-coeffs poly))
+  (loop for (coeff . mono) in (split-into-monomials (coefficients poly))
 	summing (* coeff (integrate-monomial mono n))))
 
 (defun integrate-monomial-over-simplex-product (mono dims)
@@ -79,7 +79,7 @@ splitting into monomials and computing
 		 dims)))
 
 (defun integrate-over-reference-tensorial (poly factor-dims)
-  (loop for c&m in (split-into-monomials (poly-coeffs poly))
+  (loop for c&m in (split-into-monomials (coefficients poly))
 	summing (* (car c&m)
 		  (integrate-monomial-over-simplex-product (cdr c&m) factor-dims))))
 
@@ -101,12 +101,10 @@ splitting into monomials and computing
 			   (n-1 (1- n))
 			   (c_n (/ (* 4 n-1 (+ n-1 alpha) (+ n-1 beta) (+ n-1 alpha beta))
 				   (* (- 2n+a+b 1) (- 2n+a+b 2) (- 2n+a+b 2) (- 2n+a+b 3))))
-			   (J_n (vec-
-				 (poly*
-				  (make-polynomial (list (/ (* (+ alpha beta) (- alpha beta))
-							    (* 2n+a+b (- 2n+a+b 2))) 1))
-				  J_n-1)
-				 (vec-s* c_n J_n-2))))
+			   (J_n (axpy (- c_n) J_n-2
+				      (poly* (make-polynomial (list (/ (* (+ alpha beta) (- alpha beta))
+								       (* 2n+a+b (- 2n+a+b 2))) 1))
+					     J_n-1))))
 		      (if (= n s)
 			  J_n
 			  (new-jacobi J_n-1 J_n (1+ n))))))
@@ -127,8 +125,8 @@ occur for the inexact arithmetic."
   (cond
     ((minusp n) (error "unknown family"))
     ((zerop n) '())
-    (t (loop for seps = (append '(-1.0d0) (zeros-of-separating-family
-					   family (1- n) accuracy) '(1.0d0))
+    (t (loop for seps = (append '(-1.0) (zeros-of-separating-family
+					 family (1- n) accuracy) '(1.0))
 	     then (cdr seps)
 	     until (single? seps)
 	     collect (interval-method
@@ -147,7 +145,7 @@ occur for the inexact arithmetic."
   (let ((int-weight (poly-expt (make-polynomial '(1 1)) beta)))
     (labels ((weight-for-zero (xi)
 	       (let* ((zeros-without-xi (remove xi zeros))
-		      (lagrange (vec-s*
+		      (lagrange (scal
 				 (/ 1 (reduce #'* (mapcar #'(lambda (xj) (- xi xj)) zeros-without-xi)))
 				 (reduce #'poly* (mapcar #'(lambda (xj)
 							     (make-polynomial (list (- xj) 1)))
@@ -164,8 +162,8 @@ occur for the inexact arithmetic."
       (loop with coords = (gauss-points-for-weight n s)
 	    for coord in coords
 	    and weight in (weights-for-gauss-points n coords)
-	    collect (list (float (/ weight (expt 2 (+ n 1))) 1.0d0)
-			  (/ (- 1.0d0 coord) 2)))))
+	    collect (list (float (/ weight (expt 2 (+ n 1))) 1.0)
+			  (/ (- 1.0 coord) 2)))))
 
 ;;; gauss rule for an s^n-point method on the n-simplex
 ;;; result = ( (weight coordinates) ... )
@@ -173,13 +171,13 @@ occur for the inexact arithmetic."
   (labels ((transform (pos factor) ; transformation cube->simplex
 	     (if (null pos) '()
 		 (cons (* (car pos) factor)
-		       (transform (cdr pos) (* factor (- 1.0d0 (car pos))))))))
+		       (transform (cdr pos) (* factor (- 1.0 (car pos))))))))
     ;; loop through nodes
     (apply #'map-product
 	   #'(lambda (&rest args)
 	       (make-<ip>
 		:weight (reduce #'* (mapcar #'car args)) ; multiply weights
-		:coords (list->double-vec (transform (mappend #'cdr args) 1.0d0))))
+		:coords (list->double-vec (transform (mappend #'cdr args) 1.0))))
 	   (mapcar #'(lambda (k) (gauss-rule-for-weight k s))
 		   (nreverse (make-set 0 n))))))
 
@@ -198,7 +196,7 @@ occur for the inexact arithmetic."
    '<integration-rule>
    :order (* 2 s)
    :ips (if (null factor-dims)
-	    (list (make-<ip> :weight 1.0d0 :coords (double-vec)))
+	    (list (make-<ip> :weight 1.0 :coords (double-vec)))
 	    (apply #'product-rule
 		   (mapcar #'(lambda (dim) (gauss-rule-for-simplex dim s))
 			   factor-dims)))))
@@ -213,7 +211,7 @@ occur for the inexact arithmetic."
   (differentiate (legendre-polynomial (1+ s)) 0))
 
 (defun gauss-lobatto-points (s)
-  `(-1.0d0 ,@(zeros-of-separating-family #'gauss-lobatto-family s 1.0e-16) 1.0d0))
+  `(-1.0 ,@(zeros-of-separating-family #'gauss-lobatto-family s 1.0e-16) 1.0))
 
 (defun gauss-lobatto-points-on-unit-interval (s)
   (mapcar #'(lambda (x) (/ (1+ x) 2)) (gauss-lobatto-points s)))
@@ -233,6 +231,6 @@ occur for the inexact arithmetic."
   (gauss-lobatto-points 2)
   (gauss-lobatto-points-on-unit-interval 2))
 
-(tests:adjoin-femlisp-test 'test-quadrature)
+(fl.tests:adjoin-test 'test-quadrature)
 
 

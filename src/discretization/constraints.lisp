@@ -72,7 +72,7 @@ have been eliminated."
 	    #'(lambda (j Aij)
 		(for-each-key-and-entry-in-row
 		 #'(lambda (k Cik)
-		     (gemm! 1.0 Cik Aij 1.0 (mat-ref A k j) :tn))
+		     (gemm! 1.0 Cik Aij 1.0 (mref A k j) :tn))
 		 constraints i))
 	    A i)
 	   (remove-row A i)))
@@ -87,7 +87,7 @@ have been eliminated."
 	    #'(lambda (i Aij)
 		(for-each-key-and-entry-in-row
 		 #'(lambda (k Cjk)
-		     (gemm! 1.0 Aij Cjk 1.0 (mat-ref A i k)))
+		     (gemm! 1.0 Aij Cjk 1.0 (mref A i k)))
 		 constraints j))
 	    A j)
 	   (remove-column A j)))
@@ -103,14 +103,14 @@ destructive for A!"
 	  (when (matrix-row B i)
 	    (for-each-key-and-entry-in-row
 	     #'(lambda (j Bij)
-		 (x+=y (mat-ref A i j) Bij))
+		 (m+! Bij (mref A i j)))
 	     B i)))
 	(when (member :left directions)
 	  (when (matrix-column B i)
 	    (for-each-key-and-entry-in-col
 	     #'(lambda (j Bji)
 		 (unless (gethash j index-table)
-		   (x+=y (mat-ref A j i) Bji)))
+		   (m+! Bji (mref A j i))))
 	     B i)))))
 
 (defun hanging-node-constraints (ansatz-space &key level ip-type)
@@ -278,7 +278,7 @@ constraints are included in matrix and rhs."
       (setf (slot-value result-rhs 'algebra::blocks)
 	    (copy-hash-table (slot-value rhs 'algebra::blocks)))
       (dohash (key region)
-	(setf (vec-ref result-rhs key) (copy (vec-ref rhs key)))))
+	(setf (vref result-rhs key) (copy (vref rhs key)))))
     
     ;; do modifications on result-mat: up to now this works only for the
     ;; special case, when the range and the domain of constraints-Q are
@@ -295,9 +295,9 @@ constraints are included in matrix and rhs."
 	#+(or)(break)
 	;; result-mat = S*A*S
 	(remove-projection-range result-mat constraints-P :column-p t)
-	(x+=y result-mat Qt*A*Q)
-	(x+=y result-mat Qt*A*S)
-	(x+=y result-mat S*A*Q)))
+	(m+! Qt*A*Q result-mat)
+	(m+! Qt*A*S result-mat)
+	(m+! S*A*Q result-mat)))
     
     ;; do modifications on result-rhs
     (when rhs
@@ -305,18 +305,18 @@ constraints are included in matrix and rhs."
       (let ((Qt*rhs (sparse-m* constraints-Q result-rhs :job :tn
 			       :sparsity (if assemble-locally :B :A))))
 	(remove-projection-range result-rhs constraints-P)
-	(x+=y result-rhs Qt*rhs)))
+	(m+! Qt*rhs result-rhs)))
 
     (when include-constraints
       (dohash (key region)
 	(when mat
-	  (x+=y (mat-ref result-mat key key) (mat-ref constraints-P key key))
+	  (m+! (mref constraints-P key key) (mref result-mat key key))
 	  (for-each-key-in-row
 	   #'(lambda (ck)
-	       (x-=y (mat-ref result-mat key ck) (mat-ref constraints-Q key ck)))
+	       (m-! (mref constraints-Q key ck) (mref result-mat key ck)))
 	   constraints-Q key))
 	(when rhs
-	  (x+=y (vec-ref result-rhs key) (vec-ref constraints-r key)))))
+	  (m+! (vref constraints-r key) (vref result-rhs key)))))
 
     ;; and return the result
     (values result-mat result-rhs)))

@@ -62,7 +62,7 @@ with an initial random guess and right-hand side 0."
     (multiple-value-bind (A b)
 	(discretize-globally problem h-mesh fedisc)
       (let ((x (copy b)))
-	(x<-0 b) (x<-random x 1.0d0)
+	(x<-0 b) (fill-random! x 1.0)
 	(loop repeat nr-steps do
 	      (plot x) (sleep 0.5)
 	      (funcall iteration A b x)

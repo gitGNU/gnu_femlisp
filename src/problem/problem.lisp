@@ -39,7 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <problem> ()
-  ((domain :reader domain :initform (ext:required-argument)
+  ((domain :reader domain :initform (required-argument)
 	   :initarg :domain :type <domain>)
    (p->c :reader patch->coefficients :initform (constantly nil)
 	 :initarg :patch->coefficients)
@@ -164,8 +164,8 @@ keyword parameters which should correspond to the list in @code{needed}.")
 	   (apply #'values value other-values))
        (constantly value))))
 
-(defparameter *cf-constantly-0.0d0* (constant-coefficient 0.0d0))
-(defparameter *cf-constantly-1.0d0* (constant-coefficient 1.0d0))
+(defparameter *cf-constantly-0.0* (constant-coefficient 0.0))
+(defparameter *cf-constantly-1.0* (constant-coefficient 1.0))
 
 (defun function->coefficient (func)
   "Returns a coefficient for the given function depending on global
@@ -198,4 +198,4 @@ coordinates."
 		 :patch->coefficients nil)
   )
 
-(tests::adjoin-femlisp-test 'test-problem)
+(fl.tests:adjoin-test 'test-problem)

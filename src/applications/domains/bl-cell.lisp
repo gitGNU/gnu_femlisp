@@ -41,24 +41,23 @@
      :domain-dimension dim :image-dimension dim
      :evaluator
      #'(lambda (x)
-	 (let* ((s (1- (vec-ref x dim-1)))
-		(x1 (vector-slice x 0 dim-1))
+	 (declare (type (simple-array double-float (*)) x))
+	 (let* ((x1 (vector-slice x 0 dim-1))
 		(value (funcall f x1))
-		(result (copy x)))
-	   (setf (vec-ref result dim-1) (* s value))
+		(result (copy-seq x)))
+	   (setf (aref result dim-1) (* (1- (aref x dim-1)) value))
 	   result))
      :gradient
      (and grad-f
 	  #'(lambda (x)
-	      (let* ((s (1- (aref x dim-1)))
-		     (x1 (vector-slice x 0 dim-1))
+	      (declare (type (simple-array double-float (*)) x))
+	      (let* ((x1 (vector-slice x 0 dim-1))
 		     (value (funcall f x1))
-		     (gradient (funcall grad-f x1))
+		     (gradient (scal! (1- (aref x dim-1))
+				      (ensure-matlisp (funcall grad-f x1) :row)))
 		     (result (eye dim)))
-		(dotimes (i dim-1)
-		  (setf (matrix-ref result dim-1 i)
-			(* (vec-ref gradient i) s)))
-		(setf (matrix-ref result dim-1 dim-1) value)
+		(minject gradient result dim-1 0)
+		(setf (mref result dim-1 dim-1) value)
 		result))))))
 
 (defun oscillating-boundary-domain (dim f &key grad-f (refinements 0))
@@ -102,34 +101,34 @@ identified lateral faces."
   "Returns a boundary layer cell with a sinusoidally oscillating lower
 boundary."
   (flet ((f (x)
-	   (- 1.0 (* amplitude (reduce #'* x :key #'(lambda (xc) #I"sin(2.0d0*pi*xc)")))))
+	   (- 1.0 (* amplitude (reduce #'* x :key #'(lambda (xc) #I"sin(2.0*pi*xc)")))))
 	 (grad-f (x)
 	   (let ((result (make-double-vec (1- dim))))
 	     (dotimes (i (1- dim) result)
 	       (setf (aref result i)
 		     (* (- amplitude)
-			(let ((prod 1.0d0))
+			(let ((prod 1.0))
 			  (dotimes (j (1- dim) prod)
 			    (_f * prod (if (= i j)
-					   #I"2.0d0*pi*cos(2.0d0*pi*x[j])"
-					   #I"sin(2.0d0*pi*x[j])"))))))))))
+					   #I"2.0*pi*cos(2.0*pi*x[j])"
+					   #I"sin(2.0*pi*x[j])"))))))))))
     (apply #'boundary-layer-cell-domain dim #'f :grad-f #'grad-f rest)))
 
 (defun xsinx-bl-cell (dim &rest rest &key (amplitude 0.4) &allow-other-keys)
   "Returns a boundary layer cell with a sinusoidally oscillating lower
 boundary."
   (flet ((f (x)
-	   (- 1.0 (* amplitude (reduce #'* x :key #'(lambda (xc) #I"xc*sin(2.0d0*pi*xc)")))))
+	   (- 1.0 (* amplitude (reduce #'* x :key #'(lambda (xc) #I"xc*sin(2.0*pi*xc)")))))
 	 (grad-f (x)
 	   (let ((result (make-double-vec (1- dim))))
 	     (dotimes (i (1- dim) result)
 	       (setf (aref result i)
 		     (* (- amplitude)
-			(let ((prod 1.0d0))
+			(let ((prod 1.0))
 			  (dotimes (j (1- dim) prod)
 			    (_f * prod (if (= i j)
-					   #I"sin(2.0d0*pi*x[j])+2.0d0*pi*x[j]*cos(2.0d0*pi*x[j])"
-					   #I"x[j]*sin(2.0d0*pi*x[j])"))))))))))
+					   #I"sin(2.0*pi*x[j])+2.0*pi*x[j]*cos(2.0*pi*x[j])"
+					   #I"x[j]*sin(2.0*pi*x[j])"))))))))))
     (apply #'boundary-layer-cell-domain dim #'f :grad-f #'grad-f rest)))
 
 (defun spline-interpolated-bl-cell (heights)
@@ -166,8 +165,8 @@ acts."
 
 ;;;; Testing: (test-bl-cell)
 (defun test-bl-cell ()
-  (cubic-spline #(1.0d0 0.8d0))
-  (spline-interpolated-bl-cell #(1.0d0 0.8d0))
+  (cubic-spline #(1.0 0.8))
+  (spline-interpolated-bl-cell #(1.0 0.8))
   (check (sinusoidal-bl-cell 2))
   (describe (sinusoidal-bl-cell 2))
   (let* ((domain (sinusoidal-bl-cell 2))
@@ -184,4 +183,4 @@ acts."
       (assert (= count 3))))
   )
 
-(tests:adjoin-femlisp-test 'test-bl-cell)
+(fl.tests:adjoin-test 'test-bl-cell)

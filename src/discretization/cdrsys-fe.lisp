@@ -34,7 +34,7 @@
 
 (in-package "COMMON-LISP-USER")
 (defpackage "CDRSYS-FE"
-  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP.MATLISP"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
 	"MESH" "PROBLEM" "CDRSYS" "DISCRETIZATION")
   (:export))
 (in-package :cdrsys-fe)
@@ -43,7 +43,7 @@
 			       &key local-mat local-rhs local-sol local-u local-v)
   "Local discretization for a convection-diffusion-reaction system."
   (declare (type (array local-mat))
-	   (type (or null real-matrix) local-sol local-rhs local-u local-v))
+	   #+(or)(type (or null real-matrix) local-sol local-rhs local-u local-v))
   
   (let ((diffusion-function (getf coeffs 'CDRSYS::DIFFUSION))
 	(convection-function (getf coeffs 'CDRSYS::CONVECTION))
@@ -85,10 +85,10 @@
 		  ;; The following is only correct for degrees of freedom of
 		  ;; Lagrange type.  Perhaps one should use Hermite finite
 		  ;; cells only in the interior?
-		  (setf (mat-ref (mat-ref constraints-P cell-key cell-key) k k) 1.0d0)
+		  (setf (mref (mref constraints-P cell-key cell-key) k k) 1.0)
 		  ;;		       (clear-row mat cell k)
-		  ;;		       (setf (mat-ref (mat-ref mat cell cell) k k) 1.0d0)
-		  (setf (vec-ref (vec-ref constraints-rhs cell-key) k)
+		  ;;		       (setf (mref (mref mat cell cell) k k) 1.0)
+		  (setf (vref (vref constraints-rhs cell-key) k)
 			(evaluate dirichlet-function ci))
 		  )))))
     (values constraints-P constraints-Q constraints-rhs)))
@@ -102,10 +102,10 @@
 	 (fedisc (lagrange-fe order)))
     (multiple-value-bind (matrix rhs)
 	(discretize-globally problem h-mesh fedisc)
-      (m* (sparse-ldu matrix) rhs)))
+      (getrs (sparse-ldu matrix) rhs)))
   )
 
-(tests::adjoin-femlisp-test 'cdrsys-fe-tests)
+(fl.tests:adjoin-test 'cdrsys-fe-tests)
 
 
 

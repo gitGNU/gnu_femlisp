@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; fill-column: 64; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; cdr-bl.lisp
+;;; bl-cdr.lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -52,9 +52,9 @@ $x_n=0$."
      #'(lambda (patch)
 	 (cond ((and (= (dimension patch) (1- dim))
 		     (bl-patch-on-artificial-boundary bl-cell-domain patch))
-		(list 'CDR::SOURCE *cf-constantly-1.0d0*))
+		(list 'CDR::SOURCE *cf-constantly-1.0*))
 	       ((bl-patch-on-lower-boundary bl-cell-domain patch)
-		(list 'CDR::DIRICHLET *cf-constantly-0.0d0*))
+		(list 'CDR::DIRICHLET *cf-constantly-0.0*))
 	       ((= (dimension patch) dim)
 		(list 'CDR::DIFFUSION (identity-diffusion-tensor dim)))
 	       (t nil))))))
@@ -120,22 +120,45 @@ function which has to be 1-periodic and negative.  This involves
 solving a cell problem on a semi-infinite domain with a smooth
 and exponentially decaying solution.  The constant we search for
 is equal to the energy of the solution.  Our adaptive strategy
-with high order approximations and local mesh refinement is
-perfectly suited for computing this constant with high accuracy.
-Error estimation is achieved by using a duality error estimator
-for the load functional."
+with high order approximations and local mesh refinement is well
+suited for computing this constant with high accuracy.  Error
+estimation is achieved by using a duality error estimator for
+the load functional."
   (apply #'bl-computation
 	 :domain (apply #'sinusoidal-bl-cell dim rest)
 	 :order order :max-levels max-levels rest))
 
 #+(or) (cdr-bl-computation
-	2 4 3 :plot t :amplitude 0.15 :extensible nil :output :all)
+	2 4 2 :plot t :amplitude 0.15 :extensible nil :output :all)
+#|
+(profile:unprofile)
+(profile:report-time)
+(profile:reset-time)
+(profile:profile iteration::newton)
+(profile:profile discretization::do-fe-dofs-mblocks)
+(profile:profile discretization::do-fe-dofs-vblocks)
+(profile:profile discretization::fe-cell-geometry)
+(profile:profile discretization::assemble-interior)
+(profile:profile iteration::solve)
+(profile:profile :methods 'discretization::discretize-locally)
+(profile:profile mesh::local->Dglobal)
+(profile:profile mesh::local->global)
+(profile:profile mesh::l2g)
+(profile:profile mesh::l2Dg)
+(profile:profile fl.matlisp::gesv!)
+(profile:profile fl.matlisp::gemm-nn!)
+(profile:profile mesh::euclidean->barycentric)
+(profile:profile mesh::weight-vector-tensorial)
+(profile:profile mesh::corners)
+(profile:profile mesh::vertices)
+(profile:profile application::bottom-mapping)
+(profile:profile mesh::weight-lists-grad-tensorial)
+|#
 
 ;; before change (+ 1 sec on another run)
 ;;    2        36       784    1.8   9.3593619483d-01   6.6484919470d-04
 ;;    8       172      4462   10.9   9.4073588298d-01   1.6845432818d-04
 ;;   20       444     12426   34.6   9.4064954875d-01   2.4130130651d-06
-
 
 (defun make-cdr-bl-demo (dim order levels)
   (multiple-value-bind (title short long)
@@ -160,12 +183,12 @@ for the load functional."
 
 (defun test-cdr-bl ()
   (multiple-value-bind (f Df)
-      (cubic-spline #(1.2d0 1.2d0 1.2d0))
+      (cubic-spline #(1.2 1.2 1.2))
     (describe 
      (oscillating-boundary-domain
      2 f :grad-f Df)))
   
-  (bl-computation :domain (spline-interpolated-bl-cell #(1.2d0 1.2d0 1.2d0))
+  (bl-computation :domain (spline-interpolated-bl-cell #(1.2 1.2 1.2))
 		  :order 2 :max-levels 2 :plot t :output :all)
   
   ;; testing if identification with only one cell width works
@@ -190,7 +213,7 @@ for the load functional."
 
   (dohash (key (getf *result* :eta))
     (let ((mp (midpoint key)))
-      (when (< (norm (vec- mp #(0.9375 -0.3125))) 1.0e-10)
+      (when (< (norm (m- mp #(0.9375 -0.3125))) 1.0e-10)
 	(display-ht (matrix-row (getf *result* :matrix) key)))))
  
   (plot (getf *result* :solution))
@@ -212,11 +235,11 @@ for the load functional."
 
 ;O=1
 ;1.0
-;0.9994139684729783d0
-;0.9478047281289215d0  2.34
-;0.9427405097092483d0 10.9
-;0.9412018564593625d0 56
-;0.940791738100939d0 650 (cells 11300)
+;0.9994139684729783
+;0.9478047281289215  2.34
+;0.9427405097092483 10.9
+;0.9412018564593625 56
+;0.940791738100939 650 (cells 11300)
 
 ;O=4:
 ;0.9341601270140.
@@ -224,11 +247,11 @@ for the load functional."
 ;0.940644213164
 
 ;O=5
-;0.9414553049022709d0 2.45
-;0.9406756579556297d0 8.96
-;0.9406523275905488d0 27.3
-;0.9406521294202064d0 87
-;0.9406521488254819d0 550
+;0.9414553049022709 2.45
+;0.9406756579556297 8.96
+;0.9406523275905488 27.3
+;0.9406521294202064 87
+;0.9406521488254819 550
 
   (problem-info (sinusoidal-boundary-layer-cell-problem 2))
 

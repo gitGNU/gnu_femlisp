@@ -124,16 +124,17 @@ graphs."
    (list
     (cons
      "{/Symbol \\266W}"
-     (loop for phi from 0.0 upto (* 2 pi) by (* 0.005 pi)
+     (loop for phi from 0 upto (* 2 pi) by (* 0.005 pi)
 	   collect (vector (cos phi) (sin phi))))
     (cons
      "{/Symbol \\266W^e}"
-     (loop for phi from 0.0 upto (* 2 pi) by (* 0.005 pi)
+     (loop for phi from 0 upto (* 2 pi) by (* 0.005 pi)
 	   for r = #I"1.1 + 0.05*sin(phi)^^2*sin(40*phi)"
 	   collect (vector (* r (cos phi)) (* r (sin phi))))))
    :border nil :tics nil
    :terminal #-(or)"postscript eps enhanced color" #+(or) "epslatex color"
    :left -1.7 :right 1.7 :top 1.15 :bottom -1.15 :linewidth 3)
   )
-(tests::adjoin-femlisp-test 'test-plot-gnuplot)
+
+(fl.tests:adjoin-test 'test-plot-gnuplot)
 

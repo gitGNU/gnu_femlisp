@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; femlisp-config.lisp - configuration file for femlisp
+;;; function-defp.lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -32,21 +32,29 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :cl-user)
+(in-package "COMMON-LISP-USER")
 
-;;; paths to external programs needed
+(defpackage "FL.FUNCTION"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+	"ALGEBRA")
+  (:export
+   ;; from function.lisp
+   "<FUNCTION>" "DOMAIN-DIMENSION" "IMAGE-DIMENSION"
+   "EVALUATE" "EVALUATE-GRADIENT" "DIFFERENTIABLE-P"
+   "<CONSTANT-FUNCTION>" "<SPECIAL-FUNCTION>" "TRANSFORM-FUNCTION" "HOMOTOPY"
+   "COMPOSE" "COMPOSE-2"
+   "PROJECT-TO-ELLIPSOID" "PROJECT-TO-SPHERE" "XN-DISTORTION-FUNCTION"
+   "INTERVAL-METHOD"  "NUMERICAL-GRADIENT"
+   
+   ;; polynom.lisp
+   "POLYNOMIAL" "COEFFICIENTS" "SHIFT-POLYNOMIAL"
+   "DEGREE" "MULTI-DEGREE" "PARTIAL-DEGREE" "VARIANCE" "MAXIMAL-PARTIAL-DEGREE"
+   "MAKE-POLYNOMIAL" "ELIMINATE-SMALL-COEFFICIENTS" "ZERO?" "UNIT?" "ZERO" "UNIT"
+   "SPLIT-INTO-MONOMIALS" "INTEGRATE-SIMPLE-POLYNOMIAL"
+   "POLY*" "POLY-EXPT" "DIFFERENTIATE" "GRADIENT"
+   "N-VARIATE-MONOMIALS-OF-DEGREE"
+   "LAGRANGE-POLYNOMIALS"
 
-(defparameter *dx-path*
-  (or
-   #+cmu (let ((string (cdr (assoc :OPENDX_BINARY ext:*environment-list*))))
-	   (when string
-	     (probe-file (pathname string))))
-   (probe-file (pathname "path:dx")))
-  "The path to the Data Explorer executable.")
-
-(defparameter *gnuplot-path* (unix-namestring (pathname "path:gnuplot"))
-  "The path to the Gnuplot executable.")
-
-;;; directory for writing graphic files
-(defparameter *images-directory*
-  (extensions:unix-namestring (translate-logical-pathname "femlisp:images;")))
+   ;; spline.lisp
+   "CUBIC-SPLINE"
+   ))

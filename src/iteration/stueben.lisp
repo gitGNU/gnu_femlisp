@@ -64,12 +64,12 @@ for several discussions on AMG."))
   (for-each-key-and-entry-in-row
    #'(lambda (col entry)
        (unless (eq col row)
-	 (let ((current (mat-ref entry 0 0)))
+	 (let ((current (mref entry 0 0)))
 	   (when (or (eq min nil) (< current min))
 	     (setq min current)))))
    mat row)
-  (unless min (setq min 0.0d0))
-  (when (plusp min) (setq min 0.0d0))
+  (unless min (setq min 0.0))
+  (when (plusp min) (setq min 0.0))
   ;;(assert (not (plusp min)))
   min)
 
@@ -82,7 +82,7 @@ for several discussions on AMG."))
     
     (flet ((strong-p (row col entry)
 	     (and (not (eq row col))
-		  (< (mat-ref entry 0 0) (gethash row pivot-table)))))
+		  (< (mref entry 0 0) (gethash row pivot-table)))))
       
       ;; fill pivot-table
       (for-each-row-key
@@ -90,7 +90,7 @@ for several discussions on AMG."))
 	   (setf (gethash row-key pivot-table)
 		 (if theta
 		     (* theta (min-in-row matrix row-key))
-		     (min-in-row matrix row-key 0.0d0))))
+		     (min-in-row matrix row-key 0.0))))
        matrix)
       
       ;; set filtered-keys
@@ -106,7 +106,7 @@ for several discussions on AMG."))
 	   (and (gethash row-key filtered-keys)
 		(gethash col-key filtered-keys)
 		(or (not theta) (strong-p row-key col-key entry))
-		(setf (mat-ref filtered-matrix row-key col-key) entry)))
+		(setf (mref filtered-matrix row-key col-key) entry)))
        matrix))
     
     ;; return result
@@ -178,7 +178,7 @@ corresponding index."))
 	   (adapt-fill-pointer table)
 	   obj))))
 
-(defmethod** pt-in-table-p ((pt priority-table) obj)
+(defmethod pt-in-table-p ((pt priority-table) obj)
   (gethash obj (pt-dictionary pt)))
 
 ;;; Coarse-grid construction
@@ -245,14 +245,14 @@ corresponding index."))
 	 (A (make-sparse-automorphism :key->size key->size
 				      :keys->pattern (constantly (full-crs-pattern 1 1))))
 	 (b (make-instance '<sparse-vector> :key->size key->size)))
-    (setf (mat-ref A 0 0) [ 2.0])
-    (setf (mat-ref A 0 1) [-1.0])
-    (setf (mat-ref A 1 0) [-1.0])
-    (setf (mat-ref A 1 1) [ 2.0])
-    (setf (mat-ref A 1 2) [-1.0])
-    (setf (mat-ref A 2 1) [-1.0])
-    (setf (mat-ref A 2 2) [ 2.0])
-    (setf (vec-ref b 1) [1.0])
+    (setf (mref A 0 0) #m(( 2.0)))
+    (setf (mref A 0 1) #m((-1.0)))
+    (setf (mref A 1 0) #m((-1.0)))
+    (setf (mref A 1 1) #m(( 2.0)))
+    (setf (mref A 1 2) #m((-1.0)))
+    (setf (mref A 2 1) #m((-1.0)))
+    (setf (mref A 2 2) #m(( 2.0)))
+    (setf (vref b 1)   #m(( 1.0)))
 
     (let ((amg (make-instance '<stueben> :max-depth 1 :cg-max-size 1)))
       #+(or)
@@ -266,4 +266,4 @@ corresponding index."))
   )
 
 ;;; (test-stueben)
-(tests::adjoin-femlisp-test 'test-stueben)
+(fl.tests:adjoin-test 'test-stueben)

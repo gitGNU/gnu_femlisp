@@ -112,7 +112,7 @@ error estimator is asymptotically exact."
       :solver (s1-reduction-amg-solver order))
      (blackboard
       :problem (cdr-model-problem (l-domain dim)
-				  :source (constant-coefficient 1.0d0))
+				  :source (constant-coefficient 1.0))
       :output t)))
   (plot (getf *result* :solution)))
 ;;; (laplace-l-domain-demo)
@@ -171,4 +171,4 @@ error estimator is asymptotically exact."
 
 )  ; end tests
 
-(adjoin-femlisp-test 'strategy-cdr-tests)
+(fl.tests:adjoin-test 'strategy-cdr-tests)

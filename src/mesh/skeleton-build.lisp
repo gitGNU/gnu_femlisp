@@ -124,8 +124,8 @@ their counterpart in skel-1."
    skel :properties properties :transformation
    #'(lambda (old-cell new-cell)
        (if (zerop (dimension old-cell))
-	   (x<-y (vertex-position new-cell)
-		 (evaluate transformation (vertex-position old-cell)))
+	   (copy! (evaluate transformation (vertex-position old-cell))
+		  (vertex-position new-cell))
 	   (let ((mapping (cell-mapping old-cell)))
 	     (change-class new-cell (mapped-cell-class (class-of new-cell))
 			   :mapping (compose-2 transformation mapping)))))))
@@ -136,8 +136,8 @@ their counterpart in skel-1."
    skel :properties properties :transformation
    #'(lambda (old-cell new-cell)
        (if (zerop (dimension old-cell))
-	   (x<-y (vertex-position new-cell)
-		 (vec+ (m* A (vertex-position old-cell)) b))
+	   (copy! (m+ (m* A (vertex-position old-cell)) b)
+		  (vertex-position new-cell))
 	   (when (mapped-p old-cell)
 	     (setf (mapping new-cell)
 		   (transform-function
@@ -182,9 +182,9 @@ their counterpart in skel-1."
 (defun test-skeleton-build ()
   (describe
    (let ((skel (skeleton  *unit-quadrangle*)))
-     (skel-add! (shift-skeleton skel (double-vec 0.0d0 1.0d0)) skel)))
+     (skel-add! (shift-skeleton skel #d(0.0 1.0)) skel)))
   (subskeleton (skeleton *unit-quadrangle*)
-	       #'(lambda (cell) (= (aref (midpoint cell) 0) 0.0d0)))
+	       #'(lambda (cell) (= (aref (midpoint cell) 0) 0.0)))
 )
 
-(tests:adjoin-femlisp-test 'test-skeleton-build)
+(fl.tests:adjoin-test 'test-skeleton-build)

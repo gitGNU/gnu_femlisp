@@ -57,7 +57,7 @@ with either <correction-scheme> or <fas>."))
        (unless (matrix-row mat key)
 	 (for-each-key-and-entry-in-row
 	  #'(lambda (ck entry)
-	      (setf (mat-ref mat key ck) entry))
+	      (setf (mref mat key ck) entry))
 	  surface-mat key)))
    mat))
 
@@ -134,8 +134,8 @@ already assembled.  Works only for uniformly refined meshes."
 		 ansatz-space :level level :where :refined)
 	      (let ((eliminated-mat (eliminate-constraints
 				     l-mat nil constraints-P constraints-Q constraints-r)))
-		(x+=y eliminated-mat constraints-P)
-		(x-=y eliminated-mat constraints-Q)
+		(m+! constraints-P eliminated-mat)
+		(m-! constraints-Q eliminated-mat)
 		(setf (aref a-vec level) eliminated-mat)))))
     ;; return result
     (make-instance '<mg-data> :a-vec a-vec :i-vec i-vec)))
@@ -247,7 +247,7 @@ of hanging degrees of freedom and does not interpolate from slaves."
 		   unless (zerop subcell-ndofs) do
 		   (let ((subcell-key (cell-key subcell mesh)))
 		     (assert (vertex? (representative subcell-key)))
-		     (setf (mat-ref prol key subcell-key)
+		     (setf (mref prol key subcell-key)
 			   (matrix-slice
 			    local-prol
 			    :from-row 0 :from-col l
@@ -276,7 +276,7 @@ of hanging degrees of freedom and does not interpolate from slaves."
 		   #'(lambda (k X_jk)
 		       (assert (not (eq j k)))
 		       (unless (eq j k)
-			 (gemm! 1.0d0 P_ij X_jk 1.0d0 (mat-ref prol i k))
+			 (gemm! 1.0 P_ij X_jk 1.0 (mref prol i k))
 			 #+debug (format t "     substituting ~A ~A~%" k X_jk)
 			 (when (or (c-slave-dof-p k constraints-P constraints-Q)
 				   (not (vertex? (representative k))))
@@ -342,4 +342,4 @@ reducing them to P^1 first."
   (class-name (class-of (make-instance '<s1-reduction>)))
   )
 
-(tests::adjoin-femlisp-test 'test-geomg)
+(fl.tests:adjoin-test 'test-geomg)

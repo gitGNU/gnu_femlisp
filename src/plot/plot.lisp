@@ -121,7 +121,7 @@ consisting of cell and vertex indices."
 	  (dotimes (i (length vertices))
 	    (setf (aref data (gethash (make-key cell (aref vertices i))
 				      position-indices))
-		  (matrix-ref values i))))
+		  (vref values i))))
     ;; return data field
     data))
 

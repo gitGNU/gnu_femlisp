@@ -32,12 +32,10 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package discretization)
+(in-package :discretization)
 
 ;;; This file provides the interface between finite-cell
 ;;; discretization and sparse-matrix representation.
-
-;;(declaim (optimize (speed 1)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -109,27 +107,26 @@ and fe to the values of local-mat."))
 	 (result (make-array (nr-of-subcells cell) :initial-element nil)))
     (loop for subcell-index in (subcell-indices fe) do
 	  (setf (aref result subcell-index)
-		(vec-ref svec (aref subcells subcell-index))))
+		(vref svec (aref subcells subcell-index))))
     result))
 
 (defun do-fe-dofs-vblocks (vblocks fe local-vec operation &optional subcell-offset)
   (declare (type (simple-array t (*)) vblocks)
-	   (type <fe> fe) (type real-matrix local-vec)
+	   (type <fe> fe)
 	   (type symbol operation)
 	   (type (or null fixnum-vec) subcell-offset))
   (dotimes (i (ncols local-vec))
     (do-dofs (dof fe)
-      (declare (optimize (speed 3) (safety 1)))
+      ;;(declare (optimize (speed 3) (safety 1)))
       (let* ((vblock-index (dof-subcell-index dof))
 	     (vblock (aref vblocks vblock-index))
 	     (in-vblock-index
 	      (if subcell-offset
-		  (ext:truly-the fixnum (+ (aref subcell-offset vblock-index)
-					   (dof-in-vblock-index dof)))
+		  (the fixnum (+ (aref subcell-offset vblock-index)
+				 (dof-in-vblock-index dof)))
 		  (dof-in-vblock-index dof))))
-	(declare (type real-matrix vblock))
-	(symbol-macrolet ((local (mat-ref local-vec (dof-index dof) i))
-			  (global (mat-ref vblock in-vblock-index i)))
+	(symbol-macrolet ((local (mref local-vec (dof-index dof) i))
+			  (global (mref vblock in-vblock-index i)))
 	  (ecase operation
 	    (:local<-global (setq local global))
 	    (:global<-local (setq global local))
@@ -137,7 +134,7 @@ and fe to the values of local-mat."))
 	    (:global-=local (decf global local))))))))
 
 (defmethod do-fe-dofs ((cell <cell>) (fe <fe>) (svec <sparse-vector>)
-		       (local-vec real-matrix) (operation symbol))
+		       local-vec (operation symbol))
   (let ((vblocks (cell->value-blocks cell fe svec)))
     (do-fe-dofs-vblocks vblocks fe local-vec operation)))
 
@@ -173,10 +170,10 @@ still a suboptimal implementation for vector functions."
 	   (local-vec (make-local-vec fe (multiplicity asv))))
       (do-dofs (dof fe)
 	(let ((value (funcall func (local->global cell (dof-gcoord dof)))))
-	  (when (numberp value) (setq value [[value]]))
+	  (when (numberp value) (setq value (make-real-matrix `((,value)))))
 	  (dotimes (i (multiplicity asv))
-	    (setf (mat-ref local-vec (dof-index dof) i)
-		  (mat-ref (if (typep dof '<vector-dof>)
+	    (setf (mref local-vec (dof-index dof) i)
+		  (mref (if (typep dof '<vector-dof>)
 			       (aref value (dof-component dof))
 			       value)
 			   0 i)))))
@@ -193,15 +190,15 @@ still a suboptimal implementation for vector functions."
     (loop for subcell-index-1 in (subcell-indices fe) do
 	  (loop for subcell-index-2 in (subcell-indices fe) do
 		(setf (aref result subcell-index-1 subcell-index-2)
-		      (mat-ref smat (aref subcells subcell-index-1)
+		      (mref smat (aref subcells subcell-index-1)
 			       (aref subcells subcell-index-2)))))
     result))
 
 (defun do-fe-dofs-mblocks (mblocks fe1 fe2 local-mat operation
 			   &optional subcell-offset1 subcell-offset2)
-  (declare (optimize (speed 3) (safety 1)))
-  (declare (type (simple-array t (* *)) mblocks)
-	   (type <fe> fe1 fe2) (type real-matrix local-mat)
+  ;; (declare (optimize (speed 3) (safety 1)))
+  (declare (type (simple-array standard-matrix (* *)) mblocks)
+	   (type <fe> fe1 fe2)
 	   (type symbol operation)
 	   (type (or null fixnum-vec) subcell-offset1 subcell-offset2))
   (do-dofs (dof1 fe1)
@@ -211,18 +208,17 @@ still a suboptimal implementation for vector functions."
 	     (mblock (aref mblocks mblock-index1 mblock-index2))
 	     (in-mblock-index1
 	      (if subcell-offset1
-		  (ext:truly-the fixnum (+ (aref subcell-offset1 mblock-index1)
-					   (dof-in-vblock-index dof1)))
+		  (the fixnum (+ (aref subcell-offset1 mblock-index1)
+				 (dof-in-vblock-index dof1)))
 		  (dof-in-vblock-index dof1)))
 	     (in-mblock-index2
 	      (if subcell-offset2
-		  (ext:truly-the fixnum (+ (aref subcell-offset2 mblock-index2)
-					   (dof-in-vblock-index dof2)))
+		  (the fixnum (+ (aref subcell-offset2 mblock-index2)
+				 (dof-in-vblock-index dof2)))
 		  (dof-in-vblock-index dof2))))
-	(declare (type real-matrix mblock))
 	(symbol-macrolet
-	    ((local (mat-ref local-mat (dof-index dof1) (dof-index dof2)))
-	     (global (mat-ref mblock in-mblock-index1 in-mblock-index2)))
+	    ((local (mref local-mat (dof-index dof1) (dof-index dof2)))
+	     (global (mref mblock in-mblock-index1 in-mblock-index2)))
 	  (ecase operation
 	    (:local<-global (setq local global))
 	    (:global<-local (setq global local))
@@ -230,7 +226,7 @@ still a suboptimal implementation for vector functions."
 	    (:global-=local (decf global local))))))))
 
 (defmethod do-fe-dofs-mat ((cell <cell>) (fe <fe>) (smat <sparse-matrix>)
-			     (local-mat real-matrix) (operation symbol))
+			   local-mat (operation symbol))
   (let ((mblocks (cell->matrix-value-blocks cell fe smat)))
     (do-fe-dofs-mblocks mblocks fe fe local-mat operation)))
 

@@ -32,12 +32,13 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defpackage "FEMLISP-MULTIPROCESSING"
+(defpackage "FL.MULTIPROCESSING"
   (:use "COMMON-LISP")
   (:export "BATCH" "FEMLISP-YIELD"))
 
-(in-package "FEMLISP-MULTIPROCESSING")
+(in-package "FL.MULTIPROCESSING")
 
+#+(or)
 (defmacro batch (&body body)
   `(progn
     (let ((mp::*idle-process* nil))
@@ -46,9 +47,10 @@
        #'(lambda ()
 	   ,@body)))))
 
+#+(or)
 (defun femlisp-yield () (mp::process-yield))
 
 ;;; Testing
 (defun femlisp-multiprocessing-tests ()
-  (batch (sleep 1.0)))
+  )
 

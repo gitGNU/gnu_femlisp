@@ -34,7 +34,7 @@
 
 (in-package :cl-user)
 (defpackage "NAVIER-STOKES-FE"
-  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP.MATLISP" "ALGEBRA"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP" "ALGEBRA" "FL.FUNCTION"
 	"MESH" "PROBLEM" "NAVIER-STOKES" "DISCRETIZATION" "NAVIER-STOKES")
   (:export "NAVIER-STOKES-LAGRANGE-FE" "BOUNDARY-LAST-ORDER"))
 (in-package :navier-stokes-fe)
@@ -80,19 +80,20 @@ up to now."
       (when (or (not (eq info t))
 		(> (norm copy-mat) (* 1e10 (algebra::det-from-lr lr pivot))))
 	(copy! mat copy-mat)
-	(setf (mat-ref copy-mat dim-1 dim-1) 1.0d0)
+	(setf (mref copy-mat dim-1 dim-1) 1.0)
 	(multiple-value-setq (lr pivot) (getrf! copy-mat)))
-      (getrs! lr pivot (eye (nrows mat))))))
+      (getrs! lr (eye (nrows mat)) pivot))))
 
 
 (defmethod discretize-locally ((problem <navier-stokes-problem>)
 			       coeffs vecfe qrule fe-geometry
 			       &key local-mat local-rhs local-sol local-u local-v)
   "Local discretization for a Navier-Stokes problem."
+  #+(or)
   (declare (type (array real-matrix (* *)) local-mat)
 	   (type (or null (array real-matrix (*)))
 		 local-sol local-rhs local-u local-v))
-  ;; and this situation should be checked before use
+
   (assert (and (null local-u) (null local-v)))
   
   (let* ((nr-comps (nr-of-components vecfe))
@@ -129,24 +130,23 @@ up to now."
 			(when (= i j)
 			  (unless (zerop viscosity)
 			    (gemm! (* weight viscosity) (aref gradients i) (aref gradients j)
-				   1.0d0 (aref local-mat i j) :NT)))
+				   1.0 (aref local-mat i j) :NT)))
 			;; (u \cdot \nabla) u
 			(when (< j dim)
 			  (unless (zerop reynolds)
-			    (let* ((u-ip (apply #'matlisp::join-matrix
-						(loop for u-comp across sol-ip
-						      and i below dim collect u-comp)))
+			    (let* ((u-ip (reduce #'join (loop for u-comp across sol-ip
+							      and i below dim collect u-comp)))
 				   (u.grad_ui (m* (aref gradients i) u-ip)))
 			      (gemm! (* weight reynolds)
 				     u.grad_ui (aref shape-vals j)
-				     1.0d0 (aref local-mat i j) :NT))))
+				     1.0 (aref local-mat i j) :NT))))
 			;; + \nabla p \vphi = - (\Div \phi) p
 			(when (= j dim)
 			  (gemm! weight (aref shape-vals i) (matrix-slice grad-p :from-col i :ncols 1)
-				 1.0d0 (aref local-mat i j) :NT)
+				 1.0 (aref local-mat i j) :NT)
 			  #+(or)
 			  (gemm! (- weight) (matrix-slice (aref gradients i) :from-col i :ncols 1)
-				 (aref shape-vals j) 1.0d0 (aref local-mat i j) :NT)
+				 (aref shape-vals j) 1.0 (aref local-mat i j) :NT)
 			  ))
 		      ;; continuity part: tested with pressure
 		      (when (= i dim)
@@ -154,7 +154,7 @@ up to now."
 			(when (< j dim)
 			  (gemm! weight (aref shape-vals i)
 				 (matrix-slice (aref gradients j) :from-col j :ncols 1)
-				 1.0d0 (aref local-mat i j) :NT))))))))
+				 1.0 (aref local-mat i j) :NT))))))))
 	    ;; *** rhs ***
 	    (dotimes (i nr-comps)
 	      (when (and force local-rhs)
@@ -171,7 +171,7 @@ up to now."
   (let* ((level 1)
 	 (problem (driven-cavity 2))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
-	 (fedisc  (navier-stokes-lagrange-fe 1 2 1)))
+	 (fedisc (navier-stokes-lagrange-fe 1 2 1)))
     (multiple-value-bind (matrix rhs)
 	(discretize-globally problem h-mesh fedisc)
       (show rhs)
@@ -179,4 +179,4 @@ up to now."
   
   )
 
-(tests::adjoin-femlisp-test 'navier-stokes-fe-tests)
+(fl.tests:adjoin-test 'navier-stokes-fe-tests)

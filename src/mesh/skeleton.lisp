@@ -226,7 +226,7 @@ all cells, otherwise it loops through cells and properties."
        #'(lambda (cell value)
 	   (princ cell stream)
 	   (if *print-skeleton-values*
-	       (format stream " -> ~A~%" value)
+	       (format stream " -> ~S~%" value)
 	       (terpri stream)))
        skel :with-properties t :direction :up :dimension
        (when (eq *print-skeleton* :cells-of-highest-dimension)
@@ -283,6 +283,14 @@ have only one neighbor."
 boundaries of skeletons."
   (minusp (dimension (skeleton-boundary skel))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; This function is called during cell class activation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmemo refcell-skeleton (refcell)
+  (assert (reference-cell-p refcell))
+  (skeleton refcell))
+
 ;;;; Testing: (test-skeleton)
 
 (defun test-skeleton ()
@@ -292,5 +300,5 @@ boundaries of skeletons."
 		   (format t "~A~%" (corners cell))))
   (make-instance '<skeleton> :dimension -1))
     
-(tests:adjoin-femlisp-test 'test-skeleton)
+(fl.tests:adjoin-test 'test-skeleton)
 

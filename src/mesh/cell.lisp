@@ -47,10 +47,10 @@
 (defparameter *print-cell* :midpoint
   "If set to :MIDPOINT, prints the midpoint of a cell.")
 
-(defmethod print-object ((cell <cell>) stream)
-  (call-next-method)
+(defmethod print-object :after ((cell <cell>) stream)
   (case *print-cell*
-    (:midpoint (format stream "{MP=~A}" (midpoint cell)))))
+    (:midpoint (format stream "{MP=~A}" (midpoint cell)))
+    (t (call-next-method))))
 
 (defclass <standard-cell> (<cell>)
   ((boundary :reader boundary :initarg :boundary
@@ -77,7 +77,6 @@
   "Structure containing information necessary for cell handling."
   (dimension -1 :type fixnum)
   (reference-cell nil)
-  (refcell-skeleton nil)
   (factor-simplices ())
   (nr-of-sides -1 :type fixnum)
   (nr-of-vertices -1 :type fixnum)
@@ -89,7 +88,7 @@
 (declaim (notinline cell-class-information
 		 cell-dimension reference-cell factor-simplices
 		 nr-of-sides nr-of-vertices nr-of-subcells
-		 refcell-skeleton refine-info))
+		 refine-info))
 
 (defun cell-class-information (obj)
   "Returns the cell information for the class which is stored as a property
@@ -128,9 +127,6 @@ of the class symbol."
     `(let ((,class (class-of ,cell)))
       (with-cell-class-information ,slots ,class ,@body))))
 
-(defun refcell-skeleton (cell)
-  "Returns the skeleton of the reference cell."
-  (with-cell-information (refcell-skeleton) cell refcell-skeleton))
 (defun factor-simplices (cell)
   "Returns the factor-simplices."
   (with-cell-information (factor-simplices) cell factor-simplices))
@@ -195,7 +191,7 @@ special mapping."))
   "Returns the cell class without mapping mixin."
   (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
 	      (find-package :mesh)))
-  (if (subtypep class '<mapped-class>)
+  (if (subtypep class '<mapped-cell>)
       (let* ((mapped-class (class-name class))
 	     (unmapped-class
 	      (intern (concatenate 'string "<" (subseq (symbol-name mapped-class) 8))
@@ -267,9 +263,16 @@ special mapping."))
 	      (aref (boundary (aref subcells (aref subcell-parent-indices k)))
 		    (aref subcell-boundary-indices k)))))))
 
-(defmethod corners ((cell <cell>))
-  (mapcar #'(lambda (vtx) (local->global vtx (double-vec)))
-	  (vertices cell)))
+(let (previous-cell previous-corners)
+  (defmethod corners ((cell <cell>))
+    "Returns the corners of the cell.  The last value is cached because it
+is called often repeatedly on the same cell in l2g."
+    (cond
+      ((eq previous-cell cell) previous-corners)
+      (t (setq previous-cell cell)
+	 (setq previous-corners
+	       (mapcar #'(lambda (vtx) (local->global vtx (double-vec)))
+		       (vertices cell)))))))
 
 (defmethod g-corners ((cell <cell>))
   (mapcar #'(lambda (vtx) (l2g vtx (double-vec)))
@@ -324,7 +327,7 @@ interpolation from the cell's corners."))
 (defgeneric l2g (cell local-pos)
   (:documentation "Computes the global position by interpolation from
 the vertices."))
-  
+
 (defgeneric l2Dg (cell local-pos)
   (:documentation "Computes the gradient for a multilinear
 interpolation from the vertices."))
@@ -427,8 +430,7 @@ cells."))
 		    :reference-cell refcell :factor-simplices factors)))))
     (with-ci-slots
 	(dimension reference-cell factor-simplices nr-of-sides nr-of-vertices
-		   nr-of-subcells subcell-parent-indices subcell-boundary-indices
-		   refcell-skeleton)
+		   nr-of-subcells subcell-parent-indices subcell-boundary-indices)
       cell-class-information
       (setq reference-cell refcell)
       (setq factor-simplices factors)
@@ -459,8 +461,6 @@ cells."))
 		  (nconc all-subcells (list side))))))
       (setq nr-of-vertices
 	    (count-if #'zerop (subcells refcell) :key #'dimension))
-      ;; set the reference skeleton
-      (setf refcell-skeleton (skeleton refcell))
       ;; set the refinement info
       (generate-refine-info refcell)
       nil
@@ -472,4 +472,4 @@ cells."))
   "Tests are done when initializing the classes."
   )
 
-(tests::adjoin-femlisp-test 'test-cell)
+(fl.tests:adjoin-test 'test-cell)

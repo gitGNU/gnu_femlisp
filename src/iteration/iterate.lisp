@@ -48,9 +48,36 @@ initialization and after each step.")
 	       :documentation "A form specifying a success criterion.")
    (failure-if :initform nil :initarg :failure-if
 	       :documentation "A form specifying a failure criterion.")
+   (start-time :documentation "Start time of the iteration.")
    (output :initform nil :initarg :output :documentation "A boolean
-indicating if output is to be done."))
+indicating if output is to be done.")
+   (success-if-fn :documentation "Compiled success-if form.")
+   (failure-if-fn :documentation "Compiled failure-if form.")
+   )
   (:documentation "The iteration base class."))
+
+(defun compile-termination-test (test)
+  "Compiles a given list expression TEST into a test function acting on a
+blackboard.  Keywords are replaced by macros accessing the blackboard."
+  (let ((bb (gensym "BLACKBOARD"))
+	*compile-print* *compile-verbose*)
+    (compile nil
+	     `(lambda (,bb)
+	       (declare (ignorable ,bb))
+	       ,(map-tree
+		 #'(lambda (atom)
+		     (if (and (symbolp atom)
+			      (eq (symbol-package atom)
+				  (find-package :keyword)))
+			 `(getbb ,bb ,atom)
+			 atom))
+		 test)))))
+
+(defmethod initialize-instance :after ((iter <iteration>) &key &allow-other-keys)
+  (with-slots (success-if failure-if success-if-fn failure-if-fn)
+      iter
+    (setf success-if-fn (compile-termination-test success-if))
+    (setf failure-if-fn (compile-termination-test failure-if))))
 
 (defgeneric name (iter)
   (:documentation "Name of the iteration."))
@@ -82,8 +109,10 @@ iteration iter."))
 (defmethod initially ((iter <iteration>) blackboard)
   "Default method.  Prints the header line for observed quantities and
 performs all actions in initial."
-  (setf (getbb blackboard :step) 0)
-  (with-slots (output observe) iter
+  (with-slots (start-time output observe) iter
+    (setq start-time (get-internal-run-time))
+    (setf (getbb blackboard :time) 0.0)
+    (setf (getbb blackboard :step) 0)
     (when output
       (indented-format t "Iteration ~A" (name iter))
       (let ((fstr (make-array '(0) :element-type 'base-char
@@ -104,7 +133,11 @@ performs all actions in initial."
 (defmethod intermediate ((iter <iteration>) blackboard)
   "Default method.  Prints observed quantities and
 performs all actions in intermediate."
-  (with-slots (output observe) iter
+  (with-slots (start-time output observe) iter
+    (setf (getbb blackboard :time)
+	  (float (/ (- (get-internal-run-time) start-time)
+		    internal-time-units-per-second)
+		 1.0))
     (when output
       (let ((fstr (make-array '(0) :element-type 'base-char
 			      :fill-pointer 0 :adjustable t)))
@@ -124,22 +157,14 @@ performs all actions in intermediate."
 
 (defmethod terminate-p ((iter <iteration>) blackboard)
   "Default method evaluating success-if and failure-if expressions."
-  (flet ((replace-symbols (tree)
-	   "Replaces all keyword symbols by blackboard values."
-	   (map-tree
-	    #'(lambda (atom)
-		(if (and (symbolp atom)
-			 (eq (symbol-package atom)
-			     (find-package :keyword)))
-		    (getbb blackboard atom)
-		    atom))
-	    tree)))
-    (with-slots (success-if failure-if) iter
-      (cond ((eval (replace-symbols success-if))
-	     (setf (getbb blackboard :status) :success))
-	    ((eval (replace-symbols failure-if))
-	     (setf (getbb blackboard :status) :failure))
-	    (t (setf (getbb blackboard :status) nil))))))
+  (with-slots (success-if-fn failure-if-fn) iter
+    (with-items (&key status) blackboard
+      (dbg :iter "Termination test for blackboard: ~A" blackboard)
+      (cond ((funcall success-if-fn blackboard)
+	     (setf status :success))
+	    ((funcall failure-if-fn blackboard)
+	     (setf status :failure))
+	    (t (setf status nil))))))
 
 (defmethod next-step :after ((iter <iteration>) blackboard)
   "Increment step counter."
@@ -184,4 +209,4 @@ the correct order."
     (describe iter)
     (terminate-p iter (blackboard :step 10 :defnorm 1.0e-9)))
   )
-(tests::adjoin-femlisp-test 'test-iterate)
+(fl.tests:adjoin-test 'test-iterate)

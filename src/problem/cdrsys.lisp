@@ -35,7 +35,8 @@
 (in-package :cl-user)
 
 (defpackage "CDRSYS"
-  (:use "COMMON-LISP" "FEMLISP.MATLISP" "MACROS" "UTILITIES" "MESH" "PROBLEM")
+  (:use "COMMON-LISP" "FL.MATLISP" "FL.MACROS" "FL.UTILITIES"
+	"MESH" "PROBLEM")
   (:export "<CDRSYS-PROBLEM>"))
 
 (in-package :cdrsys)
@@ -62,5 +63,5 @@
   (make-instance '<cdrsys-problem> :domain *unit-quadrangle-domain*
 		 :patch->coefficients (constantly nil) :nr-of-components 1))
 
-(tests:adjoin-femlisp-test 'test-cdrsys)
+(fl.tests:adjoin-test 'test-cdrsys)
 

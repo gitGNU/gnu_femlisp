@@ -54,7 +54,7 @@
  (let* ((dim 2) (level 4)
 	(problem
 	 (cdr-model-problem
-	  dim :source #'(lambda (x) (if (>= (aref x 0) 0.5) 1.0d0 -1.0d0))))
+	  dim :source #'(lambda (x) (if (>= (aref x 0) 0.5) 1.0 -1.0))))
 	(v-cycle (geometric-cs :fmg t :base-level 1 :coarse-grid-iteration
 			       (make-instance '<multi-iteration>
 					      :base *gauss-seidel* :nr-steps 1))))

@@ -41,7 +41,7 @@ refinement depth."
 	 (result (make-real-matrix (length vertices) (nr-of-dofs fe))))
     (loop for vertex across vertices and i from 0 do
       (loop for shape in (fe-basis fe) and j from 0 do
-	    (setf (matrix-ref result i j)
+	    (setf (mref result i j)
 		  (evaluate shape (vertex-position vertex)))))
     result))
 

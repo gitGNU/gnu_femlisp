@@ -39,7 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <linear-iteration> ()
-  ((damp :initform 1.0d0 :initarg :damp))
+  ((damp :initform 1.0 :initarg :damp))
   (:documentation "The <linear-iteration> class.  Linear iterations are
 e.g. <gauss-seidel> or <multigrid>."))
 
@@ -74,7 +74,7 @@ and a matrix."))
   "Default method for residual computation.  Should work for everything for
 which the blas operations copy! and gemm! are defined."
   (copy! b r)
-  (gemm! -1.0d0 A x 1.0d0 r)
+  (gemm! -1.0 A x 1.0 r)
   r)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -139,9 +139,10 @@ iteration."))
        #'(lambda (x b r)
 	   (declare (ignore b))
 	   (unless store-p
-	     (multiple-value-setq (lu ipiv) (getrf! (copy mat))))
-	   (getrs! lu ipiv r)
-	   (x+=s*y x damp r))
+	     (multiple-value-setq (lu ipiv)
+	       (getrf! (copy mat))))
+	   (getrs! lu r ipiv)
+	   (axpy! damp r x))
        :residual-after nil))))
 
 (defparameter *lu-iteration* (make-instance '<lu>))
@@ -151,8 +152,8 @@ iteration."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <ilu> (<linear-iteration>)
-  ((omega :initform 0.0d0 :initarg :omega)
-   (eta :initform 0.0d0 :initarg :eta)
+  ((omega :initform 0.0 :initarg :omega)
+   (eta :initform 0.0 :initarg :eta)
    (ordering :initform () :initarg :ordering :type list))
   (:documentation "Incomplete LU iteration.  omega is the modification
 parameter, eta is the diagonal enhancement."))
@@ -175,7 +176,7 @@ parameter, eta is the diagonal enhancement."))
 		    (declare (ignore b))
 		    (let ((result (copy r)))
 		      (x<-Ay result ldu r)
-		      (x+=s*y x damp result)))
+		      (axpy! damp result x)))
        :residual-after nil))))
 
 (defparameter *standard-ilu* (make-instance '<ilu>))
@@ -198,10 +199,10 @@ parameter, eta is the diagonal enhancement."))
      #'(lambda (x b r)
 	 (declare (ignore b))
 	 (dotimes (i (nrows mat))
-	   (let ((factor (/ damp (mat-ref mat i i))))
+	   (let ((factor (/ damp (mref mat i i))))
 	     (dotimes (j (ncols r))
-	       (incf (mat-ref x i j)
-		     (* factor (mat-ref r i j)))))))
+	       (incf (mref x i j)
+		     (* factor (mref r i j)))))))
      :residual-after nil)))
 
 (defmethod make-iterator ((jac <jacobi>) (mat <sparse-matrix>))
@@ -216,10 +217,10 @@ parameter, eta is the diagonal enhancement."))
 	 (declare (ignore b))
 	 (for-each-row-key
 	  #'(lambda (row-key)
-	      (let ((rblock (vec-ref r row-key)))
+	      (let ((rblock (vref r row-key)))
 		(unless (= damp 1.0) (scal! damp rblock))
-		(m/! (mat-ref mat row-key row-key) rblock)
-		(m+! rblock (vec-ref x row-key))))
+		(m/! (mref mat row-key row-key) rblock)
+		(m+! rblock (vref x row-key))))
 	  mat))
      :residual-after nil)))
 
@@ -230,7 +231,7 @@ parameter, eta is the diagonal enhancement."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <sor> (<linear-iteration>)
-  ((omega :initform 1.0d0 :initarg :omega)
+  ((omega :initform 1.0 :initarg :omega)
    (ordering :initform () :initarg :ordering :type list)))
 
 (defmethod make-iterator ((sor <sor>) (mat standard-matrix))
@@ -245,13 +246,13 @@ parameter, eta is the diagonal enhancement."))
 	 (declare (ignore r))
 	 (assert (null ordering) () "NYI")
 	 (dotimes (i (nrows mat))
-	   (let ((factor (/ omega (mat-ref mat i i))))
+	   (let ((factor (/ omega (mref mat i i))))
 	     (dotimes (j (ncols b))
-	       (incf (mat-ref x i j)
+	       (incf (mref x i j)
 		     (* factor
-			(- (mat-ref b i j)
+			(- (mref b i j)
 			   (loop for k from 0 below (ncols mat)
-				 summing (* (mat-ref mat i k) (mat-ref x k j))))))))))
+				 summing (* (mref mat i k) (mref x k j))))))))))
      :residual-after nil)))
 
 (defmethod make-iterator ((sor <sor>) (mat <sparse-matrix>))
@@ -261,7 +262,7 @@ parameter, eta is the diagonal enhancement."))
       (for-each-row-key
        #'(lambda (row-key)
 	   (setf (gethash row-key diagonal-inverse)
-		 (m/ (mat-ref mat row-key row-key))))
+		 (m/ (mref mat row-key row-key))))
        mat)
       (make-instance
        '<iterator>
@@ -276,14 +277,13 @@ parameter, eta is the diagonal enhancement."))
 	   (assert (null ordering) () "NYI")
 	   (for-each-row-key
 	    #'(lambda (row-key)
-		(let ((corr (copy (vec-ref b row-key))))
+		(let ((corr (copy (vref b row-key))))
 		  (for-each-key-and-entry-in-row
 		   #'(lambda (col-key mblock)
-		       ;;(gemm! -1.0d0 mblock (vec-ref x col-key) 1.0d0 corr)
-		       (x-=Ay corr mblock (vec-ref x col-key)))
+		       (gemm! -1.0 mblock (vref x col-key) 1.0 corr))
 		   mat row-key)
 		  (gemm! omega (gethash row-key diagonal-inverse) corr
-			 1.0d0 (vec-ref x row-key))
+			 1.0 (vref x row-key))
 		  ))
 	    mat))
        :residual-after nil))))
@@ -307,4 +307,4 @@ parameter, eta is the diagonal enhancement."))
   (make-instance '<multi-iteration> :base *undamped-jacobi* :nr-steps 2))
 
 ;;; (test-linit)
-(tests::adjoin-femlisp-test 'test-linit)
+(fl.tests:adjoin-test 'test-linit)

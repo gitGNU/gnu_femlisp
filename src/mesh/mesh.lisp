@@ -116,7 +116,8 @@ are modified for boundary-approximating meshes."
     ;; when not polygonal or directly from domain patches replace mappings
     (when (and parametric
 	       (not (eq parametric :from-domain))
-	       (= (dimension patch) (dimension mesh)))
+	       #-(or)(= (dimension patch) (dimension mesh))
+	       #+(or)(plusp (dimension cell)))
       (loop for child across (children cell mesh) do
 	    (unless (vertex? child)
 	      (if (every #'(lambda (side) ; tests if inside some patch
@@ -330,4 +331,5 @@ cells of a locally refined hierarchical-mesh structure."
     (describe
      (make-instance '<mesh> :domain *unit-interval-domain*))))
 
-(tests::adjoin-femlisp-test 'test-mesh)
+(fl.tests:adjoin-test 'test-mesh)
+

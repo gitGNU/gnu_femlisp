@@ -35,8 +35,7 @@
 (in-package "COMMON-LISP-USER")
 
 (defpackage "GRAPHICS"
-  (:use "COMMON-LISP" "UTILITIES" "MACROS")
-  (:import-from "COMMON-LISP-USER" "*DX-PATH*" "*GNUPLOT-PATH*" "*IMAGES-DIRECTORY*")
+  (:use "COMMON-LISP" "FL.UTILITIES" "FL.MACROS")
   (:export
    "*DEFAULT-GRAPHIC-PROGRAM*"
    "GRAPHIC-FILE-NAME"

@@ -40,7 +40,7 @@
 (defun lagrange-coords-1d (order type)
   (ecase type
     (:uniform
-     (map 'vector #'(lambda (i) (float (/ i order) 1.0d0)) (range 0 order)))
+     (map 'vector #'(lambda (i) (float (/ i order) 1.0)) (range 0 order)))
     ;; The following choice of nodal points does not work for simplices with
     ;; dim>=3 and order>=3 because nodal points on the sides do not fit.  But
     ;; it is much better suited for interpolation in the case of tensorial
@@ -107,7 +107,7 @@ product which is faster."
   "Computes simpulataneously shapes and dof-coords for a tensorial as a
 tensor product."
   (if (null factor-simplices)
-      (values (list (double-vec)) (list (make-polynomial '(1.0d0))))
+      (values (list (double-vec)) (list (make-polynomial '(1.0))))
       (multiple-value-bind (coords shapes)
 	  (shapes-and-dof-coords (cdr factor-simplices) order type)
 	(let* ((factor (car factor-simplices))
@@ -208,30 +208,30 @@ boundary lagrangian."
 	     (setf (gethash dof result) shape)))
       (t
        (let* ((nr-dofs (nr-of-dofs fe))
-	      (energy-mat (make-float-matrix nr-dofs))
+	      (energy-mat (make-real-matrix nr-dofs))
 	      (inner-indices (range< 0 nr-inner-dofs))
 	      (boundary-indices (range< nr-inner-dofs nr-dofs)))
 	 (loop with qrule = (quadrature-rule fe-class fe)
 	       for ip in (integration-points qrule)
 	       for gradients in (ip-gradients fe qrule) do
-	       (gemm! (ip-weight ip) gradients gradients 1.0d0 energy-mat :nt))
-       (let* ((A_II (submatrix energy-mat :row-indices inner-indices :col-indices inner-indices))
-	      (A_IB (submatrix energy-mat :row-indices inner-indices :col-indices boundary-indices))
-	      (corr-mat (m* (m/ A_II) A_IB))
-	      (inner-shapes (lagrange-basis-inner refcell order type)))
-	 (loop for j from 0
-	       and dof in (lagrange-boundary-dofs refcell order type)
-	       and phi in (lagrange-basis-boundary refcell order type) do
-	       (setf (gethash dof result)
-		     (loop for i from 0 and psi in inner-shapes do
-			   (setf phi (vec- phi (vec-s* (mat-ref corr-mat i j) psi)))
-			   finally (return phi))))))))
+	       (gemm! (ip-weight ip) gradients gradients 1.0 energy-mat :nt))
+	 (let* ((A_II (submatrix energy-mat :row-indices inner-indices :col-indices inner-indices))
+		(A_IB (submatrix energy-mat :row-indices inner-indices :col-indices boundary-indices))
+		(corr-mat (m* (m/ A_II) A_IB))
+		(inner-shapes (lagrange-basis-inner refcell order type)))
+	   (loop for j from 0
+		 and dof in (lagrange-boundary-dofs refcell order type)
+		 and phi in (lagrange-basis-boundary refcell order type) do
+		 (setf (gethash dof result)
+		       (loop for i from 0 and psi in inner-shapes do
+			     (setf phi (axpy (- (mref corr-mat i j)) psi phi))
+			     finally (return phi))))))))
     result))
 
 (defun lagrange-polynomial-vector (cell order type)
   "Returns a vector of polynomials representing the isoparametric mapping."
-  (loop with result = (make-array (manifold-dimension cell)
-				  :initial-element (make-polynomial '(0)))
+  (loop with result = (copy (make-array (manifold-dimension cell)
+					:initial-element (make-polynomial '(0))))
 	with basis = (lagrange-reference-parameters (reference-cell cell) order type)
 	with subcells = (subcells cell)
 	for dof being the hash-keys of basis
@@ -239,8 +239,7 @@ boundary lagrangian."
 	(loop for comp across (local->global (aref subcells (dof-subcell-index dof))
 					     (dof-coord dof))
 	      and i from 0 do
-	      (setf (aref result i)
-		    (vec+ (aref result i) (vec-s* comp phi))))
+	      (axpy! comp phi (aref result i)))
 	finally (return result)))
 
 (defun lagrange-mapping (order &optional (type :uniform))
@@ -248,6 +247,7 @@ boundary lagrangian."
 by interpolating the boundary map via Lagrange interpolation."
   #'(lambda (cell)
       (let ((poly-vec (lagrange-polynomial-vector cell order type)))
+	(dbg :lagrange "Lagrange-map(~A)=~%~A" cell poly-vec)
 	(make-instance
 	 '<special-function>
 	 :domain-dimension (dimension cell)
@@ -257,11 +257,11 @@ by interpolating the boundary map via Lagrange interpolation."
 	     (loop with result = (make-double-vec (length poly-vec))
 		   for poly across poly-vec
 		   and i from 0 do
-		   (setf (aref result i) (float (evaluate poly lcoord) 1.0d0))
+		   (setf (aref result i) (float (evaluate poly lcoord) 1.0))
 		   finally (return result)))
 	 :gradient
 	 #'(lambda (lcoord)
-	     (make-float-matrix
+	     (make-real-matrix
 	      (loop for poly across poly-vec collect
 		    (loop for i from 0 below (length lcoord) collect
 			  (evaluate (differentiate poly i) lcoord)))))))))
@@ -295,15 +295,15 @@ by interpolating the boundary map via Lagrange interpolation."
   (time (lagrange-reference-parameters *unit-quadrangle* 7 :uniform))
 
   ;; Isoparametric stuff
-  (let ((center (make-vertex #(0.0d0 -4.0d0)))
-	(east-vtx (make-vertex #(-1.0d0 1.0d0)))
-	(north-vtx (make-vertex #(0.0d0 1.0d0))))
+  (let ((center (make-vertex #(0.0 -4.0)))
+	(east-vtx (make-vertex #(-1.0 1.0)))
+	(north-vtx (make-vertex #(0.0 1.0))))
     ;; line segments
     (let ((seg-ce (make-line center east-vtx))
 	  (seg-cn (make-line center north-vtx))
 	  (seg-en (make-line east-vtx north-vtx)))
       (let ((tri (make-simplex (vector seg-en seg-cn seg-ce)))
-	    (lcoord #(0.2d0 0.3d0)))
+	    (lcoord #(0.2 0.3)))
 	(princ (det (local->Dglobal tri lcoord))) (terpri)
 	(princ (local->global tri lcoord))
 	(evaluate (funcall (lagrange-mapping 4) tri) lcoord))))
@@ -339,8 +339,16 @@ by interpolating the boundary map via Lagrange interpolation."
    (make-instance
     '<vector-fe>
     :components (make-array 2 :initial-element (get-fe (lagrange-fe 1) *unit-interval*))))
+  ;;
+  (dbg-on :lagrange)
+  (let* ((domain (n-ball-domain 2))
+	 (mesh (make-mesh-from-domain domain :parametric (lagrange-mapping 1)))
+	 (refined (refine mesh)))
+    (check refined))
+  (dbg-off :lagrange)
   )
 
-(tests::adjoin-femlisp-test 'test-lagrange)
+(fl.tests:adjoin-test 'test-lagrange)
 
 ;;; (discretization::test-lagrange)
+

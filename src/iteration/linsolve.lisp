@@ -45,14 +45,14 @@
   "Ensure an initial guess and its residual."
   (with-items (&key solution matrix rhs residual residual-p) blackboard
     (unless solution
-      (setq solution (make-row-vector-for matrix (multiplicity rhs))))))
+      (setq solution (make-domain-vector-for matrix (multiplicity rhs))))))
 
 (defmethod ensure-residual ((linsolve <linear-solver>) blackboard)
   "Ensure the residual for a linear problem."
   (with-items (&key solution matrix rhs residual residual-p) blackboard
     (unless residual-p  ; ensure residual
       (unless residual
-	(setq residual (make-column-vector-for matrix (multiplicity rhs))))
+	(setq residual (make-image-vector-for matrix (multiplicity rhs))))
       (setq residual (compute-residual matrix solution rhs residual))
       (setq residual-p t))))
 
@@ -86,7 +86,7 @@ solving a linear system."
   (:documentation "If you happen to have a problem-adapted solver given as
 a function, you may use this base class."))
 
-(defmethod solve ((solver <special-solver>) blackboard)
+(defmethod solve ((solver <special-solver>) &optional blackboard)
   (funcall (solver-function solver) blackboard))
 
 ;;; solver-iteration
@@ -117,8 +117,10 @@ a function, you may use this base class."))
 	(gs *gauss-seidel*))
     
     ;; application to matlisp matrices
-    (let ((A [[2.0 -1.0 0.0]' [-1.0 2.0 -1.0]' [0.0 -1.0 2.0]'])
-	  (b [1.0 2.0 1.0]'))
+    (let ((A #m((2.0 -1.0  0.0)
+		(-1.0  2.0 -1.0)
+		(0.0 -1.0  2.0)))
+	  (b #m((1.0) (2.0) (1.0))))
       (linsolve A b :output t :iteration lu)
       (linsolve A b :output t :iteration jac)
       (linsolve A b :output t :iteration gs)
@@ -137,23 +139,23 @@ a function, you may use this base class."))
 	       :col-key->size constantly-1
 	       :keys->pattern (constantly (full-crs-pattern 1 1))))
 	   (sol (make-instance '<sparse-vector> :key->size constantly-1)))
-      (setf (vec-ref (vec-ref b 1) 0) 1.0d0)
-      (setf (vec-ref (vec-ref b 2) 0) 2.0d0)
-      (setf (vec-ref (vec-ref b 3) 0) 1.0d0)
+      (setf (vref (vref b 1) 0) 1.0)
+      (setf (vref (vref b 2) 0) 2.0)
+      (setf (vref (vref b 3) 0) 1.0)
       
-      (setf (vec-ref (mat-ref A 1 1) 0) 2.0d0)
-      (setf (vec-ref (mat-ref A 2 2) 0) 2.0d0)
-      (setf (vec-ref (mat-ref A 3 3) 0) 2.0d0)
-      (setf (vec-ref (mat-ref A 1 2) 0) -1.0d0)
-      (setf (vec-ref (mat-ref A 2 1) 0) -1.0d0)
-      (setf (vec-ref (mat-ref A 2 3) 0) -1.0d0)
-      (setf (vec-ref (mat-ref A 3 2) 0) -1.0d0)
-      (assert (eql (matrix-ref (mat-ref A 3 2) 0 0) -1.0d0))
+      (setf (vref (mref A 1 1) 0) 2.0)
+      (setf (vref (mref A 2 2) 0) 2.0)
+      (setf (vref (mref A 3 3) 0) 2.0)
+      (setf (vref (mref A 1 2) 0) -1.0)
+      (setf (vref (mref A 2 1) 0) -1.0)
+      (setf (vref (mref A 2 3) 0) -1.0)
+      (setf (vref (mref A 3 2) 0) -1.0)
+      (assert (eql (mref (mref A 3 2) 0 0) -1.0))
       (show (linsolve A b :output t :iteration lu))
       (show (linsolve A b :output t :iteration gs))
       (solve *lu-solver* (blackboard :matrix A :rhs b :solution sol)))
     )
   )
 
-(tests::adjoin-femlisp-test 'test-linsolve)
+(fl.tests:adjoin-test 'test-linsolve)
 

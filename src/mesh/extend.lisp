@@ -69,7 +69,7 @@ yields T."
 (defun standard-extender (original-cell replacement)
   "Extension function replacing an original-cell with a replacement."
   #'(lambda (cell mesh)
-      (let* ((shift (vec- (midpoint cell) (midpoint original-cell)))
+      (let* ((shift (m- (midpoint cell) (midpoint original-cell)))
 	     (shifted-replacement
 	      (shift-skeleton replacement shift
 			      :properties '(PATCH EXTENSION))))
@@ -126,5 +126,5 @@ the given direction."
   )
 
 ;;; (test-extend)
-(tests:adjoin-femlisp-test 'test-extend)
+(fl.tests:adjoin-test 'test-extend)
   

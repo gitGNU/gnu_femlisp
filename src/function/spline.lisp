@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :algebra)
+(in-package :fl.function)
 
 (defun apply-1d-stencil (stencil x)
   (let* ((n (length x))
@@ -44,17 +44,17 @@
 	       (* (aref stencil 2) (aref x (mod (1+ i) n))))))))
     
 (defun M-times (x)
-  (apply-1d-stencil #(1.0d0 4.0d0 1.0d0) x))
+  (apply-1d-stencil #(1.0 4.0 1.0) x))
 
 (defun spline-right-hand-side (x)
-  (let ((h (/ 1.0d0 (length x))))
-    (apply-1d-stencil (scal (/ (* h h)) #(6.0d0 -12.0d0 6.0d0)) x)))
+  (let ((h (/ 1.0 (length x))))
+    (apply-1d-stencil (scal (/ (* h h)) #(6.0 -12.0 6.0)) x)))
 
 (defun solve-moment-system (b &optional (n 50))
   "Solves moment system by Jacobi iteration."
-  (loop with x = (scal 0.25d0 b)
+  (loop with x = (scal 0.25 b)
 	repeat n do
-	(setq x (m+ x (scal 0.25d0 (m- b (M-times x)))))
+	(setq x (m+ x (scal 0.25 (m- b (M-times x)))))
 	finally (return x)))
 
 #+(or)
@@ -63,14 +63,14 @@
 (defun cubic-spline (y)
   "On a regular partition of the unit interval interpolating values y are
 given.  This function returns an interpolating spline."
-  (let* ((n (length y)) (h (/ 1.0d0 n))
+  (let* ((n (length y)) (h (/ 1.0 n))
 	 (d (spline-right-hand-side y))
 	 (M (solve-moment-system d))
 	 (alpha y)
-	 (gamma (scal 0.5d0 M))
-	 (beta (m+ (apply-1d-stencil (scal (/ h) #(0.0d0 -1.0d0 1.0d0)) y)
-		   (apply-1d-stencil (scal (/ h 6) #(0.0d0 -2.0d0 -1.0d0)) M)))
-	 (delta (apply-1d-stencil (scal (/ 1.0d0 h 6) #(0.0d0 -1.0d0 1.0d0)) M)))
+	 (gamma (scal 0.5 M))
+	 (beta (m+ (apply-1d-stencil (scal (/ h) #(0.0 -1.0 1.0)) y)
+		   (apply-1d-stencil (scal (/ h 6) #(0.0 -2.0 -1.0)) M)))
+	 (delta (apply-1d-stencil (scal (/ 1.0 h 6) #(0.0 -1.0 1.0)) M)))
     (values
      ;; s(f)
      #'(lambda (x)
@@ -84,13 +84,13 @@ given.  This function returns an interpolating spline."
 	     (floor (aref x 0) h)
 	   (setq k (mod k n))
 	   (vector
-	    #I"beta[k]+xi*(2.0d0*gamma[k]+3.0d0*xi*delta[k])"))))))
+	    #I"beta[k]+xi*(2.0*gamma[k]+3.0*xi*delta[k])"))))))
      
 
 #+(or)  ; needs package "PLOT"!
 (flet ((f (x) #I"sin(2*pi*x)"))
   (let* ((N 3)
-	 (h (/ 1.0d0 N))
+	 (h (/ 1.0 N))
 	 (plot-h (/ h 10))
 	 (ip-coords (map 'vector (curry #'* h) (range< 0 N)))
 	 (spline (cubic-spline (vector-map #'f ip-coords))))
@@ -98,10 +98,10 @@ given.  This function returns an interpolating spline."
      (list
       (cons
        "function"
-       (loop for x from 0.0d0 upto 1.0d0 by plot-h
+       (loop for x from 0.0 upto 1.0 by plot-h
 	     collect (vector x (f x))))
       (cons
        "spline"
-       (loop for x from 0.0d0 upto 1.0d0 by plot-h
+       (loop for x from 0.0 upto 1.0 by plot-h
 	     collect (vector x (funcall spline (vector x)))))))))
 

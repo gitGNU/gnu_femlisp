@@ -78,7 +78,7 @@ the standard blocking introduced by the block sparse matrix."
   (:documentation "Parallel subspace correction scheme."))
 
 (defclass <ssc> (<block-iteration>)
-  ((omega :initform 1.0d0 :initarg :omega))
+  ((omega :initform 1.0 :initarg :omega))
   (:documentation "Successive subspace correction scheme."))
 
 (defclass <setup-blocks-mixin> ()
@@ -101,7 +101,7 @@ decomposition."))
   (funcall (slot-value blockit 'block-setup) blockit smat))
 
 (defclass <block-gauss-seidel> (<ssc>)
-  ((omega :initform 1.0d0)))
+  ((omega :initform 1.0)))
 
 (defun compute-block-inverse (smat keys ranges)
   (m/ (sparse-matrix->matlisp
@@ -171,16 +171,16 @@ decomposition."))
 			 (compute-block-inverse smat block (car ranges-tail))))
 		 ;; compute residual on the block (disregarding the ranges)
 		 (loop for key across block do
-		       (copy! (vec-ref b key) (vec-ref r key))
+		       (copy! (vref b key) (vref r key))
 		       (for-each-key-and-entry-in-row
 			#'(lambda (col-key mblock)
-			    #+(or)(gemm! -1.0d0 mblock (vec-ref x col-key) 1.0d0 (vec-ref r key))
-			    #-(or)(x-=Ay (vec-ref r key) mblock (vec-ref x col-key)))
+			    #+(or)(gemm! -1.0 mblock (vref x col-key) 1.0 (vref r key))
+			    #-(or)(x-=Ay (vref r key) mblock (vref x col-key)))
 			smat key))
 		 ;; now invert local system
 		 (let ((local-r (sparse-vector->matlisp r :keys block :ranges block-ranges))
 		       (local-x (sparse-vector->matlisp x :keys block :ranges block-ranges)))
-		   (gemm! (slot-value ssc 'omega) diag-inverse local-r 1.0d0 local-x)
+		   (gemm! (slot-value ssc 'omega) diag-inverse local-r 1.0 local-x)
 		   (set-svec-to-local-block x local-x :keys block :ranges block-ranges)))
 	   x)
        :residual-after nil))))

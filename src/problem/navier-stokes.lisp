@@ -34,8 +34,8 @@
 
 (in-package :cl-user)
 (defpackage "NAVIER-STOKES"
-  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP.MATLISP"
-	"ALGEBRA" "MESH" "PROBLEM")
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+	"ALGEBRA" "FL.FUNCTION" "MESH" "PROBLEM")
   (:export
    "<NAVIER-STOKES-PROBLEM>" "NO-SLIP-BOUNDARY"
    "STANDARD-NAVIER-STOKES-PROBLEM" "UNIT-VECTOR-FORCE"
@@ -75,8 +75,8 @@
 
 (defun unit-vector-force (dim &optional (direction 0))
   (constant-coefficient
-   (let ((result (make-array (1+ dim) :initial-element [0.0])))
-     (setf (aref result direction) [1.0])
+   (let ((result (make-array (1+ dim) :initial-element #m((0.0)))))
+     (setf (aref result direction) #m((1.0)))
      result)))
 
 (defun standard-navier-stokes-problem (domain &key (viscosity 1.0) (reynolds 0.0) force)
@@ -102,7 +102,7 @@
   (let ((flags (make-array (1+ dim) :initial-element t))
 	(values (make-double-vec (1+ dim))))
     (setf (aref flags dim) nil) ; no constraint for pressure
-    (setf (aref values 0) 1.0d0)
+    (setf (aref values 0) 1.0)
     (constant-coefficient flags values)))
 
 (defun driven-cavity-force (dim)
@@ -142,8 +142,9 @@
 (defun periodic-cavity-force (dim)
   (function->coefficient
    #'(lambda (x)
-    (coerce (append (make-list dim :initial-element [#I"sin(2*pi*x[0])*cos(2*pi*x[1])"])
-		    (list [0.0]))
+    (coerce (append (make-list dim :initial-element
+			       (make-real-matrix `((,#I"sin(2*pi*x[0])*cos(2*pi*x[1])"))))
+		    (list #m((0.0))))
 	    'vector))))
 
 (defun periodic-cavity (dim &key (viscosity 1.0) (reynolds 0.0))
@@ -170,6 +171,6 @@
   (problem-info (driven-cavity 2 :smooth-p nil))
   )
 
-(tests:adjoin-femlisp-test 'test-navier-stokes)
+(fl.tests:adjoin-test 'test-navier-stokes)
 
 

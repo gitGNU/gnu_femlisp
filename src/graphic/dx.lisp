@@ -38,6 +38,12 @@
 ;;;; Routines for establishing the communication line
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defvar *dx-pathname*
+  (or (whereas ((dx-name cl-user::*dx-path*))
+	(probe-file (pathname dx-name)))
+      (fl.port:find-executable "dx"))
+  "Pathname to DX.")
+
 (defvar *dx-stream* nil
   "The current Data Explorer output stream.")
 
@@ -53,14 +59,16 @@ on/off.  This is a trick to make dx redraw the picture.")
 	(if (and *dx-stream* (open-stream-p *dx-stream*))
 	    *dx-stream*
 	    (whereas ((process
-		       (ext::run-program *dx-path*  '("-script" "-cache off" "-log on")
-					 :input :stream :output nil :wait nil)))
-	      (ext::process-input process))))
+		       (fl.port:run-program
+			*dx-pathname* '("-script" "-cache off" "-log on")
+			:input :stream :output nil :wait nil)))
+	      (fl.port:process-input process))))
   (unless *dx-stream*
-    (format *error-output*
-	    "Could not open stream to DX.  Please ensure that the
-special variable CL-USER::*DX-PATH* has a reasonable value.  Usually,]
-this is set in femlisp:src;femlisp-config.lisp."))
+    (format
+     *error-output*
+     "Could not open stream to DX.  Please ensure that the DX executable is
+in your path or set the special variable CL-USER::*DX-PATH* to its
+pathname.  Usually, this is set in femlisp:src;femlisp-config.lisp."))
   *dx-stream*)
 
 (defmethod graphic-stream ((program (eql :dx)))
@@ -84,7 +92,7 @@ this is set in femlisp:src;femlisp-config.lisp."))
 				  (resolution 480) (width 480) (height 480)
 				  format filename &allow-other-keys)
   (let* ((file-name (apply #'graphic-file-name object program paras))
-	 (long-file-name (concatenate 'string *images-directory* file-name)))
+	 (long-file-name (concatenate 'string (namestring *images-pathname*) file-name)))
     (format stream "data = Import(~S);~%" long-file-name)
     (format stream "data = Options(data, \"cache\", ~D);~%" *dx-toggle*)
     (loop for script-command in (apply #'graphic-commands object program paras)
@@ -104,7 +112,8 @@ this is set in femlisp:src;femlisp-config.lisp."))
       (:file
        (when format
 	 (format stream "WriteImage (image,~S,~S);~%"
-		 (concatenate 'string *images-directory* (or filename file-name))
+		 (concatenate 'string (namestring *images-pathname*)
+			      (or filename file-name))
 		 format))))
     ))
 

@@ -42,4 +42,5 @@ linecount:
 
 clean:
 	find . -name "*.x86f" -exec rm {} \;
+	find . -name "*.fasl" -exec rm {} \;
 	find . -name "*.err" -exec rm {} \;

@@ -35,8 +35,8 @@
 (in-package :cl-user)
 
 (defpackage "ELASTICITY"
-  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP.MATLISP"
-	"ALGEBRA" "MESH" "PROBLEM")
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+	"ALGEBRA" "FL.FUNCTION" "MESH" "PROBLEM")
   (:export
    "<ELASTICITY-PROBLEM>" "ISOTROPIC-ELASTICITY-TENSOR"
    "CHECK-ELASTICITY-TENSOR"
@@ -74,18 +74,18 @@ $\mu$, i.e.: $$A_{ij}^{kl} = \lambda \delta_{ik} \delta_{jl} + \mu
 	(let ((mat (make-real-matrix dim)))
 	  (dotimes (i dim)
 	    (dotimes (j dim)
-	      (setf (mat-ref mat i j)
-		    (+ (* lambda (if (and (= i k) (= j l)) 1.0d0 0.0d0))
-		       (* mu  (+ (if (and (= i j) (= k l)) 1.0d0 0.0d0)
-				 (if (and (= k j) (= i l)) 1.0d0 0.0d0)))))))
+	      (setf (mref mat i j)
+		    (+ (* lambda (if (and (= i k) (= j l)) 1.0 0.0))
+		       (* mu  (+ (if (and (= i j) (= k l)) 1.0 0.0)
+				 (if (and (= k j) (= i l)) 1.0 0.0)))))))
 	  (setf (aref tensor k l) mat))))
     tensor))
 
 (defun check-elasticity-tensor (tensor &optional (threshold 1.0e-6))
   "Checks the symmetries in the elasticity tensor."
   (labels ((tref (index)
-	     (matrix-ref (aref tensor (aref index 0) (aref index 1))
-			 (aref index 2) (aref index 3)))
+	     (mref (aref tensor (aref index 0) (aref index 1))
+		   (aref index 2) (aref index 3)))
 	   (same? (ind1 ind2)
 	     (<= (abs (- (tref ind1) (tref ind2))) threshold)))
     (let ((dim (array-dimension tensor 0)))
@@ -161,6 +161,6 @@ $\mu$, i.e.: $$A_{ij}^{kl} = \lambda \delta_{ik} \delta_{jl} + \mu
      :force (constantly (unit-vector dim 0))))
   )
 
-(tests:adjoin-femlisp-test 'test-elasticity)
+(fl.tests:adjoin-test 'test-elasticity)
 
 

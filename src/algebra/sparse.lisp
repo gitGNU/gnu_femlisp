@@ -57,6 +57,12 @@ indexed by keys.  The function key->size determines the block size, the
 function print-key determines how each key is printed.  Multiplicity is
 used for handling multiple right-hand sides or solutions simultaneously."))
 
+(defmethod element-type ((svec <sparse-vector>))
+  (standard-matrix 'double-float))
+
+(defmethod scalar-type ((svec <sparse-vector>))
+  'double-float)
+
 (defmethod nr-of-entries ((svec <sparse-vector>))
   (hash-table-count (slot-value svec 'blocks)))
 
@@ -65,10 +71,10 @@ used for handling multiple right-hand sides or solutions simultaneously."))
    '<sparse-vector> :key->size (key->size svec) :print-key (print-key svec)
    :multiplicity (multiplicity svec)))
 
-(defmethod** vector-block ((svec <sparse-vector>) key)
+(defmethod vector-block ((svec <sparse-vector>) key)
   (values (gethash key (slot-value svec 'blocks))))
 
-(defmethod* vec-ref ((svec <sparse-vector>) key)
+(defmethod vref ((svec <sparse-vector>) key)
   "Random access to vector components.  Fast version."
   ;;(declare (values real-matrix))
   (let ((blocks (slot-value svec 'blocks)))
@@ -77,14 +83,10 @@ used for handling multiple right-hand sides or solutions simultaneously."))
 	      (make-real-matrix (funcall (key->size svec) key)
 				(multiplicity svec))))))
 
-(defmethod* (setf vec-ref) (value (svec <sparse-vector>) key)
+(defmethod (setf vref) (value (svec <sparse-vector>) key)
   "Inserts a vector block into the sparse vector."
   ;;(declare (type real-matrix value))
   (setf (gethash key (slot-value svec 'blocks)) value))
-
-(defmethod matrix-ref-1d ((svec <sparse-vector>) key)
-  "For matlisp like access."
-  (vec-ref svec key))
 
 (defmethod for-each-key ((fn function) (svec <sparse-vector>))
   (loop for key being the hash-keys of (slot-value svec 'blocks) do
@@ -95,11 +97,16 @@ used for handling multiple right-hand sides or solutions simultaneously."))
   (loop for val being the hash-values of (slot-value svec 'blocks) do
 	(funcall fn val)))
 (defmethod for-each-entry-of-vec1 ((fn function) (svec1 <sparse-vector>) (svec2 <sparse-vector>))
-  (maphash #'(lambda (key val) (funcall fn val (vec-ref svec2 key)))
+  (maphash #'(lambda (key val) (funcall fn val (vref svec2 key)))
 	   (slot-value svec1 'blocks)))
 (defmethod for-each-entry-of-vec2 ((fn function) (svec1 <sparse-vector>) (svec2 <sparse-vector>))
-  (maphash #'(lambda (key val) (funcall fn (vec-ref svec1 key) val))
+  (maphash #'(lambda (key val) (funcall fn (vref svec1 key) val))
 	   (slot-value svec2 'blocks)))
+
+(defmethod keys ((svec <sparse-vector>))
+  (let ((keys ()))
+    (dovec ((key) svec) (push key keys))
+    (nreverse keys)))
 
 (defmethod show ((svec <sparse-vector>) &key keys (zeros t) &allow-other-keys)
   (format t "~&Sparse vector with ~D allocated components:~%"
@@ -109,13 +116,8 @@ used for handling multiple right-hand sides or solutions simultaneously."))
 	     (funcall (print-key svec) key)
 	     (format t " --> ~A~%" vblock))))
     (dolist (key (or keys (keys svec)))
-      (keyout key (vec-ref svec key))))
+      (keyout key (vref svec key))))
   svec)
-
-(defmethod keys ((svec <sparse-vector>))
-  (let ((keys ()))
-    (dovec ((key) svec) (push key keys))
-    (nreverse keys)))
 
 (defmethod remove-key ((svec <sparse-vector>) key)
   (remhash key (slot-value svec 'blocks)))
@@ -136,7 +138,7 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 		(reduce #'+ ranges :key #'(lambda (x) (- (cdr x) (car x))))
 		(reduce #'+ keys :key (key->size svec))))
 	 (multiplicity (multiplicity svec))
-	 (mm (make-float-matrix n multiplicity)))
+	 (mm (make-real-matrix n multiplicity)))
     (loop for key across keys and k from 0
 	  and offset of-type fixnum = 0 then (+ offset (- end-comp start-comp))
 	  for start-comp of-type fixnum = (if ranges (car (aref ranges k)) 0)
@@ -146,8 +148,8 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 	  for entry = (vector-block svec key) do
 	  (loop for i of-type fixnum from start-comp below end-comp do
 		(dotimes (j multiplicity)
-		  (setf (matrix-ref mm (+ offset i) j)
-			(if entry (matrix-ref entry i j) 0.0d0)))))
+		  (setf (mref mm (+ offset i) j)
+			(if entry (mref entry i j) 0.0)))))
     mm))
 
 (defun combine-svec-block (svec local-vec keys ranges operation)
@@ -161,15 +163,15 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 	  for end-comp of-type fixnum = (if ranges
 					    (cdr (aref ranges k))
 					    (funcall (key->size svec) key))
-	  for entry = (vec-ref svec key) do
+	  for entry = (vref svec key) do
 	  ;; for entry = (vector-block svec key)
 	  ;; when entry do
 	  (loop for i of-type fixnum from start-comp below end-comp do
 		(dotimes (j multiplicity)
-		  (let ((local-entry (matrix-ref local-vec (+ offset i) j)))
+		  (let ((local-entry (mref local-vec (+ offset i) j)))
 		    (ecase operation
-		      (:add (incf (matrix-ref entry i j) local-entry))
-		      (:set (setf (matrix-ref entry i j) local-entry)))))))))
+		      (:add (incf (mref entry i j) local-entry))
+		      (:set (setf (mref entry i j) local-entry)))))))))
   
 (defmethod set-svec-to-local-block ((svec <sparse-vector>) local-vec &key keys ranges)
   "Copies a local block in matlisp format into a <sparse-vector>."
@@ -185,63 +187,15 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 
 (defmethod copy ((x <sparse-vector>))
   (let ((result (make-analog x)))
-    (x<-y result x)
+    (copy! x result)
     result))
-
-(defmethod m+ ((x <sparse-vector>) (y <sparse-vector>))
-  (let ((result (make-analog x)))
-    (x<-y result x)
-    (x+=y result y)
-    result))
-
-(defmethod m+! ((y <sparse-vector>) (x <sparse-vector>))
-  (x+=y x y)
-  x)
-
-(defmethod m- ((x <sparse-vector>) (y <sparse-vector>))
-  (let ((result (make-analog x)))
-    (x<-y result x)
-    (x-=y result y)
-    result))
-
-(defmethod dot ((x <sparse-vector>) (y <sparse-vector>) &optional conjugate-p)
-  (let ((sum 0.0d0))
-    (for-each-key-and-entry
-     #'(lambda (key entry)
-	 (whereas ((entry2 (vector-block y key)))
-	   (incf sum (dot entry entry2 conjugate-p))))
-     x)
-  sum))
-
-(defmethod dot-abs ((x <sparse-vector>) (y <sparse-vector>) &optional conjugate-p)
-  (let ((sum 0.0d0))
-    (for-each-key-and-entry
-     #'(lambda (key entry)
-	 (whereas ((entry2 (vector-block y key)))
-	   (incf sum (dot-abs entry entry2 conjugate-p))))
-     x)
-  sum))
-
-;;; This may be only semi-useful, because often combinations of p are
-;;; reasonable for block-vectors
-(defmethod norm ((svec <sparse-vector>) &optional (p 2))
-  (let ((accum 0.0d0))
-     (dovec (entry svec)
-       (ecase p
-	 ((1 :1) (incf accum (the double-float (norm entry 1))))
-	 ((2 :2) (incf accum (the double-float (expt (norm entry 1) 2))))
-	 ((:inf :oo) (setq accum (max accum (norm entry :inf))))))
-    (ecase p
-      ((1 :1) accum)
-      ((2 :2) (sqrt accum))
-      ((:inf :oo) accum))))
 
 (defmethod extract-if ((test function) (svec <sparse-vector>) &key &allow-other-keys)
   "Extracts a sub-matrix from a sparse matrix."
   (let ((sub-vec (make-analog svec)))
     (dovec ((key entry) svec)
       (when (funcall test key entry)
-	(setf (vec-ref sub-vec key) entry)))
+	(setf (vref sub-vec key) entry)))
     sub-vec))
 
 (defmethod extended-extract ((svec <sparse-vector>) (keys hash-table) &key &allow-other-keys)
@@ -255,7 +209,8 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 ;;; vector blas operations for the <svec> class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; we use the general operations
+;;; We use the general operations for block vectors.  Later on these will
+;;; be inlined.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -279,6 +234,12 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
    (keys->pattern :reader keys->pattern :initarg :keys->pattern :type function))
   (:documentation "The <sparse-matrix> represents an unordered matrix
 graph."))
+
+(defmethod element-type ((smat <sparse-matrix>))
+  (standard-matrix 'double-float))
+
+(defmethod scalar-type ((smat <sparse-matrix>))
+  'double-float)
 
 (defun make-sparse-matrix (&key (print-row-key #'princ) (print-col-key #'princ)
 			   row-key->size col-key->size keys->pattern)
@@ -322,7 +283,7 @@ graph."))
 (defmethod nr-nonempty-columns ((smat <sparse-matrix>))
   (hash-table-count (column-table smat)))
 
-(defmethod mzerop ((smat <sparse-matrix>) &optional (threshold 0.0d0))
+(defmethod mzerop ((smat <sparse-matrix>) &optional (threshold 0.0))
   (declare (ignore threshold))
   (or (zerop (nr-nonempty-rows smat))
       (call-next-method)))
@@ -346,16 +307,16 @@ graph."))
        (eql (row-key->size A)
 	    (col-key->size A))))
 
-(defmethod** matrix-row ((mat <sparse-matrix>) key)
+(defmethod matrix-row ((mat <sparse-matrix>) key)
   (values (gethash key (row-table mat))))
 
-(defmethod** (setf matrix-row) ((row-table hash-table) (mat <sparse-matrix>) key)
+(defmethod (setf matrix-row) ((row-table hash-table) (mat <sparse-matrix>) key)
   (setf (gethash key (row-table mat)) row-table))
 
-(defmethod** matrix-column ((mat <sparse-matrix>) key)
+(defmethod matrix-column ((mat <sparse-matrix>) key)
   (values (gethash key (column-table mat))))
 
-(defmethod** (setf matrix-column) ((col-table hash-table) (mat <sparse-matrix>) key)
+(defmethod (setf matrix-column) ((col-table hash-table) (mat <sparse-matrix>) key)
   (setf (gethash key (column-table mat)) col-table))
 
 (defmethod keys-of-row ((mat <sparse-matrix>) key)
@@ -375,27 +336,27 @@ graph."))
        (full-crs-pattern (funcall (row-key->size sm) row-key)
 			 (funcall (row-key->size sm) col-key)))))
 
-(defmethod** matrix-block ((smat <sparse-matrix>) row-key col-key)
+(defmethod matrix-block ((smat <sparse-matrix>) row-key col-key)
   (aand (matrix-row smat row-key)
 	(gethash col-key it)))
 
-(defmethod* mat-ref ((smat <sparse-matrix>) row-key col-key)
+(defmethod mref ((smat <sparse-matrix>) row-key col-key)
   "If the matrix-block indexed by row-key/col-key exists, it is returned.
 Otherwise, a new matrix block is created according to the pattern specified
 for this index."
   (or (matrix-block smat row-key col-key)
-      (setf (mat-ref smat row-key col-key)
-	    (let* ((pattern (funcall (keys->pattern smat) row-key col-key))
-		   (nrows (crs-nrows pattern))
-		   (ncols (crs-ncols pattern)))
-	      (cond ((or (zerop nrows) (zerop ncols))
-		     (error "No sparse matrix entry allowed here!"))
-		    ((= (crs-store-size pattern) (the fixnum (* nrows ncols)))
-		     (make-float-matrix nrows ncols))
-		    (t
-		     (make-crs-matrix pattern (make-double-vec (crs-store-size pattern)))))))))
+      (setf (mref smat row-key col-key)
+	    (let ((pattern (funcall (keys->pattern smat) row-key col-key)))
+	      (with-slots (nrows ncols store-size) pattern
+		(cond
+		  ((or (zerop nrows) (zerop ncols))
+		   (error "No sparse matrix entry allowed here!"))
+		  ((= store-size (* nrows ncols))
+		   (make-real-matrix nrows ncols))
+		  (t (make-instance 'crs-matrix :pattern pattern
+				    :store (make-double-vec store-size)))))))))
 
-(defmethod (setf mat-ref) (value (smat <sparse-matrix>) row-key col-key)
+(defmethod (setf mref) (value (smat <sparse-matrix>) row-key col-key)
   "Inserts a matrix block into the sparse matrix.  Note: using this routine
 means a lot of consing."
   (setf (gethash col-key
@@ -408,10 +369,6 @@ means a lot of consing."
 		     (setf (gethash col-key (column-table smat))
 			   (make-hash-table :size 30 :test #'eq))))
 	value))
-
-(defmethod matrix-ref-2d ((smat <sparse-matrix>) key1 key2)
-  "For matlisp like access - should not be necessary."
-  (mat-ref smat key1 key2))
 
 (defmethod remove-entry ((smat <sparse-matrix>) row-key col-key)
   (let ((row (matrix-row smat row-key))
@@ -446,13 +403,13 @@ means a lot of consing."
 
 (defmethod row<-id ((A <sparse-matrix>) key)
   (remove-row A key)
-  (setf (mat-ref A key key)
+  (setf (mref A key key)
 	(eye (funcall (row-key->size A) key)
 	     (funcall (col-key->size A) key))))
 
 (defmethod column<-id ((A <sparse-matrix>) key)
   (remove-column A key)
-  (setf (mat-ref A key key)
+  (setf (mref A key key)
 	(eye (funcall (row-key->size A) key)
 	     (funcall (col-key->size A) key))))
 
@@ -485,13 +442,13 @@ means a lot of consing."
 (defmethod for-each-entry-of-vec1 ((fn function) (smat1 <sparse-matrix>) (smat2 <sparse-matrix>))
   (for-each-key-and-entry
    #'(lambda (row-key col-key entry)
-       (funcall fn entry (mat-ref smat2 row-key col-key)))
+       (funcall fn entry (mref smat2 row-key col-key)))
    smat1))
 
 (defmethod for-each-entry-of-vec2 ((fn function) (smat1 <sparse-matrix>) (smat2 <sparse-matrix>))
   (for-each-key-and-entry
    #'(lambda (row-key col-key entry)
-       (funcall fn (mat-ref smat1 row-key col-key) entry))
+       (funcall fn (mref smat1 row-key col-key) entry))
    smat2))
 
 (defmethod for-each-row-key ((fn function) (smat <sparse-matrix>))
@@ -564,7 +521,7 @@ means a lot of consing."
   (let ((flag t))
     (for-each-key-and-entry
      #'(lambda (rk ck entry)
-	 (let ((entry2 (mat-ref smat ck rk)))
+	 (let ((entry2 (mref smat ck rk)))
 	   (when (> (norm (m- entry2 (transpose entry))) threshold)
 	     (when output
 	       (format t "~&Mismatch~%i=~A, j=~A:~%Aij=~A~%Aji=~A~%~%"
@@ -573,19 +530,21 @@ means a lot of consing."
      smat)
     flag))
 
-(defmethod transpose ((smat <sparse-matrix>))
-  (let ((result
-	 (make-sparse-matrix
-	  :print-row-key (print-col-key smat)
-	  :print-col-key (print-row-key smat)
-	  :keys->pattern #'(lambda (rk ck) (funcall (keys->pattern smat) ck rk))
-	  :row-key->size (col-key->size smat)
-	  :col-key->size (row-key->size smat))))
-    (for-each-key-and-entry
+(defmethod matrix-transpose-instance ((smat <sparse-matrix>))
+  (make-sparse-matrix
+   :print-row-key (print-col-key smat)
+   :print-col-key (print-row-key smat)
+   :keys->pattern #'(lambda (rk ck) (funcall (keys->pattern smat) ck rk))
+   :row-key->size (col-key->size smat)
+   :col-key->size (row-key->size smat)))
+
+
+(defmethod transpose! ((x <sparse-matrix>) (y <sparse-matrix>))
+  (for-each-key-and-entry
      #'(lambda (rk ck entry)
-	 (setf (mat-ref result ck rk) (transpose entry)))
-     smat)
-    result))
+	 (setf (mref y ck rk) (transpose entry)))
+     x)
+  y)
 
 (defmethod show ((smat <sparse-matrix>) &key keys (zeros t) &allow-other-keys)
   (assert (null keys))
@@ -638,7 +597,7 @@ means a lot of consing."
 	       for ncols-block = (funcall (col-key->size smat) col-key) do
 	       (if entry
 		   (dotimes (j ncols-block)
-		     (format t "~9,2,,,,,'Eg " (mat-ref entry i j)))
+		     (format t "~9,2,,,,,'Eg " (mref entry i j)))
 		   (format t "~V,,,' <~>" (* ncols-block 10)))
 	       (inter-mark row-key col-key (car col-keys)))
 	 (format t "~%"))
@@ -693,11 +652,11 @@ means a lot of consing."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defmethod make-row-vector-for ((A <sparse-matrix>) &optional (multiplicity 1))
+(defmethod make-image-vector-for ((A <sparse-matrix>) &optional (multiplicity 1))
   (make-instance '<sparse-vector> :key->size (row-key->size A)
 		 :print-key (print-row-key A) :multiplicity multiplicity))
 
-(defmethod make-column-vector-for ((A <sparse-matrix>) &optional (multiplicity 1))
+(defmethod make-domain-vector-for ((A <sparse-matrix>) &optional (multiplicity 1))
   (make-instance '<sparse-vector> :key->size (col-key->size A)
 		 :print-key (print-col-key A) :multiplicity multiplicity))
 
@@ -715,10 +674,10 @@ means a lot of consing."
 (definline sparse-vecmat-loop (operation x A y)
   (maphash
    #'(lambda (row-key row-dic)
-       (let ((x-values (vec-ref x row-key)))
+       (let ((x-values (vref x row-key)))
 	 (maphash
 	  #'(lambda (col-key mblock)
-	      (let ((y-values (vec-ref y col-key)))
+	      (let ((y-values (vref y col-key)))
 		(funcall operation x-values mblock y-values)))
 	  row-dic)))
    (row-table A)))
@@ -732,10 +691,10 @@ means a lot of consing."
   (sparse-vecmat-loop #'x-=Ay x A y))
 
 (defmethod x-on-range-of-A<-0 ((x <sparse-vector>) (A <sparse-matrix>))
-  (for-each-row-key #'(lambda (key) (x<-0 (vec-ref x key))) A))
+  (for-each-row-key #'(lambda (key) (x<-0 (vref x key))) A))
 
 (defmethod x-on-domain-of-A<-0 ((x <sparse-vector>) (A <sparse-matrix>))
-  (for-each-col-key #'(lambda (key) (x<-0 (vec-ref x key))) A))
+  (for-each-col-key #'(lambda (key) (x<-0 (vref x key))) A))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; matlisp operations for the <smat> class
@@ -743,43 +702,36 @@ means a lot of consing."
 
 (defmethod copy ((x <sparse-matrix>))
   (let ((result (make-analog x)))
-    (x<-y result x)
+    (copy! x result)
     result))
 
+(defmethod m*-product-instance ((A <sparse-matrix>) (y <sparse-vector>))
+  (make-image-vector-for A (multiplicity y)))
 
-(defmethod m+ ((x <sparse-matrix>) (y <sparse-matrix>))
-  (let ((result (make-analog x)))
-    (x<-y result x)
-    (x+=y result y)
-    result))
+(defun generate-sparse-matrix-vector-gemm!-template (job)
+  "Generates the GEMM-XX! routine defined by JOB."
+  (assert (member job '(:nn :nt :tn :tt)))
+  (let ((gemm-job (symconc "GEMM-" (symbol-name job) "!"))
+	(table-accessor (if (member job '(:nn :nt))
+			    'row-table
+			    'column-table)))
+    (eval
+     `(defmethod ,gemm-job
+       (alpha (A <sparse-matrix>) (y <sparse-vector>) beta (x <sparse-vector>))
+       (declare (optimize (speed 3) (space 2) (safety 1)))
+       (maphash
+	#'(lambda (x-key row-or-col-dic)
+	    (let ((x-values (vref x x-key)))
+	      (scal! beta x-values)
+	      (maphash
+	       #'(lambda (y-key mblock)
+		   (let ((y-values (vref y y-key)))
+		     (,gemm-job alpha mblock y-values 1.0 x-values)))
+	       row-or-col-dic)))
+	(,table-accessor A))
+       x))))
 
-(defmethod m- ((x <sparse-matrix>) (y <sparse-matrix>))
-  (let ((result (make-analog x)))
-    (x<-y result x)
-    (x-=y result y)
-    result))
-
-
-(defmethod m* ((A <sparse-matrix>) (y <sparse-vector>))
-  (let ((x (make-row-vector-for A)))
-    (x+=Ay x A y)
-    x))
-
-(defmethod gemm! ((alpha double-float) (A <sparse-matrix>) (y <sparse-vector>)
-		  (beta double-float) (x <sparse-vector>) &optional (job :nn))
-  (declare (optimize (speed 3) (space 2) (safety 1)))
-  (maphash
-   #'(lambda (x-key row-or-col-dic)
-       (let ((x-values (vec-ref x x-key)))
-	 (scal! beta x-values)
-	 (maphash
-	  #'(lambda (y-key mblock)
-	      (let ((y-values (vec-ref y y-key)))
-		(gemm! alpha mblock y-values 1.0d0 x-values job)))
-	  row-or-col-dic)))
-     (ecase job
-       ((:nn :nt) (row-table A))
-       ((:tn :tt) (column-table A)))))
+(mapc #'generate-sparse-matrix-vector-gemm!-template '(:nn :nt :tn :tt))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; sparse matrix multiplication
@@ -793,14 +745,14 @@ sparse, the complexity of this routine is much lower."))
 (defmethod sparse-m* ((A <sparse-matrix>) (B <sparse-vector>)
 		      &key (job :nn) (sparsity :A))
   (let ((result (ecase job
-		  ((:nn :tn) (make-row-vector-for A))
-		  ((:nt :tt) (make-column-vector-for A)))))
+		  ((:nn :tn) (make-image-vector-for A (multiplicity B)))
+		  ((:nt :tt) (make-domain-vector-for A (multiplicity B))))))
     (ecase sparsity
       (:A (maphash
 	   #'(lambda (i row-or-column)
 	       (maphash
 		#'(lambda (j Aij)
-		    (gemm! 1.0d0 Aij (vec-ref B j) 1.0d0 (vec-ref result i) job))
+		    (gemm! 1.0 Aij (vref B j) 1.0 (vref result i) job))
 		row-or-column))
 	   (ecase job
 	     ((:nn :nt) (row-table A))
@@ -810,7 +762,7 @@ sparse, the complexity of this routine is much lower."))
 	       (whereas ((row-or-column (ecase job
 					  ((:nn :nt) (matrix-column A i))
 					  ((:tn :tt) (matrix-row A i)))))
-		 (maphash #'(lambda (j Aij) (gemm! 1.0d0 Aij bi 1.0d0 (vec-ref result j) job))
+		 (maphash #'(lambda (j Aij) (gemm! 1.0 Aij bi 1.0 (vref result j) job))
 			  row-or-column)))
 	   B)))
     result))
@@ -840,7 +792,7 @@ sparse, the complexity of this routine is much lower."))
 					  ((:nn :tn) (matrix-row B j))
 					  ((:nt :tt) (matrix-column B j)))))
 		 (maphash #'(lambda (k Bjk)
-			      (gemm! 1.0d0 Aij Bjk 1.0 (mat-ref C i k) job))
+			      (gemm! 1.0 Aij Bjk 1.0 (mref C i k) job))
 			  row-or-column)))
 	   Ai))
       (ecase job
@@ -855,7 +807,7 @@ sparse, the complexity of this routine is much lower."))
 					  ((:nn :nt) (matrix-column A j))
 					  ((:tn :tt) (matrix-row A j)))))
 		 (maphash #'(lambda (i Aij)
-			      (gemm! 1.0 Aij Bjk 1.0 (mat-ref C i k) job))
+			      (gemm! 1.0 Aij Bjk 1.0 (mref C i k) job))
 			  row-or-column)))
 	   Bk))
       (ecase job
@@ -881,7 +833,7 @@ sparse, the complexity of this routine is much lower."))
     (for-each-key-and-entry
      #'(lambda (row-key col-key entry)
 	 (when (funcall test row-key col-key entry)
-	   (setf (mat-ref sub-mat row-key col-key) entry)))
+	   (setf (mref sub-mat row-key col-key) entry)))
      smat)
     sub-mat))
 
@@ -926,7 +878,7 @@ col-keys=nil means to allow every key."
 	 (m (if col-ranges
 		(reduce #'+ col-ranges :key #'(lambda (x) (- (cdr x) (car x))))
 		(reduce #'+ col-keys :key (col-key->size A))))
-	 (mm (make-float-matrix n m)))
+	 (mm (make-real-matrix n m)))
     ;; copy the matrix values
     (loop for row-key across row-keys and k from 0
 	  and row-offset of-type fixnum = 0 then (+ row-offset (- row-b row-a))
@@ -944,10 +896,10 @@ col-keys=nil means to allow every key."
 		and mblock = (matrix-block A row-key col-key) do
 		(loop for i of-type fixnum from row-a below row-b do
 		      (loop for j of-type fixnum from col-a below col-b do
-			    (setf (matrix-ref mm (+ row-offset i) (+ col-offset j))
+			    (setf (mref mm (+ row-offset i) (+ col-offset j))
 				  (if mblock
-				      (mat-ref mblock i j)
-				      0.0d0))))))
+				      (mref mblock i j)
+				      0.0))))))
     mm))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -963,29 +915,29 @@ col-keys=nil means to allow every key."
 (defmethod remove-projection-range ((vec <sparse-vector>) projection &key &allow-other-keys)
   (for-each-row-key
    #'(lambda (i)
-       (let* ((P (mat-ref projection i i))
+       (let* ((P (mref projection i i))
 	      (S (m- (eye (nrows P)) P)))
-	 (setf (vec-ref vec i)
-	       (m* S (vec-ref vec i)))))
+	 (setf (vref vec i)
+	       (m* S (vref vec i)))))
    projection)
   vec)
 
 (defmethod remove-projection-range ((mat <sparse-matrix>) projection &key row-p column-p)
   (for-each-row-key
    #'(lambda (i)
-       (let* ((P (mat-ref projection i i))
+       (let* ((P (mref projection i i))
 	      (S (m- (eye (nrows P)) P)))
 	 (when column-p
 	   (for-each-key-in-col
 	    #'(lambda (j)
-		(setf (mat-ref mat j i)
-		      (m* (mat-ref mat j i) S)))
+		(setf (mref mat j i)
+		      (m* (mref mat j i) S)))
 	    mat i))
 	 (when row-p
 	   (for-each-key-in-row
 	    #'(lambda (j)
-		(setf (mat-ref mat i j)
-		      (m* S (mat-ref mat i j))))
+		(setf (mref mat i j)
+		      (m* S (mref mat i j))))
 	    mat i))))
    projection)
   mat)
@@ -1020,31 +972,35 @@ mapped to identity."
 		:row-key->size #'constantly-2 :col-key->size #'constantly-2
 		:keys->pattern (constantly (full-crs-pattern 2 2)))))
       
-      (setf (mat-ref AA 0 1) [[1 2e-20]' [3 -4e-15]'])
+      (setf (mref AA 0 1) #m((1.0 2.0e-15) (3.0 -4.0)))
       (display AA :order '(0 1))
       (assert (mzerop A))
-      (setf (vec-ref x 1) [1.0])
-      (setf (vec-ref y 1) [1.0])
-      (x<-y x y)
-      (assert (= (mat-ref (vec-ref x 1) 0 0) (mat-ref (vec-ref y 1) 0 0)))
+      (setf (vref x 1) #m((1.0)))
+      (setf (vref y 1) #m((1.0)))
+      (copy! y x)
+      (assert (= (mref (vref x 1) 0 0) (mref (vref y 1) 0 0)))
       (x<-0 x)
-      (assert (mzerop (vec-ref x 1)))
-      (x+=s*y x 2.0d0 y)
-      (assert (= (norm x :1) 2.0))
+      (assert (mzerop (vref x 1)))
+      (axpy! 2.0 y x)
+      (assert (= (norm x 1) 2.0))
       ;;
-      (setf (mat-ref B 0 0) [[2.0]])
+      (setf (mref B 0 0) #m((1.0)))
+      (terpri)
+      (show B)
+      (show x)
       (show (m* B x))
   
       (x<-0 A)
-      (x<-y A B)
-      (assert (= (vec-ref (mat-ref A 0 0) 0) 2.0))
+      (show B)
+      (show (copy! B A))
+      (assert (= (vref (mref A 0 0) 0) 1.0))
       ;;
       (sparse-matrix->matlisp A :keys '(0 1 2))
-      (setf (mat-ref AA 0 1) (make-full-crs-matrix 2 2))
-      (x<-s (mat-ref AA 0 1) 1.0d0)
+      (setf (mref AA 0 1) (make-full-crs-matrix 2 2))
+      (fill! (mref AA 0 1) 1.0)
       (sparse-matrix->matlisp AA :row-keys '(0 1) :col-keys '(1))
       ;;
-      (setf (mat-ref A 0 1) [[2.0]])
+      (setf (mref A 0 1) #m((2.0)))
       (show (sparse-m* A A))
       (show (sparse-m* A A :job :nt :sparsity :B))
       (show (sparse-m* A A :job :tn :sparsity :A))
@@ -1055,5 +1011,5 @@ mapped to identity."
   )
 
 ;;; (test-sparse)
-(tests::adjoin-femlisp-test 'test-sparse)
+(fl.tests:adjoin-test 'test-sparse)
 

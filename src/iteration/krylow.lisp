@@ -44,8 +44,8 @@
 
 (defmethod make-iterator ((linit <gradient-method>) mat)
   "Gradient-method via matlisp methods."
-  (let ((p (make-column-vector-for mat))
-	(a (make-column-vector-for mat)))
+  (let ((p (make-domain-vector-for mat))
+	(a (make-image-vector-for mat)))
     (make-instance
      '<iterator>
      :matrix mat
@@ -72,9 +72,9 @@ i.e. PCG."))
 (defmethod make-iterator ((linit <cg>) mat)
   "Standard method for CG iteration.  Works if matlisp methods are defined for
 the given matrix-vector representation."
-  (let ((p (make-column-vector-for mat))
-	(a (make-column-vector-for mat))
-	(defnorm 0.0d0))
+  (let ((p (make-domain-vector-for mat))
+	(a (make-image-vector-for mat))
+	(defnorm 0.0))
     (make-instance
      '<iterator>
      :matrix mat
@@ -116,10 +116,10 @@ the given matrix-vector representation."
 (defmethod make-iterator ((pcg <pcg>) mat)
   "Standard method for PCG iteration.  Works if matlisp methods are defined
 for the given matrix-vector representation."
-  (let ((p (make-column-vector-for mat))
-	(a (make-column-vector-for mat))
-	(q (make-column-vector-for mat))
-	(alpha 0.0d0)
+  (let ((p (make-domain-vector-for mat))
+	(a (make-image-vector-for mat))
+	(q (make-domain-vector-for mat))
+	(alpha 0.0)
 	(precond (whereas ((preconditioner (slot-value pcg 'preconditioner)))
 		   (make-iterator preconditioner mat))))
     (with-slots (initialize iterate) precond

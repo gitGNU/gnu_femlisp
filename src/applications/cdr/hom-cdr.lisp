@@ -93,7 +93,7 @@ diffusion tensor."
    dim :diffusion-function
    #'(lambda (x)
        (let ((result (eye dim)))
-	 (when (<= (norm (m- (make-double-vec dim 0.5d0) x)) 0.25)
+	 (when (<= (norm (m- (make-double-vec dim 0.5) x)) 0.25)
 	   (scal! eps result))
 	 result))))
 
@@ -172,7 +172,7 @@ must be a scalar multiple of the identity."
       (append *stationary-fe-strategy-observe*
 	      (list (list (format nil "~19@A" "Ahom") "~19,10,2E"
 			  #'(lambda (blackboard)
-			      (matrix-ref (effective-tensor blackboard) 0 0))))))
+			      (mref (effective-tensor blackboard) 0 0))))))
      (blackboard :problem problem)))
   ;; plot cell solutions and compute the homogenized coefficient
   (when plot
@@ -182,7 +182,6 @@ must be a scalar multiple of the identity."
       (plot solution :index 1)))
   (format t "The effective tensor is:~%~A~%"
 	  (effective-tensor *result*)))
-
 
 ;;; Testing:
 #+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t :output :all)
@@ -266,7 +265,7 @@ must be a scalar multiple of the identity."
 
 ;;grid is not inlay-adapted
 (plot (simple-ball-inlay-cell-problem 1 0.1) :refinements 3
-	:coefficient 'CDR::DIFFUSION :key (rcurry #'mat-ref 0 0))
+	:coefficient 'CDR::DIFFUSION :key (rcurry #'mref 0 0))
 
 ;; solve cell problem and compute homogenized coefficient
 (defparameter *result*
@@ -279,8 +278,8 @@ must be a scalar multiple of the identity."
 (simple-ball-inlay-cell-problem 3 0.1)
 
 ;; inlay adapted grid
-(plot (inlay-cell-problem 2 0.1d0) :refinements 0 :depth 2 :parametric (lagrange-mapping 3)
-	:coefficient 'CDR::DIFFUSION :key (rcurry #'mat-ref 0 0))
+(plot (inlay-cell-problem 2 0.1) :refinements 0 :depth 2 :parametric (lagrange-mapping 3)
+	:coefficient 'CDR::DIFFUSION :key (rcurry #'mref 0 0))
 
 ;; first order with lu-solver
 (setq *result*
@@ -357,7 +356,7 @@ must be a scalar multiple of the identity."
 ;; chequerboard cell
 (let ((dim 2) (order 1))
   (effective-tensor
-   (cell-solve (chequerboard-problem dim 0.1d0):level 3 :order order)))
+   (cell-solve (chequerboard-problem dim 0.1):level 3 :order order)))
 
 ;; examine properties
 (let* ((problem (simple-ball-inlay-cell-problem 1 0.1))
@@ -367,4 +366,5 @@ must be a scalar multiple of the identity."
 )
 
 ;;; (cdr-hom-tests)
-(tests::adjoin-femlisp-test 'cdr-hom-tests)
+(fl.tests:adjoin-test 'cdr-hom-tests)
+

@@ -1,5 +1,32 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.8.5 to Femlisp-0.9.0:
+
+There are the beginnings of a GPS (general problem solver:-).  The generic
+function SOLVE can be called on a blackboard containing a problem.  It then
+tries to find a solution itself.
+
+Femlisp is almost completely ANSI-compliant now.  At least, it works on
+both SBCL and CMUCL.  The platform/implementation dependent parts are
+concentrated in femlisp:src;basic;port.lisp.
+
+Some packages have been renamed for avoiding name clashes with other CL
+libraries, e.g. MACROS is now FL.MACROS, UTILITIES is FL.UTILITIES, etc.  I
+intend to do the analogous change for other Femlisp packages, too.
+
+Femlisp now uses the ASDF system definition facility by Dan Barlow instead
+of MK-DEFSYSTEM.  Thanks to Dan and thanks to Christophe Rhodes for helping
+me with this change.
+
+Femlisp is somewhat faster now (by about 10%-30%).  The main reason is the
+caching of the last result of CORNERS (corners of a cell).
+
+A replacement for Matlisp was incorporated (package FL.MATLISP) which
+is sufficient for the restricted LAPACK functionality needed by Femlisp.
+The main advantages of this change are that Femlisp should be easily
+portable to other CL implementations now and that these routines work much
+faster on small matrices.
+
 * From Femlisp-0.8.4 to Femlisp-0.8.5:
 
 The mesh module was improved.  Especially, cells are now CLOS classes

@@ -40,7 +40,7 @@
       (linearly-transformed-skeleton
        (refcell-refinement-skeleton (n-cube dim) refinements)
        :A (scal 0.5 (eye dim))
-       :b (make-double-vec dim 0.25d0))
+       :b (make-double-vec dim 0.25))
     (change-class
      (skel-add! inlay (n-cube-with-cubic-hole dim :refinements refinements))
      '<domain>)))
@@ -65,7 +65,7 @@
 	  (linearly-transformed-skeleton
 	   (refcell-refinement-skeleton (n-cube dim) refinements)
 	   :A (scal factor (eye dim))
-	   :b (scal (- 1.0d0 factor) midpoint)))
+	   :b (scal (- 1.0 factor) midpoint)))
       (let ((center-skin (skeleton-boundary center-block))
 	    (center->middle (make-hash-table)))
 	;; fill center->middle table
@@ -103,5 +103,5 @@
     (mesh::check-identification domain))
   )
 
-(tests::adjoin-femlisp-test 'test-inlay-domain)
+(fl.tests:adjoin-test 'test-inlay-domain)
 

@@ -33,56 +33,60 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;; The idea of the Femlisp test suite is that every package or file is
-;;;; able to add locally consistency checks.  Those tests can then be
+;;;; able to add locally consistency checks.  Those tests should be
 ;;;; performed before a CVS commit or a release.
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "TESTS"
+(defpackage "FL.TESTS"
   (:use "COMMON-LISP")
-  (:export "ADJOIN-FEMLISP-TEST" "CLEAR-FEMLISP-TESTS" "TEST-FEMLISP"
-	   "*FEMLISP-TEST-INTERNAL*"))
+  (:export "ADJOIN-TEST" "REMOVE-TEST" "TEST-FEMLISP"))
 
-(in-package :tests)
+(in-package :fl.tests)
 
-(defparameter *femlisp-tests* ()
+(defvar *tests* ()
   "List of Femlisp tests.")
 
-(defparameter *femlisp-bugs* ()
+(defvar *bugs* ()
   "List of Femlisp bugs, i.e. failing tests that have not yet been fixed.")
 
-(defun adjoin-femlisp-test (fsym)
-  "Adjoins a test to the Femlisp test suite."
-  (pushnew fsym *femlisp-tests*))
-  
-(defun clear-femlisp-tests ()
-  "Clears the Femlisp test suite."
-  (setq *femlisp-tests* ()))
+(defvar *report* ()
+  "List of routines which failed for last run of the test suite.")
 
-(defun adjoin-femlisp-bug-test (fsym)
-  "Register a bug test."
-  (pushnew fsym *femlisp-bugs*))
+(defun adjoin-test (fsym)
+  "Adjoins a test to the Femlisp test suite."
+  (pushnew fsym *tests*))
   
-(defun clear-femlisp-bug-tests ()
+(defun remove-test (fsym)
+  "Adjoins a test to the Femlisp test suite."
+  (setq *tests* (remove fsym *tests*)))
+  
+(defun clear-tests ()
+  "Clears the Femlisp test suite."
+  (setq *tests* ()))
+
+(defun adjoin-bug-test (fsym)
+  "Register a bug test."
+  (pushnew fsym *bugs*))
+  
+(defun clear-bug-tests ()
   "Clears the Femlisp bug register."
-  (setq *femlisp-tests* ()))
+  (setq *tests* ()))
 
 (defun test-femlisp ()
   "Runs the Femlisp test suite.  The result is printed to
 *standard-output*."
-  (loop for fsym in (reverse *femlisp-tests*)
+  (setq *report* ())
+  (loop for fsym in (reverse *tests*)
 	for result =
 	(catch 'trap
 	  (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
 	    (format t "~&~%***** Testing ~A *****~%~%" fsym)
 	    (funcall fsym)
 	    nil))
-	collect (cons fsym result) into report
-	do
-	(format t "~A~%" fsym)
-	(when result (format t "~A~%" result))
+	when result do (push (cons fsym result) *report*)
 	finally
-	(let ((failed (remove nil report :key #'cdr)))
+	(let ((failed (remove nil *report* :key #'cdr)))
 	  (if failed
 	      (loop initially (format t "~&~%The following tests failed:~%")
 		    for (sym . error) in failed do
@@ -90,12 +94,15 @@
 	      (format t "~%All tests passed.~%"))))
   
   ;; report also remaining bugs
-  (when *femlisp-bugs*
+  (when *bugs*
     (format t "The following bugs are still open:~%")
-    (loop for sym in *femlisp-bugs* do (format t "~A~%" sym)))
+    (loop for sym in *bugs* do (format t "~A~%" sym)))
   )
 
-;;; (tests::test-femlisp)
+;;; (fl.tests:test-femlisp)
 ;;;
 ;;; Test without plotting:
-;;; (let ((plot::*plot* nil)) (tests::test-femlisp))
+;;; (let ((plot::*plot* nil)) (fl.tests:test-femlisp))
+;;;
+;;; Test with timing:
+;;; (time (let ((plot::*plot* nil)) (fl.tests:test-femlisp)))

@@ -75,8 +75,8 @@ A^{lk}_{ji} N^{lr}_q = F[k*dim+i] . N[r*dim+q]."
 			   (dotimes (k dim)
 			     (dotimes (nu dim)
 			       (and (= mu nu) (= k j)
-				    (setf (mat-ref entry mu (+ nu (* dim k)))
-					  1.0d0)))))
+				    (setf (mref entry mu (+ nu (* dim k)))
+					  1.0)))))
 			 entry)))
 	       gamma))
 	    ))))))
@@ -150,9 +150,9 @@ with dim^3 components which are plotted one after the other."
 		       #'(lambda (blackboard)
 			   (let ((tensor (effective-tensor blackboard)))
 			     (format nil "~19,10,2E~19,10,2E~19,10,2E"
-				     (and tensor (matrix-ref (aref tensor 0 0) 0 0))
-				     (and tensor (matrix-ref (aref tensor 0 0) 1 1))
-				     (and tensor (matrix-ref (aref tensor 1 0) 1 0))))))))
+				     (and tensor (mref (aref tensor 0 0) 0 0))
+				     (and tensor (mref (aref tensor 0 0) 1 1))
+				     (and tensor (mref (aref tensor 1 0) 1 0))))))))
 	:output t)
        (blackboard :problem problem)))
     (when plot
@@ -289,7 +289,7 @@ Parameters: order=~D, levels=~D~%~%"
 (plot (mesh *result*))
 (nr-of-cells (mesh *result*))
 (let ((sum 0))
-  (for-each-entry #'(lambda (block) (incf sum (length (matlisp::store block))))
+  (for-each-entry #'(lambda (block) (incf sum (length (fl.matlisp::store block))))
 		  *result*)
   sum)
 ;; L=0: 2.65 User, L=1:

@@ -39,16 +39,8 @@
   (:documentation "Strategies are iterations devoted to solving continuous
 problems."))
   
-(defgeneric solve-with (strategy problem blackboard)
-  (:documentation "This generic function can be dispatched on both strategy
-and problem."))
-
-(defmethod solve-with ((strategy <strategy>) (problem <problem>) blackboard)
-  (setf (getbb blackboard :problem) problem)
-  (solve strategy blackboard))
-
-(defmethod solve ((strategy <strategy>) blackboard)
-  "The usual interface for problem solving."
+(defmethod solve ((strategy <strategy>) &optional blackboard)
+  "Solves the problem on the blackboard using the given strategy."
   (setf (getbb blackboard :strategy) strategy)
   (iterate strategy blackboard))
 
@@ -62,29 +54,22 @@ and problem."))
 	(list " CELLS" "~6D"
 	      #'(lambda (blackboard)
 		  (nr-of-surface-cells (getbb blackboard :mesh))))
-	(list "      DOFS" "~10D"
+	(list "    DOFS" "~8D"
 	      #'(lambda (blackboard)
 		  (with-items (&key matrix solution) blackboard
 		    (and matrix solution
 			 (* (total-nrows matrix) (multiplicity solution))))))
-	(list "  MENTRIES" "~10D"
+	(list " MENTRIES" "~9D"
 	 #'(lambda (blackboard)
 	     (with-items (&key matrix) blackboard
 	       (and matrix (total-entries matrix)))))
 	;; inside a closure
-	(let ((start-time))
-	  (list #'(lambda ()
-		    (setq start-time (get-internal-run-time))
-		    "   TIME")
-		"~7,1F"
-		#'(lambda (blackboard)
-		    (declare (ignore blackboard))
-		    (float (/ (- (get-internal-run-time) start-time)
-			      internal-time-units-per-second))))))
+	(list "  TIME" "~6,1F"
+	      #'(lambda (blackboard) (getbb blackboard :time))))
   "Standard observe quantities for stationary fe-strategies.")
 
 (defparameter *eta-observe*
-  (list "         ETA" "~12,2,2E"
+  (list "      ETA" "~9,2,2E"
 	#'(lambda (blackboard)
 	    (getbb blackboard :global-eta))))
 
@@ -96,7 +81,7 @@ and problem."))
 	      :documentation "Plot mesh at the beginning and after changes.
 Can be a function in which case it is called on the mesh to do the
 plotting.")
-   (fe-class :reader fe-class :initform (ext:required-argument) :initarg :fe-class
+   (fe-class :reader fe-class :initform (required-argument) :initarg :fe-class
 	     :documentation "The class of fe.  Later on, this should be
 automatically determined inside an hp-method.")
    (estimator :initform nil :initarg :estimator :documentation

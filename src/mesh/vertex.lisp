@@ -89,7 +89,7 @@ position."
 
 (defmethod l2Dg ((vtx <vertex>) local-pos)
   (assert (equalp local-pos (double-vec)))
-  (make-float-matrix (manifold-dimension vtx) 0))
+  (make-real-matrix (manifold-dimension vtx) 0))
 
 (defmethod local->Dglobal ((vtx <vertex>) local-pos)
   "Not perfect, should take mapping into account."
@@ -138,7 +138,7 @@ derivative."
 	   (make-<child-info>
 	    :reference-cell refcell
 	    :barycentric-corners
-	    (list (list (make-double-vec 1 1.0d0))) ; not perfect, because no real factor
+	    (list (list (make-double-vec 1 1.0))) ; not perfect, because no real factor
 	    :boundary-paths ())))))
 
 
@@ -174,5 +174,5 @@ derivative."
   (refcell-refinement-vertices *reference-vertex* 2)
   )
 
-(tests::adjoin-femlisp-test 'test-vertex)
+(fl.tests:adjoin-test 'test-vertex)
 

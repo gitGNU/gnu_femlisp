@@ -56,7 +56,7 @@ fixed-point iteration for $identity-f$."
   (when output (format t "Newton iteration:~%"))
   (loop for x = x-start
 	then (m- x (cond (approximate-gradient
-			  (m/ (funcall approximate-gradient x) f-value))
+			  (gesv (funcall approximate-gradient x) f-value))
 			 (approximate-gradient-inverse
 			  (m* (funcall approximate-gradient-inverse x) f-value))
 			 (approximate-gradient-inverter
@@ -76,4 +76,4 @@ fixed-point iteration for $identity-f$."
 
   
 ;;;; Testing: (test-newton)
-(adjoin-femlisp-test 'test-newton)
+(fl.tests:adjoin-test 'test-newton)

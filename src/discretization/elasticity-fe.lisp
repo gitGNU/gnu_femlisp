@@ -34,7 +34,7 @@
 
 (in-package :cl-user)
 (defpackage "ELASTICITY-FE"
-  (:use "COMMON-LISP" "FEMLISP.MATLISP" "MACROS" "UTILITIES" "ALGEBRA"
+  (:use "COMMON-LISP" "FL.MATLISP" "FL.MACROS" "FL.UTILITIES" "ALGEBRA" "FL.FUNCTION"
 	"MESH" "PROBLEM" "ELASTICITY" "DISCRETIZATION")
   (:export))
 (in-package :elasticity-fe)
@@ -45,6 +45,7 @@
 general it can be used for solving elliptic systems.  The basic idea is
 that we work with arrays having standard-matrix entries whereas in the
 scalar case we worked directly with standard-matrix."
+  #+(or)
   (declare (type (array real-matrix (* *)) local-mat)
 	   (type (or null (array real-matrix (*)))
 		 local-sol local-rhs local-u local-v))
@@ -94,34 +95,34 @@ scalar case we worked directly with standard-matrix."
 		    (unless (mzerop D)
 		      (gemm! 1.0 left-gradients D 0.0 fluxes)
 		      (when local-mat
-			(gemm! weight fluxes right-gradients 1.0d0 (aref local-mat i j) :NT))
+			(gemm! weight fluxes right-gradients 1.0 (aref local-mat i j) :NT))
 		      ;; gamma
 		      (when (and gamma local-rhs)
-			(gemm! weight fluxes (aref gamma j) 1.0d0 (aref local-rhs i))))))
+			(gemm! weight fluxes (aref gamma j) 1.0 (aref local-rhs i))))))
 		;; reaction
 		(when (and reaction local-mat)
 		  (let ((R (aref reaction i j)))
 		    (unless (mzerop R)
 		      (gemm! (* weight R)
-			     left-vals right-vals 1.0d0 local-mat :NT)))))
+			     left-vals right-vals 1.0 local-mat :NT)))))
 	      ;; rhs-part / force
 	      (when (and force local-rhs)
-		(m+! (m* left-vals (scal weight (aref force i)))
-		     (aref local-rhs i))))))))
+		(gemm! weight left-vals (aref force i)
+		       1.0 (aref local-rhs i))))))))
 
 ;;; Assembly of boundary conditions -> system-fe.lisp
 
 ;;; Testing
 (defun elasticity-fe-tests ()
-  (let* ((dim 1) (order 1) (level 2)
+  (let* ((dim 1) (order 1) (level 1)
 	 (problem (standard-elasticity-problem
 		   (n-cube-domain dim) :lambda 1.0 :mu 1.0
-		   :force (constantly (unit-vector dim 0))))
+		   :force (constantly (vector #m(1.0)))))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order :nr-comps dim)))
     (multiple-value-bind (mat rhs)
 	(discretize-globally problem h-mesh fedisc)
-      (m* (sparse-ldu mat) rhs)))
+      (getrs (sparse-ldu mat) rhs) :component 0))
   )
 
-(tests::adjoin-femlisp-test 'elasticity-fe-tests)
+(fl.tests:adjoin-test 'elasticity-fe-tests)

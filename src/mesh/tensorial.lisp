@@ -44,8 +44,6 @@
 
 (definline tensorial-p (obj) (typep obj '<tensorial>))
 
-(defun tensorial-p (obj) (typep obj '<tensorial>))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Tensor product skeletons
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -147,7 +145,7 @@ probably called only on relatively few values of local-pos."
 	       (make-array (- (length local-pos) dim1) :element-type 'double-float
 			   :displaced-to local-pos :displaced-index-offset dim1))))
 	(apply #'concatenate 'double-vec
-	       (map 'list #'(lambda (factor) (vec-s* factor weights-of-edges))
+	       (map 'list #'(lambda (factor) (scal factor weights-of-edges))
 		    (euclidean->barycentric
 		     (make-array dim1 :element-type 'double-float :displaced-to local-pos)))))))
 
@@ -160,14 +158,20 @@ probably called only on relatively few values of local-pos."
   (weight-vector-factors (factor-simplices cell) local-pos))
 
 ;;; the following speeds up bl-cdr by about 5%
-;;; (memoize-symbol 'weight-vector-tensorial :test 'equalp)
+(memoize-symbol 'weight-vector-tensorial :test 'equalp)
 
-(defmethod l2g ((cell <tensorial>) (local-pos array))
-  (loop	with result = (make-double-vec (manifold-dimension cell))
-	for weight across (weight-vector-tensorial (reference-cell cell) local-pos)
-	and corner in (corners cell) do
-	(x+=s*y result weight corner)
-	finally (return result)))
+(defmethod l2g ((cell <tensorial>) local-pos)
+  (let ((dim (manifold-dimension cell)))
+    (declare (type fixnum dim))
+    (let ((result (make-double-vec dim)))
+      (declare (type double-vec result))
+      (loop for weight of-type double-float across
+	    (weight-vector-tensorial (reference-cell cell) local-pos)
+	    and corner of-type double-vec in (corners cell) do
+	    (dotimes (i dim)
+	      (declare (optimize (speed 3)))
+	      (incf (aref result i) (* weight (aref corner i))))
+	    finally (return result)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; l2Dg
@@ -189,13 +193,14 @@ corresponding to the weights for a partial derivative."
    #'(lambda (index)
        (mapcar
 	#'(lambda (barycentric-index)
-	    (cond ((zerop barycentric-index) -1.0d0)
-		  ((= barycentric-index index) 1.0d0)
-		  (t 0.0d0)))
+	    (cond ((zerop barycentric-index) -1.0)
+		  ((= barycentric-index index) 1.0)
+		  (t 0.0)))
 	(range 0 (dimension simplex))))
    (range 1 (dimension simplex))))
 
 (defun weight-lists-grad-tensorial (tensorial local-pos)
+  (assert (reference-cell-p tensorial))
   (let* ((factors (factor-simplices tensorial))
 	 (weight-lists (weight-lists factors local-pos)))
     (loop for factor in factors
@@ -210,15 +215,23 @@ corresponding to the weights for a partial derivative."
 		    (apply #'map-product #'* weight-lists)
 		  (setf (car weight-lists-tail) temp))))))
 
-(defmethod l2Dg ((cell <tensorial>) (local-pos array))
+;;;(memoize-symbol 'weight-lists-grad-tensorial :test 'equalp)
+
+(defmethod l2Dg ((cell <tensorial>) (local-pos vector))
   (let* ((corners (corners cell))
-	 (Dg (make-float-matrix (length (car corners)) (dimension cell))))
+	 (m (vlength (car corners)))
+	 (n (dimension cell))
+	 (Dg (make-real-matrix m n))
+	 (grad (make-real-matrix m 1))
+	 (grad-store (store grad)))
+    (declare (type double-vec grad-store) (type fixnum m))
     (loop for weight-list in (weight-lists-grad-tensorial
 			      (reference-cell cell) local-pos)
-	  and i from 0 do
-	  (loop for deriv across (reduce #'vec+ (mapcar #'vec-s* weight-list corners))
-		and j from 0 do
-		(setf (mat-ref Dg j i) deriv)))
+	  and i of-type fixnum from 0 do
+	  (x<-0 grad)
+	  (loop for corner in corners and weight in weight-list do
+		(axpy! weight corner grad-store))
+	  (minject grad Dg 0 i))
     Dg))
 
 (defmethod local-coordinates-of-midpoint ((cell <tensorial>))
@@ -363,7 +376,7 @@ boundary paths."
   (ensure-tensorial '(2 2))
   (ensure-tensorial '(1 3))
   (describe *unit-quadrangle*)
-  (= 0.5 (aref (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #(0.5 0.5)) 0))
+  (= 0.5 (aref (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #d(0.5 0.5)) 0))
   (describe (refcell-skeleton *unit-quadrangle*))
   (describe (refcell-refinement-skeleton *unit-quadrangle* 1))
   (refine-info *unit-cube*)
@@ -377,10 +390,11 @@ boundary paths."
 	    (child-boundary-paths child)))
   (skeleton *unit-quadrangle*)
   (refine-globally (skeleton *unit-cube*))
-  (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #(0.5 0.5))
+  (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #d(0.5 0.5))
   (describe (refine-globally (skeleton *unit-cube*)))
   (refcell-refinement-vertices *unit-quadrangle* 2)
+  (inside-cell? *unit-quadrangle* #d(0.0 0.0))
   )
 
-;;; (test-tensorial)
-(tests::adjoin-femlisp-test 'test-tensorial)
+;;; (mesh::test-tensorial)
+(fl.tests:adjoin-test 'test-tensorial)

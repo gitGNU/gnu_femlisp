@@ -101,4 +101,4 @@ given by the additional parameter depth."
     (plot my-problem :refinements 0 :coefficient 'MY-COEFFICIENT))
   )
 
-(tests::adjoin-femlisp-test 'test-coeffplot)
+(fl.tests:adjoin-test 'test-coeffplot)

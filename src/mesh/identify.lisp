@@ -94,12 +94,12 @@ the unit cell, but may create problems in other situations."
     (doskel (side (skeleton-boundary skel))
       (let ((key
 	     (if (eq indices :all)
-		 (vector-map #'(lambda (coord) (if (= coord 1.0d0) 0.0d0 coord))
+		 (vector-map #'(lambda (coord) (if (= coord 1.0) 0.0 coord))
 			     (midpoint side))
 		 (loop with result = (copy-seq (midpoint side))
 		       for index in indices
-		       when (= (aref result index) 1.0d0)
-		       do (setf (aref result index) 0.0d0)
+		       when (= (aref result index) 1.0)
+		       do (setf (aref result index) 0.0)
 		       finally (return result)))))
 	;; identify cells on the unit cube boundary
 	(when (some #'zerop key)
@@ -126,4 +126,4 @@ skeletons."))
   ;; later 
   )
 
-(tests::adjoin-femlisp-test 'test-identify)
+(fl.tests:adjoin-test 'test-identify)

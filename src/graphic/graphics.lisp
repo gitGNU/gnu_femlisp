@@ -37,6 +37,12 @@
 (defparameter *default-graphic-program* :dx
   "Default graphics program.")
 
+(defparameter *images-pathname*
+  (or (and cl-user::*images-directory*
+	   (pathname cl-user::*images-directory*))
+      (translate-logical-pathname #p"femlisp:images;"))
+  "Pathname of the images directory.")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Public interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

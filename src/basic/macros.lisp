@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :macros)
+(in-package :fl.macros)
 
 (defmacro with-gensyms (syms &body body)
   "From Graham's book."
@@ -99,16 +99,17 @@ is for use in some macros."
     (find-method (function ,gf-name) (quote ,qualifiers)
      (mapcar #'find-class (quote ,specializers)))))
 
-(defun with-items-expander (prop-vars prop-names prop-defaults plist body)
-  "Expander for with-items."
-  `(progn
-    ,@(mapcar #'(lambda (prop default)
-		  `(setf (getf ,plist ',prop) (getf ,plist ',prop ,default)))
-	      prop-names prop-defaults)
-    (symbol-macrolet
-	,(mapcar #'(lambda (var prop) `(,var (getf ,plist ',prop)))
-		 prop-vars prop-names)
-      ,@body)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun with-items-expander (prop-vars prop-names prop-defaults plist body)
+    "Expander for with-items."
+    `(progn
+      ,@(mapcar #'(lambda (prop default)
+		    `(setf (getf ,plist ',prop) (getf ,plist ',prop ,default)))
+		prop-names prop-defaults)
+      (symbol-macrolet
+	    ,(mapcar #'(lambda (var prop) `(,var (getf ,plist ',prop)))
+		     prop-vars prop-names)
+	  ,@body))))
 
 (defmacro with-items (props blackboard &body body)
   "Introduce property list members as variables.  If a parameter is a list,

@@ -43,11 +43,14 @@
   (:documentation "The base class of linear, nonlinear and whatever
 iterative solvers."))
 
-(defgeneric solve (solver blackboard)
+(defgeneric solve (solver &optional blackboard)
   (:documentation "Solve a problem specified on the blackboard.  Returns a
 modified blackboard.  The returned blackboard is guaranteed to contain at
 least the fields :solution and :status.  :status may have the values
-:success or :failure."))
+:success or :failure.
+
+SOLVE can also be called as (SOLVE blackboard) and will then try to figure
+out a suitable solver itself."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Iterative solvers
@@ -94,12 +97,12 @@ problem.  Pre-condition: problem.  Post-condition: solution."))
   (with-items (&key defnorm initial-defnorm residual-p) blackboard
     (setq defnorm nil initial-defnorm nil residual-p nil)))
 
-(defmethod solve ((itsol <iterative-solver>) blackboard)
+(defmethod solve ((itsol <iterative-solver>) &optional blackboard)
   (iterate itsol blackboard))
 
 (defun safe-divide-by-zero (a b)
   (if (zerop a)
-      (if (zerop b) :undefined 0.0d0)
+      (if (zerop b) :undefined 0.0)
       (if (zerop b) :infinity (/ a b))))
 
 (defmethod intermediate :before ((itsolve <iterative-solver>) blackboard)
@@ -150,4 +153,4 @@ and its norm are up-to-date."
 (defun test-solve ()
   (make-instance '<iterative-solver>)
   )
-(tests::adjoin-femlisp-test 'test-solve)
+(fl.tests:adjoin-test 'test-solve)

@@ -64,7 +64,7 @@ distribution.  Note that for tetrahedra, no cell contributions are shown."
     (dohash ((cell value) eta)
       (let ((key (cell-key cell mesh)))
 	(when (plusp (funcall (key->size as) key))
-	  (setf (vec-ref result key) [value]))))
+	  (setf (vref result key) (make-real-matrix `((,value)))))))
     result))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -324,12 +324,12 @@ problem."
 	;; set key-error
 	(let ((key->error (make-hash-table))
 	      (eta (make-hash-table)))
-	  (let ((sum 0.0d0)
-		(sum-abs 0.0d0))
+	  (let ((sum 0.0)
+		(sum-abs 0.0))
 	    (for-each-key
 	     #'(lambda (key)
-		 (let ((dot (dot (vec-ref res-high key) (vec-ref weight key)))
-		       (dot-abs (dot-abs (vec-ref res-high key) (vec-ref weight key))))
+		 (let ((dot (dot (vref res-high key) (vref weight key)))
+		       (dot-abs (dot-abs (vref res-high key) (vref weight key))))
 		   (incf sum dot)
 		   (incf sum-abs dot-abs)
 		   (setf (gethash key key->error) dot-abs)))
@@ -341,7 +341,7 @@ problem."
 	  ;; be if the indicator would directly compute something out of this
 	  ;; data.
 	  (doskel (cell mesh :where :surface :dimension :highest)
-	    (setf (gethash cell eta) 0.0d0)
+	    (setf (gethash cell eta) 0.0)
 	    (incf (gethash cell eta)
 		  (abs (gethash (cell-key cell mesh) key->error)))
 	    (loop for side across (boundary cell) do
@@ -384,4 +384,4 @@ enriched finite element space."))
   (make-instance '<projection-error-estimator>)
   )
 
-(tests::adjoin-femlisp-test 'test-error-estimator)
+(fl.tests:adjoin-test 'test-error-estimator)

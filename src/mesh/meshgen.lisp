@@ -135,8 +135,8 @@ cells."
 	    (multi-for (jvec (make-fixnum-vec patch-dim -1) (make-fixnum-vec patch-dim 0))
 	      (push (l2g patch
 			 (map 'double-vec
-			      #'(lambda (c N_i) (float (/ c N_i) 1.0d0))
-			      (ivec+ ivec jvec) N-patch))
+			      #'(lambda (c N_i) (float (/ c N_i) 1.0))
+			      (m+ ivec jvec) N-patch))
 		    corners))
 	    (insert-cell-from-corners mesh corners->cell cell-class
 				      (nreverse corners) (list 'PATCH patch))))))
@@ -226,7 +226,7 @@ midpoint."
     new-mesh))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Testing: (test-meshgen)
+;;;; Testing:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-meshgen ()
@@ -234,15 +234,22 @@ midpoint."
   (describe (uniform-mesh-on-box-domain (n-cube-domain 2) #(2 2)))
   (let ((h-mesh (uniformly-refined-hierarchical-mesh *unit-interval-domain* 2)))
     (refine h-mesh)
-    (loop repeat 1 do (refine h-mesh :test (rcurry #'inside-cell? #(0.25))))
+    (loop repeat 1 do (refine h-mesh :test (rcurry #'inside-cell? #d(0.25))))
     (describe (refinement-interface h-mesh)))
   (check-identification (make-mesh-from-domain (n-cell-domain 2)))
   (describe (copy-skeleton (n-cell-domain 1)))
   (describe (refine (make-mesh-from-domain (n-cell-domain 1))))
   (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-cell-domain 1) 1)))
-    (loop repeat 1 do (refine h-mesh :test (rcurry #'inside-cell? #(0.25))))
+    (loop repeat 1 do (refine h-mesh :test (rcurry #'inside-cell? #d(0.25))))
     (describe (refinement-interface h-mesh)))
   )
 
-(tests::adjoin-femlisp-test 'test-meshgen)
+;;; (test-meshgen)
+(fl.tests:adjoin-test 'test-meshgen)
 
+(defun nonlinear-cell-refinement-bug ()
+  "Ugly bug, maybe in CMUCL because SBCL works."
+  (let* ((domain (n-ball-domain 2))
+	 (mesh (make-mesh-from-domain domain)))
+    (describe mesh))
+  )

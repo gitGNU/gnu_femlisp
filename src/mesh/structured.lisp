@@ -46,7 +46,7 @@
   (make-array dim :element-type 'uint :initial-element init))
 (defun make-fixnum-vec (dim &optional (init 0))
   (make-array dim :element-type 'fixnum :initial-element init))
-(defun make-double-vec (dim &optional (init 0.0d0))
+(defun make-double-vec (dim &optional (init 0.0))
   "make-double-vec: double-vec constructor"
   (make-array dim :element-type 'double-float :initial-element init))
 (defun fixnum-vec (&rest cells)
@@ -70,7 +70,7 @@
   ((entries :accessor entries :initarg :entries :type list))
   (:documentation "A stencil line consists of a double-value followed by a series of relative
 offsets.  E.g. the usual 5-point stencil would have the entries
-  '((4.0d0 #(0 0)) (-1.0d0 #(0 -1) #(-1 0) #(1 0) #(0 1)))"))
+  '((4.0 #(0 0)) (-1.0 #(0 -1) #(-1 0) #(1 0) #(0 1)))"))
 
 (defun normalize-entries (entries)
   "Throws out zeros, collects equal entries."
@@ -101,7 +101,7 @@ offsets.  E.g. the usual 5-point stencil would have the entries
 	(entries stencil)))))
 
 (stencil-application
- (make-stencil '((-0.25d0 #(-1 -1) #(-1 0) #(-1 1) #(0 -1) #(0 0) #(0 1) #(1 -1) #(1 0) #(1 1))))
+ (make-stencil '((-0.25 #(-1 -1) #(-1 0) #(-1 1) #(0 -1) #(0 0) #(0 1) #(1 -1) #(1 0) #(1 1))))
  (make-instance 'structured-grid :dimensions #(1000 1000) :offsets #(1 1000))
  'pos
  'entries
@@ -118,7 +118,7 @@ offsets.  E.g. the usual 5-point stencil would have the entries
 (defun test2 ()
   (let* ((n 1000)
 	 (mat (make-array (* n n) :element-type 'double-float
-			  :initial-element 1.0d0)))
+			  :initial-element 1.0)))
     (declare (type (simple-array double-float (*)) mat)
 	     (fixnum n)
 	     (optimize (speed 3) (debug 0) (safety 0)))
@@ -137,11 +137,11 @@ offsets.  E.g. the usual 5-point stencil would have the entries
 				  (a7 (aref mat (the fixnum (+ pos2 1))))
 				  (a8 (aref mat (the fixnum (+ pos2 1001)))))
 			      (setf (aref mat pos2)
-				    (* 0.1111111111d0
+				    (* 0.1111111111
 				       (+ a0 a1 a2 a3 a4 a5 a6 a7 a8)))))))))
 (defun test ()
   (let* ((dim 2) (n 1000)
-	 (entries (make-double-vec (expt n dim) 1.0d0)))
+	 (entries (make-double-vec (expt n dim) 1.0)))
     (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 0)))
     (loop for pos1 of-type fixnum from 1 below (- n 1)
 	  do
@@ -161,7 +161,7 @@ offsets.  E.g. the usual 5-point stencil would have the entries
 
 (defun test ()
   (let* ((dim 2) (n 1000)
-	 (entries (make-double-vec (expt n dim) 1.0d0)))
+	 (entries (make-double-vec (expt n dim) 1.0)))
     (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 0)))
     (dotimes (i 10)
       (loop
@@ -171,18 +171,18 @@ offsets.  E.g. the usual 5-point stencil would have the entries
 	do
 	#+(and)
 	(setf (aref entries pos2)
-	      (+ (* 0.1111111111d0 (aref entries (+ pos2 -1001)))
-		 (* 0.1111111111d0 (aref entries (+ pos2 -1)))
-		 (* 0.1111111111d0 (aref entries (+ pos2 999)))
-		 (* 0.1111111111d0 (aref entries (+ pos2 -1000)))
-		 (* 0.1111111111d0 (aref entries (+ pos2 0)))
-		 (* 0.1111111111d0 (aref entries (+ pos2 1000)))
-		 (* 0.1111111111d0 (aref entries (+ pos2 -999)))
-		 (* 0.1111111111d0 (aref entries (+ pos2 1)))
-		 (* 0.1111111111d0 (aref entries (+ pos2 1001)))))
+	      (+ (* 0.1111111111 (aref entries (+ pos2 -1001)))
+		 (* 0.1111111111 (aref entries (+ pos2 -1)))
+		 (* 0.1111111111 (aref entries (+ pos2 999)))
+		 (* 0.1111111111 (aref entries (+ pos2 -1000)))
+		 (* 0.1111111111 (aref entries (+ pos2 0)))
+		 (* 0.1111111111 (aref entries (+ pos2 1000)))
+		 (* 0.1111111111 (aref entries (+ pos2 -999)))
+		 (* 0.1111111111 (aref entries (+ pos2 1)))
+		 (* 0.1111111111 (aref entries (+ pos2 1001)))))
 	#+(or)
 	(setf (aref entries pos2)
-	      (* 0.1111111111d0
+	      (* 0.1111111111
 		 (+ (aref entries (+ pos2 -1001))
 		    (aref entries (+ pos2 -1))
 		    (aref entries (+ pos2 999))
@@ -246,7 +246,7 @@ offsets.  E.g. the usual 5-point stencil would have the entries
 		  ,@(loop for index in (cdr filter-line) collecting
 			  `(aref ,entries ,(+ i (index->offset index offsets))))))))))
 
-(apply-filter-at-pos '((4.0d0 #(0 0)) (-1.0d0 #(0 -1) #(-1 0) #(1 0) #(0 1)))
+(apply-filter-at-pos '((4.0 #(0 0)) (-1.0 #(0 -1) #(-1 0) #(1 0) #(0 1)))
 		     #(1 10)
 		     'entries
 		     8)

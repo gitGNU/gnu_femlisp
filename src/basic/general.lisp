@@ -32,11 +32,10 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defpackage "GENERAL"
-  (:use "COMMON-LISP")
-  (:export "MAKE-ANALOG" "*INDENTATION-LEVEL*" "INDENTED-FORMAT"))
+(in-package :fl.utilities)
 
-(in-package :general)
+;;;; This files provides definitions which have influence across several
+;;;; other packages.
 
 (defparameter *indentation-level* 0
   "Indentation for Femlisp output.  Is used for sorting the printout of

@@ -68,7 +68,7 @@ the refine-info vector of the boundary's parent.
 
 transform-A, transform-b:  determine the transformation mapping for the child"
   
-  (reference-cell (ext:required-argument) :type <cell>)
+  (reference-cell (required-argument) :type <cell>)
   (barycentric-corners () :type list)
   (boundary-paths () :type list)
   (transform-A nil)
@@ -210,7 +210,7 @@ already refined.  An existing refinement of `cell' is simply kept."))
 		     (child-refcell (child-reference-cell child-info)))
 		(if (vertex-p child-refcell)
 		    ;; inner vertices appear only once in refinements of products of 1-simplices
-		    (make-vertex (local->global cell (make-double-vec (dimension cell) 0.5d0)))
+		    (make-vertex (local->global cell (make-double-vec (dimension cell) 0.5)))
 		    ;; we want to keep the class of the cell,
 		    ;; therefore we copy a reference cell and
 		    ;; reinitialize the boundary and mapping slot
@@ -283,8 +283,9 @@ cell thus filling a refined-skel."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-skeleton-refinement ()
-  "More tests are done when initializing other classes than vertex."
+  #+(or)(skel-ref (refcell-skeleton *reference-vertex*) *reference-vertex*)
+  #+(or)(describe (refcell-refinement-skeleton *reference-vertex* 1))
   )
 
 ;;; (test-skeleton-refinement)
-(tests::adjoin-femlisp-test 'test-skeleton-refinement)
+(fl.tests:adjoin-test 'test-skeleton-refinement)

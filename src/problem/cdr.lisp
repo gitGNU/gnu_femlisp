@@ -34,7 +34,8 @@
 
 (in-package :cl-user)
 (defpackage "CDR"
-  (:use "COMMON-LISP" "FEMLISP.MATLISP" "MACROS" "UTILITIES" "MESH" "PROBLEM")
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+	"MESH" "PROBLEM")
   (:export "<CDR-PROBLEM>" "MAP-DOMAIN-TO-CDR-PROBLEM"
 	   "SCALAR-DIFFUSION" "IDENTITY-DIFFUSION-TENSOR"
 	   "CDR-MODEL-PROBLEM"))
@@ -74,7 +75,7 @@ functional."
        ;; check that problem is self adjoint
        (let ((coeffs (copy-seq (funcall (patch->coefficients problem) cell))))
 	 (when (getf coeffs 'CDR::DIRICHLET)
-	   (setf (getf coeffs 'CDR::DIRICHLET) *cf-constantly-0.0d0*))
+	   (setf (getf coeffs 'CDR::DIRICHLET) *cf-constantly-0.0*))
 	 (assert (not (getf coeffs 'CDR::CONVECTION)))  ; better: change to negative
 	 (unless (eq cell->rhs :load-functional)
 	   (let ((dual-rhs (funcall cell->rhs cell)))
@@ -92,7 +93,7 @@ functional."
   (constant-coefficient (scal value (eye dim))))
 
 (defun identity-diffusion-tensor (dim)
-  (scalar-diffusion dim 1.0d0))
+  (scalar-diffusion dim 1.0))
 
 (defun cdr-model-problem (dim/domain &key diffusion gamma convection reaction
 			  source dirichlet)
@@ -108,8 +109,8 @@ which is interpreted as the n-dimensional unit cube."
 	 (bdry (skeleton-boundary domain)))
     ;; set default values
     (setq diffusion (or diffusion (identity-diffusion-tensor dim)))
-    (setq source (or source *cf-constantly-1.0d0*))
-    (setq dirichlet (or dirichlet *cf-constantly-0.0d0*))
+    (setq source (or source *cf-constantly-1.0*))
+    (setq dirichlet (or dirichlet *cf-constantly-0.0*))
     (make-instance
      '<cdr-problem> :domain domain
      :patch->coefficients
@@ -155,5 +156,5 @@ solution u of the problem -Delta u +e^u = 0"
     (problem-info problem))
   )
 
-(tests:adjoin-femlisp-test 'test-cdr)
+(fl.tests:adjoin-test 'test-cdr)
 

@@ -168,7 +168,7 @@ cube with its opposite sides identified."
   (let ((norm2 (norm x 2)))
     (if (zerop norm2)
 	x
-	(scal (/ (norm x 1) (norm x 2)) x))))
+	(scal (/ (norm x 1) norm2) x))))
 
 (defun n-ball-Dphi (x)
   (let ((dim (length x)))
@@ -176,14 +176,14 @@ cube with its opposite sides identified."
 	(eye dim)
 	(loop with 1/norm2 = (/ (norm x 2))
 	      with alpha = (* (norm x 1) 1/norm2)
-	      with result = (make-float-matrix dim)
+	      with result = (make-real-matrix dim)
 	      for i from 0 below dim do
 	      (loop with factor = (- (signum (aref x i)) (* alpha (aref x i) 1/norm2))
 		    for k from 0 below dim do
-		    (setf (mat-ref result k i)
+		    (setf (mref result k i)
 			  (* (aref x k) 1/norm2 factor))
 		    (when (= i k)
-		      (incf (mat-ref result k i) alpha)))
+		      (incf (mref result k i) alpha)))
 	      finally (return result)))))
 
 (defun n-ball-domain (dim)
@@ -197,7 +197,7 @@ cube with its opposite sides identified."
 			   (let ((id (car corners)))
 			     (cond ((zerop id) (make-vertex (make-double-vec dim)))
 				   ((plusp id) (make-vertex (unit-vector dim (1- id))))
-				   (t (make-vertex (scal -1 (unit-vector dim (- -1 id))))))))
+				   (t (make-vertex (scal -1.0 (unit-vector dim (- -1 id))))))))
 			  (t (make-simplex
 			      (map 'cell-vec #'(lambda (side-ids) (gethash side-ids cell-list))
 				   (mapcar #'(lambda (corner) (remove corner corners)) corners)))))))
@@ -208,8 +208,8 @@ cube with its opposite sides identified."
 			    '<special-function>
 			    :domain-dimension (1- (length corners))
 			    :image-dimension dim
-			    :evaluator #'(lambda (x) (funcall #'n-ball-phi (l2g cell x)))
-			    :gradient #'(lambda (x) (m* (funcall #'n-ball-Dphi (l2g cell x))
+			    :evaluator #'(lambda (x) (n-ball-phi (l2g cell x)))
+			    :gradient #'(lambda (x) (m* (n-ball-Dphi (l2g cell x))
 							(l2Dg cell x))))))
 	       (setf (gethash corners cell-list) cell)
 	       (insert-cell! domain cell))))
@@ -231,18 +231,19 @@ cube with its opposite sides identified."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defparameter *circle-domain*
-  (let ((pi/2 (* 0.5 pi))
-	(circle-boundary
-	 (make-instance
-	  '<special-function> :domain-dimension 1 :image-dimension 2
-	  :evaluator #'(lambda (phi)
-			 (double-vec (cos (vec-ref phi 0)) (sin (vec-ref phi 0)))))))
+  (let* ((pi/2 (* 0.5 pi))
+	 (pi/2-scaling (make-real-matrix `((,pi/2))))
+	 (circle-boundary
+	  (make-instance
+	   '<special-function> :domain-dimension 1 :image-dimension 2
+	   :evaluator #'(lambda (phi)
+			  (double-vec (cos (vref phi 0)) (sin (vref phi 0)))))))
     ;; corners
-    (let ((center (make-vertex #(0.0d0 0.0d0)))
-	  (east-vtx (make-vertex #(1.0d0 0.0d0)))
-	  (north-vtx (make-vertex #(0.0d0 1.0d0)))
-	  (west-vtx (make-vertex #(-1.0d0 0.0d0)))
-	  (south-vtx (make-vertex #(0.0d0 -1.0d0))))
+    (let ((center (make-vertex #d(0.0 0.0)))
+	  (east-vtx (make-vertex #d(1.0 0.0)))
+	  (north-vtx (make-vertex #d(0.0 1.0)))
+	  (west-vtx (make-vertex #d(-1.0 0.0)))
+	  (south-vtx (make-vertex #d(0.0 -1.0))))
       ;; inner line segments
       (let ((seg-ce (make-line center east-vtx))
 	    (seg-cn (make-line center north-vtx))
@@ -253,22 +254,26 @@ cube with its opposite sides identified."
 	       (make-line
 		east-vtx north-vtx
 		:mapping (transform-function
-			  circle-boundary :domain-transform (list [pi/2] (double-vec 0.0d0)))))
+			  circle-boundary :domain-transform
+			  (list pi/2-scaling #d(0.0)))))
 	      (seg-nw
 	       (make-line
 		north-vtx west-vtx
 		:mapping (transform-function
-			  circle-boundary :domain-transform (list [pi/2] (double-vec pi/2)))))
+			  circle-boundary :domain-transform
+			  (list pi/2-scaling (double-vec pi/2)))))
 	      (seg-ws
 	       (make-line
 		west-vtx south-vtx
 		:mapping (transform-function
-			  circle-boundary :domain-transform (list [pi/2] (double-vec pi)))))
+			  circle-boundary :domain-transform
+			  (list pi/2-scaling (double-vec pi)))))
 	      (seg-es
 	       (make-line
 		east-vtx south-vtx
 		:mapping (transform-function
-			  circle-boundary :domain-transform (list [(- pi/2)] (double-vec (* 2 pi)))))))
+			  circle-boundary :domain-transform
+			  (list pi/2-scaling (double-vec (* 2 pi)))))))
 	  ;; Now the four triangle cells.  Note, that we don't bother about
 	  ;; the precise mappings for now.  Nevertheless, these would be needed,
 	  ;; if we wanted to work with completely nonlinear (and not only
@@ -285,11 +290,11 @@ better.")
 
 (defparameter *rotated-square-domain*
   ;; corners
-  (let ((center (make-vertex #(0.0d0 0.0d0)))
-	(east-vtx (make-vertex #(1.0d0 0.0d0)))
-	(north-vtx (make-vertex #(0.0d0 1.0d0)))
-	(west-vtx (make-vertex #(-1.0d0 0.0d0)))
-	(south-vtx (make-vertex #(0.0d0 -1.0d0))))
+  (let ((center (make-vertex #d(0.0 0.0)))
+	(east-vtx (make-vertex #d(1.0 0.0)))
+	(north-vtx (make-vertex #d(0.0 1.0)))
+	(west-vtx (make-vertex #d(-1.0 0.0)))
+	(south-vtx (make-vertex #d(0.0 -1.0))))
     ;; inner line segments
     (let ((seg-ce (make-line center east-vtx))
 	  (seg-cn (make-line center north-vtx))
@@ -322,7 +327,7 @@ better.")
 the unit cube."
   (let* ((skel (refine-globally (skeleton (n-cube dim))))
 	 (upper-right-cell
-	  (find-cell-from-position skel (make-double-vec dim 0.75d0))))
+	  (find-cell-from-position skel (make-double-vec dim 0.75))))
     (change-class (skeleton-without-cell skel upper-right-cell)
 		  '<domain>)))
 
@@ -332,12 +337,12 @@ the unit cube."
   (display-ht (etable (n-ball-domain 2) 2))
   (corners *unit-triangle*)
   (let ((*print-skeleton-values* t))
-    (describe (triangle-domain #(0.0d0 0.0d0) #(1.0d0 0.0d0) #(0.0d0 1.0d0))))
+    (describe (triangle-domain #d(0.0 0.0) #d(1.0 0.0) #d(0.0 1.0))))
   (check *unit-quadrangle-domain*)
   (check (n-cube-domain 2))
   (assert (= -1 (dimension (skeleton-boundary (n-cell-domain 2)))))
   )
 
-;;; (test-domain)
-(tests:adjoin-femlisp-test 'test-domain)
+;;; (mesh::test-domain)
+(fl.tests:adjoin-test 'test-domain)
 

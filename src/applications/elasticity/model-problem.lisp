@@ -50,7 +50,7 @@
 	 (discretize-globally problem mm fe-class)
        #+(or)(show mat)
        #+(or)(show rhs)
-       #+(or)(m* (sparse-ldu mat) rhs)
+       #+(or)(getrs (sparse-ldu mat) rhs)
        #-(or)(linsolve mat rhs :output t :iteration (geometric-cs :fmg t) :maxsteps 10)
        ))))
 (plot *result* :component 1)
@@ -62,13 +62,13 @@
 	  (problem
 	   (system-diffusion-problem
 	    (n-cube-domain dim) :D 1.0 :nr-comps nr-comps
-	    :force (constantly (make-array nr-comps :initial-element (ones 1)))))
+	    :force (constantly (make-array nr-comps :initial-element (eye 1)))))
 	  (mm (uniformly-refined-hierarchical-mesh (domain problem) level))
 	  (fe-class (lagrange-fe order :nr-comps nr-comps)))
      (multiple-value-bind (mat rhs)
 	 (discretize-globally problem mm fe-class)
        ;;(show mat)
-       #+(or)(m* (sparse-ldu mat) rhs)
+       #+(or)(getrs (sparse-ldu mat) rhs)
        (linsolve mat rhs :output t :iteration (geometric-cs :fmg t) :maxsteps 2)
        ))))
 (plot *result* :component 0)
@@ -82,7 +82,7 @@
 	  (fe-class (lagrange-fe order)))
      (multiple-value-bind (mat rhs)
 	 (discretize-globally problem mm fe-class)
-       #+(or)(m* (sparse-ldu mat) rhs)
+       #+(or)(getrs (sparse-ldu mat) rhs)
        (linsolve mat rhs :output t :iteration (geometric-cs :fmg t) :maxsteps 2)
        ))))
 

@@ -184,13 +184,13 @@ to be performed."))
 
 (defmethod ensure-sol-rhs-res ((mg-it <mg-iteration>) mg-data level)
   (unless (sol_ level)
-    (setf (sol_ level) (make-row-vector-for
+    (setf (sol_ level) (make-domain-vector-for
 			(A_ level) (multiplicity (sol_ (1+ level))))))
   (unless (rhs_ level)
-    (setf (rhs_ level) (make-column-vector-for
+    (setf (rhs_ level) (make-image-vector-for
 			(A_ level) (multiplicity (rhs_ (1+ level))))))
   (unless (res_ level)
-    (setf (res_ level) (make-column-vector-for
+    (setf (res_ level) (make-image-vector-for
 			(A_ level) (multiplicity (res_ (1+ level)))))))
 
 (defmethod restrict ((mg-it <mg-iteration>) mg-data)
@@ -200,8 +200,8 @@ level and clears the residual-p flag."
     (ensure-residual mg-it mg-data)
     (ensure-sol-rhs-res mg-it mg-data l-1)
     (if (getbb mg-data :r-vec)
-	(gemm! 1.0d0 (R_ l-1) res_l 0.0d0 (res_ l-1))
-	(gemm! 1.0d0 (I_ l-1) res_l 0.0d0 (res_ l-1) :tn))
+	(gemm! 1.0 (R_ l-1) res_l 0.0 (res_ l-1))
+	(gemm! 1.0 (I_ l-1) res_l 0.0 (res_ l-1) :tn))
 ;;    (whereas ((global-i-mat (getbb mg-data :global-i-vec)))
       
 	))
@@ -212,13 +212,13 @@ level and clears the residual-p flag."
 
 (defmethod restrict :after ((mg-it <correction-scheme>) mg-data)
   (x<-0 sol_l)
-  (x<-y rhs_l res_l)
+  (copy! res_l rhs_l)
   (setq residual-p t))
 
 (defmethod restrict :after ((mg-it <fas>) mg-data)
-  (x<-y rhs_l res_l)
-  (gemm! 1.0d0 FAS-R_l (sol_ (1+ current-level)) 0.0d0 sol_l)
-  (gemm! 1.0d0 A_l sol_l 1.0d0 rhs_l)
+  (copy! res_l rhs_l)
+  (gemm! 1.0 FAS-R_l (sol_ (1+ current-level)) 0.0 sol_l)
+  (gemm! 1.0 A_l sol_l 1.0 rhs_l)
   (setf residual-p t))
 
 ;;; Note that no primary method for prolongate is defined for
@@ -226,15 +226,15 @@ level and clears the residual-p flag."
 ;;; <correction-scheme> or <fas>.
 (defmethod prolongate ((mg-it <correction-scheme>) mg-data)
   (let ((l+1 (1+ current-level)))
-    (gemm! 1.0d0  I_l sol_l 1.0d0 (sol_ l+1) :nn)))
+    (gemm! 1.0  I_l sol_l 1.0 (sol_ l+1) :nn)))
 
 (defmethod prolongate ((mg-it <fas>) mg-data)
   "This version of FAS prolongation uses the res_ field on the coarser
 level for computing the correction to be prolongated."
   (let ((l+1 (1+ current-level)))
-    (x<-y res_l sol_l)
-    (gemm! -1.0d0 FAS-R_l (sol_ l+1) 1.0d0 res_l)
-    (gemm! 1.0d0 I_l res_l 1.0d0 (sol_ l+1)) :nn))
+    (copy! sol_l res_l)
+    (gemm! -1.0 FAS-R_l (sol_ l+1) 1.0 res_l)
+    (gemm! 1.0 I_l res_l 1.0 (sol_ l+1)) :nn))
 
 (defmethod prolongate :after ((mg-it <mg-iteration>) mg-data)
   (incf current-level)

@@ -35,14 +35,14 @@
 (in-package :application)
 
 (defparameter *HR-evaluation-point*
-  (double-vec 0.5d0 2.5d0))
+  #d(0.5 2.5))
 
 (defparameter *HR-gradx-value*
-  (* pi 0.5d0 (sin (* 0.75d0 pi)) (sin (* 2.625d0 pi))))
+  (* pi 0.5 (sin (* 0.75 pi)) (sin (* 2.625 pi))))
 
 (defun heuveline-rannacher-rhs (x)
   "Smooth rhs for the problem -Delta u = rhs in the H-R article."
-  #I(-0.8125d0*pi*pi * sin(0.5d0*pi*(x[0]+1.0d0)) * sin(0.75d0*pi*(x[1]+1.0d0))))
+  #I(-0.8125*pi*pi * sin(0.5*pi*(x[0]+1.0)) * sin(0.75*pi*(x[1]+1.0))))
 
 (defun heuveline-rannacher-domain ()
   (box-domain '((-1.0 1.0) (-1.0 3.0))))
@@ -67,7 +67,7 @@ function assumes that a structured cube mesh is used!"
   (let ((rhs (make-local-vec fe))
 	(local (global->local cell *HR-evaluation-point*))
 	(delta *HR-delta*))
-    (when (every #'(lambda (c) (<= (- delta) c (+ 1.0d0 delta))) local)
+    (when (every #'(lambda (c) (<= (- delta) c (+ 1.0 delta))) local)
       ;; point is inside or very near the cell...
       (loop
        with nr-neighbors =
@@ -78,9 +78,11 @@ function assumes that a structured cube mesh is used!"
        with Dphi^-1 = (m/ (local->Dglobal cell local))
        for shape in (fe-basis fe)
        and i from 0 do
-       (setf (matrix-ref rhs i)
-	     (/ (matrix-ref (m* (ensure-matlisp (evaluate-gradient shape local) :row)
-				Dphi^-1) 0)
+       (setf (vref rhs i)
+	     (/ (vref (m* (ensure-matlisp (coerce (evaluate-gradient shape local) 'double-vec)
+					  :row)
+			  Dphi^-1)
+		      0)
 		nr-neighbors))))
     rhs))
 
@@ -104,7 +106,7 @@ solution:
 
 $$  u(x,y) = sin(pi/2*(x+1))*sin(3/4*pi*(y+1))  $$
 
-Thus, the precise value is 1.026172152977031d0.
+Thus, the precise value is 1.026172152977031.
 Parameters of the computation: order=~order~, levels=~levels~."
   (defparameter *result*
     (let ((problem (heuveline-rannacher-problem))
@@ -134,13 +136,11 @@ Parameters of the computation: order=~order~, levels=~levels~."
 	:plot-mesh plot	:output output :observe
 	(append *stationary-fe-strategy-observe*
 		(list
-		 (list "   grad-x (0.5,2.5)" "~19,10,2E"
+		 (list " grad-x (0.5,2.5)" "~17,10,2E"
 		       #'(lambda (blackboard)
 			   (with-items (&key solution) blackboard
-			     (vec-ref (aref (fe-gradient solution *HR-evaluation-point*) 0) 0))))
-		 (list "         ETA" "~12,2,2E"
-		       #'(lambda (blackboard)
-			   (getbb blackboard :global-eta))))))
+			     (vref (aref (fe-gradient solution *HR-evaluation-point*) 0) 0))))
+		 *eta-observe*)))
        (blackboard :problem problem
 		   :mesh (change-class (uniform-mesh-on-box-domain (domain problem) #(1 2))
 				       '<hierarchical-mesh>)
@@ -167,20 +167,7 @@ Parameters of the computation: order=~order~, levels=~levels~."
 
 (make-heuveline-rannacher-demo 4 4)
 
-#| Konvergenzraten durchweg gut...
-* (heuveline-rannacher-computation 4 8 :output t)
-auf toba?:
- CELLS     DOFS  MENTRIES   TIME   grad-x (0.5,2.5)                ETA
-    2        45      1225    2.1   1.0098237387d+00   2.2392139252d-02
-    8       198      4753   10.8   1.0246749201d+00   1.3097813462d-03
-   11       279      7266   24.0   1.0260207607d+00   1.8238160389d-04
-   23       568     15010   58.4   1.0261454565d+00   2.0900486250d-05
-   32       793     23531  106.2   1.0261860710d+00   2.2922568999d-06
-   50      1201     35959  192.6   1.0261714327d+00   8.5627095453d-07
-   77      1834     57159  322.9   1.0261721980d+00   3.8457544838d-08
-danach schlechtere Konvergenz und schlechtere Werte
-
-auf ortler:
+#|
  CELLS     DOFS  MENTRIES   TIME   grad-x (0.5,2.5)                ETA
     2        45      1225    0.6   1.0098237387d+00   2.2392139252d-02
     8       198      4753    6.1   1.0246749201d+00   1.3097813462d-03
@@ -200,12 +187,11 @@ auf ortler:
 	  (mesh (uniformly-refined-hierarchical-mesh (domain problem) level)))
      (multiple-value-bind (mat rhs)
 	 (discretize-globally problem mesh fe-class)
-       (defparameter *result* (m* (sparse-ldu mat) rhs)))))
+       (defparameter *result* (getrs (sparse-ldu mat) rhs)))))
   (plot *result*)
 
-  (let ((gradx (matrix-ref (fe-gradient *result* *HR-evaluation-point*) 0)))
+  (let ((gradx (vref (vref (fe-gradient *result* *HR-evaluation-point*) 0) 0)))
     (list gradx *HR-gradx-value* (- gradx *HR-gradx-value*)))
-  (fe-gradient *result* *HR-evaluation-point*)
 
   (time
    (let* ((order 4) (level 3)
@@ -214,7 +200,7 @@ auf ortler:
 	  (mesh (uniformly-refined-hierarchical-mesh (domain problem) level)))
      (multiple-value-bind (mat rhs)
 	 (discretize-globally problem mesh fe-class)
-       (defparameter *result* (m* (sparse-ldu mat) rhs)))))
+       (defparameter *result* (getrs (sparse-ldu mat) rhs)))))
   (plot *result*)
 
   )  

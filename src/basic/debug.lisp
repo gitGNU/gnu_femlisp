@@ -37,11 +37,11 @@
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "FEMLISP-DEBUG"
+(defpackage "FL.DEBUG"
   (:use "COMMON-LISP")
   (:export "DBG-ON" "DBG-OFF" "DBG-WHEN" "DBG" "DBG-INDENT"))
 
-(in-package :femlisp-debug)
+(in-package :fl.debug)
 
 (defvar *dbg-ids* () "Identifiers used by dbg.")
 

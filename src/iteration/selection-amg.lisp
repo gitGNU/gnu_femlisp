@@ -67,7 +67,7 @@ build the actual interpolation matrix."))
 		 :keys->pattern (keys->pattern mat))))
       ;; set prolongation entries
       (dolist (node coarse)
-	(setf (mat-ref prol node node)
+	(setf (mref prol node node)
 	      (eye (funcall (row-key->size mat) node))))
       ;; augment parameters list with result
       (list* :prolongation prol parameters))))
@@ -89,24 +89,24 @@ $$ \alpha = \frac{\sum_{j \in N_i} a_{ij}}}{\sum_{j \in P_i} a_{ij}} $$
 to make the prolongation exact for constant functions."
 
   (dolist (i fine-nodes)
-    (let ((sum-neighboring 0.0d0)
-	  (sum-prolongating 0.0d0))
+    (let ((sum-neighboring 0.0)
+	  (sum-prolongating 0.0))
       (for-each-key-and-entry-in-row
        #'(lambda (j entry)
 	   (when (and (not (eql j i)) (gethash j filtered-keys))
-	     (incf sum-neighboring (mat-ref entry 0 0))))
+	     (incf sum-neighboring (mref entry 0 0))))
        matrix i)
       (for-each-key-and-entry-in-row
        #'(lambda (j entry)
 	   (when (matrix-column prolongation j)
-	     (incf sum-prolongating (mat-ref entry 0 0))))
+	     (incf sum-prolongating (mref entry 0 0))))
        matrix i)
       (let ((scaled-diagonal-inverse (scal! (- (/ sum-neighboring sum-prolongating))
-					    (m/ (mat-ref matrix i i)))))
+					    (m/ (mref matrix i i)))))
 	(for-each-key-and-entry-in-row
 	 #'(lambda (j entry)
 	     (when (matrix-column prolongation j)
-	       (setf (mat-ref prolongation i j)
+	       (setf (mref prolongation i j)
 		     (m* scaled-diagonal-inverse entry))))
 	 filtered-matrix i))))
     

@@ -40,30 +40,25 @@
    (upper-right :reader upper-right :initarg :upper-right :type <sparse-matrix>)
    (ordering :reader ordering :initarg :ordering :type vector)))
 
-(defmethod getrf! ((A <sparse-matrix>) &optional ipiv)
-  (declare (ignore ipiv))
-  (values (sparse-ldu A) nil t))
-
-
 (defun modify-diagonal (D R omega)
   "Implements the diagonal modification for ILU_mod."
   (dorows (rk R)
-    (let ((sum 0.0d0))
+    (let ((sum 0.0))
       (for-each-key-in-row
        #'(lambda (ck)
-	   (incf sum (mat-ref R rk ck)))
+	   (incf sum (mref R rk ck)))
        R rk)
-      (decf (mat-ref D rk rk) (* omega sum))))
+      (decf (mref D rk rk) (* omega sum))))
   D)
 
 (defun shift-diagonal-inverter (eta)
   "Can be used for obtainint a diagonal modification to get ILU_mod."
   #'(lambda (mat)
       (dorows (i mat)
-	(incf (mat-ref mat i i) eta))
+	(incf (mref mat i i) eta))
       (m/ mat)))
 
-(defmethod sparse-ldu ((A <sparse-matrix>) &key ordering incomplete (omega 0.0d0) diagonal-inverter)
+(defmethod sparse-ldu ((A <sparse-matrix>) &key ordering incomplete (omega 0.0) diagonal-inverter)
   (declare (type double-float omega))
   
   ;; default is all keys of A
@@ -77,30 +72,30 @@
     ;; Extract part out of A into U.  Entries are transformed into matlisp
     ;; matrices.  Zero entries are dropped.
     (loop for row-key across ordering
-	  for entry = (mat-ref A row-key row-key) do
+	  for entry = (mref A row-key row-key) do
 	  (assert entry)
-	  (setf (mat-ref U row-key row-key)
+	  (setf (mref U row-key row-key)
 		(typecase entry
-		  (<crs-matrix> (crs->matlisp entry))
+		  (crs-matrix (crs->matlisp entry))
 		  (t (copy entry)))))
     (loop for row-key across ordering do
 	  (for-each-key-and-entry-in-row
 	   #'(lambda (col-key entry)
 	       (when (and (matrix-row U col-key) (not (mzerop entry)))
-		 (setf (mat-ref U row-key col-key)
+		 (setf (mref U row-key col-key)
 		       (typecase entry
-			 (<crs-matrix> (crs->matlisp entry))
+			 (crs-matrix (crs->matlisp entry))
 			 (t (copy entry))))))
 	   A row-key))
 
     ;; decomposition
     (loop
      for k across ordering do
-     (let* ((U_kk (mat-ref U k k))
+     (let* ((U_kk (mref U k k))
 	    (D_kk (if diagonal-inverter
 		      (funcall diagonal-inverter U_kk)
 		      (m/ U_kk))))
-     (setf (mat-ref D k k) D_kk)	; store D
+     (setf (mref D k k) D_kk)	; store D
      (remove-entry U k k)		; clean U
      (let ((col-k (matrix-column U k))
 	   (row-k (matrix-row U k)))
@@ -110,18 +105,18 @@
 	       unless (matrix-row D i) do
 	       (let ((factor (m* Uik D_kk))
 		     (row-i (matrix-row U i)))
-		 (setf (mat-ref L i k) factor) ; store L
+		 (setf (mref L i k) factor) ; store L
 		 (remove-entry U i k)	; clean U
 		 (when row-k
 		   (loop for j being each hash-key of row-k
 			 and Ukj being each hash-value of row-k do
 			 (let ((mblock (gethash j row-i)))
 			   (cond ((or mblock (not incomplete))
-				  (setq mblock (or mblock (mat-ref U i j)))
-				  ;; (decf (vec-ref mblock 0) (* (vec-ref factor 0) (vec-ref Ukj 0)))
-				  (gemm! -1.0d0 factor Ukj 1.0d0 mblock))
+				  (setq mblock (or mblock (mref U i j)))
+				  ;; (decf (vref mblock 0) (* (vref factor 0) (vref Ukj 0)))
+				  (gemm! -1.0 factor Ukj 1.0 mblock))
 				 (t (unless (zerop omega)
-				      (modify-diagonal (mat-ref U i i) (m* factor (mat-ref U i j)) omega)))
+				      (modify-diagonal (mref U i i) (m* factor (mref U i j)) omega)))
 				 ))))))))))
     ;; finally return the result
     (make-instance '<ldu-sparse> :lower-left L :diagonal D
@@ -131,55 +126,46 @@
 ;;; Matlisp/LAPACK interface
 
 (defmethod getrf! ((A <sparse-matrix>) &optional ipiv)
-  (declare (ignore ipiv))
+  (assert (null ipiv))
   (values (sparse-ldu A :ordering nil) nil t))
 
-(defmethod getrs! ((ldu <ldu-sparse>) ipiv (result <sparse-vector>) &key trans)
-  (declare (ignore trans))
-  
+(defmethod getrs! ((ldu <ldu-sparse>) (result <sparse-vector>) &optional ipiv)
+  (assert (null ipiv))
   ;; solve (I + L) result~ = rhs
   (loop with L of-type <sparse-matrix> = (lower-left ldu)
 	for i across (ordering ldu)
-	for result-i = (vec-ref result i)
+	for result-i = (vref result i)
 	when (matrix-row L i) do
 	(for-each-key-and-entry-in-row
-	 #'(lambda (j Lij) (x-=Ay result-i Lij (vec-ref result j)))
+	 #'(lambda (j Lij) (gemm! -1.0 Lij (vref result j) 1.0 result-i))
 	 L i))
-  
   ;; solve (D + U) result = result~ (where D^{-1} is stored)
   (loop with U of-type <sparse-matrix> = (upper-right ldu)
 	with D of-type <sparse-matrix> = (diagonal ldu)
 	for i across (reverse (ordering ldu))
-	for result-i = (vec-ref result i) do
+	for result-i = (vref result i) do
 	(when (matrix-row U i)
 	  (for-each-key-and-entry-in-row
-	   #'(lambda (j Uij) (x-=Ay result-i Uij (vec-ref result j)))
+	   #'(lambda (j Uij) (gemm! -1.0 Uij (vref result j) 1.0 result-i))
 	   U i))
-	(m*! (mat-ref D i i) result-i))
+	(copy! (m* (mref D i i) result-i) result-i))
   
   ;; return the result
   (values result ipiv t))
 
-(defmethod getrs ((ldu <ldu-sparse>) ipiv (rhs <sparse-vector>) &key trans)
-  (declare (ignore ipiv trans))
-  (let ((result (copy rhs)))
-    (getrs! ldu nil result)))
-
-
 ;;; Alternative interface
 
+#+(or)
 (defmethod x<-Ay ((result <sparse-vector>) (ldu <ldu-sparse>) (rhs <sparse-vector>))
   "Performs a matrix multiplication with U^-1 D^-1 L^-1."
-  (declare (optimize (speed 3) (safety 0)))
-  
-  ;; copy rhs to result, further we work only on result
   (copy! rhs result)
-  (getrs! ldu nil result))
+  (getrs! ldu result))
 
 (defmethod m* ((ldu <ldu-sparse>) (rhs <sparse-vector>))
-  (declare (optimize (speed 3) (safety 0)))
-  (let ((result (copy rhs)))
-    (x<-Ay result ldu rhs)))
+  "An ldu-decomposition is considered as an inverse.  This is probably only
+reasonable if the pivot vector would be incorporated and the GETRF/GETRS
+interface would change."
+  (getrs ldu rhs))
 
 
 ;;; Testing:
@@ -190,10 +176,10 @@
 	    :row-key->size (constantly 1) :col-key->size (constantly 1)
 	    :keys->pattern (constantly (full-crs-pattern 1 1)))))
     (describe A)
-    (setf (mat-ref A 0 0) [[2.0]])
-    (setf (mat-ref A 1 0) [[1.0]])
-    (setf (mat-ref A 1 1) [[1.0]])
-    (setf (mat-ref A 0 1) [[1.0]])
+    (setf (mref A 0 0) #m((2.0)))
+    (setf (mref A 1 0) #m((1.0)))
+    (setf (mref A 1 1) #m((1.0)))
+    (setf (mref A 0 1) #m((1.0)))
     
     (display A)
     (display (lower-left (sparse-ldu A)))
@@ -202,19 +188,19 @@
     (ordering (sparse-ldu A))
 
     (let ((rhs (make-instance '<sparse-vector> :key->size (constantly 1))))
-      (setf (vec-ref rhs 0) [3.0])
-      (setf (vec-ref rhs 1) [1.0])
+      (setf (vref rhs 0) #m((3.0)))
+      (setf (vref rhs 1) #m((1.0)))
       (show rhs)
-      (show (m* (sparse-ldu A) rhs))))
+      (show (getrs (sparse-ldu A) rhs))))
 
   (let ((A (make-sparse-matrix
 	    :row-key->size (constantly 2) :col-key->size (constantly 2)
 	    :keys->pattern (constantly (full-crs-pattern 2 2)))))
     (describe A)
-    (setf (mat-ref A 0 0) [[4.0 -1.0]' [-1.0 4.0]'])
-    (setf (mat-ref A 1 0) [[-1.0 0.0]' [0.0 -1.0]'])
-    (setf (mat-ref A 1 1) [[4.0 -1.0]' [-1.0 4.0]'])
-    (setf (mat-ref A 0 1) [[-1.0 0.0]' [0.0 -1.0]'])
+    (setf (mref A 0 0) #m((4.0 -1.0) (-1.0 4.0)))
+    (setf (mref A 1 0) #m((-1.0 0.0) (0.0 -1.0)))
+    (setf (mref A 1 1) #m((4.0 -1.0) (-1.0 4.0)))
+    (setf (mref A 0 1) #m((-1.0 0.0) (0.0 -1.0)))
     
     (display A)
     (display (lower-left (sparse-ldu A)))
@@ -222,9 +208,8 @@
     (display (upper-right (sparse-ldu A)))
     (ordering (sparse-ldu A))
     (let ((rhs (make-instance '<sparse-vector> :key->size (constantly 2))))
-      (setf (vec-ref rhs 0) [1.0 2.0]')
-      (setf (vec-ref rhs 1) [3.0 4.0]')
+      (setf (vref rhs 0) #m((1.0) (2.0)))
+      (setf (vref rhs 1) #m((3.0) (4.0)))
       (show rhs)
-      (show (m* (sparse-ldu A) rhs))
-      (show (m* A (m* (sparse-ldu A) rhs)))))
+      (mzerop (m- (m* A (getrs (sparse-ldu A) rhs)) rhs) 1.0e-15)))
   )

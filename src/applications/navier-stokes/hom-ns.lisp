@@ -117,10 +117,10 @@ components."
 		 (list (format nil "~19@A~19@A~19@A" "K_00" "K_01" "K_11") "~57A"
 		      #'(lambda (blackboard)
 			  (let ((tensor (permeability-tensor blackboard)))
-			    (format t "~19,10,2E~19,10,2E~19,10,2E"
-				    (and tensor (matrix-ref tensor 0 0))
-				    (and tensor (matrix-ref tensor 0 1))
-				    (and tensor (matrix-ref tensor 1 1)))))))))
+			    (format nil "~19,10,2E~19,10,2E~19,10,2E"
+				    (and tensor (mref tensor 0 0))
+				    (and tensor (mref tensor 0 1))
+				    (and tensor (mref tensor 1 1)))))))))
        (blackboard :problem problem :output t)))
     (when plot
       ;; plot components of cell solution tensor
@@ -129,7 +129,7 @@ components."
 	  (plot (getbb *result* :solution) :component j :index i)
 	  (sleep 1.0))))
     ;; compute the homogenized coefficient
-    (format t "The permeability tensor is:~%~A~%"
+    (format t "The permeability tensor is:~%~A~%~%"
 	    (permeability-tensor *result*))))
 
 #+(or)
@@ -203,16 +203,16 @@ Parameters: order=~D, max-levels=~D~%~%"
 	 #'(lambda (entry)
 	     (for-each-key
 	      #'(lambda (i j)
-		  (decf (matrix-ref entry i j)
+		  (decf (mref entry i j)
 			(/ (aref sum j) (aref count j))))
 	      entry))
 	 pressure)
 	(map 'vector #'/ sum count))))
 
 ;;; Testing: (hom-ns-tests)
-(tests::adjoin-femlisp-test 'hom-ns-tests)
+(fl.tests:adjoin-test 'hom-ns-tests)
 
 (defun hom-ns-tests ()
   (stokes-darcy-demo
    (ns-hole-cell-problem 2)
-   :order 4 :levels 2 :plot nil :delta 2))
+   :order 4 :levels 2 :plot nil :delta 1))

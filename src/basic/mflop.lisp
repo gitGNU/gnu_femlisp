@@ -37,7 +37,7 @@
 ;;; demo durations more independent of the hardware on which the test is
 ;;; running.
 
-(in-package :tests)
+(in-package :fl.utilities)
 
 (defconstant +N-long+ #x080000)  ; should not fit in secondary cache
 (defconstant +N-short+ #x100)    ; should fit in primary cache
@@ -45,7 +45,7 @@
 (defparameter *mflop-delta* 0.3
   "Time interval in seconds over which we measure performance.")
 
-(defun make-double-float-array (size &optional (initial 0.0d0))
+(defun make-double-float-array (size &optional (initial 0.0))
    (make-array size :element-type 'double-float :initial-element initial))
 
 (defun daxpy (x a y n)
@@ -63,23 +63,27 @@
   (loop for i of-type fixnum from 0 below n
 	summing (* (aref x i) (aref y i)) double-float))
 
+(declaim (inline measure-time))
 (defun measure-time (fn)
   "Repeatedly runs fn which should be a function with no parameters until
 it takes more than *mflop-delta* seconds.  Then it returns the average time
 in seconds."
+  (declare (type function fn))
   (loop with before = (get-internal-run-time)
-	for count = 1 then (+ count (* count 2)) do
-	(loop repeat count do (funcall fn))
+	for count of-type fixnum = 1 then (+ count (* count 2)) do
+	(dotimes (i count)
+	  (declare (optimize speed))
+	  (funcall fn))
 	(let ((secs (float (/ (- (get-internal-run-time) before)
 			      internal-time-units-per-second))))
 	  (when (> secs *mflop-delta*)
-	    (return (/ secs count))))))
+	    (return (values secs count))))))
 
 (defparameter *hardware-speed*
-  (let ((x (make-array +N-long+ :element-type 'double-float :initial-element 2.0d0))
-	(y (make-array +N-long+ :element-type 'double-float :initial-element 1.0d0)))
-    ;;(/ (measure-time #'(lambda () (blas::DAXPY n 2.0d0 x 1 y 1))))
-    (/ (measure-time #'(lambda () (daxpy x 2.0d0 y +N-long+)))))
+  (let ((x (make-array +N-long+ :element-type 'double-float :initial-element 2.0))
+	(y (make-array +N-long+ :element-type 'double-float :initial-element 1.0)))
+    ;;(/ (measure-time #'(lambda () (blas::DAXPY n 2.0 x 1 y 1))))
+    (/ (measure-time #'(lambda () (daxpy x 2.0 y +N-long+)))))
   "This is a guess for the speed of the hardware Femlisp is currently
 running on.  At the moment, it is chosen as the MFLOP rate of a daxpy
 operation on long vectors implemented in CL.")

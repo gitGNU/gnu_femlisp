@@ -32,53 +32,37 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
+(in-package :cl-user)
 
-(pushnew :femlisp *features*)
-
-;;; Note: The code below expects that the logical host "femlisp:" is
-;;; correctly set to the femlisp directory.  Furthermore, "cl:matlisp"
-;;; should point to the matlisp directory and cl:utilities to a directory
-;;; containing infix.cl.
+;;; Note: The code below expects that the logical host
+;;; "femlisp:" is correctly set to the femlisp directory and
+;;; that "femlisp:src;" is registered for ASDF.  CL-PPCRE and
+;;; infix should also be found.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Initialization of external utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(load "femlisp:src;femlisp-config.lisp")
+(load "femlisp:femlisp-config.lisp")
 
-#-matlisp (setq debug:*debug-readtable* (copy-readtable *readtable*))
-#-matlisp (load "cl:matlisp;start.lisp")
-(unexport 'MATLISP::REAL :MATLISP)
-#-infix (load "cl:utilities;infix.cl")
+#-infix (load "cl:lisp;infix.lisp")
 
-(load "cl:cl-ppcre;load.lisp")
+#-cl-ppcre (load "cl:cl-ppcre;load" :verbose nil)
+(pushnew :cl-ppcre *features*)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; register femlisp for defsystem
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; we want to work generally with double float numbers
+(setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
 
-;;; Register 'femlisp;src' for the defsystem utility
-(let ((name "femlisp:src;"))
-  (setq mk::*central-registry*
-	(cons (translate-logical-pathname name)
-	      (remove name mk::*central-registry* :test #'equal
-		      :key #'(lambda (obj) (and (typep obj 'pathname)
-						(pathname-name obj)))))))
+(asdf:operate 'asdf::load-op 'femlisp)
+(pushnew :femlisp *features*)
 
-;;(mk:oos 'femlisp 'compile :force :all :verbose t :compile-during-load t)
-(mk:oos 'femlisp 'compile :minimal-load t :verbose t :compile-during-load t)
-
-(eval-when (:load-toplevel :compile-toplevel :execute)
-(defparameter *femlisp-version* "0.8.3")
+(defparameter *femlisp-version* "0.9.0")
 (defun femlisp-version () *femlisp-version*)
 (defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
-#+cmu (setf (getf ext:*herald-items* :femlisp)
-	    (list (femlisp-herald))))
 
 (defun femlisp-banner ()
   (format
-   t "~&~%*** Femlisp-0.8.5 ***
+   t "~&~%*** Femlisp-~A ***
 
 Copyright (C) 2003-2004
 Nicolas Neuss, University of Heidelberg.
@@ -88,8 +72,7 @@ file LICENSE in the Femlisp main directory.  This is free
 software, and you are welcome to redistribute it under certain
 conditions.
 
-Type (demo) or (femlisp-demo:demo) to get a guided tour through
-Femlisp.~%~%"))
+Type (demo) to get a guided tour through Femlisp.~%~%"
+   *femlisp-version*))
 
 (femlisp-banner)
-

@@ -157,9 +157,9 @@ blackboard."
 	;; We put the constraints in the matrix.  An alternative would be
 	;; to store the constraints in the ansatz space and to enforce them
 	;; after application of the operator
-	(x+=y result-mat constraints-P)
-	(x-=y result-mat constraints-Q)
-	(x+=y result-rhs constraints-r)
+	(m+! constraints-P result-mat)
+	(m-! constraints-Q result-mat)
+	(m+! constraints-r result-rhs)
 	
 	#+(or)(break)
 	;; we keep also interior-matrix and interior-rhs which may be of

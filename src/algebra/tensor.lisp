@@ -366,7 +366,7 @@ contracted index pair fit."
 		    (entries (entries result)))
 	       (declare (type double-vec entries))
 	       (setf (aref entries 0)
-		     (let ((sum 0.0d0))
+		     (let ((sum 0.0))
 		       (declare (type double-float sum))
 		       (dotimes (i (length x) sum)
 			 (incf sum (* (aref x i) (aref y i))))))
@@ -424,15 +424,15 @@ contracted index pair fit."
 
 ;;; Testing
 (defun test-tensor ()
-  (let ((t1 (list->real-tensor '((1.0d0 2.0d0) (3.0d0 4.0d0))))
-	(t2 (list->real-tensor '((1.0d0 2.0d0) (3.0d0 4.0d0)))))
+  (let ((t1 (list->real-tensor '((1.0 2.0) (3.0 4.0))))
+	(t2 (list->real-tensor '((1.0 2.0) (3.0 4.0)))))
     (slice t1 '((0 . 1)))
     (t+ t1 t2)
     (rearrange-tensor t1 #(1 0))
     (t* t1 t2 '((0 . 1))))
   
-  (let ((t1 (list->real-tensor '(1.0d0 2.0d0)))
-	(t2 (list->real-tensor '(1.0d0 2.0d0))))
+  (let ((t1 (list->real-tensor '(1.0 2.0)))
+	(t2 (list->real-tensor '(1.0 2.0))))
     (t* t1 t2 '((0 . 0)))
     (t* t1 t2 '())
     (tensor-map 'double-float #'1+ t1)
@@ -441,7 +441,7 @@ contracted index pair fit."
   )
 
 ;;; (test-tensor)
-(tests::adjoin-femlisp-test 'test-tensor)
+(fl.tests:adjoin-test 'test-tensor)
 
 ;;; Finally, a performance test: The new routine t* implements probably the
 ;;; best way for tensor multiplication by reshuffling the tensors before
@@ -458,20 +458,20 @@ contracted index pair fit."
        (t2 (make-real-tensor (make-fixnum-vec 2 n))))
   (time ; we have to fill the matrices because zeros perform better? why?
    (progn
-     (fill (entries t1) 1.0d0)
-     (fill (entries t2) 2.0d0)))
+     (fill (entries t1) 1.0)
+     (fill (entries t2) 2.0)))
   (time (t* t1 t2 '((1 . 0))))
   (* n n n))
 ; 100: 0.12, 200: 0.87, 300: 2.52, 400: 5.5, 500: 10.1
 
 #+ignore
 (let* ((n 500)
-       (t1 (make-float-matrix n))
-       (t2 (make-float-matrix n)))
+       (t1 (make-real-matrix n))
+       (t2 (make-real-matrix n)))
   (time ; we have to fill the matrices because m* optimizes on zeros
    (progn
-     (fill-matrix t1 1.0d0)
-     (fill-matrix t2 2.0d0)))
+     (fill! t1 1.0)
+     (fill! t2 2.0)))
   (time (m* t1 t2))
   (* n n n))
 ; 100: 0.02, 200: 0.31, 300: 1.43, 400: 3.39, 500: 6.7

@@ -32,15 +32,13 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :algebra)
+(in-package :fl.function)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; abstract ring class, perhaps we'll need it later separately
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; zero and unit for numbers
-(defmethod zero ((f number)) 0)
-(defmethod unit ((f number)) 1)
 (defmethod zero? ((x number)) (zerop x))
 (defmethod unit? ((x number)) (= x 1))
 
@@ -48,11 +46,14 @@
 ;;; class of multivariate polynomials (over arbitrary rings)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct (<polynomial> (:conc-name poly-) (:print-function print-polynomial))
-  (coeffs nil :type list))
+(defclass polynomial (<vector>)
+  ((coeffs :reader coefficients :initarg :coeffs :type list))
+  (:documentation "Multivariate polynomial.  The coefficients are
+represented as nested lists."))
 
-(defstruct (<polynomial> (:conc-name poly-) (:print-function print-polynomial))
-  (coeffs nil :type list))
+(defun make-polynomial (coeffs)
+  "Constructor which simplifies the coefficient list."
+  (make-instance 'polynomial :coeffs (simplify coeffs)))
 
 (defun shift-polynomial (poly dim)
   "Shifts a polynomial in dimension, e.g. x_1 becomes x_2."
@@ -60,14 +61,12 @@
 	     (if (zerop k)
 		 lst
 		 (list (nest lst (1- k))))))
-    (make-polynomial (nest (poly-coeffs poly) dim))))
+    (make-polynomial (nest (coefficients poly) dim))))
 
-(defun polynomial? (x) (typep x '<polynomial>))
+(defmethod degree ((poly polynomial))
+  (- (length (coefficients poly)) 1))
 
-(defmethod degree ((poly <polynomial>))
-  (- (length (poly-coeffs poly)) 1))
-
-(defmethod multi-degree ((poly <polynomial>))
+(defmethod multi-degree ((poly polynomial))
   (labels ((tensorial-degree (coeff-lst)
 	     (apply #'max
 		    (mapcar #'(lambda (coeff deg)
@@ -76,7 +75,7 @@
 				    deg))
 			    coeff-lst
 			    (make-set 0 (length coeff-lst))))))
-    (tensorial-degree (poly-coeffs poly))))
+    (tensorial-degree (coefficients poly))))
 
 (defmethod partial-degree ((lst list) (index fixnum))
   (if (zerop index)
@@ -86,28 +85,28 @@
 		    (partial-degree term (- index 1)))
 		  lst))))
 
-(defmethod partial-degree ((poly <polynomial>) (index fixnum))
-  (partial-degree (poly-coeffs poly) index))
+(defmethod partial-degree ((poly polynomial) (index fixnum))
+  (partial-degree (coefficients poly) index))
 
 ;;; Returns number of variables on which the polynomial depends.  Does
 ;;; the name variance fit?
-(defmethod variance ((poly <polynomial>))
+(defmethod variance ((poly polynomial))
   (labels ((rec (index coeffs)
 	     (cond
 	       ((null coeffs) (+ index 1))
 	       ((listp coeffs) (rec (+ index 1) (car coeffs)))
 	       (t index))))
-    (rec 0 (poly-coeffs poly))))
+    (rec 0 (coefficients poly))))
 
 
 ;;; returns the maximal partial degree of a polynomial
-(defmethod maximal-partial-degree ((poly <polynomial>))
+(defmethod maximal-partial-degree ((poly polynomial))
   (loop for k from 0 below (variance poly)
 	maximize (partial-degree poly k)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <polynomial> constructor (from coefficient list)
+;;; polynomial constructor (from coefficient list)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; important, since redundancy may be introduced during arithmetic
@@ -131,24 +130,21 @@
 		  (cons (simplify (car lst)) rest)
 		  (cons (car lst) rest)))))))
 
-(defun make-polynomial (lst)
-  (make-<polynomial> :coeffs (simplify lst)))
-
 (defun eliminate-small-coefficients (poly &optional (threshold 1.0e-12))
   (make-polynomial
-   (subst-if 0.0d0 #'(lambda (x) (and (numberp x) (< (abs x) threshold)))
-	     (poly-coeffs poly))))
+   (subst-if 0.0 #'(lambda (x) (and (numberp x) (< (abs x) threshold)))
+	     (coefficients poly))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; checks
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod zero? ((lst list)) (null lst))
-(defmethod zero? ((poly <polynomial>))
-  (zero? (poly-coeffs poly)))
+(defmethod zero? ((poly polynomial))
+  (zero? (coefficients poly)))
 (defmethod unit? ((lst list)) (and (single? lst) (unit? (car lst))))
-(defmethod unit? ((poly <polynomial>))
-  (unit? (poly-coeffs poly)))
+(defmethod unit? ((poly polynomial))
+  (unit? (coefficients poly)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; write method
@@ -175,33 +171,32 @@
     ;; princ coefficient
     (if (not (unit? coeff))		; was: (and (number? coeff) (= 1 coeff)))
 	(progn
-	  (format stream " ~,5E " coeff)
-	  (if (not (every #'zerop mono))
-	      (princ "*" stream)))
-	(if (every #'zerop mono)
-	    (princ "1" stream)))
+	  (format stream " ~A " coeff)
+	  (unless (every #'zerop mono)
+	    (princ "*" stream)))
+	(when (every #'zerop mono)
+	  (princ "1" stream)))
   
-    (if (not (every #'zerop mono))
-	(do ((i 1 (1+ i))
-	     (mono (reverse mono) (cdr mono)))
-	    ((null mono))
-	  (unless (zerop (car mono))
-	    (princ "x" stream)
-	    (princ i stream)
-	    (when (> (car mono) 1)
-	      (princ "^" stream)
-	      (princ (car mono) stream))
-	    (when (and (not (single? mono)) (not (every #'zerop (cdr mono))))
-	      (princ "*" stream)))))))
+    (unless (every #'zerop mono)
+      (do ((i 1 (1+ i))
+	   (mono (reverse mono) (cdr mono)))
+	  ((null mono))
+	(unless (zerop (car mono))
+	  (princ "x" stream)
+	  (princ i stream)
+	  (when (> (car mono) 1)
+	    (princ "^" stream)
+	    (princ (car mono) stream))
+	  (when (and (not (single? mono)) (not (every #'zerop (cdr mono))))
+	    (princ "*" stream)))))))
 
-(defmethod print-polynomial (poly stream depth)
-  (declare (ignore depth))
+(defmethod print-object ((poly polynomial) stream)
   (let ((*print-circle* nil))
     (print-unreadable-object
      (poly stream :type t :identity t)
      (format stream "{")
      (loop with start-flag = t
-	   for coeff&mono in (split-into-monomials (poly-coeffs poly))
+	   for coeff&mono in (split-into-monomials (coefficients poly))
 	   unless (zerop (car coeff&mono)) do
 	   (if start-flag
 	       (setq start-flag nil)
@@ -216,18 +211,18 @@
 ;;; evaluation of a multivariate polynomial
 (defun poly-eval (coeffs coords)
   (cond ((not (listp coeffs)) coeffs)
-	((null coords) (or (car coeffs) 0.0d0))
-	((null coeffs) 0.0d0)
+	((null coords) (or (car coeffs) 0.0))
+	((null coeffs) 0.0)
 	(t (+ (poly-eval (car coeffs) (cdr coords))
 	      (* (car coords)
 		 (poly-eval (cdr coeffs) coords))))))
 
-(defmethod evaluate ((poly <polynomial>) (x list))
-  (poly-eval (poly-coeffs poly) x))
-(defmethod evaluate ((poly <polynomial>) (x array))
-  (poly-eval (poly-coeffs poly) (coerce x 'list)))
-(defmethod evaluate ((poly <polynomial>) (x number))
-  (poly-eval (poly-coeffs poly) (list x)))
+(defmethod evaluate ((poly polynomial) (x list))
+  (poly-eval (coefficients poly) x))
+(defmethod evaluate ((poly polynomial) (x vector))
+  (poly-eval (coefficients poly) (coerce x 'list)))
+(defmethod evaluate ((poly polynomial) (x number))
+  (poly-eval (coefficients poly) (list x)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; neutral cells for ring operations
@@ -242,86 +237,57 @@
 
 (defmethod zero ((f list)) '())
 (defmethod unit ((f list)) '(1))
-(defmethod zero ((f <polynomial>))
+(defmethod zero ((f polynomial))
   (make-polynomial
-   (make-inner (cdr (poly-coeffs f)) '())))
+   (make-inner (cdr (coefficients f)) '())))
 
-(defmethod unit ((f <polynomial>))
+(defmethod unit ((f polynomial))
   (make-polynomial
    (make-inner f '(1))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <vector> methods
+;;; Polynomial arithmetic
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defmethod poly+ ((x number) (y number)) (+ x y))
 
-(defmethod vec+ ((x number) (y number)) (+ x y))
-  
-(defmethod vec+ ((x list) (y list))
+(defmethod poly+ ((x list) (y list))
   (labels ((rec (x y)
 	     (cond ((null x) y)
 		   ((null y) x)
-		   (t (cons (vec+ (car x) (car y))
+		   (t (cons (poly+ (car x) (car y))
 			    (rec (cdr x) (cdr y)))))))
     (rec x y)))
 
-(defmethod vec+ ((x <polynomial>) (y <polynomial>))
-  (make-polynomial (vec+ (poly-coeffs x) (poly-coeffs y))))
-(defmethod vec+ ((x <polynomial>) (y number))
-  (make-polynomial (vec+ (poly-coeffs x) (list y))))
-(defmethod vec+ ((x number) (y <polynomial>))
-  (make-polynomial (vec+ (list x) (poly-coeffs y))))
-
-;;;;(defmethod vec- (x y) (vec+ x (vec-s* -1 y)))
-;(defmethod vec- ((x list) (y list))
-;  (labels ((rec (x y)
-;             (cond ((null x) (vec-s* -1 y))
-;                   ((null y) x)
-;                   (t (cons (- (car x) (car y))
-;                            (rec (cdr x) (cdr y)))))))
-;    (rec x y)))
-;
-;
-;(defmethod vec- ((x <polynomial>) (y <polynomial>))
-;  (make-polynomial (vec- (poly-coeffs x) (poly-coeffs y))))
-;(defmethod vec- ((x <polynomial>) (y number))
-;  (make-polynomial (vec- (poly-coeffs x) (list y))))
-;(defmethod vec- ((x number) (y <polynomial>))
-;  (make-polynomial (vec- (list x) (poly-coeffs y))))
-;
-(defmethod vec-s* ((val number) (x number)) (* val x))
-(defmethod vec-s* ((val number) (vec list))
-  (mapcar #'(lambda (x) (vec-s* val x)) vec))
-(defmethod vec-s* ((val number) (poly <polynomial>))
-  (make-polynomial
-   (vec-s* val (poly-coeffs poly))))
+(defmethod poly+ ((x polynomial) (y polynomial))
+  (make-polynomial (poly+ (coefficients x) (coefficients y))))
+(defmethod poly+ ((x polynomial) (y number))
+  (make-polynomial (poly+ (coefficients x) (list y))))
+(defmethod poly+ ((x number) (y polynomial))
+  (make-polynomial (poly+ (list x) (coefficients y))))
 
 ;;; These methods are quite special for our use in polynomial
 ;;; multiplication.  This is a hint that things should be done in a
 ;;; better way.
-(defmethod vec+ ((x number) (y list))
-  (if (null y) x (cons (vec+ (car y) x) (cdr y))))
-(defmethod vec+ ((y list) (x number))
-  (if (null y) x (cons (vec+ (car y) x) (cdr y))))
+(defmethod poly+ ((x number) (y list))
+  (if (null y) x (cons (poly+ (car y) x) (cdr y))))
+(defmethod poly+ ((y list) (x number))
+  (if (null y) x (cons (poly+ (car y) x) (cdr y))))
 
 (defmethod poly* ((f number) (g number)) (* f g))
-(defmethod poly* ((f number) (g list)) (vec-s* f g))
-(defmethod poly* ((g list) (f number)) (vec-s* f g))
+(defmethod poly* ((f number) (g list)) (scal f g))
+(defmethod poly* ((g list) (f number)) (scal f g))
 (defmethod poly* ((f list) (g list))
   (if (null g)
       '()
-      (vec+ (mapcar #'(lambda (x) (poly* (car g) x)) f)
+      (poly+ (mapcar #'(lambda (x) (poly* (car g) x)) f)
 	    (cons 0
 		  (poly* f (cdr g))))))
 
-(defmethod poly* ((f <polynomial>) (g <polynomial>))
-  (make-polynomial (poly* (poly-coeffs f) (poly-coeffs g))))
-(defmethod poly* ((f number) (g <polynomial>)) (vec-s* f g))
-(defmethod poly* ((g <polynomial>) (f number)) (vec-s* f g))
-
-(defmethod vec-sp ((f <polynomial>) (g <polynomial>)) (poly* f g))
-(defmethod vec-sp ((f number) (g <polynomial>)) (poly* f g))
-(defmethod vec-sp ((f <polynomial>) (g number)) (poly* f g))
+(defmethod poly* ((f polynomial) (g polynomial))
+  (make-polynomial (poly* (coefficients f) (coefficients g))))
+(defmethod poly* ((f number) (g polynomial)) (scal f g))
+(defmethod poly* ((g polynomial) (f number)) (scal f g))
 
 ;;; exponentiation
 (defmethod poly-expt ((lst list) (n fixnum))
@@ -331,24 +297,32 @@
 	((evenp n) (poly-expt (poly* lst lst) (/ n 2)))
 	(t (poly* lst (poly-expt lst (1- n))))))
 
-(defmethod poly-expt ((poly <polynomial>) (n fixnum))
-  (make-polynomial (poly-expt (poly-coeffs poly) n)))
+(defmethod poly-expt ((poly polynomial) (n fixnum))
+  (make-polynomial (poly-expt (coefficients poly) n)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; matlisp methods
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod m+ ((x <polynomial>) (y <polynomial>)) (vec+ x y))
-(defmethod m+ ((x number) (y <polynomial>)) (vec+ x y))
-(defmethod m+ ((x <polynomial>) (y number)) (vec+ x y))
+(defmethod copy ((poly polynomial))
+  (make-polynomial (copy (coefficients poly))))
 
-(defmethod m- ((x <polynomial>) (y <polynomial>)) (vec- x y))
-(defmethod m- ((x number) (y <polynomial>)) (vec- x y))
-(defmethod m- ((x <polynomial>) (y number)) (vec- x y))
+(defmethod scal! (val (poly polynomial))
+  (make-polynomial (scal! val (coefficients poly))))
 
-(defmethod scal ((val number) (poly <polynomial>))
-  (make-polynomial
-   (vec-s* val (poly-coeffs poly))))
+(defmethod m+ ((x polynomial) (y polynomial)) (poly+ x y))
+
+(defmethod m+! ((x polynomial) (y polynomial))
+  (setf (slot-value y 'coeffs)
+	(poly+ (coefficients x) (coefficients y)))
+  y)
+
+(defmethod m+ ((x number) (y polynomial)) (poly+ x y))
+
+(defmethod m+ ((x polynomial) (y number)) (poly+ x y))
+
+(defmethod axpy! (alpha (x polynomial) (y polynomial))
+  (setf (slot-value y 'coeffs)
+	(poly+ (scal! alpha (coefficients x)) (coefficients y)))
+  y)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; differentiation
@@ -361,28 +335,28 @@
 	((zerop index)
 	 (loop for coeff in (cdr lst)
 	       and deg from 1
-	       collect (vec-s* deg coeff)))
+	       collect (scal deg coeff)))
 	(t (mapcar #'(lambda (coeff)
 		       (differentiate coeff (- index 1)))
 		   lst))))
 
 (defmethod differentiate ((poly number) (index fixnum)) 0)
 
-(defmethod differentiate ((poly <polynomial>) (index fixnum))
-  (make-polynomial (differentiate (poly-coeffs poly) index)))
+(defmethod differentiate ((poly polynomial) (index fixnum))
+  (make-polynomial (differentiate (coefficients poly) index)))
 
 ;;; warning: does not work for multidimensional polynomials (e.g. p(x1,x2)=x1)
-(defmethod gradient ((poly <polynomial>))
+(defmethod gradient ((poly polynomial))
   (loop for index from 0 below (variance poly)
 	collect (differentiate poly index)))
 
-(defmethod evaluate-gradient ((poly <polynomial>) (x array))
+(defmethod evaluate-gradient ((poly polynomial) (x vector))
   (let ((result (make-array (length x))))
     (dotimes (index (length result) result)
       (setf (aref result index)
 	    (evaluate (differentiate poly index) x)))))
 
-(defmethod k-jet ((poly <polynomial>) (k integer) (dim integer))
+(defmethod k-jet ((poly polynomial) (k integer) (dim integer))
   (loop for order upto k
 	for Di = poly then
 	(let ((Dnext (make-general-tensor (make-fixnum-vec order dim))))
@@ -394,7 +368,7 @@
 		       (slice Dnext (list (cons (1- order) index)))))))
 	collecting Di))
 
-(defmethod evaluate-k-jet ((poly <polynomial>) (k integer) (x array))
+(defmethod evaluate-k-jet ((poly polynomial) (k integer) (x vector))
   (loop with k-jet = (k-jet poly k (length x))
 	for i from 0
 	and Di in k-jet collecting
@@ -448,7 +422,7 @@ Examples:
   (loop for xi in points
 	for points-without-xi = (remove xi points)
 	collect
-	(vec-s*
+	(scal
 	 (/ 1 (reduce #'* (mapcar #'(lambda (xj) (- xi xj)) points-without-xi)))
 	 (reduce #'poly* (mapcar #'(lambda (xj)
 				     (make-polynomial (list (- xj) 1)))
@@ -463,7 +437,7 @@ Examples:
   (make-polynomial
    (cons 0 (if (numberp poly)
 	       (list poly)
-	       (loop for coeff in (poly-coeffs poly)
+	       (loop for coeff in (coefficients poly)
 		     and n+1 from 1
 		     collect (/ coeff n+1))))))
 
@@ -471,7 +445,7 @@ Examples:
 ;;; Testing
 (defun test-polynom ()
   (integrate-simple-polynomial (make-polynomial '(0 1)))
-  (poly-coeffs (make-<polynomial>))
+  (coefficients (make-polynomial ()))
   (shift-polynomial (make-polynomial '(0 1)) 1)
   (let ((p (make-polynomial '((1 2) (1 2))))
 	(p-x1 (make-polynomial '(0 1)))
@@ -481,12 +455,12 @@ Examples:
     (gradient p)
     (differentiate p-x1 0)
     (gradient p-1-x3)
-    (evaluate-gradient p-1-x3 #(1.0 2.0))
+    (evaluate-gradient p-1-x3 #(1.0 2.0 3.0))
     (make-polynomial '(4))
     (k-jet p 2 2)
-    (evaluate-k-jet (make-polynomial '(1 2 ((1 2 3)))) 2 #(0.0d0 0.0d0))
+    (evaluate-k-jet (make-polynomial '(1 2 ((1 2 3)))) 2 #(0.0 0.0))
     ))
 
 ;;; (test-polynom)
-(tests::adjoin-femlisp-test 'test-polynom)
+(fl.tests:adjoin-test 'test-polynom)
 

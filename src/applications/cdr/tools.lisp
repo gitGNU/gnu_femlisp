@@ -42,10 +42,10 @@
 	(discretize-globally problem mm fedisc)
       (getbb (solve solver (blackboard :matrix matrix :rhs rhs)) :solution))))
 
-#+(or) (m* (sparse-ldu mat :ordering
-		       (loop for cell in (hierarchically-ordered-cells mm)
-			     when (matrix-row mat cell) collect cell))
-	     rhs)
+#+(or) (getrs (sparse-ldu mat :ordering
+			  (loop for cell in (hierarchically-ordered-cells mm)
+				when (matrix-row mat cell) collect cell))
+	      rhs)
 
 (defun check-h-convergence (problem min-level max-level
 			    &key order position (solver *lu-solver*))
@@ -55,7 +55,7 @@
   (loop for level from min-level upto max-level
 	for value = (fe-value (solve-laplace problem level order :solver solver)
 			      position)
-	for new-approx = (vec-ref (aref value 0) 0)
+	for new-approx = (vref (aref value 0) 0)
 	and old-approx = nil then new-approx do
 	(format t "~5D :  ~12,6,2E" level new-approx)
 	(when old-approx (format t "   :  ~12,6,2E" (- new-approx old-approx)))
@@ -71,7 +71,7 @@
 	(fe-value (solve-laplace problem level order :solver solver :parametric
 				 (and isopar (lagrange-mapping order)))
 		  position)
-	for new-approx = (vec-ref (aref value 0) 0)
+	for new-approx = (vref (aref value 0) 0)
 	and old-approx = nil then new-approx do
 	(format t "~5D :  ~12,6,2E" order new-approx)
 	(when old-approx (format t "   :  ~12,6,2E" (- new-approx old-approx)))
@@ -100,8 +100,8 @@ a mesh of size cells in each dimension."
       (apply #'model-problem-discretization args)
     (declare (ignore constraints-Q))
     (let ((x (copy b)))
-      (x<-0 b) (x<-random x 1.0d0)
-      (x<-random x 1.0d0)
+      (x<-0 b) (fill-random! x 1.0)
+      (fill-random! x 1.0)
       (x<-Ay x constraints-P constraints-r)
       (let ((ls (make-instance '<linear-solver> :iteration linit
 			       :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps))

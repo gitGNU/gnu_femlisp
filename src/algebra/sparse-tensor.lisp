@@ -175,9 +175,9 @@ index in the sorted list."
   (dotimes (i (nrows mat))
     (dotimes (j (ncols mat))
       (ecase job
-	(:entry (funcall func (mat-ref mat i j)))
+	(:entry (funcall func (mref mat i j)))
 	(:index (funcall func i j))
-	(:both (funcall func i j (mat-ref mat i j)))))))
+	(:both (funcall func i j (mref mat i j)))))))
 
 
 (defmacro dotensor ((args tensor &key depth) &body body)
@@ -190,9 +190,12 @@ index in the sorted list."
 	((null (cdr (last args)))
 	 `(tensor-for-each #'(lambda ,args ,@body)
 	   ,tensor :job :index :depth ,(or depth (length args))))
-	(t `(tensor-for-each #'(lambda ,(nconc (butlast args 0) (list (cdr (last args))))
+	(t `(tensor-for-each #'(lambda ,(nconc (butlast args 1)
+					       (list (car (last args)))
+					       (when (cdr (last args))
+						 (list (cdr (last args)))))
 				 ,@body)
-	     ,tensor :job :both :depth ,(or depth (length (butlast args 0)))))))
+	     ,tensor :job :both :depth ,(or depth (1+ (length (butlast args 1))))))))
 
 (defmethod show ((tensor <sparse-tensor>) &key &allow-other-keys)
   (labels ((show-tensor (tensor level)
@@ -210,7 +213,7 @@ index in the sorted list."
 
 (defun test-sparse-tensor ()
   (let ((tensi (make-instance '<sparse-tensor> :rank 2)))
-    (setf (tensor-ref tensi 1 2) 1.0d0)
+    (setf (tensor-ref tensi 1 2) 1.0)
     (show tensi)
     (assert (in-pattern-p tensi 1 2))
     (assert (not (in-pattern-p tensi 2 2)))
@@ -220,11 +223,11 @@ index in the sorted list."
     (dotensor ((i) tensi) (format t "~A~%" i))
     (dotensor ((i j . entry) tensi) (format t "~A ~A ~A ~%" i j entry))
     (describe (tensor-ref tensi 1))
-    (setf (tensor-ref tensi 1 2) 3.0d0)
+    (setf (tensor-ref tensi 1 2) 3.0)
     (describe (tensor-ref tensi 1))
-    (setf (tensor-ref tensi 1 5) 3.0d0)
+    (setf (tensor-ref tensi 1 5) 3.0)
     (describe (tensor-ref tensi 1)))
   )
 
-(tests::adjoin-femlisp-test 'test-sparse-tensor)
+(fl.tests:adjoin-test 'test-sparse-tensor)
 

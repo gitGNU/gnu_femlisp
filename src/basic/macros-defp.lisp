@@ -34,11 +34,10 @@
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "MACROS"
+(defpackage "FL.MACROS"
   (:use "COMMON-LISP")
   (:export
    "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "NIF" "AIF"
    "AAND" "_F" "IT" "SHORT-REMOVE-METHOD" "WITH-ITEMS"
    "FOR" "FOR<" "MULTI-FOR" "DEFINLINE"
-   "WITH-FAST-CLOS" "DEFGENERIC*" "DEFMETHOD*" "DEFMETHOD**"
    "?1" "?2" "?3"))

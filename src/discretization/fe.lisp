@@ -103,10 +103,10 @@ list of indices for all subcells with dofs.  Usually, the <fe> will occur
 as values of a procedure or as values in a hash-table with the reference
 cells as keys."))
 
-(defmethod** nr-of-dofs ((fe <fe>)) (length (fe-basis fe)))
-(defmethod** nr-of-inner-dofs ((fe <fe>)) (aref (subcell-ndofs fe) 0))
-(defmethod** nr-of-components ((fe <fe>)) 1)
-(defmethod** components ((fe <fe>)) (vector fe))
+(defmethod nr-of-dofs ((fe <fe>)) (length (fe-basis fe)))
+(defmethod nr-of-inner-dofs ((fe <fe>)) (aref (subcell-ndofs fe) 0))
+(defmethod nr-of-components ((fe <fe>)) 1)
+(defmethod components ((fe <fe>)) (vector fe))
 
 (definline subcell-ndofs (fe)
   (the fixnum-vec (getf (properties fe) 'SUBCELL-NDOFS)))
@@ -137,13 +137,12 @@ cells as keys."))
 		  'vector))))
 
 (defmethod make-local-vec ((fe <fe>) &optional (multiplicity 1))
-  (make-float-matrix (nr-of-dofs fe) multiplicity))
+  (make-real-matrix (nr-of-dofs fe) multiplicity))
 
 (defmethod make-local-mat ((fe <fe>))
-  (make-float-matrix (nr-of-dofs fe)))
+  (make-real-matrix (nr-of-dofs fe)))
 
 
-				   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <vector-fe>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -160,11 +159,11 @@ length which contains the offsets for each component in the local
 discretization vector.  Subcell-offsets is an array consisting of arrays
 which yield such an offset for every subcell."))
 
-(defmethod** nr-of-dofs ((fe <vector-fe>))
+(defmethod nr-of-dofs ((fe <vector-fe>))
   (reduce #'+ (components fe) :key #'nr-of-dofs))
-(defmethod** nr-of-inner-dofs ((fe <vector-fe>))
+(defmethod nr-of-inner-dofs ((fe <vector-fe>))
   (reduce #'+ (components fe) :key #'nr-of-inner-dofs))
-(defmethod** nr-of-components ((fe <vector-fe>))
+(defmethod nr-of-components ((fe <vector-fe>))
   (length (components fe)))
 
 ;;; property content
@@ -233,7 +232,7 @@ in a sparse vector value block corresponding to the subcell."
     (loop for i from 0 and fe1 across (components vecfe) do
 	  (loop for j from 0 and fe2 across (components vecfe) do
 		(setf (aref result i j)
-		      (make-float-matrix (nr-of-dofs fe1) (nr-of-dofs fe2)))))
+		      (make-real-matrix (nr-of-dofs fe1) (nr-of-dofs fe2)))))
     result))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -329,15 +328,15 @@ cell->fe mapping given as a class slot."))
   "Returns a list of nr-ip float-matrices of dimension (n-basis x 1)."
   (loop for ip in (integration-points qrule)
 	collect
-	(make-float-matrix
+	(make-real-matrix
 	  (loop for shape in (fe-basis fe)
-		collect (evaluate shape (ip-coords ip))))))
+		collect (list (evaluate shape (ip-coords ip)))))))
 (memoize-symbol 'base-function-values-at-ips :test 'equal)
 
 (defun base-function-gradients-at-ips (fe qrule)
   "Returns a list of nr-ip float-matrices of dimension (n-basis x dim)."
   (loop for ip in (integration-points qrule) collect
-	(make-float-matrix
+	(make-real-matrix
 	 (loop for shape in (fe-basis fe) collect
 	       (evaluate-gradient shape (ip-coords ip))))))
 (memoize-symbol 'base-function-gradients-at-ips :test 'equal)
@@ -389,7 +388,7 @@ cell->fe mapping given as a class slot."))
 		      collecting
 		      (loop for poly in (P-nomials-of-degree factor deg '<=)
 			    collecting
-			    (encapsulate (poly-coeffs poly) offset-dim)))))
+			    (encapsulate (coefficients poly) offset-dim)))))
 	(t (remove-if #'(lambda (poly) (< (maximal-partial-degree poly) deg))
 		      (Q-nomials-of-degree cell deg '<=) ))))
 
@@ -399,7 +398,7 @@ cell->fe mapping given as a class slot."))
 
 (defun gram-matrix (vectors functionals pairing)
   "Computes the Gram matrix of vectors and functionals wrt pairing."
-  (make-float-matrix
+  (make-real-matrix
    (loop for phi in vectors
 	 collect (loop for psi in functionals
 		       collect (funcall pairing psi phi)))))
@@ -419,16 +418,16 @@ functionals wrt a given pairing."
 	  (loop with sum = (zero (first vectors))
 		for col from 0 below (ncols inverse-gram)
 		and vec in vectors do
-		(setq sum (vec+ sum (vec-s* (mat-ref inverse-gram row col) vec)))
+		(m+! (scal (mref inverse-gram row col) vec) sum)
 		finally (return sum)))))
 
 (defun projection-coefficients (vector basis pairing)
   "Returns the coefficients for a basis representation of a projection of vector
 on the subspace given by basis wrt the scalar product pairing."
-  (m/ (gram-matrix basis basis pairing)
-      (make-float-matrix
-       (mapcar #'(lambda (basis-vector) (funcall pairing basis-vector vector))
-	       basis))))
+  (gesv! (gram-matrix basis basis pairing)
+	 (make-real-matrix
+	  (mapcar #'(lambda (basis-vector) (funcall pairing basis-vector vector))
+		  basis))))
 
 (defun project (vector basis pairing)
   "Projects vector on the subspace given by basis orthogonal to the
@@ -437,7 +436,7 @@ scalar product in pairing."
 	with coeffs = (and basis (projection-coefficients vector basis pairing))
 	for phi in basis
 	and i from 0
-	do (setq result (vec- result (vec-s* (vec-ref coeffs i) phi)))
+	do (m-! (scal (vref coeffs i) phi) result)
 	finally (return result)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -470,7 +469,7 @@ scalar product in pairing."
   #+(or) ; works only if lagrange.lisp has been evaluated
   (let ((gm (gram-matrix (Q-nomials-of-degree *unit-interval* 1 '<=)
 			 (lagrange-dofs *unit-interval* 1) #'evaluate)))
-    (assert (< (abs (- 1.0 (mat-ref (m* (m/ gm) gm) 0 0)) ) 1.0e-10)))
+    (assert (< (abs (- 1.0 (mref (m* (m/ gm) gm) 0 0)) ) 1.0e-10)))
   )
 
-(tests::adjoin-femlisp-test 'test-fe)
+(fl.tests:adjoin-test 'test-fe)

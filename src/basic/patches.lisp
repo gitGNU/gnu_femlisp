@@ -34,13 +34,12 @@
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "FEMLISP.PATCHES"
+(defpackage "FL.PATCHES"
   (:use "COMMON-LISP")
   (:export))
 
-(in-package :femlisp.patches)
+(in-package :fl.patches)
 
 ;;; no patches at the moment for any implementations
-
 
 

@@ -94,7 +94,7 @@ in the local interpolation matrix."
 		      when (interior-dof? child-dof) do
 		      (loop for shape in (fe-basis fe) and dof in (fe-dofs fe)
 			    when (= (dof-subcell-index dof) j) do
-			    (setf (mat-ref mblock (dof-in-vblock-index child-dof)
+			    (setf (mref mblock (dof-in-vblock-index child-dof)
 					   (dof-in-vblock-index dof))
 				  (evaluate child-dof
 					    (compose-2 shape (curry #'l2g child)))))
@@ -127,7 +127,7 @@ in the local interpolation matrix."
 			when (in-pattern-p fe-imat i j) do
 			(for-each-key-and-entry
 			 #'(lambda (m n value)
-			     (setf (mat-ref mblock (+ m row-off) (+ n col-off))
+			     (setf (mref mblock (+ m row-off) (+ n col-off))
 				   value))
 			 (tensor-ref fe-imat i j))
 			finally (setf (tensor-ref vecfe-imat i j) mblock))))
@@ -180,9 +180,9 @@ in the local projection matrix."
 	      (assert subchild-pos)
 	      (unless (in-pattern-p pmat subchild-pos)
 		(setf (tensor-ref pmat subchild-pos)
-		      (make-float-matrix nr-parent-inner-dofs subchild-ndofs)))
-	      (setf (matrix-ref (tensor-ref pmat subchild-pos)
-				parent-dof-index (dof-in-vblock-index child-dof))
+		      (make-real-matrix nr-parent-inner-dofs subchild-ndofs)))
+	      (setf (mref (tensor-ref pmat subchild-pos)
+			  parent-dof-index (dof-in-vblock-index child-dof))
 		    entry)))))
 	;; return pmat
 	pmat))))
@@ -207,7 +207,7 @@ in the local projection matrix."
 		      for off = (aref (aref children-offsets comp) i)
 		      when (and pmat (in-pattern-p pmat i)) do
 		      (for-each-key-and-entry
-		       #'(lambda (m n value) (setf (matrix-ref mblock (+ m off) (+ n off)) value))
+		       #'(lambda (m n value) (setf (mref mblock (+ m off) (+ n off)) value))
 		       (tensor-ref pmat i))
 		      finally (setf (tensor-ref vecfe-pmat i) mblock)))
 	  vecfe-pmat)))))
@@ -225,10 +225,10 @@ in the local projection matrix."
   (assert (eq (reference-cell fe-from) (reference-cell fe-to)))
   (let* ((m (nr-of-dofs fe-to))
 	 (n (nr-of-dofs fe-from))
-	 (local-mat (make-float-matrix m n)))
+	 (local-mat (make-real-matrix m n)))
     (loop for i from 0 and dof in (fe-dofs fe-to) do
 	  (loop for j from 0 and phi in (fe-basis fe-from) do
-		(setf (matrix-ref local-mat i j) (evaluate dof phi))))
+		(setf (mref local-mat i j) (evaluate dof phi))))
     local-mat))
 (memoize 'local-transfer-matrix)
 
@@ -237,7 +237,9 @@ in the local projection matrix."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-fetransfer ()
-  (show (compute-local-imatrix (get-fe (lagrange-fe 1) *unit-interval*)))
+  (let ((local-imat (compute-local-imatrix (get-fe (lagrange-fe 1) *unit-interval*))))
+    (show local-imat)
+    (tensor-ref local-imat 0 1))
   (show (compute-local-imatrix (get-fe (lagrange-fe 2) *unit-interval*)))
   (show (compute-local-imatrix (get-fe (lagrange-fe 2 :nr-comps 2) *unit-interval*)))
   (assert
@@ -255,4 +257,5 @@ in the local projection matrix."
     (assert (= count 2)))
   )
 
-(tests::adjoin-femlisp-test 'test-fetransfer)
+;;; (test-fetransfer)
+(fl.tests:adjoin-test 'test-fetransfer)

@@ -158,4 +158,4 @@ error estimator yields a large eta."
   (make-instance '<largest-eta-indicator>)
   )
 
-(tests::adjoin-femlisp-test 'test-error-indicator)
+(fl.tests:adjoin-test 'test-error-indicator)

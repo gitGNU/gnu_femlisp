@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :utilities)
+(in-package :fl.utilities)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Functions
@@ -137,14 +137,6 @@ factorials)."
 (definline make-fixnum-vec (dim &optional (init 0))
   (make-array dim :element-type 'fixnum :initial-element init))
 
-(definline vector-slice (vec offset size)
-  "Provides a convenient shorthand for constructing a displaced
-double-float array."
-  (make-array size
-	      :element-type 'double-float
-	      :displaced-to vec
-	      :displaced-index-offset offset))
-
 (defun vector-cut (vec comp)
   (let ((new-vec (make-array (1- (length vec)) :element-type (array-element-type vec))))
     (dotimes (i (1- (length vec)) new-vec)
@@ -152,17 +144,8 @@ double-float array."
 	    (aref vec (if (< i comp) i (1+ i)))))))
 
 ;;; vector operations
-(definline ivec+ (&rest vecs)
-  (apply #'map 'fixnum-vec #'+ vecs))
-(definline ivec- (&rest vecs)
-  (apply #'map 'fixnum-vec #'- vecs))
-
-(defmethod for-each ((func function) (lst list))
-  (mapc func lst))
-
-(defmethod for-each ((func function) (arr array))
-  (loop for entry across arr do
-	(funcall func entry)))
+(defmethod for-each ((func function) (seq sequence))
+  (map nil func seq))
 
 (definline vector-last (vec)
   (aref vec (1- (length vec))))
@@ -189,6 +172,17 @@ double-float array."
 	       (dotimes (k (car further-dims))
 		 (loop-index (cons k current-indices) (cdr further-dims))))))
     (loop-index () (reverse (array-dimensions (car arrays))))))
+
+(defun undisplace-array (array)
+  "Return the fundamental array and the start and end positions into it of
+a displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
+  (loop with start = 0 do
+	(multiple-value-bind (to offset)
+	    (array-displacement array)
+	  (if to
+	      (setq array to
+		    start (+ start offset))
+	      (return (values array start (+ start (length array))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; List operations
@@ -255,7 +249,8 @@ Example: (flatten '((1 2) (3) ((4))))  ->  (1 2 3 4)"
 
 (defun map-product (func list &rest rest-lists)
   "Applies a function to a product of lists.
-Example: (map-product #'cons '(2 3) '(1 4)) -> ((2 . 1) (2 . 4) (3 . 1) (3 . 4))"
+Example: (map-product #'cons '(2 3) '(1 4))
+          -> ((2 . 1) (2 . 4) (3 . 1) (3 . 4))"
   (if (null rest-lists)
       (mapcar func list)
       (mappend #'(lambda (x) (apply #'map-product (curry func x) rest-lists))
@@ -662,8 +657,9 @@ Example: (maximally-connected '(1 2) '((3 4) (2 3) (5 6)) :test #'intersection :
 ;;; Subsets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Example: (k-subsets '(1 2 3) 2)  -> ((1 2) (1 3) (2 3))
 (defun k-subsets (set k)
+  "Returns all subsets of SET with length K.
+Example: (k-subsets '(1 2 3) 2)  -> ((1 2) (1 3) (2 3))"
   (cond ((minusp k) '())
 	((zerop k) (list '()))
 	((= k 1) (mapcar #'list set))
@@ -671,9 +667,10 @@ Example: (maximally-connected '(1 2) '((3 4) (2 3) (5 6)) :test #'intersection :
 		 nconc (mapcar #'(lambda (set) (cons (car elems) set))
 				 (k-subsets (cdr elems) (- k 1)))))))
 
-;;; Example: (k->l-subsets '(1 2 3) 1 2)
-;;; -> ((1) (2) (3) (1 2) (1 3) (2 3))
 (defun k->l-subsets (set k l)
+  "Returns all subsets of SET with length between K and L.
+Example: (k->l-subsets '(1 2 3) 1 2)
+          -> ((1) (2) (3) (1 2) (1 3) (2 3))"
   (loop for i from k to l
 	nconc (k-subsets set i)))
 
@@ -790,5 +787,5 @@ from 0,...,n-1)."
   )
 
 ;; (test-utilities)
-(tests::adjoin-femlisp-test 'test-utilities)
+(fl.tests:adjoin-test 'test-utilities)
 

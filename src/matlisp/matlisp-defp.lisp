@@ -32,28 +32,63 @@
 
 (in-package :cl-user)
 
-(eval-when (:read-toplevel :compile-toplevel :execute)
-  (defparameter *matlisp-symbols*
-    '("STANDARD-MATRIX" "REAL-MATRIX"
-      "NROWS" "NCOLS"
-      "MAKE-FLOAT-MATRIX" "MAKE-REAL-MATRIX"
-      "*PRINT-MATRIX*"
-      "EYE" "ZEROS" "ONES"
-      "SQUARE-MATRIX-P"
-      "MREF" "MATRIX-REF"
-      "JOIN"
-      "COPY" "COPY!" "TRANSPOSE"
-      "SCAL" "SCAL!" "M+" "M+!" "M-" "AXPY" "AXPY!"
-      "GEMM" "GEMM!" "M*" "M*!"
-      "GETRF!" "GETRS!" "GETRS" "GESV" "GESV!" "M/" "M/!"
-      "M./" "M./!" "MAP-MATRIX"
-      "DOT" "NORM"
-      "HELP")))
+(defpackage "FL.MATLISP"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG")
+  ;; we do not use matlisp anymore...
+  #+cmu(:import-from "PCL" "GENERIC-FUNCTION-METHODS" "METHOD-SPECIALIZERS")
+  #+sbcl(:import-from "SB-PCL" "GENERIC-FUNCTION-METHODS" "METHOD-SPECIALIZERS")
+  (:export
+   ;; Matlisp symbols
+   "VLENGTH" "NROWS" "NCOLS"
+   "STANDARD-MATRIX" "MAKE-REAL-MATRIX" "MAKE-REAL-VECTOR"
+   "STORE"
+   "*PRINT-MATRIX*"
+   "EYE" "ZEROS" "ONES" "DIAG"
+   "MREF"
+   "FILL!" "FILL-RANDOM!"
+   "JOIN" "TRANSPOSE" "TRANSPOSE!"
+   "COPY" "COPY!"
+   "SCAL" "SCAL!" "M+" "M+!" "M-" "M-!" "AXPY" "AXPY!"
+   "GEMM!" "GEMM-NN!" "GEMM-NT!" "GEMM-TN!" "GEMM-TT!"
+   "GEMM" "M*" "M*-PRODUCT-INSTANCE"
+   "GETRF!" "GETRF" "GETRS!" "GETRS"
+   "GESV!" "GESV" "M/" "M/!"
+   "M./" "M./!" "MAP-MATRIX"
+   "DOT" "NORM" "L2-NORM" "LINF-NORM" "LP-NORM"
+   
+   ;; new Matlisp symbols
 
-(defpackage "FEMLISP.MATLISP"
-  (:nicknames "FL.MATLISP")
-  (:use "COMMON-LISP" "MACROS" "UTILITIES" "FEMLISP-DEBUG")
-  #+matlisp
-  (:import-from "MATLISP" . #.*matlisp-symbols*)
-  (:export . #.*matlisp-symbols*))
+   ;; vector.lisp
+   "<VECTOR>" "<STORE-VECTOR>"
+   "VREF" "TOTAL-ENTRIES"
+
+   ;; matrix.lisp
+   "<MATRIX>"
+   "FOR-EACH-ROW-KEY" "FOR-EACH-COL-KEY"
+   "FOR-EACH-KEY-IN-ROW" "FOR-EACH-KEY-IN-COL"
+   "FOR-EACH-ENTRY-IN-ROW" "FOR-EACH-ENTRY-IN-COL"
+   "FOR-EACH-KEY-AND-ENTRY-IN-ROW" "FOR-EACH-KEY-AND-ENTRY-IN-COL"
+   "NR-OF-ENTRIES" "DOROWS" "DOROW"
+   "<SUBMATRIX>"
+   "X<-AY" "X+=AY" "X-=AY" "X-ON-RANGE-OF-A<-0" "X-ON-DOMAIN-OF-A<-0"
+   "MATRIX-SLICE" "VECTOR-SLICE" "CLEAR-ROW" "CLEAR-COLUMN"
+   "MAKE-IMAGE-VECTOR-FOR" "MAKE-DOMAIN-VECTOR-FOR"
+   "ELEMENT-TYPE" "SCALAR-TYPE"
+   "MATRIX-TRANSPOSE-INSTANCE" "M*-PRODUCT-INSTANCE"
+   "X<-0" "M-INCF"
+   "MZEROP" "MEQUALP" "MIDENTITY-P"
+   "FOR-EACH-KEY" "FOR-EACH-ENTRY" "FOR-EACH-KEY-AND-ENTRY"
+   "FOR-EACH-ENTRY-OF-VEC1" "FOR-EACH-ENTRY-OF-VEC2"
+   "DOVEC" "MEXTRACT" "MINJECT"
+   
+   ;; array-blas.lisp
+   "DOUBLE-VEC" "LIST->DOUBLE-VEC" "MAKE-DOUBLE-VEC" "UNIT-VECTOR"
+   
+   ;; compat.lisp
+   "AREA-OF-SPAN" "DET" "DET-FROM-LR"
+   "DOT-ABS"   "SUBMATRIX"
+   "ENSURE-MATLISP"
+   "MULTIPLICITY"
+
+   ))
 
