@@ -30,7 +30,10 @@
 ###########################################################################
 
 help:
-	echo "Options: doc, infix, slime, femlisp-core, triangle, clean."
+	echo "Options: doc, infix, superlu, umfpack, triangle";\
+	echo "         femlisp, femlisp-core, slime, all, clean."
+
+all: doc infix superlu umfpack triangle femlisp femlisp-core
 
 doc:
 	cd doc; make all
@@ -39,12 +42,11 @@ infix:
 	cd external;\
 	wget http://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/lang/lisp/code/syntax/infix/infix.cl
 
-slime:
-	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
+superlu:
+	cd interface; make superlu
 
-femlisp-core:
-	cd bin; rm -f femlisp.core;\
-	sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :print-herald nil) (quit))"
+umfpack:
+	cd interface; make umfpack
 
 triangle:
 	echo "Installing Triangle in femlisp/external.  Note that Triangle	\
@@ -54,11 +56,16 @@ using it."
 	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
 	unzip triangle.zip; rm triangle.zip; make
 
-superlu:
-	cd interface; make superlu
+femlisp:
+	sed "/^FEMLISP_DIR=.*/c\FEMLISP_DIR=`pwd`" bin/femlisp >bin/femlisp2;\
+	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
 
-umfpack:
-	cd interface; make umfpack
+femlisp-core:
+	cd bin; rm -f femlisp.core;\
+	sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :print-herald nil) (quit))"
+
+slime:
+	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
 
 clean:
 	cd doc; make clean;
