@@ -43,7 +43,7 @@ slime:
 	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
 
 femlisp-core:
-	cd bin; rm femlisp.core;\
+	cd bin; rm -f femlisp.core;\
 	sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :print-herald nil) (quit))"
 
 triangle:
