@@ -310,13 +310,13 @@ constraints are included in matrix and rhs."
     (when include-constraints
       (dohash (key region)
 	(when mat
-	  (setf (mat-ref result-mat key key) (mat-ref constraints-P key key))
+	  (x+=y (mat-ref result-mat key key) (mat-ref constraints-P key key))
 	  (for-each-key-in-row
 	   #'(lambda (ck)
-	       (setf (mat-ref result-mat key ck) (mat-ref constraints-Q key ck)))
+	       (x-=y (mat-ref result-mat key ck) (mat-ref constraints-Q key ck)))
 	   constraints-Q key))
 	(when rhs
-	  (setf (vec-ref result-rhs key) (vec-ref constraints-r key)))))
+	  (x+=y (vec-ref result-rhs key) (vec-ref constraints-r key)))))
 
     ;; and return the result
     (values result-mat result-rhs)))

@@ -227,6 +227,10 @@ occur for the inexact arithmetic."
   (gauss-rule () 2)
   (gauss-rule-for-weight 1 3)
   (gauss-points-for-weight 2 6)
+  
+  (time (zeros-of-separating-family
+	 #'(lambda (n) (jacobi-polynomial 0 0 n)) 15 1.0e-16))
+  ;;; Maxima:
   (gauss-rule-for-simplex 2 3)
   (gauss-lobatto-points 2)
   (gauss-lobatto-points-on-unit-interval 2))
