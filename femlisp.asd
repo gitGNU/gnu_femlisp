@@ -73,18 +73,30 @@
     (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))
     ))
   (:module
-   "matlisp"
+   "alien"
    :depends-on ("basic")
    :components
+   ((:file "alien")
+    (:file "superlu" :depends-on ("alien"))
+    (:file "umfpack" :depends-on ("alien"))
+    ))
+  (:module
+   "matlisp"
+   :depends-on ("basic" "alien")
+   :components
    ((:file "matlisp-defp")
+    (:file "ctypes" :depends-on ("matlisp-defp"))
     (:file "vector" :depends-on ("matlisp-defp"))
+    (:file "blas-basic" :depends-on ("vector"))
     (:file "matrix" :depends-on ("vector"))
-    (:file "number-blas" :depends-on ("matrix"))
-    (:file "standard-matrix" :depends-on ("matrix"))
+    (:file "number-blas" :depends-on ("vector" "blas-basic"))
+    (:file "array-blas" :depends-on ("vector" "ctypes"))
+    (:file "store-vector" :depends-on ("vector" "blas-basic"))
+    (:file "standard-matrix" :depends-on ("matrix" "ctypes"))
     (:file "standard-matrix-blas" :depends-on ("standard-matrix"))
     (:file "standard-matrix-lr" :depends-on ("standard-matrix-blas"))
-    (:file "array-blas" :depends-on ("matrix"))
     (:file "compat" :depends-on ("matrix"))
+    (:file "ccs" :depends-on ("store-vector" "standard-matrix"))
     ))
   (:module
    "algebra"
@@ -123,6 +135,8 @@
     (:file "domain" :depends-on ("skeleton-build"))
     (:file "mesh" :depends-on ("domain"))
     (:file "meshgen" :depends-on ("mesh"))
+    (:file "triangulate" :depends-on ("meshgen"))
+    (:file "triangle" :depends-on ("triangulate"))
     (:file "extend" :depends-on ("meshgen"))
     ))
   ;;
@@ -135,8 +149,9 @@
    ((:file "problem-defp")
     (:file "problem" :depends-on ("problem-defp"))
     (:file "pde-problem" :depends-on ("problem"))
+    (:file "evp" :depends-on ("pde-problem"))
     (:file "time" :depends-on ("pde-problem"))
-    (:file "cdr" :depends-on ("time"))
+    (:file "cdr" :depends-on ("evp" "time"))
     (:file "cdrsys" :depends-on ("cdr"))
     (:file "elasticity" :depends-on ("pde-problem"))
     (:file "navier-stokes" :depends-on ("pde-problem"))
@@ -156,6 +171,7 @@
     (:file "solve" :depends-on ("iteration-defp" "iterate"))
     (:file "linsolve" :depends-on ("linit" "solve"))
     (:file "nlsolve" :depends-on ("solve"))
+    (:file "evpsolve" :depends-on ("nlsolve"))
     (:file "multigrid-defp" :depends-on ("iteration-defp"))
     (:file "multigrid" :depends-on ("linit" "multigrid-defp" "linit"))
     (:file "amg" :depends-on ("multigrid"))
@@ -198,7 +214,7 @@
    ((:file "geomg-defp")
     (:file "geoblock" :depends-on ("geomg-defp"))
     (:file "vanka" :depends-on ("geoblock"))
-    (:file "geomg" :depends-on ("geomg-defp"))
+    (:file "geomg" :depends-on ("geoblock"))
     ))
   ;;
   ;; Post-processing
@@ -241,6 +257,8 @@
 	   ("strategy" "strategy-utilities" "error-estimator" "error-indicator"))
     (:file "fe-interpolation" :depends-on ("fe-approximation"))
     (:file "fe-stationary" :depends-on ("fe-approximation"))
+    (:file "fe-evp" :depends-on ("fe-stationary"))
+    (:file "rothe" :depends-on ("fe-stationary"))
     (:file "gps" :depends-on ("fe-stationary"))
     ))
   ;;
@@ -267,36 +285,35 @@
      ((:file "application-demos")
       (:file "discretization-demos" :depends-on ("application-demos"))
       (:file "multigrid-demos" :depends-on ("application-demos"))
-      (:file "refinement-demos" :depends-on ("application-demos"))))
+      (:file "refinement-demos" :depends-on ("application-demos"))
+      (:file "problem-demos" :depends-on ("application-demos"))))
     (:module
      "cdr"
      :depends-on ("demos" "domains")
      :components
-     ((:file "demo-cdr")
-      (:file "tools" :depends-on ("demo-cdr"))
+     ((:file "tools")
       (:file "model-problem" :depends-on ("tools"))
       (:file "unstructured" :depends-on ("tools"))
       (:file "locref" :depends-on ("tools"))
       (:file "hom-cdr" :depends-on ("tools"))
-      (:file "bl-cdr" :depends-on ("demo-cdr"))
-      (:file "amg-cdr" :depends-on ("demo-cdr"))
-      (:file "bratu" :depends-on ("demo-cdr"))
+      (:file "bl-cdr")
+      (:file "amg-cdr")
+      (:file "bratu")
+      (:file "evp-cdr")
       ))
     (:module
      "elasticity"
      :depends-on ("demos" "domains")
      :components
-     ((:file "demo-elasticity")
-      (:file "model-problem")
-      (:file "elahom" :depends-on ("demo-elasticity"))
+     ((:file "model-problem")
+      (:file "elahom")
       ))
     (:module
      "navier-stokes"
      :depends-on ("demos" "domains")
      :components
-     ((:file "demo-ns")
-      (:file "driven-cavity" :depends-on ("demo-ns"))
-      (:file "hom-ns" :depends-on ("demo-ns"))
+     ((:file "driven-cavity")
+      (:file "hom-ns")
       ))
     (:module
      "articles"
@@ -323,5 +340,5 @@
   )					; femlisp modules
  )
 
-;;; (asdf:operate 'asdf::load-op 'femlisp)
+;;; (asdf:operate 'asdf::load-op 'femlisp-interface)
 ;;; (mk:oos 'femlisp 'compile)

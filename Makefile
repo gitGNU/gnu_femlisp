@@ -30,7 +30,7 @@
 ###########################################################################
 
 help:
-	echo "Options: doc, infix, slime, femlisp-core, clean."
+	echo "Options: doc, infix, slime, femlisp-core, triangle, clean."
 
 doc:
 	cd doc; make all
@@ -43,7 +43,26 @@ slime:
 	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
 
 femlisp-core:
-	cd bin; sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :site-init NIL :print-herald nil) (quit))"
+	cd bin; rm femlisp.core;\
+	sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :print-herald nil) (quit))"
+
+triangle:
+	echo "Installing Triangle in femlisp/external.  Note that Triangle	\
+comes with a separate license which you should read (and accept) before		\
+using it."
+	cd external; mkdir triangle; cd triangle;\
+	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
+	unzip triangle.zip; rm triangle.zip; make
+
+superlu:
+	cd interface;\
+	gcc -c -fPIC -I/usr/include/superlu superlu.c;\
+	ld -lsuperlu -shared superlu.o -o superlu.so
+
+umfpack:
+	cd interface;\
+	gcc -I/usr/include/umfpack/ -Wall -fPIC -c umfpack.c;\
+	ld -lumfpack -lamd -shared umfpack.o -o umfpack.so
 
 clean:
 	cd src; make clean;

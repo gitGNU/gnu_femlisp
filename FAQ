@@ -92,13 +92,6 @@ Femlisp FAQ
    A: No, not yet.  For the problems I considered up to now, pure multigrid
    was sufficient.
 
-2. Q: Wouldn't it be useful to include also an interface to Fortran/C++
-   sparse matrix packages or sparse direct solvers like SuperLU?
-
-   A: Up to now, I did not need it, but it would surely be a useful
-   feature.
-
-
 * G: PARALLELIZATION
 
 1. Q: What about parallelization?

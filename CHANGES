@@ -1,11 +1,40 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.3 to Femlisp-0.9.4:
+
+Saving a Femlisp executable using the foreign code works along the lines
+pointed out by Eric Marsden in an article for cmucl-help at 18.9.2003.
+
+Interfaces to the sparse direct solvers SuperLU and UMFPACK are available
+as shared libraries generated in @path{femlisp;interface}.  Direct solving
+is then also the default solving method for moderate number of unknowns.
+
+Preliminary support for solving time-dependent problems by the Rothe method
+has been incorporated.  At the moment, only an implicit Euler method is
+available.
+
+Changed @var{manifold-dimension} to @var{embedded-dimension}.
+
+An interface to the 2D mesh generator @program{Triangle} by J. R. Shewchuk
+has been integrated.
+
+Routines for solving eigenvalue problems by a Wielandt iteration have been
+incorporated, see the files @file{problem;evp.lisp},
+@file{iteration;evpsolve.lisp}, @file{strategy;fe-evp.lisp}, and
+@file{application;cdr;evp-cdr.lisp}.
+
+Changed the communication with the graphics programs @code{DX} and
+@code{Gnuplot}.  Data is written into files @file{output.dx} and
+@file{output.gnuplot}.  After these files have been read, they are moved to
+backup files from within the graphics program.  Femlisp waits until this
+has been done, before a new graphic is written out.
+
 * From Femlisp-0.9.2 to Femlisp-0.9.3:
 
 The passing of arguments for DX was corrected.  The old version did not
-work with more recent versions of CMUCL and SBCL, because I did not
-understand the argument passing good enough (thanks to Christophe Rhodes
-for help on this topic).
+work with more recent versions of CMUCL/SBCL and DX, because I did not
+understand the argument passing well enough (thanks to Christophe Rhodes
+and Bjoern Lindberg for help on this topic).
 
 Femlisp has now a user manual!  An important part of it is the reference
 manual which is automatically built from docstrings.  This is similar to

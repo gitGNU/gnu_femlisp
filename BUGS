@@ -7,3 +7,5 @@ This is a list of known bugs:
   algebraic multigrid of Ruge-Stueben type works for equations also in the
   case of local refinement.
 
+* I observed problems with DX Graphics within multithreaded SBCL.
+

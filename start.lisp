@@ -53,7 +53,13 @@ location of this file when it is loaded.")
 			   :name :wild :type :wild :version :wild)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Ensure the presence of libraries
+;;;; Configuration
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(load "femlisp:femlisp-config.lisp")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Ensure the presence of Common Lisp libraries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; ASDF
@@ -73,17 +79,13 @@ location of this file when it is loaded.")
 (push *femlisp-pathname* mk::*central-registry*)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Configuration
+;;;; Compiling and loading of Femlisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(load "femlisp:femlisp-config.lisp")
 
 ;;; we want to work generally with double float numbers
 (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Compiling and loading
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(load #p"femlisp:femlisp.asd")
 
 #+asdf (asdf:operate 'asdf::load-op 'femlisp)
 #-asdf (mk:oos 'femlisp 'compile)
@@ -94,7 +96,7 @@ location of this file when it is loaded.")
 ;;;; Trailer
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *femlisp-version* "0.9.3")
+(defparameter *femlisp-version* "0.9.4")
 
 (defun femlisp-version () *femlisp-version*)
 (defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))

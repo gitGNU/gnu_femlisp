@@ -40,10 +40,28 @@
 ;;; where images are written to.
 
 (defparameter *dx-path* nil          ; Example: "/usr/local/bin/dx"
-  "Path to the DX executable.")
+  "Path to the @program{DX} executable.")
 
 (defparameter *gnuplot-path* nil     ; Example: "/usr/local/bin/gnuplot"
-  "Path to the Gnuplot executable.")
+  "Path to the @program{Gnuplot} executable.")
+  
+(defparameter *triangle-path* nil     ; Example: "/usr/local/bin/gnuplot"
+  "Path to the @program{triangle} executable.")
   
 (defparameter *images-directory* nil ; Example: "/home/xxx/CL-HOME/femlisp/images/"
   "Directory where images are put by default.")
+
+(defparameter *meshes-directory* nil ; Example: "/home/xxx/CL-HOME/femlisp/meshes/"
+  "Directory where meshes are put by default.")
+
+(defparameter *superlu-library*
+  "/usr/lib/libsuperlu.so"
+  "Library for SuperLU, if available.")
+
+(defparameter *umfpack-library*
+  "/usr/lib/libumfpack.so"
+  "Library for UMFPACK, if available.")
+
+(defparameter *amd-library*
+  "/usr/lib/libamd.so"
+  "Library for AMD, if available.")
