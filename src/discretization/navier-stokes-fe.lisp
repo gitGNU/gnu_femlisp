@@ -73,7 +73,8 @@ dropped.")
 	 (cell-dim (dimension (getf fe-geometry :cell)))
 	 (viscosity (getf coeffs 'FL.NAVIER-STOKES::VISCOSITY))
 	 (reynolds (getf coeffs 'FL.NAVIER-STOKES::REYNOLDS))
-	 (force (getf coeffs 'FL.NAVIER-STOKES::FORCE)))
+	 (force (getf coeffs 'FL.NAVIER-STOKES::FORCE))
+	 (cell (getf fe-geometry :cell)))
     ;; loop over quadrature points
     (loop
      for k from 0
@@ -85,7 +86,7 @@ dropped.")
      do
      (let* ((sol-ip (and local-sol (map 'vector #'m*-tn local-sol shape-vals)))
 	    (coeff-input
-	     (list* :global global :solution sol-ip
+	     (list* :global global :solution sol-ip :cell cell
 		    (loop for (key data) on coefficient-parameters by #'cddr
 			  collect key collect (aref data k)))))
        (when viscosity (setq viscosity (evaluate viscosity coeff-input)))
@@ -156,7 +157,8 @@ dropped.")
 
 (defmethod select-discretization ((problem <navier-stokes-problem>) blackboard)
   (let* ((dim (dimension (domain problem)))
-	 (order (if (<= dim 2) 2 1)))
+	 (order (or *suggested-discretization-order*
+		    (if (<= dim 2) 2 1))))
     (navier-stokes-lagrange-fe order dim 1)))
 
 

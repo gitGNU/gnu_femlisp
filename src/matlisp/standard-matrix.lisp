@@ -35,17 +35,12 @@
 ;;;; This is the implementation of the standard-matrix class and its
 ;;;; methods which replaces Matlisp within Femlisp.
 
-(defclass standard-matrix (<matrix> <store-vector>)
-  ((nrows
-    :initarg :nrows :accessor nrows :type fixnum
-    :documentation "Number of rows in the matrix")
-   (ncols
-    :initarg :ncols :accessor ncols :type fixnum
-    :documentation "Number of columns in the matrix")
-   (store
-    :reader store :initarg :store :type (simple-array * (*))
-    :documentation "The actual storage for the matrix."))
-  (:documentation "Class for dense matrices."))
+(defclass standard-matrix (<matrix>)
+  ((nrows :reader nrows :initarg :nrows
+	  :documentation "Number of rows in the matrix")
+   (ncols :reader ncols :initarg :ncols
+	  :documentation "Number of columns in the matrix"))
+  (:documentation "Mixin for dense matrices."))
 
 ;;; if standard-matrix is considered as multiple vectors
 (defmethod vlength ((mat standard-matrix))
@@ -70,9 +65,11 @@
   (declare (type positive-fixnum i j nrows ncols))
   (the fixnum (+ i (the fixnum (* nrows j)))))
 
-(defmethod initialize-instance :after ((matrix standard-matrix) &key content &allow-other-keys)
+(defmethod initialize-instance ((matrix standard-matrix) &key content &allow-other-keys)
   "Handles the content parameter and sets the store to a suitable vector.
 If content is a 2d array, the dimensions can be deduced."
+  (call-next-method)
+  (assert (typep matrix 'store-vector))
   (typecase content
     (sequence
      ;; put content in a normal form
@@ -99,8 +96,8 @@ If content is a 2d array, the dimensions can be deduced."
 	  (type (element-type matrix)))
       (if (slot-boundp matrix 'store)
 	  (assert (and (= n (length store))
-		       (eq (upgraded-array-element-type type)
-			   (array-element-type store))))
+		       (subtypep (upgraded-array-element-type type)
+				 (array-element-type store))))
 	  (setq store (make-array n :element-type type)))
       (when content
 	(etypecase content
@@ -114,20 +111,13 @@ If content is a 2d array, the dimensions can be deduced."
 	     (dotimes (j ncols)
 	       (setf (aref store (indexing i j nrows ncols)) (aref content i j))))))))))
 
-;;; (make-instance 'standard-matrix :content #2a((2 3) (4 5)))
-
 (defun standard-matrix (type)
+  "Defines the programmatic class @class{standard-matrix} for element type
+@arg{type} as extensions of the programmatic class @class{store-vector}."
   (assert (subtypep type 'number))
-  (let ((class-name (intern (format nil "~A" (list 'standard-matrix type))
-			    :fl.matlisp)))
-    (or (find-class class-name nil)
-	(prog1
-	    (eval `(defclass ,class-name (standard-matrix)
-		    ((store :type (simple-array ,type (*))))))
-	  (eval `(defmethod element-type ((matrix ,class-name))
-		  ',type))
-	  (eval `(defmethod scalar-type ((matrix ,class-name))
-		  ',type))))))
+  (fl.amop:find-programmatic-class
+   (list (store-vector type) 'standard-matrix)
+   (intern (format nil "~A" (list 'STANDARD-MATRIX type)))))
 
 (defun make-real-matrix (&rest args)
   "Generates a real matrix as specified by its arguments.  If two arguments
@@ -175,7 +165,12 @@ structure defining the contents matrix."
 	:store vec
 	:nrows (if (eq type :column) (length vec) 1)
 	:ncols (if (eq type :row) (length vec) 1))))
-    (standard-matrix vec)))
+    (number
+     (let ((result (make-instance (standard-matrix (type-of vec)) :nrows 1 :ncols 1)))
+       (setf (vref result 0) vec)
+       result))
+    (standard-matrix vec)
+    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Access to the entries
@@ -226,9 +221,13 @@ elements.")
 (defun print-matrix (matrix stream)
   (if *print-matrix*
       (let ((*print-circle* nil))
-	(with-slots (nrows ncols store)
-	    matrix
-	    (loop with m = nrows and n = ncols
+	  (cond
+	    ((and (slot-boundp matrix 'nrows)
+		  (slot-boundp matrix 'ncols)
+		  (slot-boundp matrix 'store))
+	     (with-slots (nrows ncols store)
+		 matrix
+	       (loop with m = nrows and n = ncols
 		  initially
 		  (princ "#M(" stream)
 		  (when (numberp *print-matrix*)
@@ -237,17 +236,18 @@ elements.")
 		  for i below m do
 		  (princ "(" stream)
 		  (loop for j below n do
-			(print-element matrix (mref matrix i j) stream)
-			(unless (= j (1- n)) (format stream " "))
-			finally
-			(when (> ncols n)
-			  (format stream " ...")))
+		       (print-element matrix (mref matrix i j) stream)
+		       (unless (= j (1- n)) (format stream " "))
+		       finally
+		       (when (> ncols n)
+			 (format stream " ...")))
 		  (princ ")" stream)
 		  (unless (= i (1- m)) (format stream " "))
 		  finally
 		  (when (> nrows m)
 		    (format stream " ..."))
 		  (princ ")" stream))))
+	    (t (princ "#M(??)" stream))))
       (print-unreadable-object (matrix stream :type t :identity t))))
 
 (defmethod print-object ((matrix standard-matrix) stream)
@@ -371,6 +371,7 @@ depending on the value of ORIENTATION."
   ;; to have the #M reader macro working in its modified form this use is
   ;; wrapped in an EVAL-WHEN
   (defun test-standard-matrix ()
+    (make-instance (standard-matrix 'integer) :content #2a((2 3) (4 5)))
     (describe (standard-matrix 'double-float))
     (standard-matrix 'single-float)
     (describe (eye 1))

@@ -154,28 +154,8 @@ sets the constraint matrix to identity for the level-unknowns."
        constraints-Q))
     (values constraints-P constraints-Q constraints-r)))
 
-(defun compute-interior-level-matrix (interior-mat sol level)
-  (let* ((ansatz-space (ansatz-space interior-mat))
-	 (h-mesh (hierarchical-mesh ansatz-space))
-	 (top-level (top-level h-mesh))
-	 (mat (extract-level interior-mat level)))
-    ;; extend the surface matrix on this level by the refined region
-    (when (< level top-level)
-      (assemble-interior ansatz-space :matrix mat :solution sol :level level :where :refined))
-    ;; extend it by the hanging-node region
-    (loop for level from (1- level) downto 0
-	  for constraints =
-	  (nth-value 1 (hanging-node-constraints ansatz-space :level level :ip-type t))
-	  for constraints-p =
-	  (eliminate-hanging-node-constraints-from-matrix mat constraints)
-	  while constraints-p do
-	  (add-local-part! mat interior-mat (column-table constraints)
-			   :directions '(:right)))
-    ;; and return it
-    mat))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Old version of handling of constraints
+;;; Old version of handling of constraints (used in fedisc.lisp)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun hanging-nodes-constraints (ansatz-space &key level)

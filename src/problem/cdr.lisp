@@ -59,6 +59,8 @@ coefficient."
       (when (member 'REACTION coeffs)
 	(setf (get-property problem 'coercive) T)))))
 
+(defmethod nr-of-components ((problem <cdr-problem>)) 1)
+
 (defmethod interior-coefficients ((problem <cdr-problem>))
   "Interior coefficients for a convection-diffusion-reaction problem."
   (list* 'DIFFUSION 'CONVECTION 'SOURCE 'REACTION 'GAMMA 'FE-RHS
@@ -91,6 +93,9 @@ functional."
 	     (setf (getf coeffs 'FL.CDR::FE-RHS) (getf dual-rhs 'FL.CDR::FE-RHS))))
 	 coeffs))
    :multiplicity (multiplicity problem)))
+
+(defmethod zero-constraints ((problem <cdr-problem>))
+  (constant-coefficient 0.0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generation of standard cdr problems

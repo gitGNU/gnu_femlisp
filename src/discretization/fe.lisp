@@ -91,21 +91,25 @@ functional:      an application to a function defined on the
 
 (defclass <fe> (property-mixin)
   ((refcell :reader reference-cell :initarg :cell :type <cell>)
-   (discretization :accessor discretization :initarg :discretization)
-   (dofs :reader fe-dofs :initform () :initarg :dofs :type list)
-   (basis :reader fe-basis :initform () :initarg :basis :type list))
+   (discretization :accessor discretization :initarg :discretization))
+  (:documentation "Abstract base class for finite elements."))
+
+(defclass <scalar-fe> (<fe>)
+  ((dofs :reader fe-dofs :initform () :initarg :dofs :type list)
+   (basis :reader fe-basis :initform () :initarg :basis :type list)
+   (order :reader discretization-order :initarg :order))
   (:documentation "A finite element <fe> is given for each reference cell,
 e.g. <2-simplex>.  dofs are the degrees of freedom associated with the
 cell, basis is the dual basis to dofs in some polynomial space.
 subcell-ndofs is the number of ndofs on each subcell.  subcell-indices is a
-list of indices for all subcells with dofs.  Usually, the <fe> will occur
+list of indices for all subcells with dofs.  Usually, the <scalar-fe> will occur
 as values of a procedure or as values in a hash-table with the reference
 cells as keys."))
 
-(defmethod nr-of-dofs ((fe <fe>)) (length (fe-basis fe)))
-(defmethod nr-of-inner-dofs ((fe <fe>)) (aref (subcell-ndofs fe) 0))
-(defmethod nr-of-components ((fe <fe>)) 1)
-(defmethod components ((fe <fe>)) (vector fe))
+(defmethod nr-of-dofs ((fe <scalar-fe>)) (length (fe-basis fe)))
+(defmethod nr-of-inner-dofs ((fe <scalar-fe>)) (aref (subcell-ndofs fe) 0))
+(defmethod nr-of-components ((fe <scalar-fe>)) 1)
+(defmethod components ((fe <scalar-fe>)) (vector fe))
 
 (definline subcell-ndofs (fe)
   (the fixnum-vec (getf (properties fe) 'SUBCELL-NDOFS)))
@@ -118,7 +122,7 @@ cells as keys."))
   `(loop for ,dof of-type <dof> in (fe-dofs ,fe) do
     ,@body))
 
-(defmethod initialize-instance :after ((fe <fe>) &key &allow-other-keys)
+(defmethod initialize-instance :after ((fe <scalar-fe>) &key &allow-other-keys)
   (with-slots (refcell properties)
     fe
     (let ((subcell-ndofs (make-fixnum-vec (nr-of-subcells refcell) 0)))
@@ -134,14 +138,15 @@ cells as keys."))
 			(dof-in-vblock-index dof))
 		  'vector))))
 
-(defmethod make-local-vec ((fe <fe>) &optional (multiplicity 1))
+(defmethod make-local-vec ((fe <scalar-fe>) &optional (multiplicity 1))
   (make-real-matrix (nr-of-dofs fe) multiplicity))
 
-(defmethod make-local-mat ((fe <fe>))
+(defmethod make-local-mat ((fe <scalar-fe>))
   (make-real-matrix (nr-of-dofs fe)))
 
-(defmethod interpolate-on-refcell ((fe <fe>) function)
-  "Interpolates FUNC on the reference cell of FE using FE."
+(defmethod interpolate-on-refcell ((fe <scalar-fe>) function)
+  "Interpolates @arg{function} on the reference cell of @arg{fe} using
+@arg{FE}."
   (let ((values (loop for dof in (subseq (fe-dofs fe) 0 (nr-of-inner-dofs fe))
 		      collecting (evaluate dof function))))
     (when values
@@ -158,12 +163,9 @@ cells as keys."))
 ;;; <vector-fe>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <vector-fe> ()
-  ((refcell :reader reference-cell :type <cell>)
-   (discretization :accessor discretization :initarg :discretization)
-   (components :accessor components :initarg :components :type simple-vector)
-   (dofs :accessor fe-dofs :type list)
-   (properties :reader properties :initform () :type list))
+(defclass <vector-fe> (<fe>)
+  ((components :accessor components :initarg :components :type simple-vector)
+   (dofs :accessor fe-dofs :type list))
   (:documentation "Finite element for vector functions.  Components is a
 vector of scalar finite elements.  Local-offset is an array of the same
 length which contains the offsets for each component in the local
@@ -176,6 +178,14 @@ which yield such an offset for every subcell."))
   (reduce #'+ (components fe) :key #'nr-of-inner-dofs))
 (defmethod nr-of-components ((fe <vector-fe>))
   (length (components fe)))
+
+(defmethod component ((vecfe <vector-fe>) comp)
+  (aref (components vecfe) comp))
+
+(defmethod discretization-order ((vecfe <vector-fe>))
+  (loop for fe across (components vecfe)
+	maximize (discretization-order fe)))
+
 
 ;;; property content
 (definline local-offset (fe)
@@ -267,22 +277,32 @@ in a sparse vector value block corresponding to the subcell."
   (:documentation "Returns the finite element for the given discretization
 and reference cell."))
 
-(defgeneric quadrature-rule (fedisc fe)
-  (:documentation "Computes the quadrature rule to be used for this finite element."))
+(defgeneric quadrature-rule (fe)
+  (:documentation "Computes the quadrature rule to be used for the finite
+element @arg{fe}."))
 
-(defmethod quadrature-rule ((fedisc <fe-discretization>) fe)
+(defmethod quadrature-rule ((fe <fe>))
   "Standard quadrature rule for fe."
   (let ((refcell (reference-cell fe))
-	(order (discretization-order fedisc)))
+	(order (discretization-order fe)))
     (gauss-rule (mapcar #'dimension (factor-simplices refcell))
 		;; does not integrate reaction terms precisely
 		#+(or)(if (typep refcell '<simplex>) order (1+ order))
 		(1+ order))))
 
-(defclass <standard-fe-discretization> (<fe-discretization>)
-  ((cell->fe :initarg :cell->fe))
-  (:documentation "For this class the finite elements are obtained from a
-cell->fe mapping given as a class slot."))
+(defclass <cell-fe-discretization> (<fe-discretization>)
+  ((cell->fe :initarg :cell->fe :documentation
+	     "A function mapping a cell to a finite element."))
+  (:documentation "Finite element discretization where the finite elements
+can differ from cell to cell.  Especially, hp-FEM are included."))
+
+(defmethod get-fe ((disc <cell-fe-discretization>) cell)
+  (funcall (slot-value disc 'cell->fe) cell))
+
+(defclass <standard-fe-discretization> (<cell-fe-discretization>)
+  ()
+  (:documentation "Finite element discretization where the finite element
+depends only on the type of the reference cell."))
 
 (defmethod get-fe ((disc <standard-fe-discretization>) cell)
   (funcall (slot-value disc 'cell->fe)
@@ -291,6 +311,8 @@ cell->fe mapping given as a class slot."))
 (defclass <scalar-fe-discretization> (<standard-fe-discretization>)
   ((order :reader discretization-order :initarg :order))
   (:documentation "Class for scalar fe discretizations."))
+
+(defmethod nr-of-components ((fe-disc <scalar-fe-discretization>)) 1)
 
 (defclass <vector-fe-discretization> (<standard-fe-discretization>)
   ((components :accessor components :initarg :components
@@ -324,26 +346,24 @@ cell->fe mapping given as a class slot."))
   (loop for disc across (components vecfe-disc)
 	maximize (discretization-order disc)))
 
-(defmethod nr-of-components ((fe-disc <scalar-fe-discretization>)) 1)
-
 (defmethod nr-of-components ((vecfe-disc <vector-fe-discretization>))
   (length (components vecfe-disc)))
 
-(defmethod component ((fedisc <standard-fe-discretization>) i)
+(defmethod component ((fedisc <fe-discretization>) i)
   (make-instance
-   '<standard-fe-discretization>
-   :order (discretization-order fedisc)  ; might be wrong!
-   :cell->fe
+   '<cell-fe-discretization> :cell->fe
    #'(lambda (cell)
-       (aref (components (funcall (slot-value fedisc 'cell->fe) cell))
-	     i))))
-  
+       (aref (components (get-fe fedisc cell)) i))))
+
+(defmethod component ((fedisc <vector-fe-discretization>) i)
+  (aref (components fedisc) i))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ip-values, ip-gradients
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; The following two functions might be the standard way to generate
-;;; the quadrature information given an fe and a quadrature rule.
+;;; The following two functions might be the standard way to generate the
+;;; quadrature information given a finite element and a quadrature rule.
 ;;; They should be used in their memoized form
 
 (defun base-function-values-at-ips (fe qrule)
@@ -378,11 +398,11 @@ cell->fe mapping given as a class slot."))
 	      (components vecfe))))
 (memoize-symbol 'vector-fe-ip-gradients :test 'equal)
 
-(defmethod ip-values ((fe <fe>) qrule)
+(defmethod ip-values ((fe <scalar-fe>) qrule)
   "Returns a list of nr-ip float-matrices of dimension (n-basis x 1)."
   (funcall #'base-function-values-at-ips fe qrule))
 
-(defmethod ip-gradients ((fe <fe>) qrule)
+(defmethod ip-gradients ((fe <scalar-fe>) qrule)
   (funcall #'base-function-gradients-at-ips fe qrule))
 
 (defmethod ip-values ((fe <vector-fe>) qrule)
@@ -500,6 +520,8 @@ scalar product in pairing."
 		      :gradients gradients :volume volumes
 		      :gradient-inverses gradient-inverses :weights weights))))
 
+;;; For the following to be effective, we should eliminate the consing by
+;;; handing over a geometry to be filled
 #+(or)
 (defun fe-cell-geometry (cell qrule &key metric volume)
   "Collects cell geometry information inside a property list."
@@ -510,7 +532,8 @@ scalar product in pairing."
       (setf origin (first (corners cell))
 	    Dphi (evaluate-gradient mapping origin)
 	    volume-at-point (* (sqrt (abs (det (m*-tn Dphi Dphi)))))
-	    Dphi-inverse (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi))))
+	    Dphi-inverse (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi))
+	    ))
     (loop
      for ip in (integration-points qrule)
      for local-coord = (ip-coords ip)
@@ -519,6 +542,7 @@ scalar product in pairing."
 			    (gemm 1.0 Dphi local-coord 1.0 origin)
 			    (evaluate mapping local-coord)) do
      (unless fast-p
+       (break)
        (let ((metric-ip (and metric (funcall metric :local local-coord :global global-coord)))
 	     (volume-ip (and volume (funcall volume :local local-coord :global global-coord))))
 	 (setf Dphi (evaluate-gradient mapping local-coord)

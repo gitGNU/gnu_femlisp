@@ -44,13 +44,13 @@ triangulation software @program{easymesh}."))
 (in-package "FL.EASYMESH")
 
 (defvar *easymesh-pathname*
-  (or (aand cl-user::*easymesh-path* (probe-file (pathname it)))
+  (or (aand fl.start::*easymesh-path* (probe-file (pathname it)))
       (fl.port:find-executable "easymesh")
       (probe-file #p"femlisp:external;easymesh"))
   "Pathname of the @program{easymesh} binary.")
 
 (defvar *meshes-pathname*
-  (or (aand cl-user::*meshes-directory* (pathname it))
+  (or (aand fl.start::*meshes-directory* (pathname it))
       (translate-logical-pathname #p"femlisp:meshes;"))
   "Pathname of the directory for @femlisp{} meshes.")
 

@@ -165,24 +165,37 @@ entries.  Essential constraints are satisfied."
 	  (properties ansatz-space)
 	(copy! (sparse-m* constraints-P constraints-r) asv))
       asv)))
+
+(defgeneric choose-start-vector (ansatz-space problem)
+  (:documentation "Choose a reasonable start vector for some strategy.")
+  (:method (as problem)
+    "Default method chooses 0."
+    (make-ansatz-space-vector as))
+  (:method (as (problem <evp-mixin>))
+    "For eigenvalue problems we choose a random guess."
+    (random-ansatz-space-vector as)))
   
 (defmethod component ((asv <ansatz-space-vector>) i)
   "Returns an ansatz-space-vector which denotes a component of asv.  The
 vector shares part of the values."
-  (let* ((comp-fedisc (component (fe-class asv) i))
+  (let* ((fedisc (fe-class asv))
+	 (comp-fedisc (component fedisc i))
 	 (comp-as (make-instance '<ansatz-space> :fe-class comp-fedisc :problem (problem asv)
 				 :mesh (mesh asv) :multiplicity (multiplicity asv)))
 	 (comp-asv (make-ansatz-space-vector comp-as))
-	 (indices (coerce (range< 0 (multiplicity asv)) 'vector))
-	 (cell->fe (slot-value comp-fedisc 'cell->fe)))
+	 (indices (coerce (range< 0 (multiplicity asv)) 'vector)))
     (for-each-key-and-entry
      #'(lambda (key entry)
-	 (let ((fe (funcall cell->fe (representative key))))
+	 (let* ((vecfe (get-fe fedisc (representative key)))
+		(fe (component vecfe i)))
 	   (when (plusp (nr-of-inner-dofs fe))
 	     (setf (vref comp-asv key)
-		   (make-instance '<submatrix> :matrix entry
-				  :row-keys (inner-dof-indices fe)
-				  :col-keys indices)))))
+		   (make-instance
+		    '<submatrix> :matrix entry
+		    :row-keys
+		    (let ((offset (aref (aref (subcell-offsets vecfe) i) 0)))
+		      (map 'vector (curry #'+ offset) (inner-dof-indices fe)))
+		    :col-keys indices)))))
      asv)
     comp-asv))
   
@@ -316,10 +329,9 @@ reference finite element is collected into an interpolation matrix."
 	 (fe-class (fe-class ansatz-space)))
     (flet ((insert-local-imat (cell)
 	     (when (refined-p cell h-mesh)
-	       (let* ((refcell (reference-cell cell))
-		      (subcells (subcells cell))
+	       (let* ((subcells (subcells cell))
 		      (children (children cell h-mesh))
-		      (local-imat (local-imatrix fe-class refcell)))
+		      (local-imat (local-interpolation-matrix cell h-mesh fe-class)))
 		 (dotensor ((i j . mblock) local-imat)
 		   (let* ((child (aref children i))
 			  (child-id (cell-key (aref children i) h-mesh))
@@ -341,17 +353,17 @@ finite element is copied into the global projection matrix."
   (unless pmat
     (setq pmat (make-ansatz-space-automorphism ansatz-space)))
   (let* ((h-mesh (hierarchical-mesh ansatz-space))
-	 (level-mesh (if level (cells-on-level h-mesh level) h-mesh)))
+	 (level-mesh (if level (cells-on-level h-mesh level) h-mesh))
+	 (fe-class (fe-class ansatz-space)))
     (flet ((insert-local-pmat (cell)
 	     (when (refined-p cell h-mesh)
-	       (let ((refcell (reference-cell cell))
-		     (fe-class (fe-class ansatz-space)))
-		 (whereas ((local-pmat (local-pmatrix fe-class refcell)))
-		   (let ((subcell-children (subcell-children cell h-mesh))
-			 (cell-id (cell-key cell h-mesh)))
-		     (dotensor ((k . pmat-block) local-pmat)
-		       (setf (mref pmat cell-id (cell-key (aref subcell-children k) h-mesh))
-			     pmat-block))))))))
+	       (whereas ((local-pmat (local-projection-matrix
+				      cell h-mesh fe-class)))
+		 (let ((subcell-children (subcell-children cell h-mesh))
+		       (cell-id (cell-key cell h-mesh)))
+		   (dotensor ((k . pmat-block) local-pmat)
+		     (setf (mref pmat cell-id (cell-key (aref subcell-children k) h-mesh))
+			   pmat-block)))))))
       (skel-for-each #'insert-local-pmat (or region level-mesh)))
     pmat))
 
@@ -496,7 +508,8 @@ problem."
 	 (mesh (uniformly-refined-hierarchical-mesh domain 1))
 	 (as1 (make-instance '<ansatz-space> :fe-class (lagrange-fe 2) :mesh mesh))
 	 (as2 (make-instance '<ansatz-space> :fe-class (lagrange-fe 3) :mesh mesh)))
-    (loop repeat 1 do (refine mesh :test (rcurry #'inside-cell? (make-double-vec dim 0.25))))
+    (loop repeat 1 do
+	 (refine mesh :indicator (rcurry #'inside-cell? (make-double-vec dim 0.25))))
     (let ((tm1->2 (transfer-matrix as1 as2 :no-slaves t))
 	  (tm2->1 (transfer-matrix as2 as1 :no-slaves t)))
       (assert (midentity-p (sparse-m* tm2->1 tm1->2) 1.0e-10))))

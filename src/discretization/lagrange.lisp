@@ -169,9 +169,10 @@ lower-dimensional shapes and coordinates."
 		#'(lambda (refcell)
 		    (assert (reference-cell-p refcell))
 		    (make-instance
-		     '<fe> :cell refcell :discretization disc
+		     '<scalar-fe> :cell refcell :discretization disc
 		     :dofs (lagrange-dofs refcell order type)
-		     :basis (lagrange-basis refcell order type))))
+		     :basis (lagrange-basis refcell order type)
+		     :order order)))
 	       #'reference-cell))
 	disc)))
 (memoize-symbol 'lagrange-fe)
@@ -211,7 +212,7 @@ boundary lagrangian."
 	      (energy-mat (make-real-matrix nr-dofs))
 	      (inner-indices (range< 0 nr-inner-dofs))
 	      (boundary-indices (range< nr-inner-dofs nr-dofs)))
-	 (loop with qrule = (quadrature-rule fe-class fe)
+	 (loop with qrule = (quadrature-rule fe)
 	       for ip in (integration-points qrule)
 	       for gradients across (ip-gradients fe qrule) do
 	       (gemm! (ip-weight ip) gradients gradients 1.0 energy-mat :nt))
@@ -272,7 +273,7 @@ by interpolating the boundary map via Lagrange interpolation."
 (defun test-lagrange ()
   (flet ((check-fe (fe-class refcell)
 	   (let* ((fe (get-fe fe-class refcell))
-		  (qrule (quadrature-rule fe-class fe)))
+		  (qrule (quadrature-rule fe)))
 	     (integration-points qrule)
 	     (list (ip-values fe qrule) (ip-gradients fe qrule)))))
     (check-fe (lagrange-fe 1) *reference-vertex*)
@@ -308,31 +309,13 @@ by interpolating the boundary map via Lagrange interpolation."
 	(princ (local->global tri lcoord))
 	(evaluate (funcall (lagrange-mapping 4) tri) lcoord))))
 
-  ;; Test interpolation/projection from fe
+  (assert (eq (reference-cell (get-fe (lagrange-fe 1) *unit-interval*))
+	      *unit-interval*))
   (setq *print-matrix* 7)
   (let ((fe (get-fe (lagrange-fe 1) *unit-interval*)))
     (fe-basis fe))
   (get-fe (lagrange-fe 3) *unit-interval*)
   (get-fe (lagrange-fe 3) (n-simplex 3))
-  (describe (tensor-ref (local-imatrix (lagrange-fe 1) *unit-interval*) 0 ))
-  (tensor-ref (compute-local-imatrix (get-fe (lagrange-fe 1) *reference-vertex*)) 0 0)
-  (show (local-imatrix (lagrange-fe 1) *reference-vertex*))
-  (show (local-imatrix (lagrange-fe 1) *unit-interval*))
-  (get-fe (lagrange-fe 1 :nr-comps 2) *unit-interval*)
-  (show (local-imatrix (lagrange-fe 1 :nr-comps 2) *unit-interval*))
-  (show (local-imatrix (lagrange-fe 2) *unit-interval*))
-  (show (local-imatrix (lagrange-fe 2 :nr-comps 2) *unit-interval*))
-  (show (local-imatrix (lagrange-fe 2) *unit-quadrangle*))
-  (local-pmatrix (lagrange-fe 1) *reference-vertex*)
-  (local-pmatrix (lagrange-fe 2) *unit-interval*)
-  (local-pmatrix (lagrange-fe 3) *unit-interval*)
-  (local-pmatrix (lagrange-fe 1) *unit-quadrangle*)
-  (local-pmatrix (lagrange-fe 2) *unit-quadrangle*)
-  (local-pmatrix (lagrange-fe 3) *reference-vertex*)
-  (refcell-children *unit-interval*)
-  (local-pmatrix (lagrange-fe 3) *unit-interval*)
-  (assert (eq (reference-cell (get-fe (lagrange-fe 1) *unit-interval*))
-	      *unit-interval*))
 
   ;;
   (describe
@@ -350,5 +333,5 @@ by interpolating the boundary map via Lagrange interpolation."
 
 (fl.tests:adjoin-test 'test-lagrange)
 
-;;; (discretization::test-lagrange)
+;;; (fl.discretization::test-lagrange)
 

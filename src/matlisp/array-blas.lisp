@@ -62,6 +62,10 @@
   (aref vec index))
 (defmethod (setf vref) (val (vec vector) index)
   (setf (aref vec index) val))
+(defmethod vref ((vec array) index)
+  (row-major-aref vec index))
+(defmethod (setf vref) (val (vec vector) index)
+  (setf (row-major-aref vec index) val))
 
 (defmethod for-each-key (func (x vector))
   (dotimes (i (length x)) (funcall func i)))
@@ -76,6 +80,10 @@
 (defmethod for-each-key-and-entry (func (x vector))
   (dotimes (i (length x))
     (funcall func i (aref x i))))
+
+(defmethod for-each-key-and-entry (func (array array))
+  (dotimes (i (array-total-size array))
+    (funcall func i (row-major-aref array i))))
 
 ;;; These do not correspond exactly to their name 
 (defmethod for-each-entry-of-vec1 (func (x sequence) (y sequence))
@@ -124,18 +132,13 @@
 			   (concatenate
 			    'vector
 			    (list
-			     (let ((*compile-print* nil))
-			       (compile
-				nil
-				(let ((method-source
-				       (subst element-type 'element-type
-					      '(lambda ,(mapcar #'car args)
-						(declare (type (simple-array element-type (*)) ,@vec-args))
-						(declare (type element-type ,@number-args))
-						(declare (optimize (speed 3) (safety 0)))
-						,@body))))
-				  (dbg :blas "Generated method: ~%~S~%" method-source)
-				  method-source))))
+			     (fl.amop:compile-and-eval
+			      (subst element-type 'element-type
+				     '(lambda ,(mapcar #'car args)
+				       (declare (type (simple-array element-type (*)) ,@vec-args))
+				       (declare (type element-type ,@number-args))
+				       (declare (optimize (speed 3) (safety 0)))
+				       ,@body))))
 			    ,functions)))))))
 	  (funcall (aref ,functions 0) ,@(mapcar #'car args)))))))
 
@@ -162,11 +165,7 @@
 
 (define-vector-blas-method fill-random! ((x vector) (s number))
   (dotimes (k (length x) x)
-    (setf (aref x k) (fill-random! x s))))
-
-(define-vector-blas-method scal! ((val number) (vec vector))
-  (dotimes (i (length vec) vec)
-    (setf (aref vec i) (* (aref vec i) val))))
+    (setf (aref x k) (fill-random! (aref x k) s))))
 
 (defmethod scal! (val (lst list))
   "Call @func{scal!} on each entry of @var{lst}.  Note that the result has
@@ -176,7 +175,8 @@ to be freshly consed, because @func{scal!} is a function, not a macro."
 (defmethod scal! (val (array array))
   "Call @func{scal!} on each entry of @var{array}."
   (dotimes (i (array-total-size array) array)
-    (_f * (row-major-aref array i) val)))
+    (setf (row-major-aref array i)
+	  (scal! val (row-major-aref array i)))))
 
 (define-vector-blas-method axpy! ((alpha number) (x vector) (y vector))
   (dotimes (i (length x) y)

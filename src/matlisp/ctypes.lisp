@@ -89,3 +89,10 @@ in dimension @arg{dim}."
   (make-array dim :element-type 'int :initial-element init))
 (defun make-uint-vec (dim &optional (init 0))
   (make-array dim :element-type 'uint :initial-element init))
+(definline int-vec (&rest comps)
+  "Returns a @class{int-vec} with the entries in @arg{comps}."
+  (coerce comps 'int-vec))
+(definline uint-vec (&rest comps)
+  "Returns a @class{uint-vec} with the entries in @arg{comps}."
+  (coerce comps 'uint-vec))
+

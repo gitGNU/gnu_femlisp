@@ -62,7 +62,7 @@ of convection-diffusion-reaction equations."))
 ;;; Testing: (test-cdrsys)
 
 (defun test-cdrsys ()
-  (make-instance '<cdrsys-problem> :domain *unit-quadrangle-domain*
+  (make-instance '<cdrsys-problem> :domain (n-cube-domain 2)
 		 :patch->coefficients (constantly nil) :nr-of-components 1))
 
 (fl.tests:adjoin-test 'test-cdrsys)

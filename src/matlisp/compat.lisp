@@ -75,18 +75,19 @@
   (<= (abs (- x 1.0)) threshold))
 
 (defmethod midentity-p (mat &optional (threshold 0.0))
-  (for-each-key-and-entry
-   #'(lambda (rk ck entry)
-       (unless (if (eql rk ck)
-		   (midentity-p entry threshold)
-		   (mzerop entry threshold))
-	 (return-from midentity-p (values nil rk ck entry))))
-   mat)
-  t)
-
-(defmethod map-matrix (func (x <store-vector>))
-  "Maps func across the matrix.  Probably not too useful."
-  (map (type-of (store x)) func (store x)))
+  (for-each-row-key
+   #'(lambda (rk)
+       (for-each-key-in-row
+	#'(lambda (ck)
+	    (let ((entry (mref mat rk ck)))
+	      (unless (if (eql rk ck)
+			  (midentity-p entry threshold)
+			  (mzerop entry threshold))
+		(return-from midentity-p
+		  (values nil (cons rk ck) entry)))))
+	    mat rk))
+       mat)
+   t)
 
 (defmethod submatrix ((mat standard-matrix) &key row-indices col-indices)
   (unless row-indices (setq row-indices (range< 0 (nrows mat))))
@@ -107,7 +108,7 @@
     (mextract mat result from-row from-col)))
 
 (defmethod vector-slice ((mat standard-matrix) offset size)
-  (assert (= 1 (ncols mat)))
+  (assert (and offset (= 1 (ncols mat))))
   (let ((result (make-instance (standard-matrix (element-type mat))
 			       :nrows size :ncols 1)))
     (mextract mat result offset 0)))

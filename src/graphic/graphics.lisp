@@ -38,7 +38,7 @@
   "Default graphics program.")
 
 (defparameter *images-pathname*
-  (or (aand cl-user::*images-directory* (pathname it))
+  (or (aand fl.start::*images-directory* (pathname it))
       (translate-logical-pathname #p"femlisp:images;"))
   "Pathname of the directory for @femlisp{} images.")
 

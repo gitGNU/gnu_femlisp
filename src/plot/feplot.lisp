@@ -34,16 +34,21 @@
 
 (in-package :fl.plot)
 
-(defmemo local-evaluation-matrix (fe depth)
-  "Returns an evaluation matrix for the fe with the specified local
+(let ((table (make-hash-table :test 'equalp)))
+  (defun local-evaluation-matrix (fe depth)
+    "Returns an evaluation matrix for the fe with the specified local
 refinement depth."
-  (let* ((vertices (refcell-refinement-vertices (reference-cell fe) depth))
-	 (result (make-real-matrix (length vertices) (nr-of-dofs fe))))
-    (loop for vertex across vertices and i from 0 do
-      (loop for shape in (fe-basis fe) and j from 0 do
-	    (setf (mref result i j)
-		  (evaluate shape (vertex-position vertex)))))
-    result))
+    (let ((vertices (refcell-refinement-vertices (reference-cell fe) depth))
+	  (key (cons fe depth)))
+      (whereas ((entry (gethash key table)))
+	(when (eq (car entry) vertices)
+	  (return-from local-evaluation-matrix (cdr entry))))
+      (let ((result (make-real-matrix (length vertices) (nr-of-dofs fe))))
+	(loop for vertex across vertices and i from 0 do
+	     (loop for shape in (fe-basis fe) and j from 0 do
+		  (setf (mref result i j)
+			(evaluate shape (vertex-position vertex)))))
+	result))))
 
 (defmethod graphic-commands ((asv <ansatz-space-vector>) (program (eql :dx))
 			     &key tubes (foreground :white) range &allow-other-keys)
@@ -86,18 +91,18 @@ refinement depth."
   "Plots a certain component of asv.  Index is useful when asv consists of
 several vectors."
   (let* ((fe-class (fe-class (ansatz-space asv)))
-	 (order (discretization-order fe-class))
 	 (mesh (mesh asv))
 	 (dim (embedded-dimension mesh)))
-    (when (and (arrayp order) component)
-      (setq order (aref order component)))
-    (unless depth
-      ;; even better might be a dependence on the mesh width
-      (setq depth (case order
+    (ensure depth
+	    #'(lambda (cell)
+		(let ((order (discretization-order (get-fe fe-class cell))))
+		  (when (and (arrayp order) component)
+		    (setq order (aref order component)))
+		  (case order
 		    ((0 1) 0)
 		    ((2) 1)
 		    ((3 4) 2)
-		    (t 3))))
+		    (t 3)))))
     (apply #'graphic-output asv :dx
 	   :depth depth
 	   :cells (plot-cells mesh)
@@ -105,11 +110,12 @@ several vectors."
 	   :transformation (or transformation (plot-transformation dim))
 	   :cell->values
 	   #'(lambda (cell)
-	       (let* ((fe (get-fe fe-class (reference-cell cell)))
+	       (let* ((fe (get-fe fe-class cell))
 		      (local-vec (get-local-from-global-vec cell fe asv))
+		      (depth (if (numberp depth) depth (funcall depth cell)))
 		      (m (nr-of-refinement-vertices cell depth))
 		      (components (etypecase fe
-				    (<fe> (vector fe))
+				    (<scalar-fe> (vector fe))
 				    (<vector-fe> (components fe)))))
 		 (unless (typep fe '<vector-fe>)
 		   (setq component 0)

@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; ccs.lisp - Compressed column storage scheme
+;;; store-vector.lisp - Compressed column storage scheme
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -50,7 +50,6 @@ vector which can be obtained by calling the function
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun store-vector (type)
-    (assert (subtypep type 'number))
     (let ((class-name (store-vector-class-name type)))
       (or (find-class class-name nil)
 	  (prog1
@@ -62,7 +61,8 @@ vector which can be obtained by calling the function
 
 (defmethod initialize-instance :after ((vec store-vector) &key &allow-other-keys)
   "Coerce the store to the correct type."
-  (coerce (store vec) `(simple-array ,(element-type vec) (*))))
+  (when (slot-boundp vec 'store)
+    (coerce (store vec) `(simple-array ,(element-type vec) (*)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; BLAS macros for store-vector
@@ -129,37 +129,37 @@ vector which can be obtained by calling the function
 
 ;;; Copying
 
-(new-define-blas-template copy! ((x store-vector) (y store-vector))
+(define-blas-template copy! ((x store-vector) (y store-vector))
   (declare (optimize (speed 3) (debug 0) (safety 0)))
   (for-each-entry ((xc x) (yc y)) (setf yc xc))
   y)
 
 ;;; BLAS routines involving one store-vector
 
-(new-define-blas-template fill! ((x store-vector) (s number))
+(define-blas-template fill! ((x store-vector) (s number))
   (declare (optimize (speed 3) (debug 0) (safety 0)))
   (for-each-entry ((xc x)) (element-copy! s xc))
   x)
 
-(new-define-blas-template fill-random! ((x store-vector) (s number))
+(define-blas-template fill-random! ((x store-vector) (s number))
   (declare (optimize (speed 3) (debug 0) (safety 0)))
   (for-each-entry ((xc x)) (element-copy! (random s) xc))
   x)
 
-(new-define-blas-template scal! ((alpha number) (x store-vector))
+(define-blas-template scal! ((alpha number) (x store-vector))
   (declare (optimize (speed 3) (debug 0) (safety 0)))
   (for-each-entry ((xc x)) (element-scal! alpha xc))
   x)
 
 ;;; BLAS routines involving two store-vectors
 
-(new-define-blas-template axpy! ((alpha number) (x store-vector) (y store-vector))
+(define-blas-template axpy! ((alpha number) (x store-vector) (y store-vector))
   (declare (optimize speed))
   (assert-store-vector-compatibility x y)
   (for-each-entry ((xc x) (yc y)) (element-m+! (element-m* alpha xc) yc))
   y)
 
-(new-define-blas-template dot ((x store-vector) (y store-vector))
+(define-blas-template dot ((x store-vector) (y store-vector))
   (declare (optimize speed))
   (let ((sum (coerce 0 'element-type)))
     (declare (type element-type sum))
@@ -167,7 +167,7 @@ vector which can be obtained by calling the function
        (element-m+! (element-m* xc yc) sum))
     sum))
 
-(new-define-blas-template mequalp ((x store-vector) (y store-vector))
+(define-blas-template mequalp ((x store-vector) (y store-vector))
   "Exact equality test for store-vector."
   (assert-store-vector-compatibility x y)
   (for-each-entry ((xc x) (yc y))
@@ -175,7 +175,7 @@ vector which can be obtained by calling the function
        (return-from mequalp nil)))
   t)
 
-(new-define-blas-template dot-abs ((x store-vector) (y store-vector))
+(define-blas-template dot-abs ((x store-vector) (y store-vector))
   (declare (optimize speed))
   (let ((sum (coerce 0 'element-type)))
     (declare (type element-type sum))
@@ -183,13 +183,13 @@ vector which can be obtained by calling the function
        (element-m+! (abs (element-m* xc yc)) sum))
     sum))
 
-(new-define-blas-template m+! ((x store-vector) (y store-vector))
+(define-blas-template m+! ((x store-vector) (y store-vector))
   (declare (optimize speed))
   (assert-store-vector-compatibility x y)
   (for-each-entry ((xc x) (yc y)) (element-m+! xc yc))
   y)
 
-(new-define-blas-template m.*! ((x store-vector) (y store-vector))
+(define-blas-template m.*! ((x store-vector) (y store-vector))
   (declare (optimize speed))
   (assert-store-vector-compatibility x y)
   (for-each-entry ((xc x) (yc y)) (element-m.*! xc yc))

@@ -249,11 +249,9 @@ estimator is computationally more intensive than the original problem."
 	;; that we have to update the dual solution
 	(setf (getbb dual-problem-blackboard :refined-cells) refined-cells)
 	(update-I-P-sol dual-problem-blackboard)))
-    (with-items (&key interior-matrix matrix interior-rhs rhs solution
-		      discretized-problem linearization-blackboard)
+    (with-items (&key matrix rhs solution discretized-problem linearization-blackboard)
       dual-problem-blackboard
       ;; should be improved later to avoid reassembly
-      (setf interior-matrix nil interior-rhs nil)
       (cond ((self-adjoint-p problem)
 	     (setf matrix nil)
 	     (cond ((eq (functional errest) :load-functional)

@@ -411,11 +411,11 @@ factors."
   (ensure-tensorial '(1 3))
   (describe *unit-quadrangle*)
   (= 0.5 (aref (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #d(0.5 0.5)) 0))
-  (describe (refcell-skeleton *unit-quadrangle*))
+  (describe (skeleton *unit-quadrangle*))
   (describe (refcell-refinement-skeleton *unit-quadrangle* 1))
   (refine-info *unit-cube*)
   (refcell-refinement-skeleton *unit-cube* 1)
-  (describe (refcell-skeleton *unit-cube*))
+  (describe (skeleton *unit-cube*))
   ;;
   (let ((child (aref (refine-info *unit-cube*) 8)))
     (format t "{D=~A} ~A :  ~A ~%"
@@ -423,10 +423,9 @@ factors."
 	    (child-barycentric-corners child)
 	    (child-boundary-paths child)))
   (skeleton *unit-quadrangle*)
-  (refine-globally (skeleton *unit-cube*))
+  (refine (skeleton *unit-cube*))
   (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #d(0.5 0.5))
-  (describe (refine-globally (skeleton *unit-cube*)))
-  (refcell-refinement-vertices *unit-quadrangle* 2)
+  (describe (refine (skeleton *unit-cube*)))
   (inside-cell? *unit-quadrangle* #d(0.0 0.0))
   )
 

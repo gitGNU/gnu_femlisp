@@ -89,7 +89,7 @@ skel."
     (values new-skel table)))
 
 (defun refined-skeleton-copy (skel &optional (refinements 0))
-  (loop for newskel = (copy-skeleton skel) then (refine-globally newskel)
+  (loop for newskel = (copy-skeleton skel) then (refine newskel)
 	repeat refinements
 	finally (return newskel)))
 
@@ -258,7 +258,7 @@ positions."
 ;;; Testing: (test-skeleton-build)
 (defun test-skeleton-build ()
   (describe
-   (let ((skel (skeleton  *unit-quadrangle*)))
+   (let ((skel (copy-skeleton (skeleton *unit-quadrangle*))))
      (skel-add! (shift-skeleton skel #d(0.0 1.0)) skel)))
   (subskeleton (skeleton *unit-quadrangle*)
 	       #'(lambda (cell) (= (aref (midpoint cell) 0) 0.0)))

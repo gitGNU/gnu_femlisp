@@ -61,12 +61,10 @@ Wielandt iteration."))
 
 (defmethod approximate :after ((fe-strategy <fe-evp-strategy>) blackboard)
   "Ensures accuracy of the solution and the error estimate."
-  (with-items (&key interior-matrix interior-rhs discretized-problem
-		    solver-blackboard solution residual output
-		    mass-factor stiffness-factor)
+  (with-items (&key discretized-problem solver-blackboard
+		    solution residual output mass-factor stiffness-factor)
       blackboard
     ;; assemble (better would be a local assembly)
-    (setf interior-matrix nil interior-rhs nil)
     (fe-discretize blackboard)
     ;; improve approximation by solving
     (dbg :iter "Approximate: lambda=~A mu=~A"

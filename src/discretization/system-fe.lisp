@@ -70,6 +70,7 @@
 			(evaluate constraint-function ci)
 		      (when (aref constraint-flag comp)
 			(setf (mref (mref constraints-P cell-key cell-key) k k) 1.0)
-			(setf (vref (vref constraints-rhs cell-key) k)
-			      (aref constraint-val comp))))))))))
+			(minject (aref constraint-val comp) (vref constraints-rhs cell-key)
+				 k 0)))))))))
     (values constraints-P constraints-Q constraints-rhs)))
+

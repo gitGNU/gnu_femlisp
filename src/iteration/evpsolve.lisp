@@ -82,8 +82,7 @@
    :success-if (or (getbb blackboard :success-if)
 		   '(and (> :step 1) (> :step-reduction 0.5)))
    :failure-if (or (getbb blackboard :failure-if)
-		   '(and (> :step 1) (> :step-reduction 1.0) (> :defnorm 1.0e-5)))
-   :output (getbb blackboard :output)))
+		   '(and (> :step 1) (> :step-reduction 1.0) (> :defnorm 1.0e-5)))))
 
 ;;;; Testing
 

@@ -56,6 +56,7 @@
   "Returns a symbol of the form <matrix-symbol>-SIZE."
   (symconc matrix-symbol "-SIZE"))
 
+#+(or)
 (defmacro with-blas-information (matrices element-type &rest body)
   "Sets body in an environment with local variables that access store,
 nrows and ncols of the given matrices."
@@ -75,6 +76,27 @@ nrows and ncols of the given matrices."
 				(msym-ncols matrix) (msym-pos matrix)))))
     (macrolet ((ref (matrix) `(aref ,(msym-store matrix) ,(msym-pos matrix))))
       ,@body)))
+
+(define-blas-macro 'standard-matrix
+    '(with-blas-data (matrices &rest body)
+      "Sets body in an environment with local variables that access store,
+nrows and ncols of the given matrices."
+      `(let (,@(loop for matrix in matrices nconcing
+		    `((,(msym-store matrix) (slot-value ,matrix 'store))
+		      (,(msym-nrows matrix) (slot-value ,matrix 'nrows))
+		      (,(msym-ncols matrix) (slot-value ,matrix 'ncols))
+		      (,(msym-pos matrix) 0))))
+	 (declare (ignorable
+		   ,@(loop for matrix in matrices nconcing
+			  (list (msym-store matrix) (msym-nrows matrix)
+				(msym-ncols matrix) (msym-pos matrix)))))
+	 (declare
+	  (type (simple-array element-type (*)) ,@(mapcar #'msym-store matrices))
+	  (type fixnum ,@(loop for matrix in matrices nconcing
+			      (list (msym-nrows matrix)
+				    (msym-ncols matrix) (msym-pos matrix)))))
+	 (macrolet ((ref (matrix) `(aref ,(msym-store matrix) ,(msym-pos matrix))))
+	   ,@body))))
 
 #+(or)
 (macroexpand-1 '(with-blas-information (x y) double-float
@@ -164,95 +186,14 @@ nrows and ncols of the given matrices."
     (error "Matrices do not have the same format nrows*ncols.")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; define-blas-template
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun blas-method-code (name class-name template-args actual-args body)
-  (flet ((matrix-p (template-arg)
-		   (and (consp template-arg)
-			(eq class-name (second template-arg))))
-	 (number-p (template-arg)
-		   (and (consp template-arg)
-			(eq 'number (second template-arg)))))
-    (let* ((pos (or (position-if #'(lambda (x)
-				     (member x '(&optional &key &allow-other-keys)))
-				 template-args)
-		    (length template-args)))
-	   (primary-args (subseq template-args 0 pos))
-	   (rest-args (subseq template-args pos)))
-      (let (matrices number-args numbers specialized-class element-type)
-	(loop for template-arg in primary-args
-	      and actual-arg in actual-args
-	      for arg = (if (consp template-arg)
-			    (car template-arg)
-			  template-arg)
-	      do
-	      (cond
-	       ((matrix-p template-arg)
-		(cond (specialized-class
-		       (unless (eq specialized-class (class-of actual-arg))
-			 (error "Template depends on different classes.")))
-		      (t
-		       (setq specialized-class (class-of actual-arg))
-		       (setq element-type (element-type actual-arg))))
-		(push arg matrices))
-	       ((number-p template-arg)
-		(push arg number-args)
-		(push actual-arg numbers))
-	       ;; otherwise: do nothing
-	       ))
-	(dolist (number numbers)
-	  (unless (subtypep (type-of number) element-type)
-	    (error "Type of number does not fit with element-type.")))
-	`(defmethod
-	  ,name
-	  (,@(loop for arg in primary-args collect
-		   (if (matrix-p arg)
-		       `(,(car arg) ,(class-name specialized-class))
-		       arg))
-	   ,@rest-args)
-	  (declare (type ,element-type ,@number-args))
-	  (with-blas-information (,@matrices) ,element-type
-				 ,(subst element-type 'element-type
-					 `(macrolet ,(mapcar #'cdr (get class-name 'BLAS-MACROS))
-					   (let ()
-					     ,@body)))))))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-
-  (defun dispatcher-code (name class-name template-args body)
-    "Generates a method which generates code for a type-specialized method."
-    (whereas ((gf (and (fboundp name) (symbol-function name))))
-	     (fl.amop:remove-subclass-methods gf template-args))
-    (let* ((actual-args (gensym "ACTUAL-ARGS")))
-      `(defmethod ,name ,template-args
-	 ,@(when (stringp (car body)) (list (car body)))
-	 (let ((,actual-args
-		(list ,@(loop for arg in template-args
-			      unless (member arg '(&optional))
-			      collect (if (consp arg) (car arg) arg)
-			      do (assert (not (member arg '(&key &allow-other-keys))))))))
-	   ;; define specialized method
-	   (let ((*compile-print* (dbg-p :blas))
-		 (method-source
-		  (blas-method-code
-		   ',name ',class-name ',template-args ,actual-args
-		   ',(if (stringp (car body)) (cdr body) body))))
-	     (dbg :blas "Generated code: ~%~S~%" method-source)
-	     ;; new CMUCL/SBCL compiles methods automatically, so that eval
-	     ;; is sufficient.  however, other CLs might not.
-	     (funcall (compile nil `(lambda () ,method-source))))
-	   ;; retry call
-	   (apply #',name ,actual-args))))))
-
-(defmacro define-blas-template (name args &body body)
-  (dispatcher-code name 'standard-matrix args body))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Implementation of the BLAS for the standard-matrix class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Copying
+;;; The following routines could be replaced by the BLAS for store-vector.
+;;; Unfortunately, this would mean that no matrix compatibility check is
+;;; done anymore.  The perfect solution would be to add the check as a
+;;; :before method.  However, the performance implications are not
+;;; completely clear.  This has to be checked in the future.
 
 (define-blas-template copy! ((x standard-matrix) (y standard-matrix))
   (declare (optimize (speed 3) (debug 0) (safety 0)))
@@ -260,46 +201,17 @@ nrows and ncols of the given matrices."
   (vec-for-each-entry (x y) (element-copy! (ref x) (ref y)))
   y)
 
-#+(or)
-(copy! (eye 2) (eye 2))
-
-;;; BLAS routines involving one matrix
-
-(define-blas-template fill! ((x standard-matrix) (s number))
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
-  (vec-for-each-entry (x) (element-copy! s (ref x)))
-  x)
-
-(define-blas-template fill-random! ((x standard-matrix) (s number))
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
-  (vec-for-each-entry (x) (element-copy! (random s) (ref x)))
-  x)
-
-(define-blas-template scal! ((alpha number) (x standard-matrix))
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
-  (vec-for-each-entry (x) (element-scal! alpha (ref x)))
-  x)
-
-;;; BLAS routines involving two matrices
-
 (define-blas-template axpy! ((alpha number) (x standard-matrix) (y standard-matrix))
   (declare (optimize speed))
   (assert-standard-matrix-compatibility x y)
   (vec-for-each-entry (x y) (element-m+! (element-m* alpha (ref x)) (ref y)))
   y)
 
-(define-blas-template dot ((x standard-matrix) (y standard-matrix))
-  "Dot product for standard-matrix.  This is not a perfectly fast routine
-due to the condition in the innermost and due to consing when returning the
-result.  At bottlenecks, the use of gemm! should be preferred."
+(define-blas-template m+! ((x standard-matrix) (y standard-matrix))
   (declare (optimize speed))
-  (let ((sum (coerce 0 'element-type)))
-    (declare (type element-type sum))
-    (vec-for-each-entry (x y)
-       (element-m+! (element-m* (ref x) (ref y)) sum))
-    sum))
-
-;;;(test-blas 'dot 1 :generator (standard-matrix-generator 'single-float))
+  (assert-standard-matrix-compatibility x y)
+  (vec-for-each-entry (x y) (element-m+! (ref x) (ref y)))
+  y)
 
 (define-blas-template mequalp ((x standard-matrix) (y standard-matrix))
   "Exact equality test for standard-matrix."
@@ -310,28 +222,6 @@ result.  At bottlenecks, the use of gemm! should be preferred."
           (unless (element-equal (ref x) (ref y))
 	    (return-from mequalp nil)))
 	t)))
-
-(define-blas-template dot-abs ((x standard-matrix) (y standard-matrix))
-  (declare (optimize speed))
-  (let ((sum (coerce 0 'element-type)))
-    (declare (type element-type sum))
-    (vec-for-each-entry (x y)
-       (element-m+! (abs (element-m* (ref x) (ref y))) sum))
-    sum))
-
-(define-blas-template m+! ((x standard-matrix) (y standard-matrix))
-  (declare (optimize speed))
-  (assert-standard-matrix-compatibility x y)
-  (vec-for-each-entry (x y) (element-m+! (ref x) (ref y)))
-  y)
-
-;;#+(or) (m+! #m((1.0)) #m((1.0)))
-
-(define-blas-template m.*! ((x standard-matrix) (y standard-matrix))
-  (declare (optimize speed))
-  (assert-standard-matrix-compatibility x y)
-  (vec-for-each-entry (x y) (element-m.*! (ref x) (ref y)))
-  y)
 
 ;;; Matrix-matrix multiplication
 
@@ -464,7 +354,7 @@ result.  At bottlenecks, the use of gemm! should be preferred."
   (copy! (eye 2) (eye 2))
   (test-blas 'dot 2 :generator (standard-matrix-generator '(complex double-float)))
   (test-blas 'dot 1 :generator (standard-matrix-generator '(complex double-float)))
-  (time (test-blas 'm* 1024 :generator 'eye
+  (time (test-blas 'm* 100 :generator 'eye
 	     :flop-calculator (lambda (n) (* 2 n n n))))
   (loop for k = 1 then (* 2 k) until (> k 1000) do
 	(fl.matlisp::test-blas
@@ -511,5 +401,5 @@ result.  At bottlenecks, the use of gemm! should be preferred."
   (dbg-off :blas)
    )
 
-;;; (fl.matlisp::test-standard-matrix-blas)
+;;; (time (fl.matlisp::test-standard-matrix-blas))
 (fl.tests:adjoin-test 'test-standard-matrix-blas)

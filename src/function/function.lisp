@@ -453,18 +453,19 @@ Also grad-f has to be provided."
 		(setf (mref result dim-1 dim-1) value)
 		result))))))
 
-(defun circle-function (&optional (radial-distance 1.0) (midpoint #d(0.0 0.0)))
+(defun circle-function (&optional (radial-distance 1.0) (midpoint #d(0.0 0.0)) (omega 1.0))
   "Returns a special function drawing a polar around @arg{midpoint} with
-distance given by the function or number @arg{radial-distance}.  Without
-arguments it yields a function mapping @math{\R^1} to @math{S^1}."
+distance given by the function or number @arg{radial-distance} with angular
+velocity omega.  Without arguments it yields a function mapping @math{\R^1}
+isometrically to @math{S^1}."
   (let ((evaluator
 	 #'(lambda (phi)
-	     (let* ((phi #I(2*pi*phi[0]))
+	     (let* ((phi #I(phi[0]))
 		    (radius (if (functionp radial-distance)
 				(funcall radial-distance phi)
 				radial-distance)))
-	       (double-vec (+ (aref midpoint 0) (* radius (cos phi)))
-			   (+ (aref midpoint 1) (* radius (sin phi))))))))
+	       (double-vec (+ (aref midpoint 0) (* radius (cos (* omega phi))))
+			   (+ (aref midpoint 1) (* radius (sin (* omega phi)))))))))
     (make-instance
      '<special-function> :domain-dimension 1 :image-dimension 2
      :evaluator evaluator :gradient (numerical-gradient evaluator))))

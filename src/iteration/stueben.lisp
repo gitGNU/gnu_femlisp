@@ -74,7 +74,6 @@ for several discussions on AMG."))
   "Special filtering used by Ruge-Stueben."
   (let ((theta (theta amg))
 	(filtered-keys (make-hash-table))
-	(filtered-matrix (make-analog matrix))
 	(pivot-table (make-hash-table)))
     
     (flet ((strong-p (row col entry)
@@ -97,18 +96,24 @@ for several discussions on AMG."))
 	     (setf (gethash row-key filtered-keys) t)))
        matrix)
       
-      ;; set filtered matrix
+      #+(or)
       (for-each-key-and-entry
        #'(lambda (row-key col-key entry)
 	   (and (gethash row-key filtered-keys)
 		(gethash col-key filtered-keys)
 		(or (not theta) (strong-p row-key col-key entry))
 		(setf (mref filtered-matrix row-key col-key) entry)))
-       matrix))
-    
-    ;; return result
-    (list* :filtered-keys filtered-keys :filtered-matrix filtered-matrix
-	   parameters)))
+       matrix)
+      
+      ;; return result
+      (list* :filtered-keys filtered-keys :filtered-matrix
+	     (extract-if
+	      #'(lambda (row-key col-key entry)
+		  (and (gethash row-key filtered-keys)
+		       (gethash col-key filtered-keys)
+		       (or (not theta) (strong-p row-key col-key entry))))
+	      matrix)
+	     parameters))))
 
 ;;; Priority-table - this is used for the Ruge-Stueben coarsening
 

@@ -237,7 +237,7 @@ the transpose of the prolongation."
 ;;; compute-coarse-grid-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(definline galerkin-product (R A P)
+(defun galerkin-product (R A P)
   "Builds the Galerkin product R A P.  This function works for every type
 of matrices for which the row- and column-loop macros are defined.  This
 procedure should be inlined into an environment where types are known for

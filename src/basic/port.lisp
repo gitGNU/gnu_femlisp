@@ -45,6 +45,9 @@
   (:import-from
    #+cmu "SYSTEM" #+sbcl "SB-SYS"
    "VECTOR-SAP" "WITHOUT-GCING")
+  (:import-from
+   #+cmu "EXT" #+sbcl "SB-EXT"
+   "QUIT")
   (:export
    ;; UNIX environment
    "FIND-EXECUTABLE" "GETENV" "UNIX-CHDIR"
@@ -57,6 +60,7 @@
    "LOAD-SHARED-OBJECT" "DEFINE-ALIEN-ROUTINE"
    "INT" "DOUBLE" "LOAD-FOREIGN"
    "VECTOR-SAP" "WITHOUT-GCING")
+  (:export "SAVE-FEMLISP-CORE-AND-DIE" "FEMLISP-RESTART")
   (:documentation "This package should contain the implementation-dependent
 parts of Femlisp with the exception of the MOP."))
 
@@ -146,3 +150,22 @@ parts of Femlisp with the exception of the MOP."))
 (defmacro define-alien-routine (&rest args)
   #+cmu `(c-call::def-alien-routine ,@args)
   #+sbcl `(sb-alien:define-alien-routine ,@args))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Saving a core and restarting
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun save-femlisp-core-and-die (core-file-name)
+  #+cmu
+  (progn
+    (ext:save-lisp core-file-name :print-herald nil)
+    (ext:quit))
+  #+sbcl
+  (sb-ext:save-lisp-and-die core-file-name)
+  #-(or cmu sbcl) (error "Unknown Lisp implementation"))
+
+(defun femlisp-restart ()
+  #+cmu (progn (ext::print-herald))
+  (fl.start:femlisp-banner))
+
+  

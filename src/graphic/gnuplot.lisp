@@ -39,7 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar *gnuplot-pathname*
-  (or (aand cl-user::*gnuplot-path* (probe-file (pathname it)))
+  (or (aand fl.start::*gnuplot-path* (probe-file (pathname it)))
       (fl.port:find-executable "gnuplot"))
   "Pathname of the @program{Gnuplot} binary.")
 
@@ -105,8 +105,8 @@
 		    (make-broadcast-stream (gnuplot-input-stream) *trace-output*)
 		    (gnuplot-input-stream)))
 	(gnuplot-file (namestring (truename (graphic-file-name object :gnuplot)))))
-    (format stream "set size 1.0,1.0;~%")
-    (format stream "set size square;~%")
+;;    (format stream "set size 1.0,1.0;~%")
+;;    (format stream "set size square;~%")
     (if (and left right)
 	(format stream "set xrange [~a:~a]~%" left right)
 	(format stream "set autoscale x~%"))

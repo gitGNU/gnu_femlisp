@@ -50,15 +50,14 @@ Gauss-Seidel, but for many applications something special will give better
 results.")
 
 (defclass <mg-iteration> (<linear-iteration>)
-  ((pre-smooth :reader pre-smooth :initform *default-smoother*
-	       :initarg :pre-smooth :initarg :smooth)
+  ((pre-smoother :reader pre-smoother :initform *default-smoother*
+	       :initarg :pre-smoother :initarg :smoother)
    (pre-steps :reader pre-steps :initform 1 :initarg :pre-steps)
-   (post-smooth :reader post-smooth :initform *default-smoother*
-		:initarg :post-smooth :initarg :smooth)
+   (post-smoother :reader post-smoother :initform *default-smoother*
+		:initarg :post-smoother :initarg :smoother)
    (post-steps :reader post-steps :initform 1 :initarg :post-steps)
    (gamma :reader gamma :initform 1 :initarg :gamma)
    (base-level :reader base-level :initform 0 :initarg :base-level)
-   (cg-max-size :reader cg-max-size :initform 1000 :initarg :cg-max-size)
    (coarse-grid-iteration :reader coarse-grid-iteration
 			  :initform (make-instance '<lu>)
 			  :initarg :coarse-grid-iteration
@@ -95,7 +94,7 @@ class precedence."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; This is a blackboard with the following items: a-vec, i-vec, r-vec,
-;;; coarse-grid-it, pre-smooth-vec, post-smooth-vec, sol-vec, rhs-vec,
+;;; coarse-grid-it, pre-smoother-vec, post-smoother-vec, sol-vec, rhs-vec,
 ;;; res-vec, nr-levels, base-level, top-level, current-level, residual-p.
 
 ;;; The following macros are anaphoric macros making access shorter.  They
@@ -107,8 +106,8 @@ class precedence."))
 (defmacro sol_ (level) `(aref (getbb mg-data :sol-vec) ,level))
 (defmacro rhs_ (level) `(aref (getbb mg-data :rhs-vec) ,level))
 (defmacro res_ (level) `(aref (getbb mg-data :res-vec) ,level))
-(defmacro pre-smoother_ (level) `(aref (getbb mg-data :pre-smooth-vec) ,level))
-(defmacro post-smoother_ (level) `(aref (getbb mg-data :post-smooth-vec) ,level))
+(defmacro pre-smoother_ (level) `(aref (getbb mg-data :pre-smoother-vec) ,level))
+(defmacro post-smoother_ (level) `(aref (getbb mg-data :post-smoother-vec) ,level))
 
 (define-symbol-macro current-level (getbb mg-data :current-level))
 (define-symbol-macro A_l (A_ current-level))
@@ -178,7 +177,7 @@ to be performed."))
       (when (slot-value smoother 'fl.iteration::residual-before)
 	(ensure-mg-residual mg-it mg-data))
       (funcall (slot-value smoother 'fl.iteration::iterate) sol_l rhs_l res_l)
-      (setq residual-p (slot-value smoother 'fl.iteration::residual-before)))))
+      (setq residual-p (slot-value smoother 'fl.iteration::residual-after)))))
 
 (defmethod ensure-sol-rhs-res ((mg-it <mg-iteration>) mg-data level)
   (unless (sol_ level)
@@ -200,8 +199,6 @@ level and clears the residual-p flag."
     (if (getbb mg-data :r-vec)
 	(gemm! 1.0 (R_ l-1) res_l 0.0 (res_ l-1))
 	(gemm! 1.0 (I_ l-1) res_l 0.0 (res_ l-1) :tn))
-;;    (whereas ((global-i-mat (getbb mg-data :global-i-vec)))
-      
 	))
 
 (defmethod restrict :after ((mg-it <mg-iteration>) mg-data)
@@ -246,7 +243,16 @@ level for computing the correction to be prolongated."
        (setq residual-p (slot-value coarse-grid-it 'fl.iteration::residual-after)))
       (t
        (smooth mg-it mg-data :pre)
+       (dbg-when :mg
+	 (format t "~&Solution after pre-smoothing:")
+	 (show sol_l))
+       (dbg-when :mg
+	 (format t "~&Residual before restriction:")
+	 (show res_l))
        (restrict mg-it mg-data)
+       (dbg-when :mg
+	 (format t "~&Residual after restriction:")
+	 (show res_l))
        (loop for i from (cond ((zerop (slot-value mg-it 'gamma)) 0)
 			      ((= current-level base-level) 1)
 			      (t (slot-value mg-it 'gamma)))
@@ -254,7 +260,13 @@ level for computing the correction to be prolongated."
 	     (lmgc mg-it mg-data)
 	     (unless (= i 1)
 	       (ensure-mg-residual mg-it mg-data)))
+       (dbg-when :mg
+	 (format t "~&Solution before prolongation:")
+	 (show sol_l))
        (prolongate mg-it mg-data)
+       (dbg-when :mg
+	 (format t "~&Solution after prolongation:")
+	 (show sol_l))
        (smooth mg-it mg-data :post)
        ))))
 
@@ -275,11 +287,11 @@ level for computing the correction to be prolongated."
   "This is the method for a multigrid iteration on a uniformly refined
 grid, or an algebraic multigrid iteration."
   (dbg :iter "making iterator for <mg-iteration>")
-  (with-slots (gamma pre-smooth pre-steps post-smooth post-steps
+  (with-slots (gamma pre-smoother pre-steps post-smoother post-steps
 		     coarse-grid-iteration)
     mg-it
     (let ((mg-data (multilevel-decomposition mg-it A)))
-      (with-items (&key a-vec nr-levels coarse-grid-it pre-smooth-vec post-smooth-vec
+      (with-items (&key a-vec nr-levels coarse-grid-it pre-smoother-vec post-smoother-vec
 			current-level base-level top-level sol-vec rhs-vec res-vec)
 	  mg-data
 	
@@ -291,26 +303,26 @@ grid, or an algebraic multigrid iteration."
 	(setq sol-vec (make-array nr-levels :initial-element nil)
 	      rhs-vec (make-array nr-levels :initial-element nil)
 	      res-vec (make-array nr-levels :initial-element nil))
-	(setq pre-smooth-vec (make-array nr-levels)
-	      post-smooth-vec (make-array nr-levels))
+	(setq pre-smoother-vec (make-array nr-levels)
+	      post-smoother-vec (make-array nr-levels))
 	;; smoothers on levels above base-level
 	(loop for level from top-level above base-level
-	      for pre-smooth-l = (if (functionp pre-smooth)
-				     (funcall pre-smooth level)
-				     pre-smooth)
-	      for post-smooth-l = (if (functionp post-smooth)
-				      (funcall post-smooth level)
-				      post-smooth)
-	      for pre-smooth-it = (and (plusp pre-steps)
-				       (make-iterator pre-smooth-l (aref a-vec level)))
-	      for post-smooth-it = (and (plusp post-steps)
-					(or (and (eq pre-smooth-l post-smooth-l) pre-smooth-it)
-					    (make-iterator post-smooth-l (aref a-vec level))))
+	      for pre-smoother-l = (if (functionp pre-smoother)
+				     (funcall pre-smoother level)
+				     pre-smoother)
+	      for post-smoother-l = (if (functionp post-smoother)
+				      (funcall post-smoother level)
+				      post-smoother)
+	      for pre-smoother-it = (and (plusp pre-steps)
+				       (make-iterator pre-smoother-l (aref a-vec level)))
+	      for post-smoother-it = (and (plusp post-steps)
+					(or (and (eq pre-smoother-l post-smoother-l) pre-smoother-it)
+					    (make-iterator post-smoother-l (aref a-vec level))))
 	      do
-	      (setf (aref pre-smooth-vec level)
-		    (and pre-smooth-it (product-iterator pre-smooth-it pre-steps)))
-	      (setf (aref post-smooth-vec level)
-		    (and post-smooth-it (product-iterator post-smooth-it post-steps))))
+	      (setf (aref pre-smoother-vec level)
+		    (and pre-smoother-it (product-iterator pre-smoother-it pre-steps)))
+	      (setf (aref post-smoother-vec level)
+		    (and post-smoother-it (product-iterator post-smoother-it post-steps))))
 	;; coarse-grid iterator
 	(when (or (= top-level base-level) (> gamma 0))
 	  (setq coarse-grid-it
@@ -343,6 +355,6 @@ grid, or an algebraic multigrid iteration."
 	 :residual-after
 	 (if (= base-level top-level)
 	     (slot-value coarse-grid-it 'fl.iteration::residual-after)
-	     (aand (aref post-smooth-vec top-level)
+	     (aand (aref post-smoother-vec top-level)
 		   (slot-value it 'fl.iteration::residual-after))))
 	))))

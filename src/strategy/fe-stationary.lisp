@@ -60,16 +60,13 @@ solution strategies for continuous, stationary PDE problems."))
 
 (defmethod approximate ((fe-strategy <stationary-fe-strategy>) blackboard)
   "Ensures accuracy of the solution and the error estimate."
-  (with-items (&key interior-matrix interior-rhs discretized-problem
-		    solver-blackboard solution residual output)
+  (with-items (&key discretized-problem solver-blackboard solution residual)
       blackboard
     ;; assemble (better would be a local assembly)
-    (setf interior-matrix nil interior-rhs nil)
     (fe-discretize blackboard)
     ;; improve approximation by solving
     (setf solver-blackboard (blackboard :problem discretized-problem
-					:solution solution :residual residual
-					:output output))
+					:solution solution :residual residual))
     (ensure (slot-value fe-strategy 'solver)
 	    (select-solver discretized-problem solver-blackboard))
     (solve (slot-value fe-strategy 'solver) solver-blackboard)

@@ -44,7 +44,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <geometric-mg> (<mg-iteration>)
-  ((solution :accessor solution :initarg :solution :type <ansatz-space-vector>))
+  ((solution :accessor solution :initarg :solution :type <ansatz-space-vector>)
+   (galerkin-p :reader galerkin-p :initform nil :initarg :galerkin-p))
   (:documentation "The geometric multigrid iteration is a multigrid
 iteration where the hierarchy of problems is obtained by discretizing on a
 sequence of refined meshes.  It is an abstract class and should be merged
@@ -76,44 +77,7 @@ with either <correction-scheme> or <fas>."))
 		     :assemble-locally t :include-constraints t))
 	  finally (return mat))))
 
-(defmethod multilevel-decomposition ((mgit <geometric-mg>)
-				     (mat <ansatz-space-automorphism>))
-  "Assemble all levels below the top-level.  The top level should have been
-already assembled.  Works only for uniformly refined meshes."
-  (let* ((ansatz-space (ansatz-space mat))
-	 (h-mesh (hierarchical-mesh ansatz-space))
-	 (top-level (top-level h-mesh))
-	 (interior-mat (getf (properties mat) :interior-matrix))
-	 (solution (getf (properties mat) :solution))
-	 ;; compute the matrix vector
-	 (level-mats
-	  (multiple-value-bind (essential-P essential-Q essential-r)
-	      (fl.discretization::compute-essential-boundary-constraints
-	       ansatz-space :where :all)
-	    (loop for level from top-level downto 0
-	       for l-mat = (fl.discretization::compute-interior-level-matrix
-			    interior-mat solution level)
-	       collect
-	       (eliminate-constraints
-		l-mat nil essential-P essential-Q essential-r
-		:include-constraints t)
-	       until (< (total-nrows l-mat) (cg-max-size mgit)))))
-	 (a-vec (coerce (reverse level-mats) 'vector)))
-    
-    ;; set the interpolation vector
-    (let ((i-vec (make-array (1- (length a-vec)))))
-      (loop for k below (1- (length a-vec))
-	 for mesh-level = (+ k (- (1+ top-level) (length a-vec)))
-	 for imat = (constrained-interpolation-matrix
-		     ansatz-space :level mesh-level :where :refined)
-	 do
-	   (extend-by-identity imat (row-table (aref a-vec k))
-			       :ignore (column-table imat))
-	   (setf (aref i-vec k) imat))
-      ;; return result
-      (blackboard :a-vec a-vec :i-vec i-vec))))
-
-#+(or)
+#+(or)  ;;; new ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmethod multilevel-decomposition ((mgit <geometric-mg>)
 				     (mat <ansatz-space-automorphism>))
   "Assemble all levels below the top-level.  The top level should have been
@@ -122,27 +86,65 @@ already assembled.  Works only for uniformly refined meshes."
 	 (h-mesh (hierarchical-mesh ansatz-space))
 	 (top-level (top-level h-mesh))
 	 (a-vec (make-array (nr-of-levels h-mesh)))
-	 (i-vec (coerce
-		 (loop for level below (top-level (mesh ansatz-space))
-		       collect (constrained-interpolation-matrix
-				ansatz-space :level level :where :refined))
-		 'vector)))
+	 (i-vec (make-array (nr-of-levels h-mesh)))
+	 (interior-mat (getf (properties mat) :interior-matrix))
+	 (solution (getf (properties mat) :solution)))
+    
     ;; set the matrix vector
-    (setf (aref a-vec top-level) mat)
-    (loop for level below top-level do
-	  (let ((l-mat (make-ansatz-space-automorphism ansatz-space)))
-	    (assemble-interior ansatz-space :matrix l-mat :level level :where :refined)
-	    (multiple-value-bind (constraints-P constraints-Q constraints-r)
-		(fl.discretization::compute-essential-boundary-constraints
-		 ansatz-space :level level :where :refined)
-	      (let ((eliminated-mat (eliminate-constraints
-				     l-mat nil constraints-P constraints-Q constraints-r)))
-		(m+! constraints-P eliminated-mat)
-		(m-! constraints-Q eliminated-mat)
-		(setf (aref a-vec level) eliminated-mat)))))
+    (multiple-value-bind (essential-P essential-Q essential-r)
+	(fl.discretization::compute-essential-boundary-constraints
+	 ansatz-space :where :all)
+      (loop for level from 0 upto top-level
+	    for l-mat = (fl.discretization::compute-interior-level-matrix
+			 interior-mat solution level) do
+	    (let ((eliminated-mat
+		   (eliminate-constraints
+		    l-mat nil essential-P essential-Q essential-r
+		    :include-constraints t)))
+	      (setf (aref a-vec level) eliminated-mat))))
+    ;; set the interpolation vector
+    (loop for level below top-level
+       for imat = (constrained-interpolation-matrix
+		   ansatz-space :level level :where :refined)
+       do
+	 (extend-by-identity imat (row-table (aref a-vec level))
+			     :ignore (column-table imat))
+	 (fl.discretization::eliminate-hanging-node-constraints-from-matrix
+	  imat (getf (properties ansatz-space) :hanging-Q))
+	 (setf (aref i-vec level) imat))
     ;; return result
-    (make-instance '<mg-data> :a-vec a-vec :i-vec i-vec)))
+    (blackboard :a-vec a-vec :i-vec i-vec)))
 
+(defmethod multilevel-decomposition ((mgit <geometric-mg>) (mat <ansatz-space-automorphism>))
+  "Assemble all levels below the top-level.  The top level should have been
+already assembled.  Works only for uniformly refined meshes."
+  (let* ((ansatz-space (ansatz-space mat))
+	 (h-mesh (hierarchical-mesh ansatz-space))
+	 (top-level (top-level h-mesh))
+	 (a-vec (make-array (nr-of-levels h-mesh)))
+	 (i-vec (make-array (1- (nr-of-levels h-mesh)))))
+    ;; set the top-level matrix vector
+    (setf (aref a-vec top-level) mat)
+    (loop for level from (1- top-level) downto (base-level mgit)
+       for imat = (constrained-interpolation-matrix
+		   ansatz-space :level level :where :refined)
+       for l-mat = (if (galerkin-p mgit)
+		       (galerkin-product (transpose imat) (aref a-vec (1+ level)) imat)
+		       (let ((l-mat (make-ansatz-space-automorphism ansatz-space)))
+			 (assemble-interior ansatz-space :matrix l-mat :level level :where :refined)
+			 l-mat))
+       do
+	 (multiple-value-bind (constraints-P constraints-Q constraints-r)
+	     (fl.discretization::compute-essential-boundary-constraints
+	      ansatz-space :level level :where :refined)
+	   (let ((eliminated-mat (eliminate-constraints
+				  l-mat nil constraints-P constraints-Q constraints-r)))
+	     (m+! constraints-P eliminated-mat)
+	     (m-! constraints-Q eliminated-mat)
+	     (setf (aref i-vec level) imat)
+	     (setf (aref a-vec level) eliminated-mat))))
+    ;; return result
+    (blackboard :a-vec a-vec :i-vec i-vec)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; correction scheme
@@ -210,7 +212,6 @@ discretization to a first-order FE discretization.  This can afterwards be
 treated by ordinary AMG steps.  Even if it has the structure of a
 <selection-amg>, it is far from being a pure algebraic multigrid."))
 
-#-(or)
 (defmethod prolongation ((amg <s1-reduction>) (mat <ansatz-space-automorphism>))
   "Transfer to S1 finite elements."
   (let* ((as (ansatz-space mat))
@@ -218,82 +219,6 @@ treated by ordinary AMG steps.  Even if it has the structure of a
 		(lagrange-fe 1) (problem as) (mesh as))))
     (assemble-constraints as-1)
     (transfer-matrix as-1 as :no-slaves t)))
-
-#+(or)  ; old: will be dropped soon
-(defmethod prolongation ((amg <s1-reduction>) (mat <ansatz-space-automorphism>))
-  "This prolongation is somewhat tricky, because it includes also the case
-of hanging degrees of freedom and does not interpolate from slaves."
-  (declare (optimize (debug 3)))
-  (let* ((ansatz-space (ansatz-space mat))
-	 (constraints-P (getf (properties ansatz-space) :ip-constraints-P))
-	 (constraints-Q (getf (properties ansatz-space) :ip-constraints-Q))
-	 (mesh (mesh ansatz-space))
-	 (lagrange-1 (lagrange-fe 1))
-	 ;;(domain-as (make-fe-ansatz-space lagrange-1 (problem mat) mesh))
-	 (prol (make-ansatz-space-automorphism ansatz-space)))
-    ;;(assert (symmetric-p mat :threshold 1.0e-7 :output t))  ;;!!
-    ;; first pass: represent non-vertex-dofs by vertex-dofs
-    (for-each-row-key
-     #'(lambda (key)
-	 (assert (not (slave-or-dirichlet-dof-p key mat))) ; should be filtered out
-	 (let ((cell (representative key)))
-	   (let* ((image-fe (get-fe (fe-class ansatz-space) cell))
-		  (domain-fe (get-fe lagrange-1 cell))
-		  (local-prol (local-transfer-matrix domain-fe image-fe))
-		  (subcells (subcells cell))
-		  (nrows (nr-of-inner-dofs image-fe)))
-	     (loop for subcell across subcells
-		   for subcell-ndofs across (subcell-ndofs domain-fe)
-		   and l = 0 then (+ l subcell-ndofs)
-		   unless (zerop subcell-ndofs) do
-		   (let ((subcell-key (cell-key subcell mesh)))
-		     (assert (vertex? (representative subcell-key)))
-		     (setf (mref prol key subcell-key)
-			   (matrix-slice
-			    local-prol
-			    :from-row 0 :from-col l
-			    :nrows nrows :ncols subcell-ndofs)))))))
-     mat)
-    ;; next pass: remove Dirichlet dofs
-    (loop for key in (col-keys prol)
-	  when (c-dirichlet-dof-p key constraints-P constraints-Q)
-	  do #+debug(format t "~&remove Dirichlet ~A~%" key)
-	  (remove-column prol key))
-    ;; next pass: eliminate hanging nodes and non-vertices, maybe recursively
-    (let ((problem-keys (remove-if-not (rcurry #'c-slave-dof-p constraints-P constraints-Q)
-				       (col-keys prol))))
-      (loop
-       while problem-keys do
-       (loop with problem-table = (make-hash-table)
-	     for j in problem-keys
-	     for slave-p = (c-slave-dof-p j constraints-P constraints-Q)
-	     do
-	     #+debug (format t "Handling problem key ~A slave=~A~%" j slave-p)
-	     (for-each-key-and-entry-in-col
-	      #'(lambda (i P_ij)
-		  ;; eliminate P_ij (replace j in terms of its representation)
-		  #+debug (format t "   column ~A~%" i)
-		  (for-each-key-and-entry-in-row
-		   #'(lambda (k X_jk)
-		       (assert (not (eq j k)))
-		       (unless (eq j k)
-			 (gemm! 1.0 P_ij X_jk 1.0 (mref prol i k))
-			 #+debug (format t "     substituting ~A ~A~%" k X_jk)
-			 (when (or (c-slave-dof-p k constraints-P constraints-Q)
-				   (not (vertex? (representative k))))
-			   (setf (gethash k problem-table) t))))
-		   (if slave-p constraints-Q prol) j))
-	      prol j)
-	     (remove-column prol j)
-	     finally (setq problem-keys (hash-table-keys problem-table)))))
-    #+(or)
-    (mat-diff prol
-	      (let* ((as (ansatz-space mat))
-		     (as-1 (make-fe-ansatz-space
-			    (lagrange-fe 1) (problem as) (mesh as))))
-		(assemble-constraints as-1)
-		(transfer-matrix as-1 as)))
-    prol))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; our default amg solver for higher-order equations
@@ -312,7 +237,7 @@ which may happen if there are only Dirichlet vertices."))
 		      A)
     (make-iterator (make-instance (if all-vertices-p '<stueben> '<lu>)) A)))
 
-(defun s1-reduction-amg-solver (order &key reduction output (maxsteps 100))
+(defun s1-reduction-amg-solver (order &key output reduction (maxsteps 100))
   "This is an AMG solver which works also for Lagrange fe of order p by
 reducing them to P^1 first."
   (declare (ignore order))
@@ -320,14 +245,13 @@ reducing them to P^1 first."
     (make-instance
      '<linear-solver>
      :iteration
-     (make-instance '<s1-reduction> :max-depth 2 :pre-steps 1 :pre-smooth smoother
-		    :post-steps 1 :post-smooth smoother
+     (make-instance '<s1-reduction> :max-depth 2
+		    :smoother smoother :pre-steps 1 :post-steps 1
 		    :coarse-grid-iteration #+(or)(make-instance '<lu>)
 		    #-(or)(make-instance '<s1-coarse-grid-iterator>)
 		    :output output)
      :success-if `(< :reduction ,(or reduction 1.0e-2))
-     :failure-if `(> :step ,maxsteps)
-     :output output)))
+     :failure-if `(> :step ,maxsteps))))
 
 
 ;;; Testing: (test-geomg)

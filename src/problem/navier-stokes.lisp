@@ -51,6 +51,9 @@
   ()
   (:documentation "Navier-Stokes problem."))
 
+(defmethod nr-of-components ((problem <navier-stokes-problem>))
+  (1+ (dimension (domain problem))))
+
 (defmethod interior-coefficients ((problem <navier-stokes-problem>))
   "Interior coefficients for the Navier-Stokes problem."
   '(VISCOSITY REYNOLDS FORCE))
@@ -70,7 +73,7 @@
 
 (defun no-slip-boundary (dim)
   (let ((flags (make-array (1+ dim) :initial-element t))
-	(values (make-double-vec (1+ dim))))
+	(values (make-array (1+ dim) :initial-element #m(0.0))))
     (setf (aref flags dim) nil)
   (constant-coefficient flags values)))
 
@@ -101,12 +104,12 @@
 
 (defun driven-cavity-upper-boundary (dim &optional smooth-p)
   (let ((flags (make-array (1+ dim) :initial-element (not smooth-p)))
-	(values (make-double-vec (1+ dim))))
+	(values (make-array (1+ dim) :initial-element #m(0.0))))
     (setf (aref flags dim) nil) ; no constraint for pressure
     (when smooth-p  ; zero constraint for u_n
       (setf (aref flags (1- dim)) t))
     (unless smooth-p
-      (setf (aref values 0) 1.0))
+      (setf (aref values 0) #m(1.0)))
     (constant-coefficient flags values)))
 
 (defun driven-cavity-force (dim)
@@ -133,9 +136,7 @@
 					 dim smooth-p))))
 	     ;; lower corner sets also pressure to zero:
 	     ((mzerop midpoint)
-	      (list 'CONSTRAINT (constant-coefficient
-				 (make-array (1+ dim) :initial-element t)
-				 (make-double-vec (1+ dim)))))
+	      (list 'CONSTRAINT (constraint-coefficient (1+ dim) 1)))
 	     ;; other boundaries have standard no-slip bc
 	     (t (list 'CONSTRAINT (no-slip-boundary dim))))))
      :properties (list :linear-p (zerop reynolds)))))
@@ -144,7 +145,7 @@
 ;;;; Periodic cavity
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun periodic-cavity-force (dim)
+(defun oscillating-force (dim)
   (function->coefficient
    #'(lambda (x)
     (let ((result (make-array (1+ dim))))
@@ -164,8 +165,51 @@
 	 (when (= (dimension patch) dim)
 	   (list 'VISCOSITY (ensure-coefficient viscosity)
 		 'REYNOLDS (ensure-coefficient reynolds)
-		 'FORCE (periodic-cavity-force dim)
+		 'FORCE (oscillating-force dim)
 		 ))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Driven cavity
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun driven-cavity-upper-boundary (dim &optional smooth-p)
+  (let ((flags (make-array (1+ dim) :initial-element (not smooth-p)))
+	(values (make-array (1+ dim) :initial-element #m(0.0))))
+    (setf (aref flags dim) nil) ; no constraint for pressure
+    (when smooth-p  ; zero constraint for u_n
+      (setf (aref flags (1- dim)) t))
+    (unless smooth-p
+      (setf (aref values 0) #m(1.0)))
+    (constant-coefficient flags values)))
+
+(defun driven-cavity-force (dim)
+  (unit-vector-force dim 0))
+
+(defun driven-cavity (dim &key (viscosity 1.0) (reynolds 0.0) smooth-p)
+  (let ((domain (n-cube-domain dim)))
+    (make-instance
+     '<navier-stokes-problem>
+     :domain domain
+     :patch->coefficients
+     #'(lambda (patch)
+	 (let ((midpoint (midpoint patch)))
+	   (cond
+	     ((= dim (dimension patch)) ; interior coefficients
+	      (list 'VISCOSITY (ensure-coefficient viscosity)
+		    'REYNOLDS (ensure-coefficient reynolds)))
+	      ;; upper boundary
+	     ((and (= (dimension patch) (1- dim))
+		   (= (aref midpoint (1- dim)) 1.0))
+	      (append (when smooth-p
+			(list 'FORCE (driven-cavity-force dim)))
+		      (list 'CONSTRAINT (driven-cavity-upper-boundary
+					 dim smooth-p))))
+	     ;; lower corner sets also pressure to zero:
+	     ((mzerop midpoint)
+	      (list 'CONSTRAINT (constraint-coefficient (1+ dim) 1)))
+	     ;; other boundaries have standard no-slip bc
+	     (t (list 'CONSTRAINT (no-slip-boundary dim))))))
+     :properties (list :linear-p (zerop reynolds)))))
 
 
 
@@ -174,7 +218,7 @@
 (defun test-navier-stokes ()
   (describe
    (standard-navier-stokes-problem
-    *unit-quadrangle-domain* :force (constantly (unit-vector 2 0))))
+    (n-cube-domain 2) :force (constantly (unit-vector 2 0))))
   (describe (driven-cavity 2 :smooth-p nil :reynolds 1.0))
   )
 

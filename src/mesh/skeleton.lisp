@@ -297,14 +297,6 @@ have only one neighbor."
 boundaries of skeletons."
   (skel-empty-p (skeleton-boundary skel)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; This function is called during cell class activation
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmemo refcell-skeleton (refcell)
-  (assert (reference-cell-p refcell))
-  (skeleton refcell))
-
 ;;;; Testing: (test-skeleton)
 
 (defun test-skeleton ()

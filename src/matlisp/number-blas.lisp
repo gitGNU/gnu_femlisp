@@ -50,12 +50,18 @@
   "Number addition."
   (+ x y))
 
+(defmethod copy! ((x number) (y number))
+  "Number copying."
+  x)
 (defmethod m+! ((x number) (y number))
   "Number addition."
   (+ x y))
 (defmethod m*! ((x number) (y number))
   "Number multiplication."
   (* x y))
+
+(defmethod fill-random! ((x number) (s number))
+  (random s))
 
 (defmethod scal! (s (x number)) (* s x))
 

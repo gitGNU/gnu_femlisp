@@ -142,12 +142,11 @@ method."
   (with-items (&key iv-ip-blackboard fe-class) blackboard
     (ensure iv-ip-blackboard (blackboard))
     (transfer-bb blackboard iv-ip-blackboard '(:fe-class :mesh))
-    (with-items (&key problem success-if failure-if output) iv-ip-blackboard
+    (with-items (&key problem success-if failure-if) iv-ip-blackboard
       (ensure problem (initial-value-interpolation-problem
 		       rothe (getbb blackboard :problem)))
       (ensure success-if (slot-value rothe 'stationary-success-if))
       (ensure failure-if (slot-value rothe 'stationary-failure-if))
-      (ensure output (slot-value rothe 'output))
       (solve iv-ip-blackboard)
       (transfer-bb iv-ip-blackboard blackboard '(:solution :mesh))))
   (call-next-method))
@@ -155,7 +154,6 @@ method."
 (defmethod intermediate ((rothe <rothe>) blackboard)
   "Plots the solution initially and after each time step."
   (when (slot-value rothe 'plot)
-    (break)
     (plot (getbb blackboard :solution)))
   (call-next-method))
 
@@ -168,8 +166,6 @@ method."
 	time-step-blackboard
       (ensure success-if (slot-value rothe 'stationary-success-if))
       (ensure failure-if (slot-value rothe 'stationary-failure-if))
-      (ensure (getbb time-step-blackboard :output)
-	      (slot-value rothe 'output))
       (transfer-bb blackboard time-step-blackboard '(:mesh :fe-class :plot-mesh))
       (setf problem (time-step-problem rothe (getbb blackboard :problem)))
       (setf ansatz-space (make-fe-ansatz-space fe-class problem mesh))
@@ -179,25 +175,18 @@ method."
       (copy! solution (getbb blackboard :solution))
       )))
 
-      
 (defun test-rothe ()
 
-  (let ((bb-1 (blackboard :a 1))
-	(bb-2 (blackboard)))
-    (transfer-bb bb-1 bb-2 '(:a))
-    (assert (getbb bb-2 :a)))
-  
-  (let* ((levels 4) (order 2)
+  (let* ((dim 1) (levels 4) (order 2)
 	 (problem (cdr-model-problem
-		   1 :initial #'(lambda (x) #I(sin(2*pi*x[0]^^2)))
+		   dim :initial #'(lambda (x) #I(sin(2*pi*x[0]^^2)))
 		   :reaction (constant-coefficient 0.0)
 		   :source (constant-coefficient #m(0.0))))
 	 (rothe (make-instance
 		 '<rothe> :model-time 0.0 :time-step 0.01
 		 :stationary-success-if `(> :nr-levels ,levels)
-		 :success-if '(>= :step 10)
+		 :success-if '(>= :step 20)
 		 :output t)))
-    ;;(describe (initial-value-interpolation-problem rothe problem)))
     (iterate rothe (blackboard :problem problem :fe-class (lagrange-fe order)
 			       :plot-mesh nil)))
   )

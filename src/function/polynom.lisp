@@ -359,7 +359,8 @@ represented as nested lists."))
 (defmethod k-jet ((poly polynomial) (k integer) (dim integer))
   (loop for order upto k
 	for Di = poly then
-	(let ((Dnext (make-general-tensor (make-fixnum-vec order dim))))
+	(let ((Dnext (make-instance (full-tensor t)
+				    :dimensions (make-fixnum-vec order dim))))
 	  (dotimes (index dim Dnext)
 	    (if (= order 1)
 		(setf (tensor-ref Dnext index)

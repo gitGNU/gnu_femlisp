@@ -2,7 +2,7 @@
 ;;; matlisp-defp.lisp - Defines the Femlisp interface to Matlisp 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2005 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,7 @@
    "GEMM!" "GEMM-NN!" "GEMM-NT!" "GEMM-TN!" "GEMM-TT!"
    "GEMM" "M*" "M*-TN" "M*-PRODUCT-INSTANCE"
    "GETRF!" "GETRF" "GETRS!" "GETRS"
-   "GESV!" "GESV" "M/" "M/!"
+   "GESV!" "GESV" "M/"
    "M./" "M./!" "MAP-MATRIX"
    "DOT" "NORM" "L2-NORM" "LINF-NORM" "LP-NORM"
    "NORMALIZE!" "NORMALIZE"
@@ -57,8 +57,10 @@
    ;; new Matlisp symbols
 
    ;; vector.lisp
-   "<VECTOR>" "<STORE-VECTOR>"
-   "VREF" "TOTAL-ENTRIES"
+   "<VECTOR>" "VREF" "TOTAL-ENTRIES"
+
+   ;; store-vector.lisp
+   "STORE-VECTOR"
 
    ;; matrix.lisp
    "<MATRIX>"
@@ -83,6 +85,7 @@
    "MRANDOM"
    
    ;; ctypes.lisp
+   "INT-VEC" "MAKE-INT-VEC"
    "UINT" "UINT-VEC" "MAKE-UINT-VEC"
    "DOUBLE-VEC" "MAKE-DOUBLE-VEC" "UNIT-VECTOR"
    
@@ -93,7 +96,14 @@
    "MULTIPLICITY"
 
    ;; ccs.lisp
-   "CCS-PATTERN" "CCS-MATRIX"
+   "CCS-PATTERN" "COLUMN-STARTS" "ROW-INDICES"
+   "FULL-CCS-PATTERN" "CCS-MATRIX" "PATTERN"
+   
+   ;; tensor.lisp
+   "FULL-TENSOR" "MAKE-REAL-TENSOR"
+   "TENSOR-REF" "DIMENSIONS" "RANK" "*PRINT-TENSOR*"
+   "SLICE" "T+" "REARRANGE-TENSOR" "T*"
+   "DOTENSOR" "TENSOR-FOR-EACH" "TENSOR-MAP"
    )
   (:documentation "This package provides a Common Lisp version of full
 matrices with elements being numbers of a given type.  Those classes are

@@ -34,8 +34,10 @@
 
 (defpackage "FL.AMOP"
   (:use "COMMON-LISP"
-	#+CMU "MOP" #+SBCL "SB-MOP")
-  (:export "FIND-PROGRAMMATIC-CLASS" "MAKE-PROGRAMMATIC-INSTANCE"
+	#+CMU "MOP" #+SBCL "SB-MOP"
+	"FL.DEBUG")
+  (:export "COMPILE-AND-EVAL"
+	   "FIND-PROGRAMMATIC-CLASS" "MAKE-PROGRAMMATIC-INSTANCE"
 	   "REMOVE-SUBCLASS-METHODS" "CLASS-DIRECT-SUPERCLASSES")
   (:documentation
    "This package provides some MOP functionality.  These functions are
@@ -43,8 +45,29 @@ non-ANSI and may represent a problem when porting Femlisp."))
 
 (in-package :fl.amop)
 
-(defun find-programmatic-class (superclasses)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Compiled evaluation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun compile-and-eval (source)
+  "Compiles and evaluates the given @arg{source}.  This should be an ANSI
+compatible way of ensuring method compilation."
+  (let ((*compile-print* (dbg-p :compile)))
+    (dbg :compile "Compiling and evaluating: ~%~S~%" source)
+    ;; for SBCL and CMUCL, EVAL might be sufficient here
+    (funcall (compile nil (list 'lambda () source)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Programmatic classes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun find-programmatic-class (superclasses &optional name)
   "Finds and, if necessary, generates a class from the given superclasses."
+  (setf superclasses (mapcar #'(lambda (class)
+				 (if (symbolp class)
+				     (find-class class)
+				     class))
+			     superclasses))
   (cond
     ((null superclasses) T)
     ((null (cdr superclasses)) (car superclasses))
@@ -54,18 +77,19 @@ non-ANSI and may represent a problem when porting Femlisp."))
 				(class-direct-superclasses class)))
 		     (class-direct-subclasses (car superclasses)))))
 	 (or class
-	     (make-instance 'standard-class
-			    :name (intern (format nil "~A" (mapcar #'class-name superclasses)))
-			    :direct-superclasses superclasses
-			    :direct-slots ()))))))
+	     (compile-and-eval
+	      (let ((superclass-names (mapcar #'class-name superclasses)))
+		`(defclass ,(or name (intern (format nil "~A" superclass-names)))
+		     ,superclass-names ()))))))))
 
-(defun make-programmatic-instance (superclass-names &rest initargs)
+(defun make-programmatic-instance (superclass-es &rest initargs)
   "Makes an instance of a class denoted by a list of the names of its
 superclasses.  This class is generated automatically, if necessary."
   (apply #'make-instance
-	 (if (symbolp superclass-names)
-	     (find-class superclass-names)
-	     (find-programmatic-class (mapcar #'find-class superclass-names)))
+	 (cond ((symbolp superclass-es)
+		(find-class superclass-es))
+	       ((typep superclass-es 'standard-class) superclass-es)
+	       (t (find-programmatic-class superclass-es)))
          initargs))
 
 (defun remove-subclass-methods (gf template-args)
@@ -80,3 +104,20 @@ arguments."
 				    T))
 			    template-args))
 	do (remove-method gf method)))
+
+(defun test-amop ()
+  (defclass a () ())
+  (defclass b () ())
+  (typep #() (class-of (make-programmatic-instance
+			(list 'a 'b))))
+  (typep #() (make-instance 'standard-class
+		 :name 'X
+		 :direct-superclasses ()
+		 :direct-slots ()))
+  (make-instance 'standard-class
+		 :name 'X
+		 :direct-superclasses ()
+		 :direct-slots ())
+  (typep #() (defclass X () ()))
+  )
+  

@@ -60,7 +60,8 @@ is an array of rank 2 with standard-matrix entries."))
 	(elasticity-tensor (getf coeffs 'FL.ELASTICITY::ELASTICITY))
 	(gamma-function (getf coeffs 'FL.ELASTICITY::GAMMA))
 	(reaction-function (getf coeffs 'FL.ELASTICITY::REACTION))
-	(force-function (getf coeffs 'FL.ELASTICITY::FORCE)))
+	(force-function (getf coeffs 'FL.ELASTICITY::FORCE))
+	(cell (getf fe-geometry :cell)))
 
     ;; loop over quadrature points
     (loop
@@ -73,7 +74,7 @@ is an array of rank 2 with standard-matrix entries."))
      do
      (let* ((sol-ip (and local-sol (map 'vector (curry #'m*-tn shape-vals) local-sol)))
 	    (coeff-input
-	     (list* :global global :solution sol-ip
+	     (list* :global global :solution sol-ip :cell cell
 		    (loop for (key data) on coefficient-parameters by #'cddr
 			  collect key collect (aref data k))))
 	    (ip-tensor (and elasticity-tensor
@@ -123,7 +124,8 @@ is an array of rank 2 with standard-matrix entries."))
 
 (defmethod select-discretization ((problem <elasticity-problem>) blackboard)
   (let* ((dim (dimension (domain problem)))
-	 (order (if (<= dim 2) 4 3)))
+	 (order (or *suggested-discretization-order*
+		    (if (<= dim 2) 4 3))))
     (lagrange-fe order :nr-comps dim)))
 
 

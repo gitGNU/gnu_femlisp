@@ -1,3 +1,4 @@
+
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -39,13 +40,13 @@
 @program{triangle} written by Jonathan R. Shewchuk.")
 
 (defvar *triangle-pathname*
-  (or (aand cl-user::*triangle-path* (probe-file (pathname it)))
+  (or (aand fl.start::*triangle-path* (probe-file (pathname it)))
       (fl.port:find-executable "triangle")
       (probe-file #p"femlisp:external;triangle;triangle"))
   "Pathname of the @program{triangle} binary.")
 
 (defvar *meshes-pathname*
-  (or (aand cl-user::*meshes-directory* (pathname it))
+  (or (aand fl.start::*meshes-directory* (pathname it))
       (translate-logical-pathname #p"femlisp:meshes;"))
   "Pathname of the directory for @femlisp{} meshes.")
 

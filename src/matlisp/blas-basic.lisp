@@ -117,19 +117,14 @@
 			       collect (if (consp arg) (car arg) arg)
 			       do (assert (not (member arg '(&key &allow-other-keys))))))))
 	    ;; define specialized method
-	    (let ((*compile-print* (dbg-p :blas))
-		  (method-source
-		   (new-blas-method-code
-		    ',name ',class-name ',template-args ,actual-args
-		    ',(if (stringp (car body)) (cdr body) body))))
-	      (dbg :blas "Generated code: ~%~S~%" method-source)
-	      ;; new CMUCL/SBCL compiles methods automatically, so that eval
-	      ;; is sufficient.  however, other CLs might not.
-	      (funcall (compile nil `(lambda () ,method-source))))
+	    (fl.amop:compile-and-eval
+	     (new-blas-method-code
+	      ',name ',class-name ',template-args ,actual-args
+	      ',(if (stringp (car body)) (cdr body) body)))
 	    ;; retry call
 	    (apply #',name ,actual-args)))))))
 
-(defmacro new-define-blas-template (name args &body body)
+(defmacro define-blas-template (name args &body body)
   (new-dispatcher-code name args body))
 
 ;;;; Performance test

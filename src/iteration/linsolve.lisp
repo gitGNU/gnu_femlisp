@@ -76,10 +76,11 @@ and :time."
 	  (setq iterator nil status nil))))
     status))
 
-(defun lu-solver (&key output)
+(defun lu-solver (&key (output nil output-p))
   "LU decomposition without pivoting."
-  (make-instance '<linear-solver> :iteration (make-instance '<lu> :store-p nil)
-		 :success-if '(>= :step 1) :output output))
+  (apply #'make-instance '<linear-solver>
+	 :iteration (make-instance '<lu> :store-p nil)
+	 :success-if '(>= :step 1) (when output-p `(:output ,output))))
 
 (defmethod select-linear-solver (object blackboard)
   "Default method selects LU decomposition."
@@ -131,7 +132,7 @@ a function, you may use this base class."))
 				    (and reduction `(< :reduction ,reduction))))))
 		 :failure-if (or failure-if (and maxsteps `(> :step ,maxsteps))))
 		(blackboard :problem (lse :matrix mat :rhs rhs)
-			    :solution sol :residual res))))
+			    :solution sol :residual res :output output))))
     (values (getbb result :solution) result)))
 
 ;;;; Testing

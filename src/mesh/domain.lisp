@@ -124,10 +124,6 @@ assumed to be provided in an exact form."
 (defun n-simplex-domain (dim)
   (change-class (skeleton (n-simplex dim)) '<domain>))
 
-(defparameter *unit-interval-domain* (n-simplex-domain 1))
-(defparameter *unit-triangle-domain* (n-simplex-domain 2))
-(defparameter *unit-tetrahedron-domain* (n-simplex-domain 3))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; tensorials, n-cube
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -138,8 +134,6 @@ assumed to be provided in an exact form."
 
 (defun n-cube-domain (dim)
   (change-class (skeleton (n-cube dim)) '<domain>))
-(defparameter *unit-quadrangle-domain* (n-cube-domain 2))
-(defparameter *unit-cube-domain* (n-cube-domain 3))
 
 (defun box-domain (dimensions)
   "Generates a box domain for the given dimensions.  Here,
@@ -245,60 +239,6 @@ cube with its opposite sides identified."
 ;;; Special domains (mainly for testing purposes)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *circle-domain*
-  (let* ((pi/2 (* 0.5 pi))
-	 (pi/2-scaling (make-real-matrix `((,pi/2))))
-	 (circle-boundary (circle-function)))
-    ;; corners
-    (let ((center (make-vertex #d(0.0 0.0)))
-	  (east-vtx (make-vertex #d(1.0 0.0)))
-	  (north-vtx (make-vertex #d(0.0 1.0)))
-	  (west-vtx (make-vertex #d(-1.0 0.0)))
-	  (south-vtx (make-vertex #d(0.0 -1.0))))
-      ;; inner line segments
-      (let ((seg-ce (make-line center east-vtx))
-	    (seg-cn (make-line center north-vtx))
-	    (seg-cw (make-line center west-vtx))
-	    (seg-cs (make-line center south-vtx)))
-	;; curved boundaries
-	(let ((seg-en
-	       (make-line
-		east-vtx north-vtx
-		:mapping (transform-function
-			  circle-boundary :domain-transform
-			  (list pi/2-scaling #d(0.0)))))
-	      (seg-nw
-	       (make-line
-		north-vtx west-vtx
-		:mapping (transform-function
-			  circle-boundary :domain-transform
-			  (list pi/2-scaling (double-vec pi/2)))))
-	      (seg-ws
-	       (make-line
-		west-vtx south-vtx
-		:mapping (transform-function
-			  circle-boundary :domain-transform
-			  (list pi/2-scaling (double-vec pi)))))
-	      (seg-es
-	       (make-line
-		east-vtx south-vtx
-		:mapping (transform-function
-			  circle-boundary :domain-transform
-			  (list pi/2-scaling (double-vec (* 2 pi)))))))
-	  ;; Now the four triangle cells.  Note, that we don't bother about
-	  ;; the precise mappings for now.  Nevertheless, these would be needed,
-	  ;; if we wanted to work with completely nonlinear (and not only
-	  ;; isoparametric) cell mappings.
-	  (let ((tri-1 (make-simplex (vector seg-en seg-cn seg-ce)))
-		(tri-2 (make-simplex (vector seg-nw seg-cw seg-cn)))
-		(tri-3 (make-simplex (vector seg-ws seg-cs seg-cw)))
-		(tri-4 (make-simplex (vector seg-es seg-cs seg-ce))))
-	    ;; Finally, construct the domain
-	    (make-instance '<domain> :cells (list tri-1 tri-2 tri-3 tri-4)))))))
-  "This definition of a circle domain gives somewhat better results than
-the general n-ball-domain, probably because the boundary parametrization is
-better.")
-
 (defparameter *rotated-square-domain*
   ;; corners
   (let ((center (make-vertex #d(0.0 0.0)))
@@ -336,7 +276,7 @@ better.")
 (defun L-domain (dim)
   "Creates an L-domain by cutting out a small cube of the uniform refinement of
 the unit cube."
-  (let* ((skel (refine-globally (skeleton (n-cube dim))))
+  (let* ((skel (refine (skeleton (n-cube dim))))
 	 (upper-right-cell
 	  (find-cell-from-position skel (make-double-vec dim 0.75))))
     (change-class (skeleton-without-cell skel upper-right-cell)
@@ -346,10 +286,9 @@ the unit cube."
 ;;;; Testing
 (defun test-domain ()
   (display-ht (etable (n-ball-domain 2) 2))
-  (corners *unit-triangle*)
+  (corners (n-simplex 2))
   (let ((*print-skeleton-values* t))
     (describe (triangle-domain #d(0.0 0.0) #d(1.0 0.0) #d(0.0 1.0))))
-  (check *unit-quadrangle-domain*)
   (check (n-cube-domain 2))
   (assert (= -1 (dimension (skeleton-boundary (n-cell-domain 2)))))
   )

@@ -39,7 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar *dx-pathname*
-  (or (aand cl-user::*dx-path* (probe-file (pathname it)))
+  (or (aand fl.start::*dx-path* (probe-file (pathname it)))
       (fl.port:find-executable "dx"))
   "Pathname of the @program{DX} binary.")
 

@@ -39,7 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <solver> ()
-  ((output :reader output :initform nil :initarg :output))
+  ((output :reader output :initarg :output))
   (:documentation "The base class of linear, nonlinear and whatever
 iterative solvers."))
 
@@ -76,12 +76,8 @@ problem with certain characteristics."))
 matrix or a linear problem with certain characteristics."))
 
 (defmethod select-solver :around (object blackboard)
-  "If a solver is on the blackboard, use it.  Get also output slot from the
-blackboard."
-  (let ((solver (aif (getbb blackboard :solver) it (call-next-method))))
-    (setf (slot-value solver 'output)
-	  (getbb blackboard :output))
-    solver))
+  "If a solver is on the blackboard, use it."
+  (or (getbb blackboard :solver) (call-next-method)))
 
 (defmethod select-solver ((problem <problem>) blackboard)
   "This method does a more specific search for linear problems by calling
@@ -91,11 +87,8 @@ blackboard."
       (error "No solver for this problem known.")))
 
 (defmethod select-linear-solver :around (object blackboard)
-  "If a solver is on the blackboard, use it."
-  (let ((solver (aif (getbb blackboard :solver) it (call-next-method))))
-    (setf (slot-value solver 'output)
-	  (getbb blackboard :output))
-    solver))
+  "If a linear solver is on the blackboard, use it."
+  (or (getbb blackboard :solver) (call-next-method)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Iterative solvers for discrete problems

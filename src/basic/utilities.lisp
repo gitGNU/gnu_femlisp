@@ -307,12 +307,14 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 @lisp
   (map-tree #'1+ '((1 (2)))) @result{} ((2 (3)))
 @end lisp"
-  (mapcar
-   #'(lambda (item)
-       (if (listp item)
-	   (map-tree func item)
-	   (funcall func item)))
-   tree))
+  (if (atom tree)
+      (funcall func tree)
+      (mapcar
+       #'(lambda (item)
+	   (if (listp item)
+	       (map-tree func item)
+	       (funcall func item)))
+       tree)))
 
 (defun check-properties (place properties)
   "Checks if all of the @arg{properties} are in the property list
@@ -341,6 +343,11 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 (defun queue->list (queue)
   "Transforms @arg{queue} to a list."
   (car queue))
+
+(defun list->queue (list)
+  "Transforms @arg{list} to a queue."
+  (let ((copy (copy-seq list)))
+    (cons copy (last copy))))
 
 (defun peek-first (queue)
   "Returns the first item in @arg{queue} (without popping it)."
@@ -423,7 +430,12 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 
 (defun dll->list (dll)
   (loop for item = (dll-first dll) then (dli-succ item) until (null item)
-	collect item))
+	collect (dli-object item)))
+
+(defun list->dll (list)
+  (let ((dll (make-dll)))
+    (dolist (item list dll)
+      (dll-rear-insert item dll))))
 
 (defun dll-empty-p (dll)
   (null (dll-first dll)))
@@ -855,6 +867,8 @@ according to @math{result[i] = v[perm[i]]}."
     (dll-remove 2 x)
     (dll-pop-first x)
     (dll-pop-first x))
+  (let ((list '(1 2 3)))
+    (equalp (dll->list (list->dll list)) list))
   (let ((ht (make-hash-table)))
     (setf (gethash 1 ht) 1)
     (setf (gethash 2 ht) 4)

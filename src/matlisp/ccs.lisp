@@ -4,7 +4,7 @@
 ;;; ccs.lisp - Compressed column storage scheme
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2005 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -34,33 +34,6 @@
 
 (in-package :fl.matlisp)
 
-(defclass store-vector (<vector>)
-  ((store :reader store :initarg :store :documentation
-	  "The vector entries."))
-  (:documentation "This mixin yields vector behaviour for a class
-containing a store.  The store is a unifom array with elements of a certain
-type which can be determined by the funtion @function{element-type}.  It
-often is but does not have to be equal to the type of scalars for this
-vector which can be obtained by calling the function
-@function{scalar-type}."))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun store-vector (type)
-    (assert (subtypep type 'number))
-    (let ((class-name (intern (format nil "~A" (list 'store-vector type))
-			      :fl.matlisp)))
-      (or (find-class class-name nil)
-	  (prog1
-	      (eval `(defclass ,class-name (store-vector) ()))
-	    (eval `(defmethod element-type ((vector ,class-name))
-		    ',type))
-	    (eval `(defmethod scalar-type ((vector ,class-name))
-		    ',type)))))))
-
-(defmethod initialize-instance :after ((vec store-vector) &key &allow-other-keys)
-  "Coerce the store to the correct type."
-  (coerce (store vec) `(simple-array ,(element-type vec) (*))))
-
 (defclass ccs-pattern ()
   ((nrows :initarg :nrows :accessor nrows :type fixnum
 	  :documentation "Number of rows in the pattern.")
@@ -70,13 +43,27 @@ vector which can be obtained by calling the function
 		  :documentation "Vector with start indices of columns.")
    (row-indices :initarg :row-indices
 		:documentation "Vector with row indices."))
-  (:documentation "A CCS (compressed column storage) pattern.  We work with
-integer vectors that do not have to be copied for calls to C programs."))
+  (:documentation "A CCS (compressed column storage) pattern.  Note: if you
+use integer vectors for @slot{column-starts} and @slot{row-indices} they do
+not have to be copied for a call to the alien sparse solvers."))
 
 (defmethod number-nonzero-entries ((pattern ccs-pattern))
   (with-slots (ncols column-starts) pattern
     (aref column-starts ncols)))
-  
+
+(defun full-ccs-pattern (nrows ncols)
+  "Returns trivial rectangular ccs-patterns."
+  (let ((N (* nrows ncols)))
+    (make-instance
+     'ccs-pattern
+     :nrows nrows :ncols ncols
+     :column-starts (coerce (loop for i from 0 upto nrows
+			    collect (* i ncols))
+			 'int-vec)
+     :row-indices (coerce (loop for i from 0 below N
+			     collect (mod i ncols))
+			  'int-vec))))
+
 (defmethod initialize-instance :after ((pattern ccs-pattern) &key &allow-other-keys)
   "Check pattern and coerce vectors, if necessary."
   (with-slots (ncols column-starts row-indices) pattern
@@ -101,13 +88,16 @@ abstract class which is made concrete by mixing it with a store-vector."))
   (defun ccs-matrix (type)
     "Construct a CCS matrix with entries of @arg{type}."
     (fl.amop:find-programmatic-class
-     (list (find-class 'ccs-matrix) (store-vector type)))))
+     (list 'ccs-matrix (store-vector type)))))
 
 (defmethod initialize-instance :after ((ccs ccs-matrix) &key &allow-other-keys)
-  "Check the length of the store."
   (assert (typep ccs 'store-vector))
-  (assert (= (length (store ccs))
-	     (number-nonzero-entries (pattern ccs)))))
+  (with-slots (store pattern) ccs
+    (if (slot-boundp ccs 'store)
+	(assert (= (length (store ccs))
+		   (number-nonzero-entries (pattern ccs))))
+	(setf store (make-array (number-nonzero-entries pattern)
+				:element-type (element-type ccs))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; GEMV!
@@ -122,11 +112,13 @@ abstract class which is made concrete by mixing it with a store-vector."))
 	 (column-starts (slot-value pattern 'column-starts))
 	 (row-indices (slot-value pattern 'row-indices)))
     (if (= (ncols x) 1)
+	;; fast version for single rhs/sol
 	(dotimes (i (ncols x))
 	  (dotimes (offset (aref column-starts i) (aref column-starts (1+ i)))
 	    (let ((k (aref row-indices offset))
 		  (factor (* alpha (aref store offset))))
 	      (incf (vref z i) (* factor (vref y k))))))
+	;; slower version for multiple rhs/sol
 	(dotimes (i (ncols x))
 	  (dotimes (offset (aref column-starts i) (aref column-starts (1+ i)))
 	    (let ((k (aref row-indices offset))
@@ -161,7 +153,8 @@ SuperLU.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun five-point-stencil-matrix (nx ny)
-  "Generate a CCS matrix for the five-point stencil on a grid with the given number of active grid points in each dimension."
+  "Generate a CCS matrix for the five-point stencil on a grid with the
+given number of active grid points in each dimension."
   (declare (type (integer 0 10000) nx ny))
   (let* ((nrows (* nx ny))
 	 (ncols (* nx ny))
@@ -213,16 +206,18 @@ SuperLU.")
 (defun test-ccs ()
   #+umfpack (direct-solver-performance-test 'fl.alien::umfpack 400)
   #+superlu (direct-solver-performance-test 'fl.alien::superlu 200)
-  (make-instance (store-vector 'double-float) :store #d(0.0))
+  (make-instance (store-vector 'single-float)
+		 :store (make-array 1 :element-type 'single-float))
   (let* ((pattern (make-instance
 		   'ccs-pattern :nrows 1 :ncols 1
-		   :column-starts #(0 1)
-		   :row-indices #(0)))
+		   :column-starts (int-vec 0 1)
+		   :row-indices (int-vec 0)))
 	 (ccs (make-instance
 	       (ccs-matrix 'double-float) :pattern pattern :store #d(2.0)))
 	 (rhs #m(1.0)))
     (gesv! ccs rhs)))
 
+;;; (test-ccs)
 (fl.tests:adjoin-test 'test-ccs)
 
 

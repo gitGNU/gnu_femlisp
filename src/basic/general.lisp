@@ -64,4 +64,10 @@ this object."))
   "Sets the property @arg{property} of @arg{problem} to @arg{value}."
   (setf (getf (slot-value object 'properties) property) value))
 
+(defun runtime-compile (source)
+  "Calls compile on the provided @arg{source}.  When :compile is activated
+for debugging, the source code is printed."
+  (let ((*print-circle* nil))
+    (dbg :compile "Compiling source:~%~A" source))
+  (compile nil source))
 

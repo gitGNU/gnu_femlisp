@@ -34,7 +34,7 @@
 
 (in-package :fl.matlisp)
 
-(defclass <matrix> ()
+(defclass <matrix> (<vector>)
   ()
   (:documentation "General matrix class."))
 
@@ -47,6 +47,18 @@
   (:documentation "Returns the matrix element @code{A[i,j]}."))
 (defgeneric (setf mref) (value A i j)
   (:documentation "Writes the matrix element @code{A[i,j]}."))
+
+(defmethod vref ((mat <matrix>) index-pair)
+  "Vector referencing on matrices is done by default by matrix referencing
+a pair of index-pair.  Some matrices may allow for other vector indexing
+schemes."
+  (mref mat (car index-pair) (cdr index-pair)))
+
+(defmethod (setf vref) (value (mat <matrix>) index-pair)
+  "Vector referencing on matrices is done by default by matrix referencing
+a pair of index-pair."
+  (setf (mref mat (car index-pair) (cdr index-pair)) value))
+
 
 ;;; BLAS Level 3
 (defgeneric gemm-nn! (a x y b z)
@@ -80,7 +92,6 @@ overwriting b."))
   (:documentation "Returns a zero matrix for storing the transpose of X."))
 
 ;;; Matrix manipulation
-
 
 (defgeneric join (x y &optional orientation)
   (:documentation "Joins X and Y horizontally or vertically depending on the
@@ -227,10 +238,6 @@ calls the corresponding generic function, e.g. GEMM-NN!."
 	(error "argument A given to GESV! is singular to working machine precision")
 	(getrs! LR b ipiv))))
 
-(definline m/! (a b)
-  "M/! is an easier interface for GESV!."
-  (gesv! a b))
-
 (definline gesv (x b)
   "Rewriting for GESV in terms of GESV!."
   (gesv! x (copy b)))
@@ -260,6 +267,29 @@ access is slow.  They are indexed with ordinary integers."))
 	      (aref (col-keys submat) j))
 	value))
 
+(defmethod vref ((submat <submatrix>) k)
+  "A @class{<submatrix>} can be accessed as one-dimensional vector."
+  (multiple-value-bind (i j) (floor k (nrows submat))
+    (mref submat i j)))
+
+(defmethod (setf vref) (value (submat <submatrix>) k)
+  (multiple-value-bind (i j) (floor k (nrows submat))
+    (setf (mref submat i j) value)))
+
+(defmethod for-each-key ((fn function) (mat <submatrix>))
+  (dotimes (i (* (nrows mat) (ncols mat)))
+    (funcall fn i)))
+
+(defmethod for-each-key-and-entry ((fn function) (mat <submatrix>))
+  (dotimes (i (nrows mat))
+    (dotimes (j (ncols mat))
+      (funcall fn (+ (* j (nrows mat)) i) (mref mat i j)))))
+
+(defmethod for-each-entry ((fn function) (mat <matrix>))
+  (dotimes (i (nrows mat))
+    (dotimes (j (ncols mat))
+      (funcall fn (mref mat i j)))))
+
 (defmethod nrows ((mat <submatrix>)) (length (row-keys mat)))
 
 (defmethod ncols ((mat <submatrix>)) (length (col-keys mat)))
@@ -267,19 +297,5 @@ access is slow.  They are indexed with ordinary integers."))
 (defmethod nr-of-entries ((submat <submatrix>))
   (* (nrows submat) (ncols submat)))
 
-(defmethod for-each-key ((fn function) (submat <submatrix>))
-  (dotimes (i (nrows submat))
-    (dotimes (j (ncols submat))
-      (funcall fn i j))))
-
-(defmethod for-each-key-and-entry ((fn function) (submat <submatrix>))
-  (dotimes (i (nrows submat))
-    (dotimes (j (ncols submat))
-      (funcall fn i j (mref submat i j)))))
-
-(defmethod for-each-entry ((fn function) (submat <submatrix>))
-  (dotimes (i (nrows submat))
-    (dotimes (j (ncols submat))
-      (funcall fn (mref submat i j)))))
 
 

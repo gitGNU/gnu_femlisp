@@ -65,7 +65,9 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	(convection (getf coeffs 'FL.CDR::CONVECTION))
 	(gamma (getf coeffs 'FL.CDR::GAMMA))
 	(source (getf coeffs 'FL.CDR::SOURCE))
-	(reaction (getf coeffs 'FL.CDR::REACTION)))
+	(reaction (getf coeffs 'FL.CDR::REACTION))
+	(cell (getf fe-geometry :cell)))
+    (dbg :fe "Local discretization on cell ~A" cell)
     
     ;; loop over quadrature points
     (loop
@@ -80,7 +82,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	    (left-vals (if local-v (dot local-v shape-vals) shape-vals))
 	    (sol-ip (and local-sol (m*-tn shape-vals local-sol)))
 	    (coeff-input
-	     (list* :global global :solution sol-ip
+	     (list* :global global :solution sol-ip :cell cell
 		    (loop for (key data) on coefficient-parameters by #'cddr
 			  collect key collect (aref data i)))))
        
@@ -126,7 +128,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
     
     ;; custom fe rhs
     (whereas ((fe-rhs (and local-rhs (getf coeffs 'FL.CDR::FE-RHS))))
-      (m+! (evaluate fe-rhs (list :cell (getf fe-geometry :cell) :fe fe))
+      (m+! (evaluate fe-rhs (list :cell cell :fe fe))
 	   local-rhs))
     ))
 
@@ -143,7 +145,8 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	 (fe-class (fe-class ansatz-space))
 	 (constraints-P (make-ansatz-space-automorphism ansatz-space))
 	 (constraints-Q (make-ansatz-space-automorphism ansatz-space))
-	 (constraints-rhs (make-ansatz-space-vector ansatz-space)))
+	 (constraints-rhs (make-ansatz-space-vector ansatz-space))
+	 (multiplicity (multiplicity ansatz-space)))
     (doskel (cell level-skel)
       (when (ecase where
 	      (:refined (refined-p cell h-mesh))
@@ -166,11 +169,16 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 		    (setf (mref (mref constraints-P cell-key cell-key) k k) 1.0)
 		    ;;		       (clear-row mat cell k)
 		    ;;		       (setf (mref (mref mat cell cell) k k) 1.0)
-		    (setf (vref (vref constraints-rhs cell-key) k)
-			  (evaluate dirichlet-function
-				    (list :local (dof-coord dof)
-					  :global (local->global cell (dof-gcoord dof))))))
-		  )))))
+		    (let* ((value
+			    (evaluate dirichlet-function
+				      (list :local (dof-coord dof)
+					    :global (local->global cell (dof-gcoord dof)))))
+			   (values (cond ((numberp value)
+					  (scal value (ones 1 multiplicity)))
+					 ((vectorp value) (aref value 0))
+					 (t value))))
+		      (minject values (vref constraints-rhs cell-key)
+			       k 0))))))))
     (values constraints-P constraints-Q constraints-rhs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -179,9 +187,10 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 
 (defmethod select-discretization ((problem <cdr-problem>) blackboard)
   (let* ((dim (dimension (domain problem)))
-	 (order (cond ((<= dim 2) 4)
-		      ((= dim 3) 3)
-		      (t 1))))
+	 (order (or *suggested-discretization-order*
+		    (cond ((<= dim 2) 4)
+			  ((= dim 3) 3)
+			  (t 1)))))
     (lagrange-fe order)))
 
 
@@ -192,7 +201,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order))
 	 (as (make-fe-ansatz-space fedisc problem h-mesh)))
-    (with-items (&key matrix rhs interior-matrix)
+    (with-items (&key matrix rhs)
 	(fe-discretize
 	 (blackboard :ansatz-space as
 		     :mass-factor 1.0 :stiffness-factor 1.0))

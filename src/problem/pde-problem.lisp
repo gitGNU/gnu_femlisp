@@ -73,10 +73,9 @@ keyword parameters which should correspond to the list in DEMANDS.")
     demands))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; some trivial coefficient functions
+;;; some coefficient functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declaim (inline constant-coefficient))
 (defun constant-coefficient (value &rest other-values)
   "Returns a coefficient which takes the given value.  Several values can
 be passed which is needed, for example, for returning also the type of a
@@ -112,8 +111,7 @@ otherwise, @arg{obj} is made into a constant coefficient."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <domain-problem> (<problem>)
-  ((domain :reader domain :initform (required-argument)
-	   :initarg :domain :type <domain>)
+  ((domain :reader domain :initarg :domain :type <domain>)
    (coefficients :accessor coefficients :initform (make-hash-table)
 		 :initarg :coefficients :documentation
 		 "Hash table which maps domain patches to coefficients.")
@@ -139,20 +137,27 @@ mapping domain patches to coefficient property lists."
 	(setf (gethash patch coefficients)
 	      (funcall patch->coefficients patch))))))
 
+(defmethod domain-dimension ((problem <domain-problem>))
+  (dimension (domain problem)))
+
 (defmethod describe-object :after ((problem <domain-problem>) stream)
   (doskel ((patch properties) (domain problem))
     (format t "~&Cell ~A  [Mapping ~A]~%Properties: ~A~%Coeffs: ~A~2%"
 	    patch (mapping patch) properties
 	    (coefficients-of-patch patch problem))))
 
-(declaim (inline coefficients-of-patch coefficients-of-cell))
+(defgeneric nr-of-components (problem)
+  (:documentation "Returns the number of components for @arg{problem}."))
+
 (defun coefficients-of-patch (patch problem)
   "An accessor for the coefficients."
   (the list (gethash patch (slot-value problem 'coefficients))))
 
-(defun coefficients-of-cell (cell mesh problem)
-  "An accessor for the coefficients."
-  (coefficients-of-patch (patch-of-cell cell mesh) problem))
+(defgeneric coefficients-of-cell (cell mesh problem)
+  (:documentation "An accessor for the coefficients.")
+  (:method (cell mesh problem)
+    "Default method."
+    (coefficients-of-patch (patch-of-cell cell mesh) problem)))
 
 (defgeneric interior-coefficients (problem)
   (:documentation "Yields a list of possible interior coefficients for PROBLEM.")
@@ -182,6 +187,20 @@ essential boundary conditions."  '(PERIODIC CONSTRAINT)))
 (defgeneric coefficient-p (problem coeff)
   (:documentation "Test if @arg{coeff} is a coefficient of @arg{problem}.")
   (:method (problem coeff) (member coeff (coefficients problem))))
+
+(defun constraint-coefficient (components multiplicity)
+  "Returns a coefficient function which sets Dirichlet zero boundary
+conditions for all components of a PDE system."
+  (constant-coefficient
+   (make-array components :initial-element t)
+   (make-array components :initial-element (zeros 1 multiplicity))))
+
+(defgeneric zero-constraints (problem)
+  (:documentation "Returns a coefficient function which constrains all
+system components to zero.")
+  (:method (problem)
+    (constraint-coefficient
+     (nr-of-components problem) (multiplicity problem))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <interpolation-problem>
@@ -247,7 +266,7 @@ check has been performed."
 (defun test-pde-problem ()
   (function->coefficient
    #'(lambda (&key global &allow-other-keys) (exp (aref global 0))))
-  (make-instance '<pde-problem> :domain *unit-interval-domain*)
+  (make-instance '<pde-problem> :domain (n-cube-domain 1))
   )
 
 (fl.tests:adjoin-test 'test-pde-problem)

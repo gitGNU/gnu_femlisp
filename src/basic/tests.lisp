@@ -32,9 +32,6 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;; The idea of the Femlisp test suite is that every package or file is
-;;;; able to add locally consistency checks.
-
 (defpackage "FL.TESTS"
   (:use "COMMON-LISP")
   (:export "ADJOIN-TEST" "REMOVE-TEST" "TEST-FEMLISP")
@@ -56,7 +53,10 @@ test suite before a release."))
 (defvar *bugs* ()
   "List of Femlisp bugs, i.e. failing tests that have not yet been fixed.")
 
-(defvar *report* ()
+(defvar *testing* ()
+  "List of routines which still have to be tested.")
+
+(defvar *failed* ()
   "List of routines which failed for last run of the test suite.")
 
 (defun adjoin-test (fsym)
@@ -79,35 +79,53 @@ test suite before a release."))
   "Clears the Femlisp bug register."
   (setq *tests* ()))
 
-(defun test-femlisp ()
+(defun test-femlisp (&key continue package (logfile #p"femlisp:fltest.log"))
   "Runs the Femlisp test suite.  The result is printed to
 *standard-output*."
-  (setq *report* ())
-  (loop for fsym in (reverse *tests*)
-	for result =
-	#+gcl (funcall fsym)
-	#-gcl
-	(catch 'trap
-	  (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
-	    (format t "~&~%***** Testing ~A *****~%~%" fsym)
-	    (funcall fsym)
-	    nil))
-	when result do (push (cons fsym result) *report*)
-	finally
-	(let ((failed (remove nil *report* :key #'cdr)))
-	  (if failed
-	      (loop initially (format t "~&~%The following tests failed:~%")
-		    for (sym . error) in failed do
-		    (format t "~%~%Test: ~A.~%Result:~A~%" sym error))
-	      (format t "~%All tests passed.~%"))))
-  
-  ;; report also remaining bugs
-  (when *bugs*
-    (format t "The following bugs are still open:~%")
-    (loop for sym in *bugs* do (format t "~A~%" sym)))
-  )
+  (unless continue
+    (setq *testing* (if package
+			(remove (find-package package) *tests*
+				:key #'symbol-package :test-not #'eq)
+			*tests*))
+    (setq *failed* nil))
+  (flet ((run-tests ()
+	   (loop for fsym = (pop *testing*) while fsym
+	      for result =
+		#+gcl (funcall fsym)
+		#-gcl
+		(catch 'trap
+		  (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
+		    (format t "~&~%***** Testing ~A *****~%~%" fsym)
+		    (funcall fsym)
+		    nil))
+	      when result do (push (cons fsym result) *failed*)
+	      finally (return *failed*))))
+    (let ((output-string
+	   (with-output-to-string (stream)
+	     (multiple-value-bind (secs mins hrs day month year)
+		 (get-decoded-time)
+	       (format stream "~&Started tests at ~D.~D.~D at ~D:~2,'0D:~2,'0D~%"
+		       day month year hrs mins secs))
+	     (run-tests)
+	     (multiple-value-bind (secs mins hrs day month year)
+		 (get-decoded-time)
+	       (format stream "~&Finished tests at ~D.~D.~D at ~D:~2,'0D:~2,'0D~%"
+		       day month year hrs mins secs))
+	     (if *failed*
+		 (loop initially (format stream "~&~%The following tests failed:~%")
+		    for (sym . error) in *failed* do
+		      (format stream "~%~%Test: ~A.~%Result:~A~%" sym error))
+		 (format stream "~%All tests passed.~%"))
+	     (when *bugs*
+	       (format stream "The following bugs are still open:~%")
+	       (loop for sym in *bugs* do (format stream "~A~%" sym))))))
+      (write-string output-string)
+      (when logfile
+	(with-open-file (stream logfile :direction :output :if-exists :append)
+	  (write-string output-string stream))))))
 
-;;; (time (fl.tests:test-femlisp))
+
+;;; (time (fl.tests:test-femlisp :package :fl.mesh))
 ;;;
 ;;; Test without plotting:
 ;;; (time (let ((fl.plot::*plot* nil)) (fl.tests:test-femlisp)))

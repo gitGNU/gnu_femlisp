@@ -47,6 +47,7 @@
    "<EVP-MIXIN>" "LAMBDA" "MU" "<EVP>" "<LS-EVP>" "MASS" "ENERGY")
   (:export				; pde-problem.lisp
    "<DOMAIN-PROBLEM>" "<INTERPOLATION-PROBLEM>" "<PDE-PROBLEM>"
+   "DOMAIN-DIMENSION" "NR-OF-COMPONENTS"
    "PATCH->COEFFICIENTS" "MULTIPLICITY"
    "SELF-ADJOINT-P" "DUAL-PROBLEM"
    "COEFFICIENTS-OF-PATCH" "COEFFICIENTS-OF-CELL"
@@ -54,7 +55,7 @@
    "INTERIOR-COEFFICIENT-P" "BOUNDARY-COEFFICIENT-P" "COEFFICIENT-P"
    "PERIODIC" "CONSTRAINT"
    "<COEFFICIENT>" "DEMANDS" "FUNCTION->COEFFICIENT" "ENSURE-COEFFICIENT"
-   "CONSTANT-COEFFICIENT"
+   "CONSTANT-COEFFICIENT" "CONSTRAINT-COEFFICIENT" "ZERO-CONSTRAINTS"
    "*EMPTY-COEFFICIENT-INPUT*")
   (:export				; time.lisp
    "<TIME-DEPENDENT-PROBLEM>" "STATIONARY-PROBLEM-CLASS"
@@ -68,6 +69,6 @@ containing the coefficient functions.
 Several subclasses of @class{<pde-problem>} are defined in own packages,
 e.g. @class{<cdr-problem>} in @package{FL.CDR},
 @class{<elasticity-problem>} in @package{FL.ELASTICITY} and
-@class{<navier-stokes-problem} in @package{FL.NAVIER-STOKES}.")  )
+@class{<navier-stokes-problem} in @package{FL.NAVIER-STOKES}."))
 
 

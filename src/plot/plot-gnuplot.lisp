@@ -59,7 +59,7 @@
 graphs."
   (dovec (polygon (ensure-polygons polygons))
     (dovec (point (if (stringp (car polygon)) (cdr polygon) polygon))
-      (format stream "~G ~G~%" (elt point 0) (elt point 1)))
+      (format stream "~,,,,,,'EG ~,,,,,,'EG~%" (elt point 0) (elt point 1)))
     (format stream "~%~%")))
 
 (defmethod graphic-commands ((polygons list) (program (eql :gnuplot))
@@ -101,7 +101,7 @@ graphs."
       (dolist (connection (sort (connections cells position-indices depth)
 				#'<= :key (compose #'index->xpos #'car)))
 	(dolist (index connection)
-	  (format stream "~G ~G~%" (index->xpos index)
+	  (format stream "~,,,,,,'EG ~,,,,,,'EG~%" (index->xpos index)
 		  (if values (aref values index) 0.0)))))))
 
 ;;;; Testing: (test-plot-gnuplot)

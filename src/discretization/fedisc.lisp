@@ -69,7 +69,7 @@ on for implementing matrixless computations."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Interior assembly
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+  
 (defun assemble-interior (ansatz-space &key level (where :surface)
 			  matrix rhs solution ; left right
 			  (mass-factor 0.0) (stiffness-factor 1.0)
@@ -89,33 +89,33 @@ problems.  Boundary conditions and constraints are not taken into account
 within this routine.
 
 In general, this function does most of the assembly work.  Other steps like
-handling constraints are tricky, but usually of lower complexity."
-  (dbg :iter "Mass-factor=~A Stiffness-factor=~A" mass-factor stiffness-factor)
+handling constraints are intricate, but usually of lower complexity."
+  (dbg :disc "Mass-factor=~A Stiffness-factor=~A" mass-factor stiffness-factor)
   (let* ((problem (problem ansatz-space))
 	 (h-mesh (hierarchical-mesh ansatz-space))
 	 (level-skel (if level (cells-on-level h-mesh level) h-mesh))
 	 (fe-class (fe-class ansatz-space)))
     (doskel (cell level-skel)
-      (let* ((patch (patch-of-cell cell h-mesh))
-	     (patch-properties (skel-ref (domain h-mesh) patch)))
-	;; for the moment, we assume that the problem is resolved by the
-	;; domain structure, i.e. that distributional coefficients occur
-	;; only on patches.
-	(whereas ((coeffs
-		   (loop
-		    for (symbol coeff) on (coefficients-of-cell cell h-mesh problem) by #'cddr
-		    for coeff-dim = (dimension coeff)
-		    when
-		    (and (or (eq coeff-dim t)
-			     (= (dimension cell) (or coeff-dim (dimension patch))))
-			 (not (eq symbol 'CONSTRAINT)))
-		    collect symbol and collect coeff)))
-	  (when (ecase where
-		  (:refined (refined-p cell h-mesh))
-		  (:surface (not (refined-p cell h-mesh)))
-		  (:all t))
+      (when (ecase where
+	      (:refined (refined-p cell h-mesh))
+	      (:surface (not (refined-p cell h-mesh)))
+	      (:all t))
+	(let* ((patch (patch-of-cell cell h-mesh))
+	       (patch-properties (skel-ref (domain h-mesh) patch)))
+	  ;; for the moment, we assume that the problem is resolved by the
+	  ;; domain structure, i.e. that distributional coefficients occur
+	  ;; only on patches.
+	  (whereas ((coeffs
+		     (loop
+			for (symbol coeff) on (coefficients-of-cell cell h-mesh problem) by #'cddr
+			when (and coeff
+				  (or (eq (dimension coeff) t)
+				      (= (dimension cell)
+					 (or (dimension coeff) (dimension patch))))
+				  (not (eq symbol 'CONSTRAINT)))
+			collect symbol and collect coeff)))
 	    (let* ((fe (get-fe fe-class cell))
-		   (qrule (quadrature-rule fe-class fe))
+		   (qrule (quadrature-rule fe))
 		   (geometry (fe-cell-geometry
 			      cell qrule
 			      :metric (getf patch-properties 'FL.MESH::METRIC)
@@ -130,6 +130,27 @@ handling constraints are tricky, but usually of lower complexity."
 	      ;; accumulate to global matrix and rhs (if not nil)
 	      (when rhs (increment-global-by-local-vec cell fe rhs local-rhs))
 	      (when matrix (increment-global-by-local-mat cell fe matrix local-mat)))))))))
+
+(defun compute-interior-level-matrix (interior-mat sol level)
+  "Is called in the geomg package."
+  (let* ((ansatz-space (ansatz-space interior-mat))
+	 (h-mesh (hierarchical-mesh ansatz-space))
+	 (top-level (top-level h-mesh))
+	 (mat (extract-level interior-mat level)))
+    ;; extend the surface matrix on this level by the refined region
+    (when (< level top-level)
+      (assemble-interior ansatz-space :matrix mat :solution sol :level level :where :refined))
+    ;; extend it by the hanging-node region
+    (loop for level from (1- level) downto 0
+	  for constraints =
+	  (nth-value 1 (hanging-node-constraints ansatz-space :level level :ip-type t))
+	  for constraints-p =
+	  (eliminate-hanging-node-constraints-from-matrix mat constraints)
+	  while constraints-p do
+	  (add-local-part! mat interior-mat (column-table constraints)
+			   :directions '(:right)))
+    ;; and return it
+    mat))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Assembly of full problem
@@ -149,10 +170,8 @@ of a nonlinear problem."
 	(<evp-mixin>
 	 (setf mass-factor (- (unbox (slot-value problem 'lambda)))
 	       stiffness-factor (unbox (slot-value problem 'mu)))))
-      (setq interior-matrix (or interior-matrix
-				(make-ansatz-space-automorphism ansatz-space)))
-      (setq interior-rhs (or interior-rhs
-			     (make-ansatz-space-vector ansatz-space)))
+      (setq interior-matrix (make-ansatz-space-automorphism ansatz-space))
+      (setq interior-rhs (make-ansatz-space-vector ansatz-space))
       (assert (every #'(lambda (obj) (or (not obj) (eq ansatz-space (ansatz-space obj))))
 		     (list interior-matrix interior-rhs solution)))
       ;; interior assembly
@@ -162,13 +181,11 @@ of a nonlinear problem."
 			 :where :surface
 			 :mass-factor (force mass-factor)
 			 :stiffness-factor (force stiffness-factor))
-      #+(or)(break)
       (when assemble-constraints-p (assemble-constraints ansatz-space))
       (destructuring-bind (&key constraints-P constraints-Q constraints-r
 				ip-constraints-P ip-constraints-Q ip-constraints-r
 				&allow-other-keys)
 	  (properties ansatz-space)
-	#+(or)(break)
 	(multiple-value-bind (result-mat result-rhs)
 	    (eliminate-constraints interior-matrix interior-rhs
 				   ip-constraints-P ip-constraints-Q ip-constraints-r)

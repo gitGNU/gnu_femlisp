@@ -103,7 +103,6 @@ is resolved as given by the additional parameter depth."
 	 :domain-dimension 2 :image-dimension 1)
 	:domain (n-cube-domain 2)
 	:depth 6)
-  (refcell-refinement-skeleton (n-cube 2) 5)
   )
 
 (fl.tests::adjoin-test 'test-function-plot)

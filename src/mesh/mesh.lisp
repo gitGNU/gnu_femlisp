@@ -84,33 +84,19 @@ domain dimension by default."
 	value))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Mesh refinement
+;;;; cell refinement
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric refine (mesh &key test)
-  (:documentation "Refines a mesh or hierarchical-mesh object either locally or
-globally depending on the refinement criterion function 'test'.  Later: if
-a region of type skeleton is provided the work is restricted to that
-region."))
-
-(defgeneric update-refinement! (mesh refined-mesh &key region test refined)
-  (:documentation "Lower level interface to refinement."))
-
-
-;;; Modifications for mesh cell refinement
-
-(defmethod refine-cell! :after ((cell <cell>) (mesh <mesh>) (refined-mesh <mesh>) refined-region)
-  "First, the domain patch is copied to the children.  Then, cell mappings
-are modified for boundary-approximating meshes."
+(defmethod refine-cell! :after (rule (cell <cell>) (mesh <mesh>)
+				(refined-mesh <mesh>) refined-region)
+  "This :AFTER-method for cell refinement copies the domain patch to the
+children.  For meshes approximating smooth boundaries, the mappings from
+interior children are abandoned and finer parametric ones for the boundary
+neighbors are generated."
   ;; set patch
   (loop with patch = (patch-of-cell cell mesh)
 	for child across (children cell mesh) do
 	(setf (patch-of-cell child refined-mesh) patch))
-  
-  ;; For meshes approximating smooth boundaries, we have additionally to
-  ;; modify cell mapping.  More precisely, we abandon the mappings from
-  ;; interior children and create finer parametric ones for the boundary
-  ;; neighbors.
   (let ((parametric (parametric mesh))
 	(patch (patch-of-cell cell mesh)))
     ;; when not polygonal or directly from domain patches replace mappings
@@ -127,33 +113,7 @@ are modified for boundary-approximating meshes."
 		  (change-class child (mapped-cell-class (class-of child))
 				:mapping (funcall parametric child))))))))
 
-(defmethod update-refinement! ((mesh <mesh>) (refined-mesh <mesh>)
-			       &key region test refined)
-  (assert (or region (not (eq mesh refined-mesh))))
-  (loop	for cell being the hash-keys of
-	(etable-of-highest-dim (or region mesh))
-	when (and (not (refined-p cell mesh)) (funcall test cell)) do
-	(refine-cell! cell mesh refined-mesh refined)))
-
-  
-(defmethod refine ((mesh <mesh>) &key (test (constantly t)))
-  "Refines a mesh.  Returns two values: the first is the refined mesh,
-i.e. a skeleton of the new mesh referencing the patches of the domain,
-the second is the refinement, i.e. a skeleton for the old mesh
-referencing the refinement vectors.
-
-This refinement algorithm is more or less like skeleton refinement.
-It usually makes sense only for global refinements.  Local refinements
-should be done within hierarchical-mesh structures."
-  (let* ((refined-mesh (make-analog mesh))
-	 (refinement (make-instance '<skeleton> :dimension (dimension mesh))))
-    (update-refinement! mesh refined-mesh :region mesh :test test :refined refinement)
-    ;; decouple the refined mesh
-    (doskel (cell refined-mesh)
-      (remf (skel-ref refined-mesh cell) :PARENT))
-    ;; return it
-    (values refined-mesh refinement)))
-
+;;; (untrace :methods 'refine-cell!)
 (defmethod check :after ((mesh <mesh>))
   "Performs some additional checks for mesh."
   nil)
@@ -175,13 +135,19 @@ skeletons containing the cells for different levels."))
 	(format stream "Level ~D~%" level)
 	(describe (cells-on-level h-mesh level))))
 
-(definline cells-on-level (mm level) (aref (levels mm) level))
-(definline nr-of-levels (mm) (length (levels mm)))
-(definline bottom-level-cells (mm) (cells-on-level mm 0))
-(definline top-level (mm) (1- (nr-of-levels mm)))
-(definline top-level-cells (mm) (vector-last (levels mm)))
-(definline hierarchical-mesh-p (obj) (typep obj '<hierarchical-mesh>))
-(definline flat-mesh-p (obj) (and (typep obj '<mesh>) (not (typep obj '<hierarchical-mesh>))))
+(defun cells-on-level (mm level) (aref (levels mm) level))
+(defun nr-of-levels (mm) (length (levels mm)))
+(defun bottom-level-cells (mm) (cells-on-level mm 0))
+(defun top-level (mm) (1- (nr-of-levels mm)))
+(defun top-level-cells (mm) (vector-last (levels mm)))
+(defun hierarchical-mesh-p (obj) (typep obj '<hierarchical-mesh>))
+(defun flat-mesh-p (obj) (and (typep obj '<mesh>) (not (typep obj '<hierarchical-mesh>))))
+
+(defun level-of-cell (cell h-mesh)
+  "Returns the level of @arg{cell} in the hirearchical mesh @arg{h-mesh}."
+  (loop for level from 0 upto (top-level h-mesh)
+     when (member-of-skeleton? cell (cells-on-level h-mesh level))
+     do (return level)))
 
 (defmethod update-instance-for-different-class :after
     ((mesh <mesh>) (h-mesh <hierarchical-mesh>) &rest initargs)
@@ -196,7 +162,7 @@ mesh.  This method definition fills the level slot appropriately."
 					       mesh)
 		    :adjustable t)))
 
-(defmethod refine ((h-mesh <hierarchical-mesh>) &key (test (constantly t)))
+(defmethod refine ((h-mesh <hierarchical-mesh>) &key (indicator (constantly t)))
   "Refine a hierarchical-mesh.  When the argument 'test' is supplied, all
 cells satisfying the test are refined."
   (let ((levels (levels h-mesh))
@@ -209,7 +175,8 @@ cells satisfying the test are refined."
 				  (make-instance '<skeleton> :dimension dim)
 				  (aref levels (1+ level)))
 	  for refined = (make-instance '<skeleton> :dimension dim) do
-	  (update-refinement! h-mesh h-mesh :region level-cells :test test :refined refined)
+	  (update-refinement! h-mesh h-mesh :region level-cells
+			      :indicator indicator :refined refined)
 	  do
 	  (unless (skel-empty-p refined)
 	    (doskel ((cell children) refined)
@@ -230,8 +197,9 @@ cells satisfying the test are refined."
 
 (defun refinement-interface (h-mesh &key level)
   "Returns the refined boundary subcells of unrefined cells in a skeleton.
-At the moment, this is a global operation.  Later on, it should probably be
-localized."
+Those cells are found as all refined cells which are not part of the domain
+boundary.  At the moment, this is a global operation.  Later on, it should
+probably be localized."
   (make-instance
    '<skeleton> :cells
    (loop for level from (or level 0) upto (or level (1- (top-level h-mesh)))
@@ -243,7 +211,10 @@ localized."
 	     (doskel (cell level-boundary :dimension :highest)
 	       (let ((parent (parent cell h-mesh)))
 		 (when (or (identified-p cell h-mesh)
-			   (not (member-of-skeleton? (patch-of-cell parent h-mesh)
+			   ;; in the following (patch-of-cell parent
+			   ;; h-mesh) does not work for porous domains (see
+			   ;; hom-mg.lisp)
+			   (not (member-of-skeleton? (patch-of-cell cell h-mesh)
 						     domain-boundary)))
 		   (setf (gethash parent interface) t))))
 	     (hash-table-keys interface))))))
@@ -308,6 +279,11 @@ locally refined hierarchical-mesh structure."
 		      (return nil))) ; position not covered on higher level
 		finally (return cell)))))
 
+(defvar *allow-child-patch-change* nil
+  "When T it is allowed for a child to have a different patch from its
+father.  This is used at the moment for homogenization of porous domains,
+but it is not a standard situation.")
+
 (defmethod check :after ((h-mesh <hierarchical-mesh>))
   "Performs some additional checks for hierarchical meshes."
   (loop for level-mesh across (levels h-mesh) do
@@ -325,8 +301,9 @@ locally refined hierarchical-mesh structure."
 		  (let ((patch-1 (patch-of-cell child h-mesh))
 			(patch-2 (patch-of-cell cell h-mesh)))
 		    (unless (eq patch-1 patch-2)
-		      (error "~&~A: Patch of parent ~A different:~%~A~%~A~%"
-			     child cell patch-1 patch-2)))))
+		      (unless *allow-child-patch-change*
+			(error "~&~A: Patch of parent ~A different:~%~A~%~A~%"
+			       child cell patch-1 patch-2))))))
 	  ;; check patches
 	  )))
 
@@ -335,7 +312,7 @@ locally refined hierarchical-mesh structure."
   "More tests can be found in meshgen.lisp."
   (let ((*print-skeleton-values* t))
     (describe
-     (make-instance '<mesh> :domain *unit-interval-domain*))))
+     (make-instance '<mesh> :domain (n-simplex-domain 1)))))
 
 (fl.tests:adjoin-test 'test-mesh)
 

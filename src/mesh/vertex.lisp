@@ -147,13 +147,13 @@ derivative."
 
 (defun make-cell-from-vertices (cell-class vertices)
   "Creates a cell of class CELL-CLASS having the given VERTICES."
-  (with-cell-class-information (reference-cell refcell-subcells nr-of-vertices
+  (with-cell-class-information (reference-cell nr-of-vertices
 					       boundary-indices-of-subcells)
     cell-class
     (assert (= nr-of-vertices (length vertices)))
     ;; replace the refcell-subcells step by step with newly created ones
     ;; having the given vertices
-    (loop with subcells = (copy-seq refcell-subcells)
+    (loop with subcells = (subcells reference-cell)
 	  for vlist = vertices then (cdr vlist)
 	  and k downfrom (1- (length subcells)) to 0 do
 	  (setf (aref subcells k)
@@ -181,10 +181,13 @@ derivative."
   "The reference vertex.")
 
 
-;;;; Testing: (test-vertex)
+;;;; Testing:
 (defun test-vertex ()
   (assert (= 0 (embedded-dimension *reference-vertex*)))
   (assert (reference-cell-p *reference-vertex*))
+  (describe (refcell-refinement-skeleton *reference-vertex* 2 0))
+  (get-refinement-rule *reference-vertex* t)
+  (refinement-rules *reference-vertex*)
   (reference-cell-p *reference-vertex*)
   (reference-cell *reference-vertex*)
   (dimension (skeleton *reference-vertex*))
@@ -195,12 +198,13 @@ derivative."
   (refine-info *reference-vertex*)
   (cell-class-information *reference-vertex*)
   
-  (describe (refcell-skeleton *reference-vertex*))
+  (describe (skeleton *reference-vertex*))
   (describe (refcell-refinement-skeleton *reference-vertex* 1))
-  (describe (refcell-skeleton *reference-vertex*))
-  (describe (refine-globally (skeleton *reference-vertex*)))
-  (refcell-refinement-vertices *reference-vertex* 2)
+  (describe (refine (skeleton *reference-vertex*)))
+  (refcell-children *reference-vertex* :regular)
+  (refcell-refinement-skeleton *reference-vertex* 0 0)
   )
 
+;;; (test-vertex)
 (fl.tests:adjoin-test 'test-vertex)
 

@@ -80,7 +80,8 @@
 	 (n (slot-value mat 'ncols))
 	 (k (min m n))
 	 (ipiv (or ipiv (make-array k :element-type 'fixnum))))
-    (declare (type (simple-array fixnum (*)) ipiv))
+    (declare (type fixnum m n k)
+	     (type (simple-array fixnum (*)) ipiv))
     (declare (optimize (speed 3) (safety 0)))
     (loop
      for j of-type fixnum from 0 below k
@@ -158,7 +159,7 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
   "Returns the inverse of X."
   (if (numberp x)
       (/ x)
-      (m/! x (eye (nrows x) (ncols x)))))
+      (gesv! x (eye (nrows x) (ncols x)))))
 
 
 ;;;; Testing

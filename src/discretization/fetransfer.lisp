@@ -46,13 +46,13 @@ threshold are dropped.")
 ;;;; Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun children-offsets (vecfe type)
+(defun children-offsets (vecfe type rule)
   "Computes the offsets for each component in the children's data block."
   (let* ((nr-comps (nr-of-components vecfe))
 	 (refcell (reference-cell vecfe))
 	 (children (ecase type
-		     (:inner (inner-refcell-children refcell))
-		     (:all (refcell-children refcell))))
+		     (:inner (inner-refcell-children refcell rule))
+		     (:all (refcell-children refcell rule))))
 	 (result (make-array nr-comps)))
     (dotimes (comp nr-comps result)
       (setf (aref result comp)
@@ -67,11 +67,11 @@ threshold are dropped.")
 ;;;; Interpolation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric compute-local-imatrix (fe)
+(defgeneric compute-local-imatrix (rule fe)
   (:documentation "Returns a local interpolation matrix as a sparse matrix
 with standard-matrix entries."))
   
-(defmethod compute-local-imatrix ((fe <fe>))
+(defmethod compute-local-imatrix (rule (fe <scalar-fe>))
   "This function computes a local interpolation matrix for scalar
 Lagrangian finite elements and maybe other types as well.  For each refined
 interior degree of freedom, it evaluates the corresponding degree of
@@ -79,7 +79,7 @@ freedom on the basis polynomials of the father cell which yields the entry
 in the local interpolation matrix."
   (let* ((refcell (reference-cell fe))
 	 (fe-disc (discretization fe))
-	 (children (inner-refcell-children refcell))
+	 (children (inner-refcell-children refcell rule))
 	 (subcells (subcells refcell))
 	 (subcell-ndofs (subcell-ndofs fe))
 	 (imat (make-instance '<sparse-tensor> :rank 2)))
@@ -103,16 +103,18 @@ in the local interpolation matrix."
 			(setf (tensor-ref imat i j) mblock)))))
     imat))
 
-(defmethod compute-local-imatrix ((vecfe <vector-fe>))
-  "Local imatrix computation for vector fe."
+(defmethod compute-local-imatrix (rule (vecfe <vector-fe>))
+  "Computes an interpolation matrix for the refinement rule @arg{rule} and
+the vector finite element @arg{vecfe}.  The algorithm evaluates the nodal
+functionals of the children on the parent shape functions."
   (with-slots (refcell discretization components properties)
     vecfe
-    (let* ((children (inner-refcell-children refcell))
+    (let* ((children (inner-refcell-children refcell rule))
 	   (subcells (subcells refcell))
 	   (subcell-ndofs (subcell-ndofs vecfe))
 	   (subcell-offsets (subcell-offsets vecfe))
-	   (children-offsets (children-offsets vecfe :inner))
-	   (fe-imats (vector-map #'compute-local-imatrix components))
+	   (children-offsets (children-offsets vecfe :inner rule))
+	   (fe-imats (vector-map (curry #'compute-local-imatrix rule) components))
 	   (vecfe-imat (make-instance '<sparse-tensor> :rank 2)))
       (loop for child across children and i from 0
 	    for child-fe = (get-fe discretization child) do
@@ -133,21 +135,35 @@ in the local interpolation matrix."
 			finally (setf (tensor-ref vecfe-imat i j) mblock))))
       vecfe-imat)))
 
-(defmemo local-imatrix (fe-disc refcell)
+(defmemo local-imatrix (rule fe)
   "Memoized call of compute-local-imatrix."
-  (compute-local-imatrix (get-fe fe-disc refcell)))
+  (assert (eq (reference-cell rule) (reference-cell fe)))
+  (dbg :fe "Generating imatrix for rule ~A and fe ~A" rule fe)
+  (compute-local-imatrix rule fe))
 
+(defvar *local-interpolation-matrix* nil
+  "If non-NIL, it should be a function of the arguments cell, mesh, and
+finite element class.  This function is called for computing an
+interpolation matrix.")
+
+(defun local-interpolation-matrix (cell h-mesh fe-class)
+  "Returns a local interpolation matrix for interpolating the given
+@arg{fe-class} from @arg{cell} to its children in @arg{h-mesh}."
+  (aif *local-interpolation-matrix*
+       (funcall it cell h-mesh fe-class)
+       (local-imatrix (refinement-rule cell h-mesh) (get-fe fe-class cell))))
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Projection
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric compute-local-pmatrix (fe)
-  (:documentation "Returns a local projection matrix as a sparse vector
+(defgeneric compute-local-pmatrix (rule fe)
+  (:documentation "Computes a local projection matrix as a sparse vector
 with standard-matrix entries.  Note that projection is not as canonic as
 interpolation.  We implement here the injection of dof functionals,
 i.e. each degree of freedom is evaluated for the refined fe function."))
 
-(defmethod compute-local-pmatrix ((fe <fe>))
+(defmethod compute-local-pmatrix (rule (fe <scalar-fe>))
   "This function computes a local projection matrix for Lagrangian finite
 cells and maybe others.  For each interior degree of freedom, it finds the
 child cell where the support of the node functional is contained and
@@ -157,47 +173,48 @@ in the local projection matrix."
     (when (plusp nr-parent-inner-dofs)
       (let* ((refcell (reference-cell fe))
 	     (fe-disc (discretization fe))
-	     (all-children (refcell-children refcell))
+	     (all-children (refcell-children refcell rule))
 	     (pmat (make-instance '<sparse-tensor> :rank 1)))
 	(loop
-	 for dof in (fe-dofs fe) and parent-dof-index below nr-parent-inner-dofs
-	 for child = (find-if #'(lambda (child)
-				  (and (= (dimension child) (dimension refcell))
-				       (inside-cell? child (dof-coord dof))))
-			      all-children) do
-	 (loop
-	  with child-fe = (get-fe fe-disc child)
-	  and child-subcells = (subcells child)
-	  for child-shape in (fe-basis child-fe)
-	  and child-dof in (fe-dofs child-fe)
-	  for entry = (evaluate dof (compose-2 child-shape (curry #'global->local child)))
-	  do
-	  (when (> (abs entry) *ipt-tolerance*)
-	    (let* ((subchild-index (dof-subcell-index child-dof))
-		   (subcell (aref child-subcells subchild-index))
-		   (subchild-pos (position subcell all-children))
-		   (subchild-ndofs (aref (subcell-ndofs child-fe) subchild-index)))
-	      (assert subchild-pos)
-	      (unless (in-pattern-p pmat subchild-pos)
-		(setf (tensor-ref pmat subchild-pos)
-		      (make-real-matrix nr-parent-inner-dofs subchild-ndofs)))
-	      (setf (mref (tensor-ref pmat subchild-pos)
-			  parent-dof-index (dof-in-vblock-index child-dof))
-		    entry)))))
+	   for dof in (fe-dofs fe) and parent-dof-index below nr-parent-inner-dofs
+	   for child = (find-if #'(lambda (child)
+				    (and (= (dimension child) (dimension refcell))
+					 (inside-cell? child (dof-coord dof))))
+				all-children) do
+	     (assert child () "No child for dof ~A found" dof)
+	     (loop
+		with child-fe = (get-fe fe-disc child)
+		and child-subcells = (subcells child)
+		for child-shape in (fe-basis child-fe)
+		and child-dof in (fe-dofs child-fe)
+		for entry = (evaluate dof (compose-2 child-shape (curry #'global->local child)))
+		do
+		(when (> (abs entry) *ipt-tolerance*)
+		  (let* ((subchild-index (dof-subcell-index child-dof))
+			 (subcell (aref child-subcells subchild-index))
+			 (subchild-pos (position subcell all-children))
+			 (subchild-ndofs (aref (subcell-ndofs child-fe) subchild-index)))
+		    (assert subchild-pos)
+		    (unless (in-pattern-p pmat subchild-pos)
+		      (setf (tensor-ref pmat subchild-pos)
+			    (make-real-matrix nr-parent-inner-dofs subchild-ndofs)))
+		    (setf (mref (tensor-ref pmat subchild-pos)
+				parent-dof-index (dof-in-vblock-index child-dof))
+			  entry)))))
 	;; return pmat
 	pmat))))
 
-(defmethod compute-local-pmatrix ((vecfe <vector-fe>))
-  "Computes a local projection matrix for vector-fe."
+(defmethod compute-local-pmatrix (rule (vecfe <vector-fe>))
+  "Computes a local projection matrix for vector finite elements."
   (declare (optimize (debug 3)))
   (with-slots (refcell discretization components properties)
       vecfe
     (let ((nr-parent-inner-dofs (nr-of-inner-dofs vecfe)))
       (when (plusp nr-parent-inner-dofs)
-	(let* ((all-children (refcell-children refcell))
-	       (children-offsets (children-offsets vecfe :all))
+	(let* ((all-children (refcell-children refcell rule))
+	       (children-offsets (children-offsets vecfe :all rule))
 	       (subcell-offsets (subcell-offsets vecfe))
-	       (fe-pmats (vector-map #'compute-local-pmatrix components))
+	       (fe-pmats (vector-map (curry #'compute-local-pmatrix rule) components))
 	       (vecfe-pmat (make-instance '<sparse-tensor> :rank 1)))
 	  (loop for child across all-children and i from 0
 	     for child-fe = (get-fe discretization child)
@@ -216,9 +233,24 @@ in the local projection matrix."
 		finally (setf (tensor-ref vecfe-pmat i) mblock)))
 	  vecfe-pmat)))))
 
-(defmemo local-pmatrix (fe-disc refcell)
+(defmemo local-pmatrix (rule fe)
   "Memoized call of compute-local-pmatrix."
-  (compute-local-pmatrix (get-fe fe-disc refcell)))
+  (assert (eq (reference-cell rule) (reference-cell fe)))
+  (dbg :fe "Generating projection matrix for rule ~A and fe ~A" rule fe)
+  (compute-local-pmatrix rule fe))
+
+(defvar *local-projection-matrix* nil
+  "If non-NIL, it should be a function of the arguments cell, mesh, and
+finite element class.  This function is called for computing a projection
+matrix.")
+
+(defun local-projection-matrix (cell h-mesh fe-class)
+  "Returns a local projection matrix for projecting the given
+@arg{fe-class} from the children of @arg{cell in @arg{h-mesh} to
+@arg{cell}."
+  (aif *local-projection-matrix*
+       (funcall it cell h-mesh fe-class)
+       (local-pmatrix (refinement-rule cell h-mesh) (get-fe fe-class cell))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Transfer between different fe-spaces
@@ -241,26 +273,29 @@ in the local projection matrix."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-fetransfer ()
-  (let ((local-imat (compute-local-imatrix (get-fe (lagrange-fe 1) *unit-interval*))))
-    (show local-imat)
-    (tensor-ref local-imat 0 1))
-  (show (compute-local-imatrix (get-fe (lagrange-fe 3) *unit-interval*)))
-  (show (compute-local-pmatrix (get-fe (lagrange-fe 3) *unit-interval*)))
-  (show (compute-local-imatrix (get-fe (lagrange-fe 2 :nr-comps 2) *unit-interval*)))
-  (assert
-   (= 28 (total-entries (compute-local-imatrix
-			 (get-fe (lagrange-fe 2 :nr-comps 2) *unit-interval*)))))
-  (show (compute-local-pmatrix (get-fe (lagrange-fe 4) *unit-interval*)))
-  (show (compute-local-pmatrix (get-fe (lagrange-fe 1) *reference-vertex*)))
-  (show (compute-local-pmatrix (get-fe (lagrange-fe 1 :nr-comps 2) *reference-vertex*)))
-  (show (compute-local-pmatrix (get-fe (lagrange-fe 4 :nr-comps 2) *unit-interval*)))
-  (show (compute-local-imatrix (get-fe (lagrange-fe 1) *unit-interval*)))
-  (show (local-imatrix (lagrange-fe 1) *unit-interval*))
-  (let ((count 0))
-    (dotensor (entry (local-imatrix (lagrange-fe 1) *unit-interval*) :depth 2)
-      (when entry (incf count)))
-    (assert (= count 2)))
-  )
+  (flet ((refrule (dim)
+	   (get-refinement-rule (n-cube dim) :regular))
+	 (fe (order &optional comp (dim 1))
+	   (get-fe (lagrange-fe order :nr-comps comp)
+		   (n-cube dim))))
+    (let ((local-imat (compute-local-imatrix (refrule 1) (fe 1))))
+      (show local-imat)
+      (tensor-ref local-imat 0 1))
+    (show (compute-local-imatrix (refrule 1) (fe 3)))
+    (show (compute-local-pmatrix (refrule 1) (fe 3)))
+    (show (compute-local-imatrix (refrule 1) (fe 2 2)))
+    (assert
+     (= 28 (total-entries (compute-local-imatrix (refrule 1) (fe 2 2)))))
+    (show (compute-local-pmatrix (refrule 1) (fe 4)))
+    (show (compute-local-pmatrix (refrule 0) (fe 1 1 0)))
+    (show (compute-local-pmatrix (refrule 0) (fe 1 2 0)))
+    (show (compute-local-pmatrix (refrule 1) (fe 4 2)))
+    (let ((count 0))
+      (dotensor (entry (local-imatrix (refrule 1) (fe 1)) :depth 2)
+	(when entry (incf count)))
+      (assert (= count 2)))
+    (describe (tensor-ref (local-imatrix (refrule 1) (fe 1)) 0))
+    ))
 
 ;;; (test-fetransfer)
 (fl.tests:adjoin-test 'test-fetransfer)

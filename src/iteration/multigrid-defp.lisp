@@ -44,7 +44,7 @@
   (:export				; amg.lisp
    "SLAVE-DOF-P" "DIRICHLET-DOF-P" "SLAVE-OR-DIRICHLET-DOF-P" 
    "COARSEN" "PREPROCESS-MATRIX" "PROLONGATION" "RESTRICTION"
-   "COARSE-GRID-MATRIX")
+   "GALERKIN-PRODUCT" "COARSE-GRID-MATRIX")
   (:export				; selection-amg.lisp
    "<SELECTION-AMG>")
   (:export				; cluster-amg.lisp

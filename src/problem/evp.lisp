@@ -115,3 +115,6 @@ eigenvalue.")
 		    (unbox (slot-value evp 'lambda)) solution (norm residual)))
       (values (unbox (slot-value evp 'lambda)) solution)))
   )
+
+;;; (test-evp)
+(fl.tests:adjoin-test 'test-evp)

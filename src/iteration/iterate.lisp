@@ -37,13 +37,13 @@
 (defclass <iteration> ()
   ((observe :initform () :initarg :observe
 	    :documentation "The initform depends on the subclass.")
+   (output :initarg :output :documentation
+	   "A boolean indicating if output is to be done.")
    (success-if :initform nil :initarg :success-if
 	       :documentation "A form specifying a success criterion.")
    (failure-if :initform nil :initarg :failure-if
 	       :documentation "A form specifying a failure criterion.")
    (start-time :documentation "Start time of the iteration.")
-   (output :initform nil :initarg :output :documentation "A boolean
-indicating if output is to be done.")
    (success-if-fn :documentation "Compiled success-if form.")
    (failure-if-fn :documentation "Compiled failure-if form.")
    )
@@ -51,18 +51,27 @@ indicating if output is to be done.")
 
 ;;; Output
 
-(defparameter *iteration-level* 0
-  "Depth of nested iteration.  This is used for steering output and the
-printout of status information.")
+(defparameter *iteration-depth* 0
+  "Depth of nested iteration.")
 
-(defmethod output-p ((iter <iteration>))
-  (with-slots (output) iter
-    (if (numberp output)
-	(<= *iteration-level* output)
-	output)))
+(defparameter *output-depth* 0
+  "Maximum iteration depth for which status output is done.")
+
+(defgeneric output-p (iteration blackboard)
+  (:documentation "Determines if status output is done.")
+  (:method ((iter <iteration>) blackboard)
+    "Checks if @var{*iteration-depth*} is smaller or equal
+@var{*output-depth*}."
+    (if (slot-boundp iter 'output)
+	(let ((slot (slot-value iter 'output)))
+	  (when (null slot)
+	    (error "output-slot is NIL"))
+	  slot)
+	(or (member *output-depth* '(t :all :infinity))
+	    (<= *iteration-depth* *output-depth*)))))
 
 (defun indented-format (stream control-string &rest args)
-  (let ((indentation (* 5 (1- *iteration-level*))))
+  (let ((indentation (* 5 (1- *iteration-depth*))))
     (if (plusp indentation)
 	(apply #'format stream (concatenate 'string "~&>~VT" control-string)
 	       indentation args)
@@ -148,7 +157,7 @@ name together with the name of the inner iteration."
 (defmethod initially ((iter <iteration>) blackboard)
   "Default method.  Prints the header line for observed quantities."
   (dbg :iter "Initially: blackboard = ~A" blackboard)
-  (when (output-p iter)
+  (when (output-p iter blackboard)
     (indented-format t "Iteration ~A" (name iter))
     (let ((fstr (make-array '(0) :element-type 'base-char
 			    :fill-pointer 0 :adjustable t)))
@@ -167,7 +176,7 @@ name together with the name of the inner iteration."
 	  (float (/ (- (get-internal-run-time) start-time)
 		    internal-time-units-per-second)
 		 1.0))
-    (when (output-p iter)
+    (when (output-p iter blackboard)
       (let ((fstr (make-array '(0) :element-type 'base-char
 			      :fill-pointer 0 :adjustable t)))
 	(with-output-to-string (stream fstr)
@@ -198,13 +207,13 @@ name together with the name of the inner iteration."
   "Setup a report and ensures fresh line on output."
   (with-items (&key report status step) blackboard
     (setq report (blackboard :status status :steps step)))
-  (when (output-p iter) (format t "~&")))
+  (when (output-p iter blackboard) (format t "~&")))
 
 (defmethod iterate ((iter <iteration>) blackboard)
   "Default method for performing an iteration.  Increases indentation level
 and calls initialization, termination check, stepping, and finalization in
 the correct order."
-  (let ((*iteration-level* (1+ *iteration-level*)))
+  (let ((*iteration-depth* (1+ *iteration-depth*)))
     (initially iter blackboard)
     (dbg :iter (format nil "Iteration ~A: looping" (name iter)))
     (loop (intermediate iter blackboard)

@@ -139,7 +139,7 @@ near the boundary works significantly better with p>=2."
 	    (make-instance
 	     '<ansatz-space> :fe-class (fe-class fe-strategy)
 	     :mesh mesh :problem problem :multiplicity multiplicity))
-    (ensure solution (make-ansatz-space-vector ansatz-space))
+    (ensure solution (choose-start-vector ansatz-space problem))
     ;; ensure data correctness and compatibility
     (check mesh)
     (assert (eq mesh (mesh ansatz-space)))
@@ -180,7 +180,8 @@ criteria."
     (indicate (slot-value fe-strategy 'indicator) blackboard)
     (setf refined-cells
 	  (let ((ht refinement-table))
-	    (nth-value 1 (refine mesh :test #'(lambda (cell) (gethash cell ht))))))
+	    (nth-value 1 (refine mesh :indicator #'(lambda (cell)
+						     (nth-value 1 (gethash cell ht)))))))
     (when (extensible-p (domain mesh))
       (extend mesh :test #'(lambda (cell) (member-of-skeleton? cell refined-cells))))
     (whereas ((mesh-plotter (slot-value fe-strategy 'plot-mesh)))

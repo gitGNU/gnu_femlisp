@@ -40,8 +40,7 @@
   (:export
    "<ELASTICITY-PROBLEM>" "ISOTROPIC-ELASTICITY-TENSOR"
    "CHECK-ELASTICITY-TENSOR"
-   "SYSTEM-DIFFUSION-PROBLEM" "STANDARD-ELASTICITY-PROBLEM"
-   "CLAMPED-BOUNDARY-COEFFICIENT")
+   "SYSTEM-DIFFUSION-PROBLEM" "STANDARD-ELASTICITY-PROBLEM")
   (:documentation "Defines elasticity problems."))
 
 (in-package :fl.elasticity)
@@ -53,6 +52,9 @@
 (defclass <elasticity-problem> (<pde-problem>)
   ()
   (:documentation "Elasticity problems."))
+
+(defmethod nr-of-components ((problem <elasticity-problem>))
+  (dimension (domain problem)))
 
 (defmethod interior-coefficients ((problem <elasticity-problem>))
   "Interior coefficients for the elasticity problem."
@@ -100,10 +102,6 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
 	  (check-permutation #(2 1 0 3)))))
     tensor))
 
-(defun clamped-boundary-coefficient (dim)
-  (constant-coefficient (make-array dim :initial-element t)
-			(make-double-vec dim)))
-
 (defun standard-elasticity-problem (domain &key lambda mu force)
   (let ((dim (dimension domain)))
     (make-instance
@@ -112,7 +110,7 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
      :patch->coefficients
      #'(lambda (patch)
 	 (if (member-of-skeleton? patch (domain-boundary domain))
-	     (list 'CONSTRAINT (clamped-boundary-coefficient dim))
+	     (list 'CONSTRAINT (constraint-coefficient dim 1))
 	     (list 'ELASTICITY
 		   (constant-coefficient
 		    (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu))
@@ -142,7 +140,7 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
      :patch->coefficients
      #'(lambda (patch)
 	 (if (member-of-skeleton? patch (domain-boundary domain))
-	     (list 'CONSTRAINT (clamped-boundary-coefficient nr-comps))
+	     (list 'CONSTRAINT (constraint-coefficient nr-comps 1))
 	     (list 'ELASTICITY
 		   (constant-coefficient
 		    (system-diffusion-tensor :dim dim :nr-comps nr-comps :D D))
@@ -153,9 +151,9 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
 ;;; Testing: (test-elasticity)
 
 (defun test-elasticity ()
-  ;; should be equal to *laplace-problem-1d*
   (check-elasticity-tensor
    (isotropic-elasticity-tensor :dim 2 :lambda 1.0 :mu 2.0))
+  ;; the following should be equal to (cdr-model-problem 1)
   (let ((dim 1))
     (standard-elasticity-problem
      (n-cube-domain dim) :lambda 1.0 :mu 1.0

@@ -46,6 +46,10 @@
 @var{discretization} and the @var{problem}.  Further parameters are
 provided inside the @var{blackboard}."))
 
+(defvar *suggested-discretization-order* nil
+  "The suggested order of discretization.  In non-nil, this value should be
+taken into account by methods to @arg{select-discretization}.")
+
 (defgeneric select-discretization (problem blackboard)
   (:documentation "Select a discretization for the given @var{problem}
 depending on the parameters on the @var{blackboard}."))

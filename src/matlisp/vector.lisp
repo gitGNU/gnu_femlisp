@@ -36,13 +36,6 @@
   ()
   (:documentation "General vector class."))
 
-(defclass <store-vector> (<vector>)
-  ()
-  (:documentation "A mixin for vectors having a store."))
-
-(defgeneric store (obj)
-  (:documentation "Returns the store for the data vector."))
-
 (defgeneric vlength (vec)
   (:documentation "Length of vector."))
 (defgeneric multiplicity (vec)
@@ -118,14 +111,28 @@ in parallel."))
 
 ;;; Iteration
 
-;;; The following is the old interface and will be replace rather soon by a
-;;; macro based approach which allows suitable inlining.
+;;; The following is the old interface and will be replaced rather soon by
+;;; a macro based approach which allows suitable inlining.
 
 (defgeneric for-each-key (func vec))
 (defgeneric for-each-entry (func vec))
 (defgeneric for-each-key-and-entry (func vec))
-(defgeneric for-each-entry-of-vec1 (func vec1 vec2))
-(defgeneric for-each-entry-of-vec2 (func vec1 vec2))
+(defgeneric for-each-entry-of-vec1 (func vec1 vec2)
+  (:documentation "Calls @arg{func} on all entries of @arg{vec1} with this
+entry and the corresponding entry of @arg{vec2}.  Deprecated, use
+@function{for-each-key-and-entry} instead.")
+  (:method ((fn function) vec1 vec2)
+  (for-each-key-and-entry  #'(lambda (key entry)
+			       (funcall fn entry (vref vec2 key)))
+			   vec1)))
+
+(defgeneric for-each-entry-of-vec2 (func vec1 vec2)
+  (:documentation "Calls @arg{func} on all entries of @arg{vec2} with the
+corresponding entry of @arg{vec1} and that entry.  Deprecated.")
+  (:method ((fn function) vec1 vec2)
+  (for-each-key-and-entry  #'(lambda (key entry)
+			       (funcall fn (vref vec1 key) entry))
+			   vec2)))
 
 (defmacro dovec ((loop-vars vec) &body body)
   "Loops on indices and entries of a vector.  Examples:
@@ -151,6 +158,10 @@ in parallel."))
 ;;; This is either defined by inlining functions, if we expect those rewritings
 ;;; to be valid for every vector or matrix class.  Alternatively, it may be
 ;;; given by a generic function.
+
+(defmethod copy (x)
+  "Default method for @function{copy}."
+  (copy! x (make-analog x)))
 
 (definline x<-0 (x)
   "X <- 0 X.  Uses SCAL!."
@@ -206,11 +217,6 @@ in parallel."))
 ;;; some core functionality is recursively defined for block vectors
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod copy! (x y)
-  "Recursive definition for COPY! usable for sparse block vectors."
-  (for-each-entry-of-vec1 #'copy! x y)
-  y)
-
 (defmethod fill! (x s)
   "Recursive definition for FILL! usable for sparse block vectors."
   (for-each-entry (rcurry #'fill! s) x)
@@ -220,9 +226,36 @@ in parallel."))
   (for-each-entry (rcurry #'fill-random! s) x)
   x)
 
+(defmethod total-entries (obj)
+  (let ((entries 0))
+    (for-each-entry
+     #'(lambda (entry)
+	 (incf entries (total-entries entry)))
+     obj)
+    entries))
+
+(defmethod mzerop (mat &optional (threshold 0.0))
+  (for-each-entry
+   #'(lambda (entry)
+       (unless (mzerop entry threshold)
+	 (return-from mzerop nil)))
+   mat)
+  t)
+
+(defmethod copy! (x y)
+  "Recursive definition for COPY! usable for sparse block vectors."
+  (for-each-key #'(lambda (i)
+		    (setf (vref y i)
+			  (copy! (vref x i) (vref y i))))
+		x)
+  y)
+
 (defmethod m+! (x y)
   "Recursive definition for M+! usable for sparse block vectors."
-  (for-each-entry-of-vec1 #'m+! x y)
+  (for-each-key #'(lambda (i)
+		    (setf (vref y i)
+			  (m+! (vref x i) (vref y i))))
+		x)
   y)
 
 (defmethod scal! (s x)
@@ -273,14 +306,6 @@ in parallel."))
 			    x y)
     sum))
 
-(defmethod mzerop (mat &optional (threshold 0.0))
-  (for-each-entry
-   #'(lambda (entry)
-       (unless (mzerop entry threshold)
-	 (return-from mzerop nil)))
-   mat)
-  t)
-
 (defmethod mequalp (x y)
   (when (= (total-entries x) (total-entries y))
     (for-each-entry-of-vec1
@@ -289,40 +314,6 @@ in parallel."))
 	   (return-from mequalp nil)))
      x y)
     t))
-
-(defmethod total-entries (obj)
-  (let ((entries 0))
-    (for-each-entry
-     #'(lambda (entry)
-	 (incf entries (total-entries entry)))
-     obj)
-    entries))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; for some vectors there is a slot containing the data
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; These routines will usually be slow.  If the type of the store is fixed
-;;; by the matrix class faster routines can be defined.
-(defmethod copy! ((x <store-vector>) (y <store-vector>))
-  (copy! (store x) (store y))
-  y)
-(defmethod fill! ((x <store-vector>) s)
-  (fill! (store x) s)
-  x)
-(defmethod scal! (alpha (x <store-vector>))
-  (scal! alpha (store x))
-  x)
-(defmethod axpy! (alpha (x <store-vector>) (y <store-vector>))
-  (axpy! alpha (store x) (store y))
-  y)
-(defmethod m+! ((x <store-vector>) (y <store-vector>))
-  (m+! (store x) (store y))
-  y)
-(defmethod m.*! ((x <store-vector>) (y <store-vector>))
-  (m.*! (store x) (store y))
-  y)
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing

@@ -47,8 +47,7 @@
 	 (make-instance '<lu> :store-p nil)
 	 (let ((smoother (if (> dim 2) *gauss-seidel* (geometric-ssc))))
 	   (make-instance '<s1-reduction> :max-depth 2
-			  :pre-steps 1 :pre-smooth smoother
-			  :post-steps 1 :post-smooth smoother
+			  :smoother smoother :pre-steps 1 :post-steps 1
 			  :gamma 2 :coarse-grid-iteration
 			  (make-instance '<s1-coarse-grid-iterator>))))
      :success-if `(or (zerop :defnorm)
@@ -63,10 +62,7 @@
      (let ((smoother (if (>= dim 3)
 			 *gauss-seidel*
 			 (geometric-ssc))))
-       (geometric-cs
-	:pre-steps 1 :pre-smooth smoother
-	:post-steps 1 :post-smooth smoother
-	:gamma 2 :fmg t))
+       (geometric-cs :smoother smoother	:pre-steps 1 :post-steps 1 :gamma 2 :fmg t))
      :success-if `(or (zerop :defnorm)
 		   (and (>= :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)
 		     (> :reduction 1.0e-2)))
@@ -80,9 +76,7 @@
      (geometric-cs
       :coarse-grid-iteration
       (make-instance '<multi-iteration> :nr-steps 1 :base smoother)
-      :pre-steps 1 :pre-smooth smoother
-      :post-steps 1 :post-smooth smoother
-      :gamma 2))
+      :smoother smoother :pre-steps 1 :post-steps 1 :gamma 2))
      :success-if `(or (zerop :defnorm)
 		   (and (>= :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
    :failure-if `(and (> :step 2) (> :step-reduction 0.9))
@@ -130,7 +124,7 @@ blackboard describing the problem is passed and the solution method is
 open."
   (assert (null dummy))
   (with-items (&key strategy problem matrix rhs
-		    fe-class solver estimator indicator output)
+		    fe-class solver estimator indicator)
       blackboard
     (cond
       (strategy				; there is a strategy on the blackboard
@@ -146,12 +140,16 @@ open."
 	   (apply #'make-instance '<stationary-fe-strategy>
 		  (loop with flag = (cons nil nil)
 			for item in '(:fe-class :solver :estimator :indicator
-				      :success-if :failure-if :output :observe :plot-mesh
+				      :success-if :failure-if :observe :plot-mesh
 				      :base-level)
 			for value = (getbb blackboard item flag)
 			unless (eq value flag) collect item and collect value)))
 	  (t (error "SOLVE does not know this problem."))))
-       (solve strategy blackboard))
+       (let ((bb-output (getbb blackboard :output :keep)))
+	 (if (eq bb-output :keep)
+	     (error "");(solve strategy blackboard)
+	     (let ((*output-depth* bb-output))
+	       (solve strategy blackboard)))))
       ((and matrix rhs)			; there seems to be a linear problem on the blackboard
        (setq problem (lse :matrix matrix :rhs rhs))
        (solve blackboard))

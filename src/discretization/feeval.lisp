@@ -83,9 +83,8 @@
     (fe-local-gradient asv cell (global->local cell pos))))
 
 (defmethod cell-integrate (cell x &key (initial-value 0.0) (combiner #'+) (key #'identity))
-  (let* ((fe-class (fe-class x))
-	 (fe (get-fe fe-class cell))
-	 (qrule (quadrature-rule fe-class fe))
+  (let* ((fe (get-fe (fe-class x) cell))
+	 (qrule (quadrature-rule fe))
 	 (x-values (get-local-from-global-vec cell fe x))
 	 (result initial-value))
     (loop for ip in (integration-points qrule)
@@ -122,40 +121,40 @@ transformer function, as always (e.g. #'abs if you want the L1-norm)."
 		 (accumulate cell))))
       result)))
 
-(defun update-cell-extreme-values (cell x minimum maximum initialized-p)
-  (let* ((fe-class (fe-class x))
-	 (fe (get-fe fe-class cell))
-	 (x-values (get-local-from-global-vec cell fe x)))
+(defun update-cell-extreme-values (cell x min/max)
+  (let* ((fe (get-fe (fe-class x) cell))
+	 (nr-comps (nr-of-components fe))
+	 (multiplicity (multiplicity x))
+	 (x-values (get-local-from-global-vec cell fe x))
+	 (initialized-p (car min/max)))
     (unless (vectorp x-values)
       (setf x-values (vector x-values)))
-    (dotimes (k (length x-values))
-      (let ((comp-values (aref x-values k)))
-	(dotimes (j (multiplicity x))
-	  (symbol-macrolet ((min_kj (mref minimum k j))
-			    (max_kj (mref maximum k j)))
-	    (dotimes (i (nrows comp-values))
-	      (let ((entry (mref comp-values i j)))
-		(cond
-		  (initialized-p
-		   (setf min_kj (min min_kj entry))
-		   (setf max_kj (max max_kj entry)))
-		  (t (setf max_kj (setf min_kj entry))
-		     (setf initialized-p t)))))))))))
+    (unless initialized-p
+      (setf (car min/max) (make-real-matrix nr-comps multiplicity)
+	    (cdr min/max) (make-real-matrix nr-comps multiplicity)))
+    (destructuring-bind (minimum . maximum) min/max
+      (dotimes (k nr-comps)
+	(let ((comp-values (aref x-values k)))
+	  (dotimes (j multiplicity)
+	    (symbol-macrolet ((min_kj (mref minimum k j))
+			      (max_kj (mref maximum k j)))
+	      (dotimes (i (nrows comp-values))
+		(let ((entry (mref comp-values i j)))
+		  (cond
+		    (initialized-p
+		     (setf min_kj (min min_kj entry))
+		     (setf max_kj (max max_kj entry)))
+		    (t (setf max_kj (setf min_kj entry))
+		       (setf initialized-p t))))))))))))
 
 (defmethod fe-extreme-values ((asv <ansatz-space-vector>) &key cells skeleton)
   "Computes the extreme values of a finite element function over the domain
 or some region."
-  (let* ((fe-class (fe-class asv))
-	 (nr-comps (nr-of-components fe-class))
-	 (multiplicity (multiplicity asv))
-	 (initialized-p nil)
-	 (minimum (make-real-matrix nr-comps multiplicity))
-	 (maximum (make-real-matrix nr-comps multiplicity)))
-    (flet ((accumulate (cell)
-	     (update-cell-extreme-values cell asv minimum maximum initialized-p)
-	     (setq initialized-p t)))
-      (cond (cells (mapc #'accumulate cells))
-	    (t (doskel (cell (or skeleton (mesh asv)) :dimension :highest :where :surface)
-		 (accumulate cell))))
-      (list minimum maximum))))
+  (let ((min/max (cons nil nil)))
+    (cond (cells
+	   (loop for cell in cells do
+		(update-cell-extreme-values cell asv min/max)))
+	  (t (doskel (cell (or skeleton (mesh asv)) :dimension :highest :where :surface)
+	       (update-cell-extreme-values cell asv min/max))))
+    min/max))
 
