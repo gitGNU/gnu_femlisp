@@ -83,33 +83,35 @@ already assembled.  Works only for uniformly refined meshes."
   (let* ((ansatz-space (ansatz-space mat))
 	 (h-mesh (hierarchical-mesh ansatz-space))
 	 (top-level (top-level h-mesh))
-	 (a-vec (make-array (nr-of-levels h-mesh)))
-	 (i-vec (make-array (nr-of-levels h-mesh)))
 	 (interior-mat (getf (properties mat) :interior-matrix))
-	 (solution (getf (properties mat) :solution)))
+	 (solution (getf (properties mat) :solution))
+	 ;; compute the matrix vector
+	 (level-mats
+	  (multiple-value-bind (essential-P essential-Q essential-r)
+	      (fl.discretization::compute-essential-boundary-constraints
+	       ansatz-space :where :all)
+	    (loop for level from top-level downto 0
+	       for l-mat = (fl.discretization::compute-interior-level-matrix
+			    interior-mat solution level)
+	       collect
+	       (eliminate-constraints
+		l-mat nil essential-P essential-Q essential-r
+		:include-constraints t)
+	       until (< (total-nrows l-mat) (cg-max-size mgit)))))
+	 (a-vec (coerce (reverse level-mats) 'vector)))
     
-    ;; set the matrix vector
-    (multiple-value-bind (essential-P essential-Q essential-r)
-	(fl.discretization::compute-essential-boundary-constraints
-	 ansatz-space :where :all)
-      (loop for level from 0 upto top-level
-	    for l-mat = (fl.discretization::compute-interior-level-matrix
-			 interior-mat solution level) do
-	    (let ((eliminated-mat
-		   (eliminate-constraints
-		    l-mat nil essential-P essential-Q essential-r
-		    :include-constraints t)))
-	      (setf (aref a-vec level) eliminated-mat))))
     ;; set the interpolation vector
-    (loop for level below top-level
-	  for imat = (constrained-interpolation-matrix
-		      ansatz-space :level level :where :refined)
-	  do
-	  (extend-by-identity imat (row-table (aref a-vec level))
-			      :ignore (column-table imat))
-	  (setf (aref i-vec level) imat))
-    ;; return result
-    (blackboard :a-vec a-vec :i-vec i-vec)))
+    (let ((i-vec (make-array (1- (length a-vec)))))
+      (loop for k below (1- (length a-vec))
+	 for mesh-level = (+ k (- (1+ top-level) (length a-vec)))
+	 for imat = (constrained-interpolation-matrix
+		     ansatz-space :level mesh-level :where :refined)
+	 do
+	   (extend-by-identity imat (row-table (aref a-vec k))
+			       :ignore (column-table imat))
+	   (setf (aref i-vec k) imat))
+      ;; return result
+      (blackboard :a-vec a-vec :i-vec i-vec))))
 
 #+(or)
 (defmethod multilevel-decomposition ((mgit <geometric-mg>)

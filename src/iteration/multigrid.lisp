@@ -58,6 +58,7 @@ results.")
    (post-steps :reader post-steps :initform 1 :initarg :post-steps)
    (gamma :reader gamma :initform 1 :initarg :gamma)
    (base-level :reader base-level :initform 0 :initarg :base-level)
+   (cg-max-size :reader cg-max-size :initform 1000 :initarg :cg-max-size)
    (coarse-grid-iteration :reader coarse-grid-iteration
 			  :initform (make-instance '<lu>)
 			  :initarg :coarse-grid-iteration
