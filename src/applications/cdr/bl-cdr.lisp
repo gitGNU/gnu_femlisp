@@ -82,7 +82,7 @@ constant for a given boundary layer cell domain."
 	   ,#'(lambda (assembly-line)
 		(with-items (&key global-eta) assembly-line
 		  (format t "~12,2,2E" global-eta))))))
-  (setf (getf *strategy-output* :plot-mesh) t)
+  (setf (getf *strategy-output* :plot-mesh) plot)
   (defparameter *result*
     (let* ((dim (dimension domain))
 	   (problem (boundary-layer-cell-problem domain))
@@ -101,19 +101,20 @@ constant for a given boundary layer cell domain."
 				  (?2 *lu-iteration*
 				      (make-instance '<s1-coarse-grid-iterator>
 						     :output (eq output :all)))))
-		 :success-if `(:defnorm< 1.0e-10)
-		 :failure-if `(and (:step> 2) (:step-reduction> 0.9))
+		 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
+		 :failure-if `(> :step 30)
 		 :output (eq output :all)))))
       (solve-with
        (make-instance
 	'<fe-strategy> :fe-class (lagrange-fe order)
 	:solver solver
 	:estimator (make-instance '<duality-error-estimator> :functional :load-functional)
-	:indicator (make-instance '<largest-eta-indicator> :pivot-factor 0.01
-				  :from-level 1 :block-p t)
-	:appraise (stop-if :eta<= 1.0e-10 :nr-levels>= max-levels))
+	:indicator
+	(make-instance '<largest-eta-indicator> :pivot-factor 0.01
+		       :from-level 1 :block-p t)
+	:appraise (stop-if :nr-levels>= max-levels))
        problem
-       :output t)))
+       :output output)))
   (when plot
     (plot (getf *result* :solution))))
 
@@ -135,7 +136,7 @@ for the load functional."
 	 :order order :max-levels max-levels rest))
 
 #+(or) (cdr-bl-computation
-	2 4 2 :plot t :amplitude 0.15 :extensible-p nil :output :all)
+	2 4 2 :plot t :amplitude 0.15 :extensible nil :output :all)
 
 #+(or) (show (getf *result* :matrix))
 ;; before change (+ 1 sec on another run)
@@ -152,7 +153,7 @@ for the load functional."
 	    :name (format nil title dim) :short short
 	    :long (format nil "~A~%~%Parameters: dim=~D, p=~D, ~D levels~%"
 			  long dim order levels)
-	    :execute (lambda () (cdr-bl-computation dim order levels :plot t)))))
+	    :execute (lambda () (cdr-bl-computation dim order levels :plot t :output t)))))
       (adjoin-demo demo *laplace-demo*)
       (adjoin-demo demo *adaptivity-demo*)
       (adjoin-demo demo *boundary-coeffs-demo*))))

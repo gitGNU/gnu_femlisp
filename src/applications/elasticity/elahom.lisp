@@ -147,8 +147,8 @@ with dim^3 components which are plotted one after the other."
 	    :pre-steps 2 :pre-smooth smoother
 	    :post-steps 2 :post-smooth smoother
 	    :gamma 2 :fmg t))
-	 :success-if `(:defnorm< 1.0e-10) ; (:reduction< ,(* 0.1 (expt 0.5 (* 2 (+ order 1)))))
-	 :failure-if `(:step-reduction> 0.9)
+	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
+	 :failure-if `(and (> :step-reduction 0.9) (> :step 2) (> :defnorm 1.0e-9))
 	 :output (eq output :all))
 	:output t)
        problem
@@ -167,7 +167,9 @@ with dim^3 components which are plotted one after the other."
 #+(or)
 (elasticity-interior-effective-coeff-demo
  (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2))
- :order 4 :levels 1 :output :all)
+ :order 4 :levels 2 :output :all)
+
+#+(or)
 (let ((dim 2)
       (counter -1))
   (dotimes (i dim)
@@ -176,9 +178,7 @@ with dim^3 components which are plotted one after the other."
 	(plot (getf *result* :solution) :component i :index (+ (* j dim) k)
 	      :plot :file :format "tiff" :background :white
 	      :filename (format nil "ela-cell-sol-x~D" (incf counter)))))))
-  ;; montage -geometry 480x480 -tile 2x4 ela-cell-*.tiff ela-cell-sols.eps
-  ;; mogrify -crop 400x400+40+40 cdr-cell-sol-x0.tiff
-  ;; mogrify -crop 900x420+30+30 cdr-cell-sols.eps
+;; montage -geometry 480x480 -tile 2x4 ela-cell-*.tiff ela-cell-sols.eps
 
 (defparameter *effective-elasticity-demo*
   (make-demo

@@ -74,7 +74,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun stokes-darcy-demo (problem &key order levels plot output (store-p t))
-  "Stokes->Darcy - Computes a Darcy permeability tensor
+  "Stokes-Darcy - Computes a Darcy permeability tensor
 
 Computes the effective permeability for Stokes flow in a domain
 with periodically distributed ball-shaped holes.  The
@@ -116,11 +116,12 @@ components."
 	    :pre-steps 1 :pre-smooth smoother
 	    :post-steps 1 :post-smooth smoother
 	    :gamma 2))
-	 :success-if `(or (:step> 30) (:defnorm< 1.0e-10)) ; (:reduction< ,(* 0.1 (expt 0.5 (* 2 (+ order 1)))))
-	 :failure-if `(and (:step> 2) (:step-reduction> 0.9))
+	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
+	 :failure-if `(> :step 30)
 	 :output (eq output :all))
 	:output t)
        problem
+       :output t
        ))
     (when plot
       ;; plot components of cell solution tensor

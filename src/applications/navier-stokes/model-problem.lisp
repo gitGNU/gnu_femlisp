@@ -35,7 +35,7 @@
 (in-package :application)
 
 (defvar *stokes-demo*
-  (make-demo :name "stokes"
+  (make-demo :name "Stokes"
 	     :short "Solve the Stokes equation on different domains"))
 (adjoin-demo *stokes-demo* *equation-demo*)
 
@@ -65,8 +65,8 @@
 	  :pre-steps 1 :pre-smooth smoother
 	  :post-steps 1 :post-smooth smoother
 	  :gamma 2))
-       :success-if `(or (:step> 10) (:defnorm< 1.0e-10)) ; (:reduction< ,(* 0.1 (expt 0.5 (* 2 (+ order 1)))))
-       :failure-if `(and (:step> 2) (:step-reduction> 0.9))
+       :success-if `(or (> :step 10) (< :defnorm 1.0e-10))
+       :failure-if `(and (> :step 2) (> :step-reduction 0.9))
        :output (eq output :all))
       :output t)
      (driven-cavity dim)
@@ -102,7 +102,7 @@
 #+(or)
 (defparameter *result*
   (time
-   (let* ((dim 2) (level 1) (order 3) (delta 1)
+   (let* ((dim 2) (level 3) (order 3) (delta 1)
 	  (problem (driven-cavity dim :smooth-p nil))
 	  (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	  (fedisc (navier-stokes-lagrange-fe order dim delta)))
@@ -110,11 +110,11 @@
 	(discretize-globally problem h-mesh fedisc)
        (let* ((smoother (make-instance '<ns-vanka>))
 	      (cs (geometric-cs
-		   :gamma 2 :base-level 1 :coarse-grid-iteration
+		   :gamma 1 :base-level 1 :coarse-grid-iteration
 		   (make-instance '<multi-iteration> :base smoother :nr-steps 4)
-		   :pre-steps 2 :pre-smooth smoother
-		   :post-steps 2 :post-smooth smoother)))
-	 (nth-value 1 (linsolve matrix rhs :output t :iteration cs :maxsteps 10)))
+		   :pre-steps 1 :pre-smooth smoother
+		   :post-steps 1 :post-smooth smoother)))
+	 (nth-value 1 (linsolve matrix rhs :output t :iteration cs :threshold 1.0e-10)))
 	 ))))
 
 ;;(plot (getf *result* :res) :component 0)

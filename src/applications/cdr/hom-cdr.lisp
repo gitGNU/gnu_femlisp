@@ -135,7 +135,7 @@ inlay and the component of the cell vector."
 ;;;; Demos
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun cdr-interior-effective-coeff-demo (problem order levels &key output plot)
+(defun cdr-interior-effective-coeff-demo (problem order levels &key (output t) plot)
   "Computes an effective diffusion tensor for different configurations.
 The approximation is done with isoparametric finite elements.  Uniform
 refinement is used, the linear solver is a geometric multigrid scheme used
@@ -168,11 +168,10 @@ must be a scalar multiple of the identity."
 		  (make-instance '<multi-iteration> :base smoother
 				 :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
 		  :pre-steps 2 :pre-smooth smoother :post-steps 2 :post-smooth smoother))
-	       :success-if `(:defnorm< 1.0e-10) ; (:reduction< ,(* 0.1 (expt 0.5 (* 2 (+ order 1)))))
-	       :failure-if `(:step-reduction> 0.9)
-	       :output (eq output :all))
-      :output t)
-     problem
+	       :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
+	       :failure-if `(> :step 20)
+	       :output (eq output :all)))
+     problem :output output
      ))
   ;; plot cell solutions and compute the homogenized coefficient
   (when plot
@@ -185,8 +184,8 @@ must be a scalar multiple of the identity."
 
 
 ;;; Testing:
-#+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 3 3)
-#+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 5 1)
+#+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 1 2)
+#+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 3)
 ;;; Gauss-Lobatto points
 ;;; inexact domain
 ;     9       450     31597       4.3   7.2318763792d-01

@@ -68,24 +68,24 @@ with an initial random guess and right-hand side 0."
 	      (funcall iteration A b x)
 	      finally (plot x))))))
 
-(defun make-plot-iteration-behavior-demo (dim level order iteration)
-  (let* ((it-name (class-name (class-of iteration)))
-	 (demo
-	  (make-demo
-	   :name (format nil "~A-error-~DD" it-name dim)
-	   :short (format nil "Error development for ~A." it-name)
-	   :long (format nil "~A~%Parameters: dim=~D, level=~D, order=~D, iteration=~A~%"
-			 (documentation 'plot-iteration-behavior 'function)
-			 dim level order it-name)
-	   :execute
-	   (lambda ()
-	     (plot-iteration-behavior
-	      dim level order
-	      #'(lambda (A b x)
-		  (linsolve A b :sol x :output t :iteration iteration :maxsteps 1)))))))
+(defun make-plot-iteration-behavior-demo (dim level order iteration &key it-name)
+  (unless it-name (setq it-name (class-name (class-of iteration))))
+  (let ((demo
+	 (make-demo
+	  :name (format nil "~A-error-~DD" it-name dim)
+	  :short (format nil "Error development for ~A." it-name)
+	  :long (format nil "~A~%Parameters: dim=~D, level=~D, order=~D, iteration=~A~%"
+			(documentation 'plot-iteration-behavior 'function)
+			dim level order it-name)
+	  :execute
+	  (lambda ()
+	    (plot-iteration-behavior
+	     dim level order
+	     #'(lambda (A b x)
+		 (linsolve A b :sol x :output t :iteration iteration :maxsteps 1)))))))
     (adjoin-demo demo *multigrid-demo*)))
 
-(make-plot-iteration-behavior-demo 1 5 1 *gauss-seidel*)
+(make-plot-iteration-behavior-demo 1 5 1 *gauss-seidel* :it-name "GS")
 
 (defun make-two-grid-behavior-demo (dim level order)
   (let* ((cgc (geometric-cs :gamma 1 :pre-steps 0 :post-steps 0
@@ -111,3 +111,100 @@ with an initial random guess and right-hand side 0."
     (adjoin-demo demo *multigrid-demo*)))
 
 (make-two-grid-behavior-demo 1 5 1)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Robust smoothing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun smoother-performance-test (&key dim order (level 2) smoother
+				  output simplex)
+  "Tests performance of smoother on a Laplace model problem.
+See make-smoother-demo for more information."
+  (let* ((problem (laplace-test-problem-on-domain
+		   (if simplex
+		       (n-simplex-domain dim)
+		       (n-cube-domain dim))))
+	 (mm (uniformly-refined-hierarchical-mesh
+	      (domain problem) level))
+	 (fe-class (lagrange-fe order)))
+     (multiple-value-bind (mat rhs)
+	 (discretize-globally problem mm fe-class)
+       (let ((result
+	      (nth-value 1 (linsolve mat rhs :output output :iteration smoother
+				     :maxsteps 10 :threshold 1.0e-10))))
+       (values (getf result :last-step-reduction) result)))))
+
+#+(or)
+(let ((dim 1) (order 6))
+  (smoother-performance-test :dim dim :order order :smoother *gauss-seidel*))
+
+(defun smoother-demo-execute (smoother)
+  (lambda ()
+    (loop for dim = (user-input "Dimension (1..4): "
+				#'(lambda (x) (and (integerp x) (< 0 x 5))))
+	  until (eq dim :up) do
+	  (loop with max-order = (case dim (1 8) (2 7) (t 4))
+		for order =
+		(user-input (format nil "Order (1..~A): " max-order)
+			    #'(lambda (x) (and (integerp x) (<= 1 x max-order))))
+		until (eq order :up) do
+		(smoother-performance-test
+		 :dim dim :order order :smoother smoother :output t)))))
+
+(defun make-smoother-demo (smoother smoother-name)
+  "~name~-performance - Tests smoother ~name~
+
+Tests the performance of ~name~ applied to discretizations of
+different order of a Laplace model problem on cubes of different
+dimensions."
+  (multiple-value-bind (name short long)
+      (extract-demo-strings
+       (documentation 'make-smoother-demo 'function)
+       (list (cons "~name~" smoother-name)))
+    (let ((demo
+	   (make-demo
+	    :name name :short short :long long
+	    :execute (smoother-demo-execute smoother))))
+      (adjoin-demo demo *multigrid-demo*))))
+
+#+(or)(make-smoother-demo *gauss-seidel* "GS")
+#+(or)(make-smoother-demo (make-instance '<local-bgs> :type :vertex-centered) "VC-BGS")
+#+(or)(make-smoother-demo (make-instance '<local-bgs> :type :cell-centered) "CC-BGS")
+
+(defun smoother-graph-execute (smoother)
+  (lambda ()
+    (loop for dim = (user-input "Dimension (1..4): "
+				#'(lambda (x) (and (integerp x) (< 0 x 5))))
+	  until (eq dim :up) do
+	  (plot
+	   (list
+	    (cons
+	     "convergence-rate"
+	     (loop for order from 1 upto (case dim (1 8) (2 4) (t 3))
+		   collect
+		   (vector order
+			   (smoother-performance-test
+			    :dim dim :order order :smoother smoother)))))
+	   :left 0 :right 8 :top 1.0 :bottom 0.0
+	   ))))
+
+(defun make-smoother-performance-graph-demo (smoother smoother-name)
+  "~name~-cr-graph - Plots graph 'order->CR(order)' for ~name~
+
+Plots a graph of the convergence rate for ~name~ smoother
+applied to discretizations of different order of a Laplace model
+problem on cubes of different dimensions."
+  (multiple-value-bind (name short long)
+      (extract-demo-strings
+       (documentation 'make-smoother-performance-graph-demo 'function)
+       (list (cons "~name~" smoother-name)))
+    (let ((demo
+	   (make-demo
+	    :name name :short short :long long
+	    :execute (smoother-graph-execute smoother))))
+      (adjoin-demo demo *multigrid-demo*))))
+
+(make-smoother-performance-graph-demo *gauss-seidel* "GS")
+(make-smoother-performance-graph-demo
+ (make-instance '<local-bgs> :type :vertex-centered) "VC-BGS")
+

@@ -132,8 +132,8 @@ Parameters of the computation: order=~order~, levels=~levels~."
 				 (?2 *lu-iteration*
 				     (make-instance '<s1-coarse-grid-iterator>
 						    :output (eq output :all)))))
-		:success-if `(:defnorm< 1.0e-10)
-		:failure-if `(:step-reduction> 0.9)
+		:success-if `(< :defnorm 1.0e-10)
+		:failure-if `(> :step-reduction 0.9)
 		:output (eq output :all)))))
       (solve-with
        (make-instance

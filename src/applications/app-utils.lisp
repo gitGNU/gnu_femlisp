@@ -90,13 +90,11 @@
 		))))
     result))
 
-(defmethod correction-tensor ((solution <ansatz-space-vector>) (rhs <ansatz-space-vector>)
-			      &aux result)
-  (dovec ((key) solution)
-    (if result
-	(gemm! 1.0 (vec-ref solution key) (vec-ref rhs key) 1.0 result :tn)
-	(setq result (m* (transpose (vec-ref solution key)) (vec-ref rhs key)))))
-  result)
+(defmethod correction-tensor ((solution <ansatz-space-vector>) (rhs <ansatz-space-vector>))
+  (let ((result (make-real-matrix (multiplicity solution) (multiplicity rhs))))
+    (dovec ((key) solution)
+      (gemm! 1.0 (vec-ref solution key) (vec-ref rhs key) 1.0 result :tn))
+    result))
 
 (defun convert-correction (mat)
   "Converts the (dim^2)x(dim^2) matrix returned as result of correction
