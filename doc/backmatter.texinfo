@@ -1,0 +1,27 @@
+@node Concept Index
+@comment  node-name,  next,  previous,  up
+@appendix Concept Index
+
+@printindex cp
+
+@node Function Index
+@comment  node-name,  next,  previous,  up
+@appendix Function Index
+     
+@printindex fn
+
+@node Variable Index
+@comment  node-name,  next,  previous,  up
+@appendix Variable Index
+     
+@printindex vr
+
+@node Colophon
+@comment  node-name,  next,  previous,  up
+@unnumbered Colophon
+
+This manual is maintained in Texinfo, and automatically translated into
+other forms (e.g. HTML or pdf). If you want to @emph{modify} this
+manual, you are advised to and modify the Texinfo version instead of a
+translated version.  The manual was created from modifying the Texinfo
+files for the SBCL manual written by Rudi Schlatte.

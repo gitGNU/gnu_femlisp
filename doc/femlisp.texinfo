@@ -24,6 +24,8 @@ Common Lisp
 @alias function = code
 @alias symbol = code
 @alias class = symbol
+@alias type = symbol
+@alias slot = symbol
 @alias path = file
 @alias program = file
 

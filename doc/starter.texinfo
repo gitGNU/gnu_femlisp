@@ -43,13 +43,10 @@ using as termination criterion that the time for approximating the
 solution has increased beyond 20 seconds.
 
 @lisp
-(defparameter *result*
-     (solve
-      (blackboard
-       :problem
-       (cdr-model-problem (n-cube-domain 2)
-                          :source #'(lambda (x) #I(exp(x[0]+x[1]))))
-       :success-if '(> :time 20))))
+(let ((problem (cdr-model-problem (n-cube-domain 2)
+                  :source #'(lambda (x) #I(exp(x[0]+x[1]))))))
+  (defparameter *result*
+     (solve (blackboard :problem problem :success-if '(> :time 20)))))
 @end lisp
 
 The result of the call to @function{solve} is a blackboard which we
@@ -115,6 +112,25 @@ components at the midpoint @math{(0.5,0.5)} is printed.
 The solution of time-dependent problem is working, but it has not yet
 been included into this version of @femlisp{}, because it does still
 need some polishing.
+
+@subsection Eigenvalue problems
+
+@femlisp{} can solve eigenvalue problems by Wielandt's iteration.  For
+example, the second eigenvalue of the Laplace operator on a unit
+square can be approximated with
+@lisp
+  (let ((problem (cdr-model-problem 2 :evp '(lambda 50))))
+    (defparameter *result*
+      (solve (blackboard :problem problem
+			 :success-if '(>= :time 20)
+			 :output 1))))
+  (slot-value (getbb *result* :problem) 'lambda) @result{} eigenvalue
+@end lisp
+
+Unfortunately, the multigrid algorithm has not yet been adapted to
+this kind of problems.  Therefore, a direct decomposition is used for
+solving the linear systems which does not work for a large number of
+unknowns.
 
 @node Plotting, Common Lisp environment, Solving problems, First steps
 @section Plotting

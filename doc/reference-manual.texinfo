@@ -7,6 +7,8 @@
 * Package FL.DEBUG::            
 * Package FL.DEMO::             
 * Package FL.TESTS::            
+* Package FL.PORT::             
+* Package FL.ALIEN::            
 * Package FL.MATLISP::          
 * Package FL.ALGEBRA::          
 * Package FL.MESH::             
@@ -61,6 +63,12 @@ Direct slots:
 @end itemize
 @end deftp
 
+@anchor{fun-fl.utilities-box}
+@deffn Function BOX @var{OBJECT}
+@findex BOX
+Boxes an object.
+@end deffn
+
 @anchor{fun-fl.utilities-check-properties}
 @deffn Function CHECK-PROPERTIES @var{PLACE} @var{PROPERTIES}
 @findex CHECK-PROPERTIES
@@ -68,8 +76,15 @@ Checks if all of the @arg{properties} are in the property list
 @arg{place}.
 @end deffn
 
+@anchor{fun-fl.utilities-common-lisp-speed}
+@deffn Function COMMON-LISP-SPEED &KEY (@var{CACHE} 0.5d0) (@var{MEMORY} 0.5d0)
+@findex COMMON-LISP-SPEED
+Returns the speed which should be characteristic for the setting
+determined by the keyword arguments.
+@end deffn
+
 @anchor{fun-fl.utilities-compose}
-@deffn Function COMPOSE &REST @var{FNS}
+@deffn Function COMPOSE &REST @var{FUNCTIONS}
 @findex COMPOSE
 Returns the composition of @arg{functions}.
 @end deffn
@@ -140,10 +155,22 @@ Returns a @symbol{FIXNUM-VEC} constructed from the parameters.
 Vector with elements of type @code{fixnum}.
 @end deftp
 
+@anchor{fun-fl.utilities-for-each}
+@deffn Function FOR-EACH @var{FUNC} @var{SEQ}
+@findex FOR-EACH
+Applies @arg{func} to each element of @arg{collection}.
+@end deffn
+
 @anchor{fun-fl.utilities-get-arbitrary-key-from-hash-table}
 @deffn Function GET-ARBITRARY-KEY-FROM-HASH-TABLE @var{HASH-TABLE}
 @findex GET-ARBITRARY-KEY-FROM-HASH-TABLE
 Get an arbitrary key from @arg{hash-table}.
+@end deffn
+
+@anchor{fun-fl.utilities-get-property}
+@deffn Function GET-PROPERTY @var{OBJECT} @var{PROPERTY}
+@findex GET-PROPERTY
+Gets @arg{property} for @arg{object}.
 @end deffn
 
 @anchor{fun-fl.utilities-geta}
@@ -324,6 +351,13 @@ Returns a list of all nonempty subsets of @arg{set}.
 Executes @arg{func} on the leaves of @arg{tree}.
 @end deffn
 
+@anchor{fun-fl.utilities-partial-sums}
+@deffn Function PARTIAL-SUMS @var{SEQ}
+@findex PARTIAL-SUMS
+Returns a sequence of the same type as @arg{seq} consisting of its
+partial sums.
+@end deffn
+
 @anchor{fun-fl.utilities-peek-first}
 @deffn Function PEEK-FIRST @var{QUEUE}
 @findex PEEK-FIRST
@@ -402,6 +436,12 @@ this object.
 @end itemize
 @end deftp
 
+@anchor{fun-fl.utilities-property-set-p}
+@deffn Function PROPERTY-SET-P @var{OBJECT} @var{PROPERTY}
+@findex PROPERTY-SET-P
+Returns T if @arg{property} is found in the object's properties.
+@end deffn
+
 @anchor{fun-fl.utilities-queue->list}
 @deffn Function QUEUE->LIST @var{QUEUE}
 @findex QUEUE->LIST
@@ -470,6 +510,12 @@ Transfer @arg{items} between the blackboards @arg{from-bb} and
 @arg{to-bb}.  When @arg{ensure} is set, an existing item is not modified.
 @end deffn
 
+@anchor{fun-fl.utilities-unbox}
+@deffn Function UNBOX @var{BOX}
+@findex UNBOX
+Getter for a boxed object.
+@end deffn
+
 @anchor{fun-fl.utilities-vector-last}
 @deffn Function VECTOR-LAST @var{VEC}
 @findex VECTOR-LAST
@@ -519,11 +565,35 @@ A macro returning the second of its arguments.
 A macro returning the third of its arguments.
 @end deffn
 
+@anchor{macro-fl.macros-aand}
+@deffn Macro AAND &REST @var{ARGS}
+@findex AAND
+Anaphoric macro from @cite{(Graham XXX)}.
+@end deffn
+
+@anchor{macro-fl.macros-acond}
+@deffn Macro ACOND &REST @var{CLAUSES}
+@findex ACOND
+Anaphoric macro from @cite{(Graham XXX)}.
+@end deffn
+
+@anchor{macro-fl.macros-awhen}
+@deffn Macro AWHEN @var{TEST-FORM} &BODY @var{BODY}
+@findex AWHEN
+Anaphoric macro from @cite{(Graham XXX)}.
+@end deffn
+
 @anchor{macro-fl.macros-definline}
 @deffn Macro DEFINLINE @var{NAME} &REST @var{REST}
 @findex DEFINLINE
-Short form for defining an inlined function.  Should probably be
-deprecated.
+Short form for defining an inlined function.  It should probably be
+deprecated, because it won't be recognized by default by editors.
+@end deffn
+
+@anchor{macro-fl.macros-delay}
+@deffn Macro DELAY @var{FORM}
+@findex DELAY
+Delays the evaluation of @arg{form}.
 @end deffn
 
 @anchor{macro-fl.macros-ensure}
@@ -537,6 +607,12 @@ It is not clear if the implementation used here works everywhere.  If not,
 the workaround below the macro definition should be used.
 @end deffn
 
+@anchor{macro-fl.macros-fluid-let}
+@deffn Macro FLUID-LET @var{BINDINGS} &BODY @var{BODY}
+@findex FLUID-LET
+Sets temporary bindings.
+@end deffn
+
 @anchor{macro-fl.macros-for}
 @deffn Macro FOR (@var{VAR} @var{START} @var{END}) &BODY @var{BODY}
 @findex FOR
@@ -547,6 +623,12 @@ Loops for @arg{var} from @arg{start} upto @arg{end}.
 @deffn Macro FOR< (@var{VAR} @var{START} @var{END}) &BODY @var{BODY}
 @findex FOR<
 Loops for @arg{var} from @arg{start} below @arg{end}.
+@end deffn
+
+@anchor{macro-fl.macros-force}
+@deffn Macro FORCE @var{DELAYED-FORM}
+@findex FORCE
+Forces the value of a @arg{delayed-form}.
 @end deffn
 
 @anchor{macro-fl.macros-multi-for}
@@ -575,7 +657,7 @@ DEFMETHOD definition.
 @deffn Function SYMCONC &REST @var{ARGS}
 @findex SYMCONC
 This function builds a symbol from its arguments and interns it.  This
-is for use in some macros.
+is used in some macros.
 @end deffn
 
 @anchor{macro-fl.macros-whereas}
@@ -590,6 +672,13 @@ Naggum (c.l.l., 4.12.2002).
 @findex WITH-GENSYMS
 Standard macro providing the freshly generated symbols @arg{syms} to the
 code in @arg{body}.
+@end deffn
+
+@anchor{macro-fl.macros-_f}
+@deffn Macro _F @var{OP} @var{PLACE} &REST @var{ARGS}
+@findex _F
+Macro from @cite{(Graham XXX)}.  Turns the operator @arg{op} into a
+modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}.
 @end deffn
 
 @node Package FL.DEBUG, Package FL.DEMO, Package FL.MACROS, Reference manual
@@ -688,7 +777,7 @@ User input for demo functions.  Reads lines until
 @arg{test-p} returns t on the item read.
 @end deffn
 
-@node Package FL.TESTS, Package FL.MATLISP, Package FL.DEMO, Reference manual
+@node Package FL.TESTS, Package FL.PORT, Package FL.DEMO, Reference manual
 @section Package FL.TESTS
 
 This package provides routines for building a simple
@@ -720,7 +809,65 @@ Runs the Femlisp test suite.  The result is printed to
 *standard-output*.
 @end deffn
 
-@node Package FL.MATLISP, Package FL.ALGEBRA, Package FL.TESTS, Reference manual
+@node Package FL.PORT, Package FL.ALIEN, Package FL.TESTS, Reference manual
+@section Package FL.PORT
+
+NIL
+
+@anchor{fun-fl.port-getenv}
+@deffn Function GETENV @var{VAR}
+@findex GETENV
+Return the value of the environment variable.
+@end deffn
+
+@anchor{fun-fl.port-process-close}
+@deffn Function PROCESS-CLOSE @var{PROCESS}
+@findex PROCESS-CLOSE
+Interface to process-input.
+@end deffn
+
+@anchor{fun-fl.port-process-input}
+@deffn Function PROCESS-INPUT @var{PROCESS}
+@findex PROCESS-INPUT
+Interface to process-input.
+@end deffn
+
+@anchor{fun-fl.port-process-output}
+@deffn Function PROCESS-OUTPUT @var{PROCESS}
+@findex PROCESS-OUTPUT
+Interface to process-input.
+@end deffn
+
+@anchor{fun-fl.port-process-status}
+@deffn Function PROCESS-STATUS @var{PROCESS}
+@findex PROCESS-STATUS
+Interface to process-input.
+@end deffn
+
+@anchor{fun-fl.port-run-program}
+@deffn Function RUN-PROGRAM @var{PROGRAM} @var{ARGS} &REST @var{OPTS}
+@findex RUN-PROGRAM
+Interface to run-program.
+@end deffn
+
+@anchor{fun-fl.port-unix-chdir}
+@deffn Function UNIX-CHDIR @var{PATH}
+@findex UNIX-CHDIR
+Change the directory to @arg{path}.
+@end deffn
+
+@anchor{macro-fl.port-without-gcing}
+@deffn Macro WITHOUT-GCING &REST @var{BODY}
+@findex WITHOUT-GCING
+Executes the forms in the body without doing a garbage collection.
+@end deffn
+
+@node Package FL.ALIEN, Package FL.MATLISP, Package FL.PORT, Reference manual
+@section Package FL.ALIEN
+
+NIL
+
+@node Package FL.MATLISP, Package FL.ALGEBRA, Package FL.ALIEN, Reference manual
 @section Package FL.MATLISP
 
 This package provides a Common Lisp version of full
@@ -747,8 +894,7 @@ General matrix class.
 @anchor{class-fl.matlisp-<store-vector>}
 @deftp Class <STORE-VECTOR>
 @tindex <STORE-VECTOR>
-A mixin yielding the behaviour that destructive vector
-operations operate on the store.
+A mixin for vectors having a store.
 
 Superclasses: <VECTOR>
 @end deftp
@@ -794,6 +940,41 @@ Returns alpha X + Y.  Uses AXPY! and COPY.
 Y <- alpha*X + Y
 @end deffn
 
+@anchor{fun-fl.matlisp-ccs-matrix}
+@deffn Function CCS-MATRIX @var{TYPE}
+@findex CCS-MATRIX
+Construct a CCS matrix with entries of @arg{type}.
+@end deffn
+
+@anchor{class-fl.matlisp-ccs-matrix}
+@deftp Class CCS-MATRIX
+@tindex CCS-MATRIX
+A CCS (compressed column storage) matrix.  This is an
+abstract class which is made concrete by mixing it with a store-vector.
+
+Superclasses: <MATRIX>
+
+Direct slots:
+@itemize
+@item PATTERN: CCS pattern.
+@end itemize
+@end deftp
+
+@anchor{class-fl.matlisp-ccs-pattern}
+@deftp Class CCS-PATTERN
+@tindex CCS-PATTERN
+A CCS (compressed column storage) pattern.  We work with
+integer vectors that do not have to be copied for calls to C programs.
+
+Direct slots:
+@itemize
+@item NROWS: Number of rows in the pattern.
+@item NCOLS: Number of columns in the pattern.
+@item COLUMN-STARTS: Vector with start indices of columns.
+@item ROW-INDICES: Vector with row indices.
+@end itemize
+@end deftp
+
 @anchor{fun-fl.matlisp-copy}
 @deffn Function COPY @var{POLY}
 @findex COPY
@@ -829,6 +1010,12 @@ Returns the dot product of X and Y.
 @findex DOUBLE-VEC
 Returns a @class{double-vec} with the entries in @arg{comps}.
 @end deffn
+
+@anchor{type-fl.matlisp-double-vec}
+@deftp Type DOUBLE-VEC
+@tindex DOUBLE-VEC
+Uniform @type{double-float} vector.
+@end deftp
 
 @anchor{macro-fl.matlisp-dovec}
 @deffn Macro DOVEC (@var{LOOP-VARS} @var{VEC}) &BODY @var{BODY}
@@ -949,15 +1136,9 @@ General matrix-matrix multiplication: Z <- alpha * X' * Y'
 @end deffn
 
 @anchor{fun-fl.matlisp-gesv}
-@deffn Function GESV @var{X} @var{B} &KEY @var{IPIV}
+@deffn Function GESV @var{X} @var{B}
 @findex GESV
 Rewriting for GESV in terms of GESV!.
-@end deffn
-
-@anchor{fun-fl.matlisp-gesv!}
-@deffn Function GESV! @var{A} @var{B} &KEY @var{IPIV}
-@findex GESV!
-Solves a linear system A X = B for X via GETRF and GETRS!.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrf}
@@ -1153,6 +1334,18 @@ Number of matrix rows.
 Returns the @arg{p}-norm of @arg{x}.
 @end deffn
 
+@anchor{fun-fl.matlisp-normalize}
+@deffn Function NORMALIZE @var{X} &OPTIONAL (@var{P} 2)
+@findex NORMALIZE
+Scales @arg{x} to have @arg{p}-norm equal to 1.
+@end deffn
+
+@anchor{fun-fl.matlisp-normalize!}
+@deffn Function NORMALIZE! @var{X} &OPTIONAL (@var{P} 2)
+@findex NORMALIZE!
+Scales @arg{x} destructively to have @arg{p}-norm equal to 1.
+@end deffn
+
 @anchor{fun-fl.matlisp-nrows}
 @deffn Function NROWS @var{MAT}
 @findex NROWS
@@ -1216,6 +1409,19 @@ Rewriting for TRANSPOSE.
 Sets Y to the transpose of X.
 @end deffn
 
+@anchor{type-fl.matlisp-uint-vec}
+@deftp Type UINT-VEC
+@tindex UINT-VEC
+Uniform @type{uint} vector.
+@end deftp
+
+@anchor{fun-fl.matlisp-unit-vector}
+@deffn Function UNIT-VECTOR @var{DIM} @var{I}
+@findex UNIT-VECTOR
+Returns a freshly created copy of the @arg{i}-th carthesian unit vector
+in dimension @arg{dim}.
+@end deffn
+
 @anchor{fun-fl.matlisp-vector-slice}
 @deffn Function VECTOR-SLICE @var{VEC} @var{OFFSET} @var{SIZE}
 @findex VECTOR-SLICE
@@ -1223,7 +1429,7 @@ Returns the specified subvector.
 @end deffn
 
 @anchor{fun-fl.matlisp-vlength}
-@deffn Function VLENGTH @var{SEQ}
+@deffn Function VLENGTH @var{MAT}
 @findex VLENGTH
 Length of vector.
 @end deffn
@@ -1231,7 +1437,7 @@ Length of vector.
 @anchor{fun-fl.matlisp-vref}
 @deffn Function VREF @var{SVEC} @var{KEY}
 @findex VREF
-Reader to x_i.
+Reader for @math{x_i}.
 @end deffn
 
 @anchor{fun-fl.matlisp-x<-0}
@@ -1470,6 +1676,16 @@ Usually, m* should be used.  But in situations, where A or B are very
 sparse, the complexity of this routine is much lower.
 @end deffn
 
+@anchor{fun-fl.algebra-sparse-matrix->ccs}
+@deffn Function SPARSE-MATRIX->CCS @var{A} &KEY @var{KEYS} @var{ROW-KEYS} @var{COL-KEYS} @var{RANGES} @var{ROW-RANGES} @var{COL-RANGES}
+@findex SPARSE-MATRIX->CCS
+Converts the sparse matrix @arg{A} to CCS format.  @arg{row-keys} and
+@arg{col-keys} may denote a submatrix, @arg{col-ranges} and
+@arg{row-ranges} may be used for extracting even subblocks of the entries.
+This is a rather difficult routine, which might suggest switching to CCS
+completely.
+@end deffn
+
 @anchor{fun-fl.algebra-total-entries}
 @deffn Function TOTAL-ENTRIES @var{MAT}
 @findex TOTAL-ENTRIES
@@ -1520,6 +1736,25 @@ better.
 The reference vertex.
 @end defvr
 
+@anchor{class-fl.mesh-<boundary-cell>}
+@deftp Class <BOUNDARY-CELL>
+@tindex <BOUNDARY-CELL>
+This cell is only fuzzily defined.  Its use is mostly
+for defining domains by their boundary.  The slot @slot{midpoint} can be
+useful for the graphical output of the cell, the slot @slot{holes} contains
+a list of points lying inside holes.  This is intended as help for
+triangulation programs.
+
+Superclasses: <STANDARD-CELL>
+
+Direct slots:
+@itemize
+@item DIMENSION: NIL
+@item MIDPOINT: NIL
+@item HOLES: NIL
+@end itemize
+@end deftp
+
 @anchor{class-fl.mesh-<cell>}
 @deftp Class <CELL>
 @tindex <CELL>
@@ -1529,17 +1764,19 @@ The basic cell class.
 @anchor{class-fl.mesh-<domain>}
 @deftp Class <DOMAIN>
 @tindex <DOMAIN>
-A <domain> is a special <skeleton>.  We call its cells
-`patches', and the properties of a patch carry geometric information.
-Properties supported up to now are:
+A @class{<domain>} is a special @class{<skeleton>}.  We
+call its cells @emph{patches}, and the properties of a patch carries
+geometric information.  Properties supported up to now are:
 
-IDENTIFIED <list-of-identified-patches>
-EXTENSION <extender>
-METRIC <function>
-VOLUME <function>
+@itemize
+@item @code{IDENTIFIED} @emph{list-of-identified-patches}
+@item @code{EXTENSION} @emph{extender}
+@item @code{METRIC} @emph{function}
+@item @code{VOLUME} @emph{function}
+@end itemize
 
-Here, <function> should be a function depending on keyword arguments like
-:LOCAL and :GLOBAL and allowing arbitrary other keys.
+Here, @emph{function} should be a function depending on keyword arguments
+like @code{:LOCAL} and @code{:GLOBAL} and allowing arbitrary other keys.
 
 Superclasses: <SKELETON>
 
@@ -1662,6 +1899,25 @@ vertices of the copy.
 Transforms a tensorial into a degenerated cube with the same vertices.
 @end deffn
 
+@anchor{fun-fl.mesh-cell-identification}
+@deffn Function CELL-IDENTIFICATION @var{CELL} @var{SKEL}
+@findex CELL-IDENTIFICATION
+Returns @arg{cell}'s identification in @arg{skel} or NIL.
+@end deffn
+
+@anchor{fun-fl.mesh-cells-of-dim}
+@deffn Function CELLS-OF-DIM @var{SKEL} @var{DIM}
+@findex CELLS-OF-DIM
+Returns the cells of @arg{skel} of dimension @arg{dim} in form of a
+list.
+@end deffn
+
+@anchor{fun-fl.mesh-cells-of-highest-dim}
+@deffn Function CELLS-OF-HIGHEST-DIM @var{SKEL}
+@findex CELLS-OF-HIGHEST-DIM
+Returns the cells of @arg{skel} of highest dimension in form of a list.
+@end deffn
+
 @anchor{fun-fl.mesh-combine-identifications}
 @deffn Function COMBINE-IDENTIFICATIONS @var{SETS}
 @findex COMBINE-IDENTIFICATIONS
@@ -1707,8 +1963,14 @@ assumed to be provided in an exact form.
 @anchor{macro-fl.mesh-doskel}
 @deffn Macro DOSKEL (@var{LOOPING-VAR} @var{SKEL} &KEY (@var{DIRECTION} @var{UP}) @var{WHERE} @var{DIMENSION}) &BODY @var{BODY}
 @findex DOSKEL
-Loops through a skeleton.  If looping-var is an atom, it loops through
+Loop through a skeleton.  If looping-var is an atom, it loops through
 all cells, otherwise it loops through cells and properties.
+@end deffn
+
+@anchor{fun-fl.mesh-embedded-dimension}
+@deffn Function EMBEDDED-DIMENSION @var{VTX}
+@findex EMBEDDED-DIMENSION
+Dimension of the embedding space for object.
 @end deffn
 
 @anchor{fun-fl.mesh-ensure-tensorial}
@@ -1773,10 +2035,16 @@ level) hierarchically for use in something similar to the nested
 disection method.  Returns a list of the sorted cells.
 @end deffn
 
+@anchor{fun-fl.mesh-identified-p}
+@deffn Function IDENTIFIED-P @var{CELL} @var{SKEL}
+@findex IDENTIFIED-P
+Returns @arg{cell}'s identification in @arg{skel} or NIL.
+@end deffn
+
 @anchor{fun-fl.mesh-identify}
 @deffn Function IDENTIFY @var{IDENTIFIED-CELLS} @var{SKEL}
 @findex IDENTIFY
-Identifies the given cells in skel.
+Identifies all cells in @arg{identified-cells} within @arg{skel}.
 @end deffn
 
 @anchor{fun-fl.mesh-identify-unit-cell-faces}
@@ -1794,12 +2062,24 @@ the unit cell, but may create problems in other situations.
 Returns the children of refcell.
 @end deffn
 
+@anchor{fun-fl.mesh-insert-cell!}
+@deffn Function INSERT-CELL! @var{SKEL} @var{CELL}
+@findex INSERT-CELL!
+Inserts a cell and its boundary into a skeleton.
+@end deffn
+
 @anchor{fun-fl.mesh-insert-cell-from-corners}
-@deffn Function INSERT-CELL-FROM-CORNERS @var{MESH} @var{CORNERS->CELL} @var{CELL-CLASS} @var{CORNERS} @var{PROPERTIES}
+@deffn Function INSERT-CELL-FROM-CORNERS @var{MESH} @var{CORNERS->CELL} @var{CELL-CLASS} @var{CORNERS} @var{PROPERTIES} &KEY (@var{CREATE-SUBCELLS} @var{T})
 @findex INSERT-CELL-FROM-CORNERS
 Creates a cell of type cell-class with corners given by corners.
 corners->cell has to be an equalp hash-table mapping corners to the
 corresponding cell.  It is updated by this function.
+@end deffn
+
+@anchor{fun-fl.mesh-insert-cells!}
+@deffn Function INSERT-CELLS! @var{SKEL} @var{CELLS}
+@findex INSERT-CELLS!
+Inserts a list of cells into a skeleton.
 @end deffn
 
 @anchor{fun-fl.mesh-inside-cell?}
@@ -1918,8 +2198,14 @@ General vertex constructor.
 Constructs a cell class with <mapped-cell> mixin.
 @end deffn
 
+@anchor{fun-fl.mesh-member-of-skeleton?}
+@deffn Function MEMBER-OF-SKELETON? @var{CELL} @var{SKEL}
+@findex MEMBER-OF-SKELETON?
+Returns T if @arg{cell} is in @arg{skel}, NIL otherwise.
+@end deffn
+
 @anchor{fun-fl.mesh-midpoint}
-@deffn Function MIDPOINT @var{CELL}
+@deffn Function MIDPOINT @var{<BOUNDARY-CELL>}
 @findex MIDPOINT
 Returns cell midpoint in global coordinates.
 @end deffn
@@ -1950,7 +2236,7 @@ Returns the reference simplex of the given dimension.
 @end deffn
 
 @anchor{fun-fl.mesh-nr-of-cells}
-@deffn Function NR-OF-CELLS @var{SKEL} &KEY @var{DIMENSION}
+@deffn Function NR-OF-CELLS @var{SKEL} &OPTIONAL @var{DIMENSION}
 @findex NR-OF-CELLS
 Returns number of cells in a skeleton.
 @end deffn
@@ -1971,6 +2257,12 @@ Returns the number of subcells.
 @deffn Function NR-OF-VERTICES @var{CELL}
 @findex NR-OF-VERTICES
 Returns the number of vertices.
+@end deffn
+
+@anchor{fun-fl.mesh-origin}
+@deffn Function ORIGIN @var{CELL}
+@findex ORIGIN
+Returns cell origin in global coordinates.
 @end deffn
 
 @anchor{fun-fl.mesh-refcell-children}
@@ -2040,13 +2332,13 @@ localized.
 @anchor{fun-fl.mesh-skel-add!}
 @deffn Function SKEL-ADD! @var{SKEL-1} @var{SKEL-2} &KEY (@var{OVERRIDE} @var{NIL}) @var{ACTIVE-SKEL-1}
 @findex SKEL-ADD!
-Adds skel-2 to skel-1 destructively for skel-1.  Overlaying objects are
-identified.  Override is a list of properties which are taken from skel-2
-on the overlap.  Active-skel-1 is used for hierarchical-meshes for
-selecting a level to which skel-2 is added.  This function returns three
-values: the first is skel-1, the second is the copy made of skel-2, the
-third is a hash-table mapping overlapping cells from the copy of skel-2 to
-their counterpart in skel-1.
+Adds @arg{skel-2} to @arg{skel-1} destructively for @arg{skel-1}.
+Overlaying cells are identified.  @arg{override} is a list of properties
+which are copied from skel-2 on the overlap.  @arg{active-skel-1} is used
+for hierarchical-meshes for selecting a level to which @arg{skel-2} is
+added.  This function returns three values: the first is @arg{skel-1}, the
+second is @arg{skel-2}, the third is a hash-table mapping overlapping cells
+from @arg{skel-2} to their counterpart in @arg{skel-1}.
 @end deffn
 
 @anchor{fun-fl.mesh-skel-for-each}
@@ -2054,6 +2346,12 @@ their counterpart in skel-1.
 @findex SKEL-FOR-EACH
 Loops through a skeleton applying func.  When direction is :down then loops
 with dimension of the cells decreasing, otherwise increasing.
+@end deffn
+
+@anchor{fun-fl.mesh-skel-ref}
+@deffn Function SKEL-REF @var{SKEL} @var{CELL}
+@findex SKEL-REF
+Returns the properties of @arg{cell} in @arg{skel}.
 @end deffn
 
 @anchor{fun-fl.mesh-skeleton}
@@ -2123,6 +2421,13 @@ locally refined hierarchical-mesh structure.
 Generates a tensorial domain for the given factor dimensions.
 @end deffn
 
+@anchor{fun-fl.mesh-triangulate}
+@deffn Function TRIANGULATE @var{DOMAIN} &REST @var{ARGS} &KEY @var{PARAMETRIC} &ALLOW-OTHER-KEYS
+@findex TRIANGULATE
+Triangulate @arg{domain} by successively building a mesh on the domain
+skeleton starting from the 0-dimensional patches.
+@end deffn
+
 @anchor{fun-fl.mesh-triangulize}
 @deffn Function TRIANGULIZE @var{MESH}
 @findex TRIANGULIZE
@@ -2169,6 +2474,9 @@ The coefficient class.
 
 Direct slots:
 @itemize
+@item DIMENSION: The dimension of the cell on which this coefficient is
+active.  The value T means that it is active on all cells lying on the
+patch.
 @item DEMANDS: A list of keywords indicating which information the
 evaluation function needs.  Possible choices depend on problem and
 discretization, e.g. :local, :global, :solution are choices which will
@@ -2202,6 +2510,27 @@ Direct slots:
 @end itemize
 @end deftp
 
+@anchor{class-fl.problem-<evp-mixin>}
+@deftp Class <EVP-MIXIN>
+@tindex <EVP-MIXIN>
+A mixin for eigenvalue problems.
+
+Direct slots:
+@itemize
+@item LAMBDA: The multiplier for the mass matrix, usually equal to the
+eigenvalue.
+@item MU: The multiplier for the system matrix.
+@end itemize
+@end deftp
+
+@anchor{class-fl.problem-<evp>}
+@deftp Class <EVP>
+@tindex <EVP>
+Standard class for discrete eigenvalue problems.
+
+Superclasses: <EVP-MIXIN> <NONLINEAR-PROBLEM>
+@end deftp
+
 @anchor{class-fl.problem-<interpolation-problem>}
 @deftp Class <INTERPOLATION-PROBLEM>
 @tindex <INTERPOLATION-PROBLEM>
@@ -2210,6 +2539,20 @@ is to be interpolated is given as a coefficient with key FUNCTION in the
 coefficient list.
 
 Superclasses: <DOMAIN-PROBLEM>
+@end deftp
+
+@anchor{class-fl.problem-<ls-evp>}
+@deftp Class <LS-EVP>
+@tindex <LS-EVP>
+Generalized eigenvalue problem for matrices.
+
+Superclasses: <EVP>
+
+Direct slots:
+@itemize
+@item A: (Energy) matrix A.
+@item B: (Mass) matrix B.
+@end itemize
 @end deftp
 
 @anchor{class-fl.problem-<lse>}
@@ -2229,14 +2572,23 @@ Direct slots:
 @anchor{class-fl.problem-<nlse>}
 @deftp Class <NLSE>
 @tindex <NLSE>
-Class for nonlinear system of equations.  The
-linearization contains a function returning a linear problem.
+Class for nonlinear system of equations.
+
+Superclasses: <NONLINEAR-PROBLEM>
+@end deftp
+
+@anchor{class-fl.problem-<nonlinear-problem>}
+@deftp Class <NONLINEAR-PROBLEM>
+@tindex <NONLINEAR-PROBLEM>
+Class for nonlinear problems.  The linearization
+contains a function returning a linear problem.
 
 Superclasses: <PROBLEM>
 
 Direct slots:
 @itemize
 @item LINEARIZATION: A function linearizing the problem.
+@item INITIAL-GUESS: An initial guess for a solution.
 @end itemize
 @end deftp
 
@@ -2253,10 +2605,7 @@ Superclasses: <DOMAIN-PROBLEM>
 @tindex <PROBLEM>
 Base class for all problems.
 
-Direct slots:
-@itemize
-@item PROPERTIES: NIL
-@end itemize
+Superclasses: PROPERTY-MIXIN
 @end deftp
 
 @anchor{class-fl.problem-<solver>}
@@ -2281,7 +2630,7 @@ A mixin which should be used together with a
 @anchor{fun-fl.problem-boundary-coefficient-p}
 @deffn Function BOUNDARY-COEFFICIENT-P @var{PROBLEM} @var{COEFF}
 @findex BOUNDARY-COEFFICIENT-P
-Tests, if COEFF is a boundary coefficient of PROBLEM.
+Tests, if @arg{coeff} is a boundary coefficient of @arg{problem}.
 @end deffn
 
 @anchor{fun-fl.problem-boundary-coefficients}
@@ -2293,7 +2642,7 @@ Yields a list of possible boundary coefficients for PROBLEM.
 @anchor{fun-fl.problem-coefficient-p}
 @deffn Function COEFFICIENT-P @var{PROBLEM} @var{COEFF}
 @findex COEFFICIENT-P
-Test if COEFF is a coefficient of PROBLEM.
+Test if @arg{coeff} is a coefficient of @arg{problem}.
 @end deffn
 
 @anchor{fun-fl.problem-coefficients-of-cell}
@@ -2308,21 +2657,35 @@ An accessor for the coefficients.
 An accessor for the coefficients.
 @end deffn
 
+@anchor{fun-fl.problem-constant-coefficient}
+@deffn Function CONSTANT-COEFFICIENT @var{VALUE} &REST @var{OTHER-VALUES}
+@findex CONSTANT-COEFFICIENT
+Returns a coefficient which takes the given value.  Several values can
+be passed which is needed, for example, for returning also the type of a
+boundary condition.
+@end deffn
+
 @anchor{fun-fl.problem-dual-problem}
 @deffn Function DUAL-PROBLEM @var{PROBLEM} @var{CELL->RHS}
 @findex DUAL-PROBLEM
-Returns the dual problem for problem with the right-hand
-side given by functional.  The solution of this problem measures the
-sensitivity of functional applied to the solution of problem with respect
-to errors in the solution.
+Returns the dual problem for @arg{problem} with the
+right-hand side given by @arg{functional}.  The solution of this problem
+measures the sensitivity of @arg{functional} applied to the solution of
+problem with respect to errors in the solution.
+@end deffn
+
+@anchor{fun-fl.problem-energy}
+@deffn Function ENERGY @var{EVP} @var{X}
+@findex ENERGY
+Evaluates the energy bilinear form for a generalized eigenvalue problem.
 @end deffn
 
 @anchor{fun-fl.problem-ensure-coefficient}
 @deffn Function ENSURE-COEFFICIENT @var{OBJ}
 @findex ENSURE-COEFFICIENT
-Returns OBJ if it is a coefficient, converts OBJ into a coefficient
-depending on the space variable if OBJ is a function; otherwise, OBJ is
-made into a constant coefficient.
+Returns @arg{obj} if it is a coefficient, converts @arg{obj} into a
+coefficient depending on the space variable if @arg{obj} is a function;
+otherwise, @arg{obj} is made into a constant coefficient.
 @end deffn
 
 @anchor{fun-fl.problem-ensure-residual}
@@ -2333,7 +2696,7 @@ the flag :RESIDUAL-P is set on the blackboard.
 @end deffn
 
 @anchor{fun-fl.problem-ensure-solution}
-@deffn Function ENSURE-SOLUTION @var{LSE} @var{BLACKBOARD}
+@deffn Function ENSURE-SOLUTION @var{NLPB} @var{BLACKBOARD}
 @findex ENSURE-SOLUTION
 Ensures that the field :SOLUTION is set on the
 blackboard.
@@ -2342,20 +2705,20 @@ blackboard.
 @anchor{fun-fl.problem-function->coefficient}
 @deffn Function FUNCTION->COEFFICIENT @var{FUNC}
 @findex FUNCTION->COEFFICIENT
-Returns a coefficient for the given function depending on global
-coordinates.
+The function argument @arg{func} is transformed into a coefficient
+depending on global coordinates.
 @end deffn
 
 @anchor{fun-fl.problem-get-property}
-@deffn Function GET-PROPERTY @var{PROBLEM} @var{SYM}
+@deffn Function GET-PROPERTY @var{OBJECT} @var{PROPERTY}
 @findex GET-PROPERTY
-Finds a property of the problem.
+Gets @arg{property} for @arg{object}.
 @end deffn
 
 @anchor{fun-fl.problem-interior-coefficient-p}
 @deffn Function INTERIOR-COEFFICIENT-P @var{PROBLEM} @var{COEFF}
 @findex INTERIOR-COEFFICIENT-P
-Tests, if COEFF is an interior coefficient of PROBLEM.
+Tests, if @arg{coeff} is an interior coefficient of @arg{problem}.
 @end deffn
 
 @anchor{fun-fl.problem-interior-coefficients}
@@ -2381,6 +2744,12 @@ SOLUTION.  The result should be a linear problem.
 @deffn Function LSE &REST @var{ARGS}
 @findex LSE
 Constructs a standard LSE.
+@end deffn
+
+@anchor{fun-fl.problem-mass}
+@deffn Function MASS @var{EVP} @var{X}
+@findex MASS
+Evaluates the mass bilinear form for a generalized eigenvalue problem.
 @end deffn
 
 @anchor{fun-fl.problem-multiplicity}
@@ -2413,7 +2782,7 @@ problem with certain characteristics.
 @anchor{fun-fl.problem-self-adjoint-p}
 @deffn Function SELF-ADJOINT-P @var{PROBLEM}
 @findex SELF-ADJOINT-P
-Returns two values.  The first says if the problem is
+Returns two values.  The first says if @arg{problem} is
 self-adjoint, the second says if that value has really been checked.
 @end deffn
 
@@ -2456,7 +2825,7 @@ Bratu problem -Delta u +e^u =0.
 @end deffn
 
 @anchor{fun-fl.cdr-cdr-model-problem}
-@deffn Function CDR-MODEL-PROBLEM @var{DIM/DOMAIN} &KEY (@var{DIFFUSION} @var{NIL} @var{DIFFUSION-P}) (@var{SOURCE} @var{NIL} @var{SOURCE-P}) (@var{DIRICHLET} @var{NIL} @var{DIRICHLET-P}) @var{GAMMA} @var{CONVECTION} @var{REACTION} @var{INITIAL}
+@deffn Function CDR-MODEL-PROBLEM @var{DIM/DOMAIN} &KEY (@var{DIFFUSION} @var{NIL} @var{DIFFUSION-P}) (@var{SOURCE} @var{NIL} @var{SOURCE-P}) (@var{DIRICHLET} @var{NIL} @var{DIRICHLET-P}) @var{GAMMA} @var{CONVECTION} @var{REACTION} @var{INITIAL} @var{EVP}
 @findex CDR-MODEL-PROBLEM
 Generates a convection-diffusion-reaction model problem.  Defaults are
 identity diffusion, right-hand-side equal 1, and Dirichlet zero boundary
@@ -2740,16 +3109,21 @@ Direct slots:
 @end deftp
 
 @anchor{fun-fl.discretization-assemble-interior}
-@deffn Function ASSEMBLE-INTERIOR @var{ANSATZ-SPACE} &KEY @var{LEVEL} (@var{WHERE} @var{SURFACE}) @var{MATRIX} @var{RHS} @var{SOLUTION} &ALLOW-OTHER-KEYS
+@deffn Function ASSEMBLE-INTERIOR @var{ANSATZ-SPACE} &KEY @var{LEVEL} (@var{WHERE} @var{SURFACE}) @var{MATRIX} @var{RHS} @var{SOLUTION} (@var{MASS-FACTOR} 0.0d0) (@var{STIFFNESS-FACTOR} 1.0d0) &ALLOW-OTHER-KEYS
 @findex ASSEMBLE-INTERIOR
 Assemble the interior, i.e. ignore constraints arising from boundaries
-and hanging nodes.  Parameters are: the ansatz space.  Keyword parameters
-are level, solution, matrix, rhs, and a flag indicating where assembly is
-to be done.  This function is used for assembling on each level matrix and
-rhs, which are later modified by incorporating boundary conditions and then
-combined to yield either a global matrix for use in a direct (sparse)
-solver or, alternatively, to assemble levelwise matrices for use within the
-multigrid method.
+and hanging nodes.  Discretization is done using the ansatz space
+@arg{ansatz-space} on level @arg{level}.  The level argument will usually
+be @code{NIL} when performing a global assembly, and be equal to some
+number when assembling coarse level matrices for multigrid.  The argument
+@arg{where} is a flag indicating where assembly is to be done.  It should
+be one of the keywords @code{:surface}, @code{:refined}, @code{:all}.  The
+arguments @arg{solution}, @arg{matrix}, @arg{rhs} should contain
+vectors/matrices where the local assembly is accumulated.  The numbers
+@arg{mass-factor} and @arg{stiffness-factor} determine weights for mass and
+stiffness matrix which is used when solving time-dependent and eigenvalue
+problems.  Boundary conditions and constraints are not taken into account
+within this routine.
 
 In general, this function does most of the assembly work.  Other steps like
 handling constraints are tricky, but usually of lower complexity.
@@ -2792,8 +3166,8 @@ provided inside the @var{blackboard}.
 @anchor{fun-fl.discretization-discretize-globally}
 @deffn Function DISCRETIZE-GLOBALLY @var{PROBLEM} @var{H-MESH} @var{FE-CLASS}
 @findex DISCRETIZE-GLOBALLY
-Discretize @var{problem} on the hierarchical mesh @var{h-mesh} using
-finite elments given by @var{fe-class}.
+Discretize @arg{problem} on the hierarchical mesh @arg{h-mesh} using
+finite elments given by @arg{fe-class}.
 @end deffn
 
 @anchor{fun-fl.discretization-discretize-locally}
@@ -2807,15 +3181,17 @@ The algorithm will usually work as follows:
 @item Compute geometry information for all ips (values and gradients of the shape functions).
 @item Loop over integration points ip:
   @enumerate
-    @item If necessary, compute input for the coefficient functions.  This input can be another finite element function in the property list @var{coefficient-parameters}.
+    @item If necessary, compute input for the coefficient functions.  This input can be another finite element function in the property list @arg{coefficient-parameters}.
     @item Evaluate coefficient functions at ips.
-    @item Add the contributions for matrix and right-hand side to @var{local-mat} and @var{local-rhs}.
+    @item Add the contributions for matrix and right-hand side to @arg{local-mat} and @arg{local-rhs}.
   @end enumerate
 @end enumerate
 
-If @var{local-u} and @var{local-v} are set, then
-@var{local-v}*@var{local-mat}*@var{local-u} and
-@var{local-v}*@var{local-rhs} is computed.  This feature may be used later
+@arg{mass-factor} and @arg{stiffness-factor} are weights for mass and
+stiffness matrix which are used for solving eigenvalue and time-dependent
+problems.  If @arg{local-u} and @arg{local-v} are set, then
+@arg{local-v}*@arg{local-mat}*@arg{local-u} and
+@arg{local-v}*@arg{local-rhs} is computed.  This feature may be used later
 on for implementing matrixless computations.
 @end deffn
 
@@ -2966,6 +3342,13 @@ finite element is copied into the global projection matrix.
 Computes the quadrature rule to be used for this finite element.
 @end deffn
 
+@anchor{fun-fl.discretization-random-ansatz-space-vector}
+@deffn Function RANDOM-ANSATZ-SPACE-VECTOR @var{ANSATZ-SPACE}
+@findex RANDOM-ANSATZ-SPACE-VECTOR
+Returns a ansatz space vector for @arg{ansatz-space} filled with random
+entries.  Essential constraints are satisfied.
+@end deffn
+
 @anchor{fun-fl.discretization-representative}
 @deffn Function REPRESENTATIVE @var{OBJ}
 @findex REPRESENTATIVE
@@ -3013,12 +3396,13 @@ Builds a transfer matrix from domain-as to image-as.
 This package specializes the finite element
 discretization for convection-diffusion-reaction problems.
 
-It can handle the following equation (@math{D_i=partial{x_i}}):
+It can handle the following equation:
 
-@math{- D_i (K_{ij} (D_j u + g_j) + D_i (c u) + r u = f}
+@math{- partial_i (K_{ij} (partial_j u + g_j) + partial_i (c u) + r u = f}
 
-Here, @math{K} is the diffusion tensor, @math{c} is convection, @math{r} is
-reaction and @math{f} is source.
+Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
+@math{r} is the reaction coefficient, @math{f} is the source function, and
+@math{g} is a distributional source.
 
 @node Package FL.ELASTICITY-FE, Package FL.NAVIER-STOKES-FE, Package FL.CDR-FE, Reference manual
 @section Package FL.ELASTICITY-FE
@@ -3066,12 +3450,6 @@ block of code is contained in a separate package @package{FL.MULTIGRID} and
 contains the multigrid iteration.  From this class, an algebraic multigrid
 iteration is derived in @file{amg.lisp} and a geometric multigrid iteration
 in a separate file @file{geomg.lisp} and package @package{FL.GEOMG}.
-
-@anchor{var-fl.iteration-*lu-solver*}
-@defvr Variable *LU-SOLVER*
-@vindex *LU-SOLVER*
-LU decomposition without pivoting.
-@end defvr
 
 @anchor{var-fl.iteration-*standard-cg*}
 @defvr Variable *STANDARD-CG*
@@ -3188,10 +3566,6 @@ The iteration base class.
 
 Direct slots:
 @itemize
-@item INITIALLY: List of actions to be performed initially.
-@item INTERMEDIATE: List of actions to be performed after
-initialization and after each step.
-@item FINALLY: List of actions to be performed finally.
 @item OBSERVE: The initform depends on the subclass.
 @item SUCCESS-IF: A form specifying a success criterion.
 @item FAILURE-IF: A form specifying a failure criterion.
@@ -3286,15 +3660,9 @@ is performed.
 @anchor{class-fl.iteration-<newton>}
 @deftp Class <NEWTON>
 @tindex <NEWTON>
-Class for the Newton iteration.  The blackboard should
-contain a nonlinear problem in :PROBLEM.
+Class for the Newton iteration.
 
 Superclasses: <NONLINEAR-SOLVER>
-
-Direct slots:
-@itemize
-@item LINEAR-SOLVER: The linear solver for solving the linearization.
-@end itemize
 @end deftp
 
 @anchor{class-fl.iteration-<pcg>}
@@ -3316,6 +3684,20 @@ Direct slots:
 Parallel subspace correction scheme.
 
 Superclasses: <BLOCK-ITERATION>
+@end deftp
+
+@anchor{class-fl.iteration-<safe-linear-solver>}
+@deftp Class <SAFE-LINEAR-SOLVER>
+@tindex <SAFE-LINEAR-SOLVER>
+If failure occurs, object of this class try an
+alternative iteration.  Usually this will be a direct decomposition.
+
+Superclasses: <LINEAR-SOLVER>
+
+Direct slots:
+@itemize
+@item FALLBACK: The fallback iteration.
+@end itemize
 @end deftp
 
 @anchor{class-fl.iteration-<special-solver>}
@@ -3354,7 +3736,7 @@ polynomials on vectors and for <function> objects.
 @end deffn
 
 @anchor{fun-fl.iteration-evaluate-gradient}
-@deffn Function EVALUATE-GRADIENT @var{POLY} @var{X}
+@deffn Function EVALUATE-GRADIENT @var{POLYGON} @var{S}
 @findex EVALUATE-GRADIENT
 Generic evaluation of gradients of differentiable functions.
 @end deffn
@@ -3366,13 +3748,13 @@ Performs final operations.
 @end deffn
 
 @anchor{fun-fl.iteration-initially}
-@deffn Function INITIALLY @var{STRATEGY} @var{BLACKBOARD}
+@deffn Function INITIALLY @var{ROTHE} @var{BLACKBOARD}
 @findex INITIALLY
 Performs initial operations.
 @end deffn
 
 @anchor{fun-fl.iteration-intermediate}
-@deffn Function INTERMEDIATE @var{FE-STRATEGY} @var{BLACKBOARD}
+@deffn Function INTERMEDIATE @var{ROTHE} @var{BLACKBOARD}
 @findex INTERMEDIATE
 Is called after initialization and after each step.
 @end deffn
@@ -3396,6 +3778,12 @@ iteration iter.
 Old and deprecated interface for solving linear problems.
 @end deffn
 
+@anchor{fun-fl.iteration-lu-solver}
+@deffn Function LU-SOLVER &KEY @var{OUTPUT}
+@findex LU-SOLVER
+LU decomposition without pivoting.
+@end deffn
+
 @anchor{fun-fl.iteration-make-iterator}
 @deffn Function MAKE-ITERATOR @var{S1-CGIT} @var{A}
 @findex MAKE-ITERATOR
@@ -3404,7 +3792,7 @@ and a matrix.
 @end deffn
 
 @anchor{fun-fl.iteration-next-step}
-@deffn Function NEXT-STEP @var{FE-STRATEGY} @var{BLACKBOARD}
+@deffn Function NEXT-STEP @var{ROTHE} @var{BLACKBOARD}
 @findex NEXT-STEP
 Does a step of the iteration.
 @end deffn
@@ -3437,12 +3825,6 @@ Tests terminating conditions.  Returns either NIL or
 
 This package contains the definition of the multigrid
 iteration including algebraic multigrid (AMG).
-
-@anchor{var-fl.multigrid-*standard-stueben*}
-@defvr Variable *STANDARD-STUEBEN*
-@vindex *STANDARD-STUEBEN*
-Standard Stueben AMG.
-@end defvr
 
 @anchor{class-fl.multigrid-<correction-scheme>}
 @deftp Class <CORRECTION-SCHEME>
@@ -3561,7 +3943,8 @@ can be handled well by smoothing.
 @anchor{fun-fl.multigrid-prolongation}
 @deffn Function PROLONGATION @var{AMG} @var{MAT}
 @findex PROLONGATION
-Returns AMG prolongation for the given matrix.
+Computes a prolongation matrix from amg and mat.  This
+is often the essence of an AMG method.
 @end deffn
 
 @anchor{fun-fl.multigrid-restriction}
@@ -3614,9 +3997,8 @@ Superclasses: <FAS> <GEOMETRIC-MG>
 @anchor{class-fl.geomg-<s1-coarse-grid-iterator>}
 @deftp Class <S1-COARSE-GRID-ITERATOR>
 @tindex <S1-COARSE-GRID-ITERATOR>
-Calls the coarse-grid solver of *standard-stueben*
-directly, if the matrix was not reduced to S1 which may happen if there are
-only Dirichlet vertices.
+Calls LU directly, if the matrix was not reduced to S1
+which may happen if there are only Dirichlet vertices.
 
 Superclasses: <LINEAR-ITERATION>
 @end deftp
@@ -3688,7 +4070,7 @@ Observe an estimate of the global error.
 @anchor{var-fl.strategy-*stationary-fe-strategy-observe*}
 @defvr Variable *STATIONARY-FE-STRATEGY-OBSERVE*
 @vindex *STATIONARY-FE-STRATEGY-OBSERVE*
-Standard observe quantities for stationary fe-strategies.
+Standard observe quantities for stationary finite element strategies.
 @end defvr
 
 @anchor{class-fl.strategy-<duality-error-estimator>}
@@ -3799,6 +4181,27 @@ Direct slots:
 @end itemize
 @end deftp
 
+@anchor{class-fl.strategy-<rothe>}
+@deftp Class <ROTHE>
+@tindex <ROTHE>
+Rothe strategy for time-dependent problems.  The idea of
+the Rothe method for solving $$U_t +A U =f$$ is to do an ODE time-stepping
+scheme in an infinite-dimensional function space.  Therefore, in every
+time-step, the solution has to be approximated sufficiently well in the
+space variable.
+
+Superclasses: <ITERATION>
+
+Direct slots:
+@itemize
+@item MODEL-TIME: Current time in the time-stepping scheme.
+@item TIME-STEP: NIL
+@item STATIONARY-SUCCESS-IF: NIL
+@item STATIONARY-FAILURE-IF: NIL
+@item PLOT: NIL
+@end itemize
+@end deftp
+
 @anchor{class-fl.strategy-<stationary-fe-strategy>}
 @deftp Class <STATIONARY-FE-STRATEGY>
 @tindex <STATIONARY-FE-STRATEGY>
@@ -3810,7 +4213,7 @@ Superclasses: <FE-APPROXIMATION>
 Direct slots:
 @itemize
 @item OBSERVE: NIL
-@item SOLVER: The solver to be used for solving the discretized systems.
+@item SOLVER: The solver for solving the discretized systems.
 @end itemize
 @end deftp
 
@@ -3860,7 +4263,7 @@ Default graphics program.
 @deffn Function GRAPHIC-COMMANDS @var{ASA} @var{PROGRAM} &ALLOW-OTHER-KEYS
 @findex GRAPHIC-COMMANDS
 Returns commands for plotting to be sent to the graphics
-server.
+program.
 @end deffn
 
 @anchor{fun-fl.graphic-graphic-file-name}
@@ -3872,12 +4275,12 @@ Return a filename for the data of this plot.
 @anchor{fun-fl.graphic-graphic-write-data}
 @deffn Function GRAPHIC-WRITE-DATA @var{STREAM} @var{ASA} @var{PROGRAM} &KEY @var{DIMENSION} &ALLOW-OTHER-KEYS
 @findex GRAPHIC-WRITE-DATA
-Will usually be the default method depending on several
-data elements in the rest parameters.
+Write the data file for @arg{program} to
+@arg{stream}.
 @end deffn
 
 @anchor{fun-fl.graphic-send-graphic-commands}
-@deffn Function SEND-GRAPHIC-COMMANDS @var{STREAM} @var{OBJECT} @var{PROGRAM} &REST @var{PARAS} &KEY (@var{OUTPUT} "gnuplot.out") (@var{TERMINAL} "x11") (@var{TICS} @var{T}) (@var{BORDER} @var{T}) @var{BOTTOM} @var{TOP} @var{RIGHT} @var{LEFT} &ALLOW-OTHER-KEYS
+@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{PARAS} &KEY (@var{OUTPUT} "gnuplot.out") (@var{TERMINAL} "x11") (@var{TICS} @var{T}) (@var{BORDER} @var{T}) @var{BOTTOM} @var{TOP} @var{RIGHT} @var{LEFT} &ALLOW-OTHER-KEYS
 @findex SEND-GRAPHIC-COMMANDS
 Routine for sending commands to the graphics server.
 @end deffn

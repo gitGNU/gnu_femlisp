@@ -34,6 +34,14 @@ found in your current path.
 @item Gnuplot
 @end itemize
 
+@item Numerical software.  Although @femlisp{} works also without
+additional software, it is reasonable to have the following libraries
+available.
+@itemize
+@item UMFPACK or SuperLU
+@item Triangle by R. M. Shewchuk.
+@end itemize
+
 @item Documentation
 @itemize
 @item The ANSI Common Lisp Hyperspec.  This is freely available from Xanalys.
@@ -58,10 +66,22 @@ Common Lisp environment and Femlisp.
 You can use the following commands:
 @example
 apt-get install gnuplot dx hyperspec wget
-apt-get -t testing install cmucl sbcl cl-infix
+apt-get -t testing install cmucl sbcl cl-infix cl-asdf
+apt-get -t testing install gnuplot dx hyperspec wget
+apt-get -t testing blas blas-dev lapack3 lapack3-dev
+
+# something like the following
+# apt-get -t testing blas atlas3-sse2 atlas3-sse2-dev
+
+# highly recommended
+apt-get -t testing libumfpack4 libsuperlu3
+
 cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
 wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
 cd femlisp
+make superlu
+make umfpack
+make triangle
 @end example
 
 Now you should be in the @femlisp{} directory and you can continue
@@ -73,39 +93,16 @@ as described in @ref{Setup of an interactive environment}.
 @section Detailed installation
 
 @menu
+* Obtaining Femlisp::           
 * Installation of a CL implementation::  
 * Graphics::                    
-* Obtaining Femlisp::           
+* Direct solvers::              
 * Configuration of the startup script::  
 * Compiling Femlisp::           
 * Setup of an interactive environment::  
 @end menu
 
-@node Installation of a CL implementation, Graphics, Detailed installation, Detailed installation
-@subsection Installation of a CL implementation
-
-There are two Common Lisp implementations with which @femlisp{} has been
-tested to work, namely CMUCL or SBCL.  I recommend using CMUCL on
-X86/Linux or Sparc/Solaris, mainly because it behaves more gracefully
-with respect to heap overflow, and SBCL on MacOSX.
-
-@femlisp{} should also run with little changes within other ANSI Common
-Lisp environments, especially the commercial implementations Allegro CL,
-Scieneer CL, Lispworks, Corman CL, and OpenMCL.  It might also be
-possible to use @femlisp{} with GCL, after some changes due to the lack
-of ANSI compliance of GCL.  On the other hand, using @femlisp{} with
-interpreters or bytecode compilers like CLISP does not make much sense,
-because such implementations are probably much too slow.
-
-@node Graphics, Obtaining Femlisp, Installation of a CL implementation, Detailed installation
-@subsection Graphics
-
-@femlisp{} uses two graphics packages, namely Gnuplot and Data Explorer.
-Make sure that they can be found in your path and that they
-work.@footnote{On MacOSX, I had difficulties with DX.  Everything
-worked, when I switched to the DX which is provided by Fink/unstable.}
-
-@node Obtaining Femlisp, Configuration of the startup script, Graphics, Detailed installation
+@node Obtaining Femlisp, Installation of a CL implementation, Detailed installation, Detailed installation
 @subsection Obtaining Femlisp
 
 @enumerate
@@ -126,11 +123,75 @@ cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
 @end example
 @end enumerate
 
+@node Installation of a CL implementation, Graphics, Obtaining Femlisp, Detailed installation
+@subsection Installation of a CL implementation
+
+There are two Common Lisp implementations with which @femlisp{} is
+known to work, namely CMUCL or SBCL.  I am usually using CMUCL, mainly
+because it behaves slightly nicer with respect to heap overflow and
+because I observed problems within SBCL with respect to DX graphics.
+
+@femlisp{} should also run with little changes within other ANSI
+Common Lisp environments, especially the commercial implementations
+Allegro CL and Scieneer CL.  It might also be possible to use
+@femlisp{} with GCL, after some changes due to the lack of ANSI
+compliance of GCL.  On the other hand, using @femlisp{} with
+interpreters or bytecode compilers like CLISP does not make much
+sense, because such implementations are probably much too slow.  Also
+using Lispworks, Corman CL, and OpenMCL will probably be too slow,
+because those implementations are to my knowledge not strong enough
+with respect to fast floating point arithmetic.
+
+@node Graphics, Direct solvers, Installation of a CL implementation, Detailed installation
+@subsection Graphics
+
+@femlisp{} uses two graphics packages, namely Gnuplot and Data Explorer.
+Make sure that they can be found in your path and that they
+work.@footnote{On MacOSX, I had difficulties with DX.  Everything
+worked, when I switched to the DX which is provided by Fink/unstable.}
+
+@node Direct solvers, Configuration of the startup script, Graphics, Detailed installation
+@subsection Direct solvers
+
+@femlisp{} can link to two sparse direct solvers, namely SuperLU from
+UMFPACK.  It is reasonable to install at least one of those as a
+shared library on your system.  After you have done that, you have to
+compile the glue programs superlu.c and/or umfpack.c in the directory
+@path{femlisp/interface}.  This can be done by issuing the commands
+
+@example
+make superlu
+@end example
+
+or
+
+@example
+make umfpack
+@end example
+
+from within the @path{femlisp} directory.  If these commands cannot
+figure out the path to the libraries, feel free to edit the Makefile
+according to your needs.
+
+@subsection Triangle mesh generator
+
+Next, Femlisp can link to the mesh generator Triangle by
+J. R. Shewchuk.  If you do have it on your system, you only have to
+make sure that it can be found in your path.  If not, you can download
+and install it in the directory @path{femlisp/external} by issuing the
+command
+
+@example
+make triangle
+@end example
+
+from withing the @path{femlisp} directory.
+
 @subsection Installation of MK-DEFSYSTEM/ASDF and Infix
 
-First, you need a defsystem facility for using Femlisp.  For
-convenience, ASDF is bundled with Femlisp.  This version is used if
-nothing else is available.
+First, you need a defsystem facility for using Femlisp.  Femlisp can
+use both ASDF and MK-DEFSYSTEM.  Make sure that they are available
+within your Common Lisp implementation.
 
 Second, Femlisp needs the Infix library by Mark Kantrowitz.  If you
 are not sure that it is available when your Common Lisp implementation
@@ -144,7 +205,7 @@ from within the Femlisp directory (usually @path{femlisp}).  This should
 fetch the Infix library from the web and put it in
 @path{femlisp/external} where it should be found if necessary.
 
-@node Configuration of the startup script, Compiling Femlisp, Obtaining Femlisp, Detailed installation
+@node Configuration of the startup script, Compiling Femlisp, Direct solvers, Detailed installation
 @subsection Configuration of the startup script
 
 After these steps you should look at the script
