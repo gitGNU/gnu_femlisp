@@ -52,7 +52,7 @@ $x_n=0$."
      #'(lambda (patch)
 	 (cond ((and (= (dimension patch) (1- dim))
 		     (bl-patch-on-artificial-boundary bl-cell-domain patch))
-		(list 'FL.CDR::SOURCE (constant-coefficient 0.0)))
+		(list 'FL.CDR::SOURCE (constant-coefficient 1.0)))
 	       ((bl-patch-on-lower-boundary bl-cell-domain patch)
 		(list 'FL.PROBLEM::CONSTRAINT (constant-coefficient 0.0)))
 	       ((= (dimension patch) dim)
@@ -97,8 +97,7 @@ the load functional."
 	      (make-instance '<duality-error-estimator>
 			     :functional :load-functional)
 	      :indicator
-	      (make-instance '<uniform-refinement-indicator>)
-	      #+(or)
+	      #+(or)(make-instance '<uniform-refinement-indicator>)
 	      (make-instance '<largest-eta-indicator> :pivot-factor 0.01
 			     :from-level 1 :block-p t)
 	      :output output :plot-mesh t
