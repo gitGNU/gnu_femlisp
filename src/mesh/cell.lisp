@@ -381,20 +381,21 @@ should work for reasonable geometries and initial values.")
 
 (defun simple-newton (f x-start &key approximate-gradient)
   "A simple Newton iteration for converting global to local coordinates."
-  (loop
-   for defnorm = nil then new-defnorm
-   for x = x-start then (m- x (gesv (funcall approximate-gradient x) defect))
-   for defect = (funcall f x)
-   for new-defnorm = (norm defect)
-   for i = 0 then (1+ i)
-   do
-   (dbg :mesh "Step ~3D: |f| = ~8,3,2E, x = ~A~%" i new-defnorm x)
-   (when (> i *g2l-newton-steps*)
-     (error "Newton did not converge fast enough.  Improve the mesh or
-increase *g2l-newton-steps*."))
-   until (and defnorm (or (<= defnorm new-defnorm)
-			  (<= new-defnorm (* 1.0e-10 defnorm))))
-   finally (return x)))
+  (loop with initial-defnorm = nil
+     for defnorm = nil then new-defnorm
+     for x = x-start then (m- x (gesv (funcall approximate-gradient x) defect))
+     for defect = (funcall f x)
+     for new-defnorm = (norm defect)
+     for i = 0 then (1+ i)
+     do
+       (ensure initial-defnorm defnorm)
+       (dbg :mesh "Step ~3D: |f| = ~8,3,2E, x = ~A~%" i new-defnorm x)
+       (when (and defnorm (or (<= defnorm new-defnorm)
+			      (<= defnorm (* 1.0e-10 initial-defnorm))))
+	 (return x))
+       (when (> i *g2l-newton-steps*)
+	 (error "Newton did not converge fast enough.  Improve the mesh or
+increase *g2l-newton-steps*."))))
 
 (defmethod global->local ((cell <cell>) global-pos)
   "Does a Newton iteration or a Gauss-Newton method for approximating
