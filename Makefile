@@ -30,15 +30,15 @@
 ###########################################################################
 
 help:
-	echo "Options: femlisp, femlisp-doc, cl-ppcre, clean."
+	echo "Options: cl-ppcre, femlisp-doc, femlisp-core, clean."
 
 cl-ppcre:
 	cd external;\
 	wget -O - http://weitz.de/files/cl-ppcre.tgz |tar -xzvf -;\
 	ln -s cl-ppcre-* cl-ppcre
 
-femlisp:
-
+femlisp-core:
+	cd bin; sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :site-init NIL :print-herald nil) (quit))"
 
 femlisp-doc:
 	cd doc; make all
