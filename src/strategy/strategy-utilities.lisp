@@ -45,6 +45,7 @@ surface.  This is used in the strategy package."
     (let ((local-interpolation (interpolation-matrix ansatz-space :region refined-cells))
 	  (local-projection (projection-matrix ansatz-space :region refined-cells)))
       ;;(plot solution) (sleep 1.0)
+      ;; the following was x<-y!
       (x<-y solution (sparse-m* local-interpolation solution :sparsity :A))
       ;;(plot (get-al assembly-line :solution)) (break)
       (x+=y interpolation local-interpolation)

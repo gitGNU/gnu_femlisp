@@ -66,6 +66,10 @@ criterion is met."))
 Pre-condition: solution, defect.  Post-condition: updated solution and
 defect."))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Strategy output
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defparameter *standard-strategy-observe-quantities*
   (list
    (list :global-eta " ETA~8T"
@@ -84,60 +88,75 @@ defect."))
   "This is a list of possible entries for the :observe entry in
 *strategy-output*.")
 
-(defparameter *strategy-output*
+(defparameter *strategy-output* (make-blackboard)
+  "A blackboard of parameters for strategy output.")
+
+;;; set some parameters
+(setf (getbb *strategy-output* :plot-mesh) t)
+(setf (getbb *strategy-output* :observe) ())
+
+;;; property lists of actions
+(setf (getbb *strategy-output* :initial) ())
+(setf (getbb *strategy-output* :after-step) ())
+
+(with-items (&key initial after-step) *strategy-output*
   (let ((start-time nil))
-    (list
-     :initial
-     #'(lambda (assembly-line)
-	 (declare (ignore assembly-line))
-	 (format t "~& CELLS     DOFS  MENTRIES   TIME") ; 35 characters
-	 (dolist (quantity (getf *strategy-output* :observe))
-	   (format t (second quantity)))
-	 (terpri)
-	 (setq start-time (get-internal-run-time)))
-     :after-step
-     #'(lambda (assembly-line)
-	 (with-items (&key mesh matrix solution accurate-p)
-	   assembly-line
-	   (when accurate-p
-	     (format t "~&~5D~10D~10D~7,1F"
-		     (nr-of-surface-cells mesh)
-		     (and solution (total-entries solution))
-		     (and matrix (total-entries matrix))
-		     (float (/ (- (get-internal-run-time) start-time)
-			       internal-time-units-per-second)))
-	     (dolist (quantity (getf *strategy-output* :observe))
-	       (funcall (third quantity) assembly-line))
-	     (terpri))))
-     :plot-mesh t :observe ())))
+    (setf (getf initial :data-headline)
+	  #'(lambda (assembly-line)
+	      (declare (ignore assembly-line))
+	      (format t "~& CELLS     DOFS  MENTRIES   TIME") ; 35 characters
+	      (dolist (quantity (getf *strategy-output* :observe))
+		(format t (second quantity)))
+	      (terpri)
+	      (setq start-time (get-internal-run-time))))
+    (setf (getf after-step :data-line)
+	  #'(lambda (assembly-line)
+	      (with-items (&key mesh matrix solution accurate-p)
+		  assembly-line
+		(when accurate-p
+		  (format t "~&~5D~10D~10D~7,1F"
+			  (nr-of-surface-cells mesh)
+			  (and matrix solution (* (total-nrows matrix) (multiplicity solution)))
+			  (and matrix (total-entries matrix))
+			  (float (/ (- (get-internal-run-time) start-time)
+				    internal-time-units-per-second)))
+		  (dolist (quantity (getf *strategy-output* :observe))
+		    (funcall (third quantity) assembly-line))
+		  (terpri)))))))
 
 (defun strategy-observe (quantity)
   "Adds quantity to the observed quantities."
   (aif (assoc (car quantity) (getf *strategy-output* :observe))
        (setf (cdr it) (cdr quantity))
-       (push quantity (getf *strategy-output* :observe))))
+       (push quantity (getbb *strategy-output* :observe))))
 
 ;;; observe the error estimator
 (strategy-observe (assoc :global-eta *standard-strategy-observe-quantities*))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Solution method
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defmethod solve-with ((strategy <strategy>) (problem <problem>)
-		       &rest parameters &key (output *strategy-output*))
+		       &rest parameters &key (output nil output-p))
   (let ((assembly-line (apply #'make-assembly-line parameters)))
     (setf (get-al assembly-line :strategy) strategy)
     (setf (get-al assembly-line :problem) problem)
-    (aand output (getf *strategy-output* :initial)
-	  (funcall it assembly-line))
-    (initial-guess strategy assembly-line)
-    (loop (sufficient-p strategy assembly-line)
-	  (aand output (getf *strategy-output* :after-step)
-		(funcall it assembly-line))
-	  (awhen (get-al assembly-line :after-step)
-	    (funcall it assembly-line))
-	  (when (get-al assembly-line :end-p)
-	    (aand output (getf *strategy-output* :final)
-		  (funcall it assembly-line))
-	    (return assembly-line))
-	  (improve-guess strategy assembly-line))))
+    (with-items (&key initial after-step) *strategy-output*
+      (when (if output-p output (output strategy))
+	(loop for rest on initial by #'cddr do
+	      (funcall (second rest) assembly-line)))
+      (initial-guess strategy assembly-line)
+      (loop (sufficient-p strategy assembly-line)
+	    (when (if output-p output (output strategy))
+	      (loop for rest on after-step by #'cddr do
+		    (funcall (second rest) assembly-line)))
+	    (when (get-al assembly-line :end-p)
+	      (when (if output-p output (output strategy))
+		(awhen (getbb *strategy-output* :final)
+		  (funcall it assembly-line)))
+	      (return assembly-line))
+	    (improve-guess strategy assembly-line)))))
 
 (defmethod solve ((strategy <strategy>) &rest parameters &key problem &allow-other-keys)
   "The usual interface for problem solving."
@@ -188,7 +207,7 @@ cells works better with p>=2."
 			     (if (getf chars :exact)
 				 :from-domain
 				 (lagrange-mapping (1+ (discretization-order fe-class)))))))))
-      (awhen (getf *strategy-output* :plot-mesh)
+      (awhen (getbb *strategy-output* :plot-mesh)
 	(if (functionp it) (funcall it mesh) (plot mesh)))
       (setf ansatz-space (make-fe-ansatz-space fe-class problem mesh))
       (setf solution (make-ansatz-space-vector ansatz-space))
@@ -223,7 +242,7 @@ cells works better with p>=2."
 		(nth-value 1 (refine mesh :test #'(lambda (cell) (gethash cell ht))))))
 	(when (extensible-p (domain mesh))
 	  (extend mesh :test #'(lambda (cell) (member-of-skeleton? cell refined-cells))))
-	(awhen (getf *strategy-output* :plot-mesh)
+	(awhen (getbb *strategy-output* :plot-mesh)
 	  (if (functionp it) (funcall it mesh) (plot mesh)))
 	(assert (not (skel-empty-p refined-cells))) ; otherwise the estimator should have approved
 	;; update solution and interpolation and projection operators

@@ -84,6 +84,26 @@ error estimator yields a large eta."
     (setf refinement-table hash-table))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; region-indicator
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <region-indicator> (<refinement-indicator>)
+  ((in-region :reader in-region :initarg :in-region))
+  (:documentation "Marks all cells in a region for refinement."))
+
+(defmethod indicate ((indicator <region-indicator>) assembly-line)
+  "Marks all cells for refinement which have no parent or for which the
+error estimator yields a large eta."
+  (with-items (&key mesh refinement-table)
+      assembly-line
+    (let ((hash-table (make-hash-table))
+	  (in-region (in-region indicator)))
+      (doskel (cell mesh :dimension :highest :where :surface)
+	(when (funcall in-region cell)
+	  (setf (gethash cell hash-table) cell)))
+    (setf refinement-table hash-table))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; largest-eta-indicator
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
