@@ -145,11 +145,11 @@ open."
 			for value = (getbb blackboard item flag)
 			unless (eq value flag) collect item and collect value)))
 	  (t (error "SOLVE does not know this problem."))))
-       (let ((bb-output (getbb blackboard :output :keep)))
-	 (if (eq bb-output :keep)
-	     (error "");(solve strategy blackboard)
-	     (let ((*output-depth* bb-output))
-	       (solve strategy blackboard)))))
+       (let* ((bb-output (getbb blackboard :output :keep))
+	      (*output-depth* (if (eq bb-output :keep)
+				  *output-depth*
+				  bb-output)))
+	 (solve strategy blackboard)))
       ((and matrix rhs)			; there seems to be a linear problem on the blackboard
        (setq problem (lse :matrix matrix :rhs rhs))
        (solve blackboard))

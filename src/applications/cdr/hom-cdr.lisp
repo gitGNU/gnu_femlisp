@@ -142,7 +142,7 @@ inlay and the component of the cell vector."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun cdr-interior-effective-coeff-demo (problem order levels
-					  &key (output *output-depth*) plot)
+					  &key (output 1) plot)
   "Computes an effective diffusion tensor for different configurations.
 The approximation is done with isoparametric finite elements.  Uniform
 refinement is used, the linear solver is a geometric multigrid scheme used
@@ -191,7 +191,7 @@ must be a scalar multiple of the identity."
 #+(or)
 (let ((*output-depth* 2))
 	(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t))
-#+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 2 :output t)
+#+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 2)
 #+(or)
 (let ((A (FL.algebra::ellipse-matrix 0.25 0.3 0.7854)))
   (cdr-interior-effective-coeff-demo (porous-cell-problem 2 :A A) 4 2 :plot t))

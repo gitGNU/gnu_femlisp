@@ -88,7 +88,8 @@ estimation is achieved by using a duality error estimator for
 the load functional."
   (let ((domain (if (numberp dim/domain)
 		    (apply #'sinusoidal-bl-cell dim/domain rest)
-		    dim/domain)))
+		    dim/domain))
+	(*output-depth* output))
     (defparameter *result*
       (solve (blackboard
 	      :problem (boundary-layer-cell-problem domain)
@@ -100,7 +101,7 @@ the load functional."
 	      #+(or)(make-instance '<uniform-refinement-indicator>)
 	      (make-instance '<largest-eta-indicator> :pivot-factor 0.01
 			     :from-level 1 :block-p t)
-	      :plot-mesh t :output output
+	      :plot-mesh t
 	      :observe (append *stationary-fe-strategy-observe*
 			       (list *cbl-observe* *eta-observe*))
 	      :success-if `(= :max-level ,(1- max-levels)))))
@@ -109,7 +110,7 @@ the load functional."
   *result*)
 
 #+(or) (cdr-bl-computation
-	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil :output 4)
+	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil :output 1)
 
 #|
 (profile:unprofile)
@@ -152,7 +153,7 @@ the load functional."
 	    :name (format nil title dim) :short short
 	    :long (format nil "~A~%~%Parameters: dim=~D, p=~D, ~D levels~%"
 			  long dim order levels)
-	    :execute (lambda () (cdr-bl-computation dim order levels :plot t :output t)))))
+	    :execute (lambda () (cdr-bl-computation dim order levels :plot t :output 1)))))
       (adjoin-demo demo *laplace-demo*)
       (adjoin-demo demo *adaptivity-demo*)
       (adjoin-demo demo *boundary-coeffs-demo*))))
