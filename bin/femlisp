@@ -14,5 +14,5 @@ esac
 if test -x $FEMLISP_CL/bin/femlisp.core; then
     exec $FEMLISP_CL $core $FEMLISP_DIR/bin/femlisp.core $eval "(progn (ext::print-herald) (cl-user::femlisp-banner))";
 else
-    $FEMLISP_CL $load "$FEMLISP_DIR/femlisp-init.lisp" $eval "(progn (load #p\"femlisp:start.lisp\") (in-package :application) (import #+cmu 'ext::quit #+sbcl 'sb-ext::quit))" "$@";
+    $FEMLISP_CL $load "$FEMLISP_DIR/femlisp-init.lisp" $eval "(progn (load #p\"femlisp:start.lisp\") (in-package :fl.application) (import #+cmu 'ext::quit #+sbcl 'sb-ext::quit))" "$@";
 fi

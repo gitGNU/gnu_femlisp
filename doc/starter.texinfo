@@ -1,0 +1,117 @@
+@node First steps, Overview, Installation, Top
+@chapter First steps
+
+@menu
+* Demos::                       
+* Solving problems::            
+* Plotting::                    
+* Common Lisp environment::     
+@end menu
+
+@node Demos, Solving problems, First steps, First steps
+@section Demos
+
+Start @femlisp{} and look at the demos by typing @kbd{(femlisp-demo)}
+(followed by return) at the CL prompt (do not forget the parentheses!).
+You drop out of the demos by typing @kbd{quit} (without parentheses) at
+the demo prompt, and you can exit @femlisp{} by typing @kbd{(quit)} at
+the CL prompt.
+
+@node Solving problems, Plotting, Demos, First steps
+@section Solving problems
+
+This section discusses how to solve several standard probblems with
+@femlisp{}.  It might be useful to read the following section on how to
+use your Common Lisp environment before trying these examples.
+
+@menu
+* Stationary diffusion problem::  
+* Elasticity problem::          
+* Navier-Stokes problem::       
+* Heat equation::               
+@end menu
+
+@node Stationary diffusion problem, Elasticity problem, Solving problems, Solving problems
+@subsection Stationary diffusion problem
+
+Assume that we want to solve the Poisson equation on the unit square
+with right-hand side @math{f(x,y)=e^{x+y}} and Dirichlet boundary
+conditions.  The following command solves this equation approximately on
+a uniformly refined mesh using as termination criterion that the time
+for approximating the solution has increased beyond 20 seconds.
+
+@lisp
+(defparameter *result*
+     (solve
+      (blackboard
+       :problem
+       (cdr-model-problem (n-cube-domain 2)
+                          :source #'(lambda (x) #I(exp(x[0]+x[1]))))
+       :success-if '(> :time 20))))
+@end lisp
+
+The result is a blackboard which we saved in the global variable
+@var{*result*} for later reference.  We can extract items from there
+using the function @code{getbb}, e.g. for plotting the solution:
+@lisp
+(plot (getbb *result* :solution))
+@end lisp
+
+@node Elasticity problem, Navier-Stokes problem, Stationary diffusion problem, Solving problems
+@subsection Elasticity problem
+
+@node Navier-Stokes problem, Heat equation, Elasticity problem, Solving problems
+@subsection Navier-Stokes problem
+
+@node Heat equation,  , Navier-Stokes problem, Solving problems
+@subsection Heat equation
+
+@node Plotting, Common Lisp environment, Solving problems, First steps
+@section Plotting
+
+It is possible to plot mesh, solution, coefficient, the graph of the
+stiffness matrix, or globally defined functions on a domain.  We
+illustrate this on the example from @ref{Stationary diffusion problem}.
+Plotting solution, mesh, source, and matrix can then be done with
+
+@lisp
+(plot (getbb *result* :solution))
+(plot (getbb *result* :mesh))
+(plot (getbb *result* :problem) :coefficient 'CDR::SOURCE)
+(plot (getbb *result* :matrix))
+@end lisp
+
+@node Common Lisp environment,  , Plotting, First steps
+@section Common Lisp environment
+
+First, it is of uttermost importance that you use an editor which
+"understands" Lisp code and can indent it correctly, show matching
+parentheses or do suitable syntax-highlighting.  Otherwise, it is simply
+not possible to program any nontrivial Lisp code.  On the other hand, if
+such an editor is available, it will often provide also commands for
+moving through the code and manipulating the code expression-wise.  It
+is really worthwile to learn these editor features.
+
+Furthermore, in contrast to most other languages, the ANSI Common Lisp
+standard defines an interface for introspection.  E.g., functions and
+special variables can be documented, and these so-called docstrings can
+be extracted at any time.  For example:
+
+@lisp
+(defvar *result*
+  "This special variable is often used for storing the result of the
+  last top-level computation.")
+@end lisp
+
+Now, @code{(documentation '*result* 'variable)} returns the docstring
+provided before.
+
+The standard requires also an interface for tracing, inspecting data,
+together with some debugging commands.  However, implementations vary in
+the quality of the provided tools.  Commercial Lisps as Allegro CL,
+Lispworks or Corman CL usually provide very elaborate IDEs which allow
+for easy access to the above-mentioned features.  A free alternative is
+the editor Emacs together with the SLIME package.  Emacs/SLIME can
+handle a large range of Lisp implementations and provides more or less
+the same possibilities as the commercial IDEs.
+

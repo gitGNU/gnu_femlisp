@@ -7,29 +7,23 @@ Femlisp FAQ
 
 1. Q: On which architectures is Femlisp available?
 
-   A: See the file INSTALL.
+   A: See the file INSTALL or the manual.
 
 2. Q: What manuals and other introductory material are available?
 
-   A: There is a short description of Femlisp in the doc-directory,
-   unfortunately it is not really up-to-date anymore.  Additionally, you
-   should know how to get documentation of functions and variables out of
-   your Lisp environment.  I plan to have a real manual for Femlisp-1.0 in
-   summer 2004.
+   A: There is a short preliminary manual in the doc-directory which is
+   partly a reference manual generated automatically from the Femlisp
+   docstrings.  Therefore, it is often more convenient obtain this
+   information from your Lisp environment.
 
 3. Q: What is the best way to get started?
 
-   A: Work through the demos to see what is possible.  The set up an own
-   directory for yourself and try something like:
+   A: Work through the demos to see what is possible.  Then look through
+   the section "Getting started" in the manual.
 
-     (solve (cdr-problem dim) :success-if '(> :time 20.0))
-
-   Plot the result using 
-     (plot (getbb *result* :solution))
-
-  Try to find out what SOLVE is doing here, then look at how the demos are
-  done.  Try to modify the above problem by giving it a different
-  right-hand side.
+  With the help of your IDE find out what SOLVE is doing here, then look at
+  how the demos are done.  Try to modify the above problem by giving it a
+  different right-hand side.
 
 
 * B: MESH MANAGEMENT
@@ -110,15 +104,20 @@ Femlisp FAQ
 1. Q: What about parallelization?
 
    A: This has not yet been started.  The first step will be to parallelize
-   computationally intensive parts like mesh management, assembly, and
-   iterative solvers on MISD architectures.  Parallelization for MIMD
-   architectures is also possible using MPI or PVM, but would require a
-   major restructuring.
+   computationally intensive parts on MISD architectures.  Parallelization
+   for MIMD architectures is also possible using MPI or PVM, but would
+   require a major restructuring.
 
 
 * H: GENERAL
 
-1. Q: How does Femlisp's compare with other programs wrt speed?
+1. Q: Why was Femlisp written in CL?
+
+   A: Despite of its age CL is still the most expressive language available
+   today.  It usually comes with powerful interactive environments and
+   makes an ideal tool for both exploratory programming and production use.
+
+2. Q: How does Femlisp's compare with other programs wrt speed?
 
    A: This depends very much on the problem at hand.  Femlisp is still very
    slow for several standard problems.  On the other hand, it does also
@@ -128,7 +127,7 @@ Femlisp FAQ
    cannot be beaten by statically typed languages like C++ or Fortran and
    differs often by an order of magnitude.
 
-2. Q: Why is Femlisp slow for my problem?
+3. Q: Why is Femlisp slow for my problem?
 
    A: Please ask on the femlisp-user mailing list for optimization help.
 

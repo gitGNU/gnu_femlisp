@@ -1,0 +1,108 @@
+@node Overview, Reference manual, First steps, Top
+@chapter Overview
+
+In brief, @femlisp{} has the following features:
+
+@itemize @bullet
+
+@item Unstructured grids in arbitrary space dimensions $n \geq 0$.
+Cells can be arbitrary products of simplices.
+
+@item Isoparametric and non-parametric element mappings
+
+@item Local grid refinement
+
+@item Lagrange finite elements of arbitrary order
+
+@item Several types of PDEs are already implemented:
+
+@itemize
+@item Convection-diffusion-reaction equations
+@item Elasticity
+@item Navier-Stokes
+@end itemize
+
+@item Time-dependent problems using the Rothe method
+
+@item Geometric and algebraic multigrid methods
+
+@item Graphics (using @code{Data Explorer}, @code{Gnuplot})
+
+@item Interactive environment
+
+@end itemize
+
+The following picture gives an overview of Femlisp modules.
+
+@image{femlisp-structure,,,Important packages and their dependency}
+
+Fig. @code{femlisp-structure} shows the internal structure of @femlisp{}.
+It is grouped in modules with module dependency indicated by arrows.
+The modules appear in this form in the project file @code{start.lisp}.
+They usually correspond to a Common Lisp @code{package}, but may
+sometimes comprise several packages, where a package defines a namespace
+in Common Lisp.
+
+The modules shown in this figure can be roughly ordered in levels.
+The lowest level consists of the three modules @code{MACROS},
+@code{UTILITIES}, and @code{MATLISP}.  @code{MACROS} and
+@code{UTILITIES} extend CL with some useful macro and function
+definitions, while @code{MATLISP} contains a Common Lisp
+implementation of some BLAS and LAPACK routines which is similar to
+@cite{Matlisp}.
+
+The second level consists of the modules @code{ALGEBRA}, @code{MESH} and
+@code{GRAPHIC}.  @code{GRAPHIC} provides a low-level interface to
+external graphic software; at the moment both IBM's @code{OpenDX} and
+@code{Gnuplot} are supported.  @code{ALGEBRA} contains the data
+structures and operations used for linear algebra and @code{MESH}
+contains mesh management including domain definitions.  Both the
+@code{MESH} and @code{ALGEBRA} module will be discussed in more detail
+below.
+
+The third level consists of the following modules:
+@enumerate
+@item The @code{ITERATION} contains the definition for the
+abstract classes @code{<solver>}, @code{<iteration>}, as well as the
+generic function @code{solve} which constitute the interface for
+linear and non-linear solving.  Several instances of these classes are
+implemented, including the conjugate gradient iteration and algebraic
+multigrid (AMG).  The module also contains the @code{GEOMG} package,
+which handles iterations that depend on geometric information,
+e.g.~from the discretization.  At the moment, these are the geometric
+multigrid iteration, an AMG-like scheme for preconditioning high-order
+discretizations with low-order ones, and some block smoothers with
+overlapping blocks.
+
+@item The @code{DISCRETIZATION} module defines @code{<discretization>} as an
+abstract class and @code{<fe-discretization>} as a concrete derived
+class.  A generic function @code{get-fe} is used for associating a cell
+with a finite element @code{<fe>}, which is a data structure containing
+information about base functions and dual functionals on the
+corresponding cell.  Lagrange finite elements of arbitrary order are
+implemented as a special instance of @code{<fe-discretization>}.  Note
+that other discretizations as finite differences or finite volumes could
+easily be incorporated as well.
+
+@item The @code{PROBLEM} module introduces the general class @code{<problem>}
+and its most important subclass @code{<pde-problem>}.  Several derived
+problems are defined, e.g. @code{<cdr-problem>} for
+convection-diffusion-reaction problems, @code{<elasticity>} for
+elasticity problems, and @code{<navier-stokes>} for Navier-Stokes
+problems.  These problems are defined in their own packages.
+
+@end enumerate
+
+The fourth level provides another level of abstraction.  It consists of the
+modules @code{STRATEGY} and @code{PLOT}.  @code{STRATEGY} provides methods for
+solving problems by adaptive FEM, and @code{PLOT} defines generic functions
+and methods for post-processing (plotting of coefficients, meshes, and
+functions).
+
+The fifth level @code{APPLICATION} has access to a lot of basic modules,
+especially @code{STRATEGY}, @code{DISCRETIZATION}, and @code{PLOT}.  There are
+several separate directories and files containing applications of @femlisp{}
+to special problems.
+
+The next section describes the packages contained in these modules in
+detail.

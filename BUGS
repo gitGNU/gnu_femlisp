@@ -7,6 +7,3 @@ This is a list of known bugs:
   algebraic multigrid of Ruge-Stueben type works for equations also in the
   case of local refinement.
 
-* Dirichlet boundary values should be allowed to be defined differently for
-  multiple right-hand sides.  OTOH, changing the type of BC for different
-  rhs is not easy, see the FAQ.

@@ -45,10 +45,12 @@
 ;;; we want to work generally with double float numbers
 (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
 
-(asdf:operate 'asdf::load-op 'femlisp)
+#+asdf (asdf:operate 'asdf::load-op 'femlisp)
+#-asdf (mk:oos 'femlisp 'compile)
+
 (pushnew :femlisp *features*)
 
-(defparameter *femlisp-version* "0.9.2")
+(defparameter *femlisp-version* "0.9.3")
 
 (defun femlisp-version () *femlisp-version*)
 (defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
@@ -65,8 +67,8 @@ file LICENSE in the Femlisp main directory.  This is free
 software, and you are welcome to redistribute it under certain
 conditions.
 
-You can enter \"(demo)\" to get a guided tour through Femlisp,
-and enter \"(quit)\" to leave the program.~%~%"
-   *femlisp-version*))
+You can enter \"(femlisp-demo)\" to get a guided tour through
+Femlisp, and enter \"(quit)\" to leave the program.~%~%"
+*femlisp-version*))
 
 (femlisp-banner)

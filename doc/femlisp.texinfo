@@ -1,0 +1,74 @@
+\input texinfo   @c -*-texinfo-*-
+@c %**start of header
+@setfilename femlisp.info
+@settitle Femlisp User Manual
+@setchapternewpage odd
+@c %**end of header
+
+@macro femlisp {}
+@sc{Femlisp}
+@end macro
+
+@set EDITION 0.1
+@set VERSION 0.9.3
+@set UPDATED 22 August 2004
+
+@c for install-info
+@dircategory Mathematical Software
+@direntry
+* femlisp: (femlisp).           Femlisp
+@end direntry
+
+@ifinfo
+@femlisp{} User Manual @value{EDITION} (documenting @femlisp{}
+@value{VERSION})
+
+Copyright @copyright{} 2004 Nicolas Neuss, University of Heidelberg.
+@end ifinfo
+
+@titlepage
+@sp 10
+@title @femlisp{} User Manual @value{EDITION}
+@subtitle @femlisp{} Version @value{VERSION}
+@subtitle @value{UPDATED}
+
+@page
+@vskip 0pt plus 1filll
+Copyright @copyright{} 2004 Nicolas Neuss, University of Heidelberg.
+@end titlepage
+
+@ifnottex
+@node Top, Introduction, (dir), (dir)
+@end ifnottex
+
+@top Femlisp
+
+@femlisp{} is a Common Lisp toolbox for solving partial differential
+equations.
+
+This is Version @value{EDITION} of the @femlisp{} manual, last updated
+@value{UPDATED}, for @femlisp{} @value{VERSION}.
+
+
+@contents
+@menu
+* Introduction::                
+* Installation::                
+* First steps::                 
+* Overview::                    
+* Reference manual::            
+* Concept Index::               
+@end menu
+
+@include intro.texinfo
+@include install.texinfo
+@include starter.texinfo
+@include overview.texinfo
+@include reference-manual.texinfo
+@include concepts.texinfo
+@c @include functions.texinfo
+@c @include variables.texinfo
+
+@printindex cp
+
+@bye

@@ -1,0 +1,24 @@
+
+               APPLICATION________
+              /                   \
+             /                     \
+            /                       \
+       STRATEGY _______             PLOT
+        / \            \           /  |
+       /   \            \         /   |
+      /     \            \       /    |
+   GEOMG     \       _____\_____/_____|
+     |  \     \     /      \   /      |
+     |   \     \   /        \ /       |
+     |    DISCRETIZATION   PROBLEM ---|
+     |         |             |        |
+     |         +-------------+    ____|
+   ITERATION   |             |   /    |
+          \    |             |  /     |   
+           \   |             | /      |    
+            ALGEBRA        MESH    GRAPHIC
+              |             |         |   
+              +-------------+---------+
+              |             |         |    
+            MACROS      UTILITIES   MATLISP
+		 

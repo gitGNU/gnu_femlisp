@@ -1,5 +1,32 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.2 to Femlisp-0.9.3:
+
+All docstrings should be written in Texinfo format.  A reference manual is
+automatically built from them (similarly to what Rudi Schlatte did for
+SBCL).
+
+The slots STRUCTURE-INFORMATION and DISCRETIZATION-INFO were replaced by a
+general PROPERTIES slot which is to be added by adding a PROPERTY-MIXIN to
+the superclasses.
+
+Finite elements of polynomial degree @math{p} are integrated now with
+@math{p+1} Gauss points also for simplices.  (Otherwise, the scheme is
+unstable for reaction terms.)
+
+The functions ASSEMBLE-INTERIOR and FE-CELL-GEOMETRY handle now metric and
+volume form defined as properties on the domain patches.  This can be used,
+for example, to treat problems in cylinder coordinates.
+
+The formula for the area of higher-dimensional spans in matlisp;compat.lisp
+was simplified to sqrt(det(A^t A)).
+
+The possibility to build Femlisp with MK-DEFSYSTEM was reintroduced.  The
+files femlisp.asd and femlisp.system are identical.
+
+The dependency on CL-PPCRE was removed.  CL-PPCRE is a nice package, but
+Femlisp does not need it at the moment.
+
 * From Femlisp-0.9.1 to Femlisp-0.9.2:
 
 A Newton iteration was introduced for solving nonlinear problems, see the
