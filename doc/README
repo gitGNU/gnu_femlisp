@@ -1,0 +1,21 @@
+Femlisp documentation
+---------------------
+
+Sorry, there is not much documentation available yet.  The ps-file below is
+an article which can be obtained also from the web as
+
+http://www.iwr.uni-heidelberg.de/sfb/PP/Preprint2003-11.ps.gz
+
+It was sent to Springer for publication in the EMG proceedings, but has not
+yet been accepted.  It describes an almost up-to-date state of Femlisp, and
+I plan to rewrite the LaTeX files into a short manual when I have more time
+(maybe in November 2003).
+
+
+List of documentation items:
+----------------------------
+
+femlisp-overview.ps.gz
+
+
+
