@@ -168,6 +168,11 @@ by ROW-OFFSET and COL-OFFSET."))
 ;;;; General methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defmethod multiplicity (vec)
+  "If @arg{vec} is a matrix, the multiplicity is the number of columns by
+default."
+  (ncols vec))
+  
 (defmethod matrix-transpose-instance (x)
   (make-instance (class-of x) :nrows (ncols x) :ncols (nrows x)))
 
@@ -214,10 +219,10 @@ calls the corresponding generic function, e.g. GEMM-NN!."
   "Rewriting for GETRS in terms of GETRS!."
   (getrs! lu (copy b) ipiv))
 
-(defun gesv! (A b &key ipiv)
+(defmethod gesv! (A b)
   "Solves a linear system A X = B for X via GETRF and GETRS!."
   (multiple-value-bind (LR ipiv info)
-      (getrf A ipiv)
+      (getrf A)
     (if (numberp info)
 	(error "argument A given to GESV! is singular to working machine precision")
 	(getrs! LR b ipiv))))
@@ -226,9 +231,9 @@ calls the corresponding generic function, e.g. GEMM-NN!."
   "M/! is an easier interface for GESV!."
   (gesv! a b))
 
-(definline gesv (x b &key ipiv)
+(definline gesv (x b)
   "Rewriting for GESV in terms of GESV!."
-  (gesv! x (copy b) :ipiv ipiv))
+  (gesv! x (copy b)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Submatrices

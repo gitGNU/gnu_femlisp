@@ -32,29 +32,28 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;; Purpose: provide nonlinear solvers
-
 (in-package :fl.iteration)
 
+(file-documentation
+ "This file provides some solvers for nonlinear problems.")
+
 (defclass <nonlinear-solver> (<discrete-iterative-solver>)
-  ()
-  (:documentation "General class for nonlinear iterative solvers.  The
-blackboard should contain a nonlinear problem in :PROBLEM."))
+  ((linear-solver
+    :reader linear-solver :initarg :linear-solver
+    :documentation "The linear solver for solving the linearization."))
+  (:documentation "Class for general nonlinear iterative solvers."))
+
+(defmethod inner-iteration ((nlsolve <nonlinear-solver>))
+  (and (slot-boundp nlsolve 'linear-solver)
+       (linear-solver nlsolve)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Newton iteration
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <newton> (<nonlinear-solver>)
-  ((linear-solver
-    :reader linear-solver :initarg :linear-solver
-    :documentation "The linear solver for solving the linearization."))
-  (:documentation "Class for the Newton iteration.  The blackboard should
-contain a nonlinear problem in :PROBLEM."))
-
-(defmethod inner-iteration ((newton <newton>))
-  (and (slot-boundp newton 'linear-solver)
-       (linear-solver newton)))
+  ()
+  (:documentation "Class for the Newton iteration."))
 
 ;;; The following does not work, because blackboard is not available.  This
 ;;; might suggest a change in interface such that all solvers and
@@ -66,27 +65,25 @@ contain a nonlinear problem in :PROBLEM."))
 
 (defmethod next-step ((newton <newton>) blackboard)
   "Simply calls the linear solver on the linearized problem."
-  (with-items (&key solution residual residual-p
-		    linearization output)
+  (with-items (&key solution residual residual-p linearization)
       blackboard
     (unless (slot-boundp newton 'linear-solver)
       (setf (slot-value newton 'linear-solver)
 	    (select-linear-solver linearization blackboard)))
     (solve (linear-solver newton)
 	   (blackboard :problem linearization :solution solution
-		       :residual residual :residual-p t :output output))
+		       :residual residual :residual-p t))
     ;; and since the linear residual is not correct for the nonlinear
     ;; problem:
     (setq residual-p nil)))
 
-(defmethod select-solver ((problem <problem>) blackboard)
-  (if (linear-p problem)
-      (select-linear-solver problem blackboard)
-      (make-instance
-       '<newton>
-       :success-if `(and (> :step 1) (> :step-reduction 0.5))
-       :failure-if '(and (> :step 1) (> :step-reduction 1.0) (> :defnorm 1.0e-5))
-       :output (getbb blackboard :output))))
+(defmethod select-solver ((problem <nonlinear-problem>) blackboard)
+  (make-instance
+   '<newton>
+   :success-if `(and (> :step 1) (> :step-reduction 0.5))
+   :failure-if '(and (> :step 1) (> :step-reduction 1.0) (> :defnorm 1.0e-5))
+   :output (getbb blackboard :output)))
+
 
 ;;;; Testing
 

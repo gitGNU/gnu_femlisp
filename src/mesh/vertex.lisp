@@ -83,13 +83,13 @@ position."
   (assert (equalp local-pos (double-vec)))
   (vertex-position vtx))
 
-(defmethod manifold-dimension ((vtx <vertex>))
+(defmethod embedded-dimension ((vtx <vertex>))
   "Anchor for recursive definition."
   (length (vertex-position vtx)))
 
 (defmethod l2Dg ((vtx <vertex>) local-pos)
   (assert (equalp local-pos (double-vec)))
-  (make-real-matrix (manifold-dimension vtx) 0))
+  (make-real-matrix (embedded-dimension vtx) 0))
 
 (defmethod local->Dglobal ((vtx <vertex>) local-pos)
   "Not perfect, should take mapping into account."
@@ -103,7 +103,7 @@ derivative."
 	(case i
 	  ((0) (l2g vtx local-pos))
 	  ((1) (l2Dg vtx local-pos))
-	  (t (make-real-tensor (cons (manifold-dimension vtx)
+	  (t (make-real-tensor (cons (embedded-dimension vtx)
 				     (make-list (1- i) :initial-element 0)))))))
 
 (defmethod g2l ((vtx <vertex>) global-pos)
@@ -141,6 +141,34 @@ derivative."
 	    (list (list (make-double-vec 1 1.0))) ; not perfect, because no real factor
 	    :boundary-paths ())))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; cell construction from vertices
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun make-cell-from-vertices (cell-class vertices)
+  "Creates a cell of class CELL-CLASS having the given VERTICES."
+  (with-cell-class-information (reference-cell refcell-subcells nr-of-vertices
+					       boundary-indices-of-subcells)
+    cell-class
+    (assert (= nr-of-vertices (length vertices)))
+    ;; replace the refcell-subcells step by step with newly created ones
+    ;; having the given vertices
+    (loop with subcells = (copy-seq refcell-subcells)
+	  for vlist = vertices then (cdr vlist)
+	  and k downfrom (1- (length subcells)) to 0 do
+	  (setf (aref subcells k)
+		(if vlist
+		    (car vlist)
+		    (make-instance
+		     (class-of (aref subcells k))
+		     :boundary (map 'cell-vec (curry #'aref subcells)
+				    (aref boundary-indices-of-subcells k)))))
+	  finally (return (aref subcells 0)))))
+
+(defun make-cell-from-corners (cell-class corners)
+  "Creates a cell of class CELL-CLASS having the given CORNERS."
+  (make-cell-from-vertices cell-class (mapcar #'make-vertex corners)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Initialization of the vertex class
@@ -155,7 +183,7 @@ derivative."
 
 ;;;; Testing: (test-vertex)
 (defun test-vertex ()
-  (assert (= 0 (manifold-dimension *reference-vertex*)))
+  (assert (= 0 (embedded-dimension *reference-vertex*)))
   (assert (reference-cell-p *reference-vertex*))
   (reference-cell-p *reference-vertex*)
   (reference-cell *reference-vertex*)

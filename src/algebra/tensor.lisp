@@ -74,7 +74,7 @@
     ((<real-tensor>) 'double-float)
     ((<complex-tensor>) 'complex)))
 
-(defun make-tensor (dimensions type)
+(defun make-tensor (dimensions &optional (type 'double-float))
   (let* ((dims (coerce dimensions 'fixnum-vec))
 	 (offsets (dimensions->offsets dims))
 	 (total (if (zerop (length dims))
@@ -111,14 +111,17 @@
     sum))
 
 (defmethod tensor-ref ((tensor <tensor>) &rest indices)
-  (aref (entries tensor) (compute-offset (coerce indices 'fixnum-vec)
-				       (offset0 tensor) (offsets tensor))))
+  (let ((index (if (and (= 1 (length indices)) (typep (car indices) 'fixnum-vec))
+		   (car indices)
+		   (coerce indices 'fixnum-vec))))
+    (aref (entries tensor) (compute-offset index (offset0 tensor) (offsets tensor)))))
 
 (defmethod (setf tensor-ref) (value (tensor <tensor>) &rest indices)
-  (setf (aref (entries tensor)
-	      (compute-offset (coerce indices 'fixnum-vec)
-			      (offset0 tensor) (offsets tensor)))
-	value))
+  (let ((index (if (and (= 1 (length indices)) (typep (car indices) 'fixnum-vec))
+		   (car indices)
+		   (coerce indices 'fixnum-vec))))
+    (setf (aref (entries tensor) (compute-offset index (offset0 tensor) (offsets tensor)))
+	  value)))
 
 (defmethod rank ((tensor <tensor>)) (length (dimensions tensor)))
 (defun make-tensor-index (tensor) (make-fixnum-vec (rank tensor)))
@@ -451,7 +454,7 @@ contracted index pair fit."
 ;;; subdividing the matrices in blocks which remain in the first-level
 ;;; cache.  For comparison, see the values obtained by mflop.lisp.
 
-#+ignore
+#+nil
 (time
  (let* ((n 50)
 	(t1 (make-real-tensor (make-fixnum-vec 2 n)))
@@ -462,7 +465,7 @@ contracted index pair fit."
 	 (t* t1 t2 '((1 . 0))))))
 ; 100: 0.12, 200: 0.87, 300: 2.52, 400: 5.5, 500: 10.1
 
-#+ignore
+#+nil
 (time
  (let* ((n 50)
 	(t1 (make-real-matrix n))

@@ -38,6 +38,8 @@
    "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF"
    "AAND" "ACOND" "_F" "IT" "ENSURE" "REMOVE-THIS-METHOD"
    "FOR" "FOR<" "MULTI-FOR" "DEFINLINE"
-   "?1" "?2" "?3")
+   "?1" "?2" "?3"
+   "DELAY" "FORCE"
+   "FLUID-LET")
   (:documentation "This package contains some basic macro definitions used
 in Femlisp."))

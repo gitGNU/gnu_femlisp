@@ -38,7 +38,6 @@
 	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION"
 	"FL.GRAPHIC"
 	"FL.MESH" "FL.PROBLEM" "FL.DISCRETIZATION")
-  (:import-from "FL.GRAPHIC" "*IMAGES-DIRECTORY*")
   (:export "PLOT")
   (:documentation "This package provides a high-level interface to
 plotting.  It defines a generic function @code{PLOT} which can be used to

@@ -50,6 +50,15 @@
   ()
   (:documentation "Convection-diffusion-reaction problem."))
 
+(defmethod initialize-instance :after
+    ((problem <cdr-problem>) &key &allow-other-keys)
+  "The problem is assumed to be coercive if there is a reaction
+coefficient."
+  (unless (property-set-p problem 'coercive)
+    (dohash ((coeffs) (coefficients problem))
+      (when (member 'REACTION coeffs)
+	(setf (get-property problem 'coercive) T)))))
+
 (defmethod interior-coefficients ((problem <cdr-problem>))
   "Interior coefficients for a convection-diffusion-reaction problem."
   (list* 'DIFFUSION 'CONVECTION 'SOURCE 'REACTION 'GAMMA 'FE-RHS
@@ -95,7 +104,7 @@ functional."
 
 (defun cdr-model-problem (dim/domain &key (diffusion nil diffusion-p)
 			  (source nil source-p) (dirichlet nil dirichlet-p)
-			  gamma convection reaction initial)
+			  gamma convection reaction initial evp)
   "Generates a convection-diffusion-reaction model problem.  Defaults are
 identity diffusion, right-hand-side equal 1, and Dirichlet zero boundary
 conditions.  Ordinary function are converted into coefficient functions
@@ -109,33 +118,35 @@ cube."
 	 (bdry (skeleton-boundary domain)))
     ;; set default values
     (unless diffusion-p (setq diffusion (eye dim)))
-    (unless source-p (setq source 1.0))
+    (unless source-p (setq source (if evp 0.0 1.0)))
     (unless dirichlet-p (setq dirichlet 0.0))
-    (fl.amop:make-programmatic-instance
-     (if initial
-	 '(<time-dependent-problem> <cdr-problem>)
-	 '<cdr-problem>)
-     :domain domain
-     :patch->coefficients
-     #'(lambda (cell)
-	 (let ((coeffs ()))
-	   (when (member-of-skeleton? cell bdry)
-	     (when dirichlet
-	       (setf (getf coeffs 'FL.PROBLEM::CONSTRAINT) (ensure-coefficient dirichlet))))
-	   (when (= (dimension cell) dim)
-	     (when diffusion
-	       (setf (getf coeffs 'FL.CDR::DIFFUSION) (ensure-coefficient diffusion)))
-	     (when source
-	       (setf (getf coeffs 'FL.CDR::SOURCE) (ensure-coefficient source)))
-	     (when convection
-	       (setf (getf coeffs 'FL.CDR::CONVECTION) (ensure-coefficient convection)))
-	     (when reaction
-	       (setf (getf coeffs 'FL.CDR::REACTION) (ensure-coefficient reaction)))
-	     (when gamma
-	       (setf (getf coeffs 'FL.CDR::GAMMA) (ensure-coefficient gamma)))
-	   (when initial
-	     (setf (getf coeffs 'FL.PROBLEM::INITIAL) (ensure-coefficient initial))))
-	   coeffs)))))
+    (apply #'fl.amop:make-programmatic-instance
+	   (cond (initial '(<time-dependent-problem> <cdr-problem>))
+		 (evp '(<cdr-problem> <evp-mixin>))
+		 (t '<cdr-problem>))
+	   :domain domain :patch->coefficients
+	   #'(lambda (cell)
+	     (let ((coeffs ()))
+	       (when (member-of-skeleton? cell bdry)
+		 (when dirichlet
+		   (setf (getf coeffs 'FL.PROBLEM::CONSTRAINT) (ensure-coefficient dirichlet))))
+	       (when (= (dimension cell) dim)
+		 (when diffusion
+		   (setf (getf coeffs 'FL.CDR::DIFFUSION) (ensure-coefficient diffusion)))
+		 (when source
+		   (setf (getf coeffs 'FL.CDR::SOURCE) (ensure-coefficient source)))
+		 (when convection
+		   (setf (getf coeffs 'FL.CDR::CONVECTION) (ensure-coefficient convection)))
+		 (when reaction
+		   (setf (getf coeffs 'FL.CDR::REACTION) (ensure-coefficient reaction)))
+		 (when gamma
+		   (setf (getf coeffs 'FL.CDR::GAMMA) (ensure-coefficient gamma)))
+		 (when initial
+		   (setf (getf coeffs 'FL.PROBLEM::INITIAL) (ensure-coefficient initial))))
+	       coeffs))
+	   (append
+	    (when evp (destructuring-bind (&key lambda mu) evp
+			(list :lambda lambda :mu mu)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Bratu problem
@@ -160,8 +171,8 @@ Bratu problem -Delta u +e^u =0."
 ;;; Testing: (test-cdr)
 
 (defun test-cdr ()
-  (describe (bratu-problem 2))
-  (describe (cdr-model-problem 1))
+  (assert (get-property (cdr-model-problem 1) 'linear-p))
+  (assert (not (get-property (bratu-problem 2) 'linear-p)))
   (check (domain (cdr-model-problem 2)))
   (let* ((domain (n-cell-domain 1))
 	 (problem (cdr-model-problem domain)))

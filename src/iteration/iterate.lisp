@@ -35,14 +35,7 @@
 (in-package :fl.iteration)
 
 (defclass <iteration> ()
-  ((initially :initform () :initarg :initially
-	    :documentation "List of actions to be performed initially.")
-   (intermediate :initform () :initarg :intermediate
-		 :documentation "List of actions to be performed after
-initialization and after each step.")
-   (finally :initform () :initarg :finally
-	  :documentation "List of actions to be performed finally.")
-   (observe :initform () :initarg :observe
+  ((observe :initform () :initarg :observe
 	    :documentation "The initform depends on the subclass.")
    (success-if :initform nil :initarg :success-if
 	       :documentation "A form specifying a success criterion.")
@@ -71,10 +64,10 @@ printout of status information.")
 (defun indented-format (stream control-string &rest args)
   (let ((indentation (* 5 (1- *iteration-level*))))
     (if (plusp indentation)
-      (apply #'format stream (concatenate 'string "~&>~VT" control-string)
-	     indentation args)
-      (apply #'format stream (concatenate 'string "~&" control-string)
-	     args))))
+	(apply #'format stream (concatenate 'string "~&>~VT" control-string)
+	       indentation args)
+	(apply #'format stream (concatenate 'string "~&" control-string)
+	       args))))
 
 (defparameter *time-observe*
   (list "  TIME" "~6,1F"
@@ -150,11 +143,10 @@ name together with the name of the inner iteration."
   "Reset data on the blackboard."
   (setf (slot-value iter 'start-time) (get-internal-run-time)
 	(getbb blackboard :time) 0.0
-	(getbb blackboard :step) 0))
+	(getbb blackboard :step) 0)) ;!!!
 
 (defmethod initially ((iter <iteration>) blackboard)
-  "Default method.  Prints the header line for observed quantities and
-performs all actions in initial."
+  "Default method.  Prints the header line for observed quantities."
   (dbg :iter "Initially: blackboard = ~A" blackboard)
   (when (output-p iter)
     (indented-format t "Iteration ~A" (name iter))
@@ -168,14 +160,8 @@ performs all actions in initial."
       (indented-format t "~A" fstr)
       (indented-format t "~V,,,'-<~>" (length fstr)))))
 
-(defmethod initially :after ((iter <iteration>) blackboard)
-  "Perform user-defined actions."
-  (dolist (action (slot-value iter 'initially))
-    (funcall action blackboard)))
-
 (defmethod intermediate ((iter <iteration>) blackboard)
-  "Default method.  Prints observed quantities and
-performs all actions in intermediate."
+  "Default method.  Prints observed quantities."
   (with-slots (start-time observe) iter
     (setf (getbb blackboard :time)
 	  (float (/ (- (get-internal-run-time) start-time)
@@ -193,11 +179,6 @@ performs all actions in intermediate."
 	(indented-format t fstr)
 	(force-output)))))
 
-(defmethod intermediate :after ((iter <iteration>) blackboard)
-  "Performs user-defined actions."
-  (dolist (action (slot-value iter 'intermediate))
-    (funcall action blackboard)))
-
 (defmethod terminate-p ((iter <iteration>) blackboard)
   "Default method evaluating success-if and failure-if expressions."
   (with-slots (success-if-fn failure-if-fn) iter
@@ -214,17 +195,10 @@ performs all actions in intermediate."
   (incf (getbb blackboard :step)))
 
 (defmethod finally ((iter <iteration>) blackboard)
-  "Setup a report."
+  "Setup a report and ensures fresh line on output."
   (with-items (&key report status step) blackboard
-    (setq report (blackboard :status status :steps step))))
-
-(defmethod finally :after ((iter <iteration>) blackboard)
-  "Executes all actions in finally."
-  (dolist (action (slot-value iter 'finally))
-    (funcall action blackboard))
-  (when (output-p iter)
-    ;; and ensure a fresh line
-    (format t "~&")))
+    (setq report (blackboard :status status :steps step)))
+  (when (output-p iter) (format t "~&")))
 
 (defmethod iterate ((iter <iteration>) blackboard)
   "Default method for performing an iteration.  Increases indentation level

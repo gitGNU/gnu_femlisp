@@ -43,10 +43,12 @@
 ;;; members.
 
 (defun identify (identified-cells skel)
-  "Identifies the given cells in skel."
-  (dolist (cell identified-cells)
-    (setf (cell-identification cell skel)
-	  identified-cells)))
+  "Identifies all cells in @arg{identified-cells} within @arg{skel}."
+  (dbg :mesh "Identifying: ~A" identified-cells)
+  (when (> (length identified-cells) 1)
+    (dolist (cell identified-cells)
+      (setf (cell-identification cell skel)
+	    identified-cells))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helper routines for constructing a cell domain with identified
@@ -76,13 +78,14 @@ of some higher-dimensional cells."
 	until (null identifications)
 	appending identifications))
 
-(defun check-identification (mesh)
+(defun check-identification (skel)
   "Should checks correct identification.  At the moment, it tests only if
 all identification-entries are eq."
-  (doskel (cell mesh)
-    (let ((identified-cells (cell-identification cell mesh)))
+  (doskel (cell skel)
+    (whereas ((identified-cells (cell-identification cell skel)))
+      (assert (> (length identified-cells) 1))
       (dolist (cell2 identified-cells)
-	(assert (eq identified-cells (cell-identification cell2 mesh)))))))
+	(assert (eq identified-cells (cell-identification cell2 skel)))))))
 
 (defun identify-unit-cell-faces (skel &key (indices :all))
   "This routines identifies boundary cells in skel which correspond to
@@ -106,6 +109,7 @@ the unit cell, but may create problems in other situations."
 	  (push side (gethash key table)))))
     ;; identify all lists of identified cells
     (mapc (rcurry #'identify skel) (hash-table-values table))
+    (check-identification skel)
     skel))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

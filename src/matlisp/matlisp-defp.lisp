@@ -52,6 +52,7 @@
    "GESV!" "GESV" "M/" "M/!"
    "M./" "M./!" "MAP-MATRIX"
    "DOT" "NORM" "L2-NORM" "LINF-NORM" "LP-NORM"
+   "NORMALIZE!" "NORMALIZE"
    
    ;; new Matlisp symbols
 
@@ -81,8 +82,9 @@
    ;; standard-matrix.lisp
    "MRANDOM"
    
-   ;; array-blas.lisp
-   "DOUBLE-VEC" "LIST->DOUBLE-VEC" "MAKE-DOUBLE-VEC" "UNIT-VECTOR"
+   ;; ctypes.lisp
+   "UINT" "UINT-VEC" "MAKE-UINT-VEC"
+   "DOUBLE-VEC" "MAKE-DOUBLE-VEC" "UNIT-VECTOR"
    
    ;; compat.lisp
    "AREA-OF-SPAN" "DET" "DET-FROM-LR"
@@ -90,6 +92,8 @@
    "ENSURE-MATLISP"
    "MULTIPLICITY"
 
+   ;; ccs.lisp
+   "CCS-PATTERN" "CCS-MATRIX"
    )
   (:documentation "This package provides a Common Lisp version of full
 matrices with elements being numbers of a given type.  Those classes are

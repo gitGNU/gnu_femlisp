@@ -52,7 +52,7 @@ projection between subsequent levels."
 	:estimator (make-instance '<projection-error-estimator>)
 	:indicator (make-instance '<largest-eta-indicator> :fraction 0.5 :from-level 2)
 	:success-if '(and (>= :nr-levels 2) (< :global-eta 1.0d-8))
-	:solver *lu-solver*
+	:solver (lu-solver)
 	:output t)
        (blackboard :problem problem))))
   (sleep 1.0)
@@ -83,7 +83,7 @@ estimator is asymptotically exact.  Accuracy threshold is 1.0e-8."
 	:estimator (make-instance '<duality-error-estimator> :functional :load-functional)
 	:indicator (make-instance '<largest-eta-indicator> :from-level 1)
 	:success-if '(< :global-eta 1.0d-10)
-	:solver #+(or)(s1-reduction-amg-solver order :output t) #-(or)*lu-solver*)
+	:solver #+(or)(s1-reduction-amg-solver order :output t) #-(or)(lu-solver))
        (blackboard :problem problem :output t)))))
 
 ;;; (laplace-1d-demo-b)
@@ -166,7 +166,7 @@ error estimator is asymptotically exact."
        :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
        :success-if '(or (and (>= :nr-levels 2) (< :global-eta 1.0d-8))
 		     (= :max-level 4))
-       :solver #+(or)(s1-reduction-amg-solver order) #-(or)*lu-solver*)
+       :solver #+(or)(s1-reduction-amg-solver order) #-(or)(lu-solver))
       (blackboard :problem problem :output t)))))
 
 )  ; end tests

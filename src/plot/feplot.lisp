@@ -46,7 +46,7 @@ refinement depth."
     result))
 
 (defmethod graphic-commands ((asv <ansatz-space-vector>) (program (eql :dx))
-			     &key tubes (foreground :white) &allow-other-keys)
+			     &key tubes (foreground :white) range &allow-other-keys)
   (let ((axis-color (ecase foreground (:black "black")(:white "white")))
 	(graph-color (ecase foreground (:black "black")(:white "yellow")))
 	(dim (dimension (mesh asv))))
@@ -58,7 +58,10 @@ refinement depth."
 	  ;;"image = Render (image, camera);"
 	  ))
       (2 (list
-	  "colored = AutoColor(data);"
+	  (if range
+	      (format nil "colored = AutoColor(data, min=~A, max=~A);"
+		      (first range) (second range))
+	      "colored = AutoColor(data);")
 	  "surface = Isosurface(data, number=20);"
 	  "image = Collect(surface,colored);"
 	  ;;(format nil "camera = AutoCamera(image, background=~S);" background-string)
@@ -85,7 +88,7 @@ several vectors."
   (let* ((fe-class (fe-class (ansatz-space asv)))
 	 (order (discretization-order fe-class))
 	 (mesh (mesh asv))
-	 (dim (manifold-dimension mesh)))
+	 (dim (embedded-dimension mesh)))
     (when (and (arrayp order) component)
       (setq order (aref order component)))
     (unless depth

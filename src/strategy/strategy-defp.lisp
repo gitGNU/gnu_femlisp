@@ -35,8 +35,8 @@
 (in-package "COMMON-LISP-USER")
 
 (defpackage "FL.STRATEGY"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
+	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION" "FL.MESH"
 	"FL.PROBLEM" "FL.DISCRETIZATION" "FL.CDR" "FL.CDR-FE" "FL.ITERATION" "FL.GEOMG"
 	"FL.PLOT")
   (:export				; stationary.lisp
@@ -49,5 +49,7 @@
    "<REFINEMENT-INDICATOR>" "INDICATE" "<UNIFORM-REFINEMENT-INDICATOR>"
    "<REGION-INDICATOR>"
    "<LARGEST-ETA-INDICATOR>" "<ABOVE-THRESHOLD-INDICATOR>")
+  (:export   ; rothe.lisp
+   "<ROTHE>")
   (:documentation "This package provides methods for solving problems by
 adaptive FEM."))

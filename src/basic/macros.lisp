@@ -43,7 +43,7 @@ code in @arg{body}."
 
 (defun symconc (&rest args)
   "This function builds a symbol from its arguments and interns it.  This
-is for use in some macros."
+is used in some macros."
   (intern
    (apply #'concatenate 'string
 	  (mapcar #'(lambda (arg) (if (symbolp arg)
@@ -54,10 +54,6 @@ is for use in some macros."
      (if sym
 	 (symbol-package sym)
 	 *package*))))
-
-(defmacro aif (test-form then-form &optional else-form)
-  `(let ((it ,test-form))
-     (if it ,then-form ,else-form)))
 
 (defmacro whereas (clauses &rest body)
   "Own implementation of the macro @function{whereas} suggested by Erik
@@ -71,21 +67,29 @@ Naggum (c.l.l., 4.12.2002)."
 	  (when ,var
 	    (whereas ,rest-clauses ,@body))))))
 
+(defmacro aif (test-form then-form &optional else-form)
+  `(let ((it ,test-form))
+     (if it ,then-form ,else-form)))
+
 (defmacro awhen (test-form &body body)
+  "Anaphoric macro from @cite{(Graham XXX)}."
   `(let ((it ,test-form))
      (when it ,@body)))
 
 (defmacro awhile (expr &body body)
+  "Anaphoric macro from @cite{(Graham XXX)}."
   `(do ((it ,expr ,expr))
     ((not it))
     ,@body))
 
 (defmacro aand (&rest args)
+  "Anaphoric macro from @cite{(Graham XXX)}."
   (cond ((null args) t)
 	((null (cdr args)) (car args))
 	(t `(aif ,(car args) (aand ,@(cdr args))))))
 
 (defmacro acond (&rest clauses)
+  "Anaphoric macro from @cite{(Graham XXX)}."
   (if (null clauses)
       nil
       (let ((cl1 (car clauses))
@@ -98,6 +102,8 @@ Naggum (c.l.l., 4.12.2002)."
                (acond ,@(cdr clauses)))))))
 
 (defmacro _f (op place &rest args)
+  "Macro from @cite{(Graham XXX)}.  Turns the operator @arg{op} into a
+modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}."
   (multiple-value-bind (vars forms var set access) 
                        (get-setf-expansion place)
     `(let* (,@(mapcar #'list vars forms)
@@ -202,6 +208,7 @@ below @arg{end}.  Example:
 
 ;;; delay and force
 (defmacro delay (form)
+  "Delays the evaluation of @arg{form}."
   (with-gensyms (value computed)
     `#'(lambda ()
 	 (let ((,computed nil)
@@ -212,12 +219,15 @@ below @arg{end}.  Example:
 		   (setq ,value ,form)
 		 (setq ,computed t)))))))
 
-(defmacro force (delayed)
-  `(funcall ,delayed))
+(defmacro force (delayed-form)
+  "Forces the value of a @arg{delayed-form}."
+  (with-gensyms (form)
+    `(let ((,form ,delayed-form))
+      (if (functionp ,form) (funcall ,form) ,form))))
 
 (defmacro definline (name &rest rest)
-  "Short form for defining an inlined function.  Should probably be
-deprecated."
+  "Short form for defining an inlined function.  It should probably be
+deprecated, because it won't be recognized by default by editors."
   `(progn
     (declaim (inline ,name))
     (defun ,name ,@rest)
@@ -234,11 +244,26 @@ deprecated."
   "A macro returning the third of its arguments."
   (third args))
 
+(defmacro fluid-let (bindings &body body)
+  "Sets temporary bindings."
+  (let ((identifiers (mapcar #'car bindings)))
+    (with-gensyms (saved)
+      `(let ((,saved (list ,@identifiers)))
+	(unwind-protect
+	     (progn ,@(loop for (place value) in bindings collect
+			    `(setf ,place ,value))
+		    ,@body)
+	  ,@(loop for (place value) in bindings and i from 0 collect
+		  `(setf ,place (nth ,i ,saved))))))))
+
 ;;;; Testing:
 (defun test-macros ()
   (let ((x 5))
     (ensure x 1))
-  )
+  (let ((a 1) (b 2))
+    (fluid-let ((a 3) (b 4))
+      (list a b))))
+
 
 
 

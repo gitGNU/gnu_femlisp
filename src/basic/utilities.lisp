@@ -45,11 +45,13 @@ default form when an argument should be supplied."
 
 (defun compose (&rest functions)
   "Returns the composition of @arg{functions}."
-  (destructuring-bind (func1 . rest) (reverse functions)
-    #'(lambda (&rest args)
-	(reduce #'(lambda (v f) (funcall f v))
-		rest
-		:initial-value (apply func1 args)))))
+  (if (null functions)
+      #'identity
+      (destructuring-bind (func1 . rest) (reverse functions)
+	#'(lambda (&rest args)
+	    (reduce #'(lambda (v f) (funcall f v))
+		    rest
+		    :initial-value (apply func1 args))))))
 
 (definline curry (func &rest args)
   "Supplies @arg{args} to @arg{func} from the left."
@@ -109,6 +111,39 @@ computed."
   "Return the square of @arg{x}."
   (* x x))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Boxes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun box (object)
+  "Boxes an object."
+  (list object))
+
+(defun unbox (box)
+  "Getter for a boxed object."
+  (car box))
+
+(defun (setf unbox) (value box)
+  "Setter for a boxed object."
+  (setf (car box) value))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Sequences
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric for-each (func collection)
+  (:documentation "Applies @arg{func} to each element of @arg{collection}.")
+  (:method ((func function) (seq sequence))
+	   "Applies @arg{func} to each element of the sequence @arg{seq}."
+	   (map nil func seq)))
+
+(defun partial-sums (seq)
+  "Returns a sequence of the same type as @arg{seq} consisting of its
+partial sums."
+  (let ((sum 0))
+    (map (type-of seq) #'(lambda (x) (incf sum x)) seq)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Vectors
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -139,10 +174,6 @@ computed."
     (dotimes (i (1- (length vec)) new-vec)
       (setf (aref new-vec i)
 	    (aref vec (if (< i comp) i (1+ i)))))))
-
-(defmethod for-each ((func function) (seq sequence))
-  "Applies @arg{func} to each element of @arg{seq}."
-  (map nil func seq))
 
 (definline vector-last (vec)
   "Returns the last element of @arg{vec}."
@@ -844,6 +875,12 @@ according to @math{result[i] = v[perm[i]]}."
       (setf test 3)
       (describe blackboard))
       (getbb blackboard :test))
+  (let ((a (box 1)))
+    (list
+     (fluid-let (((unbox a) 3))
+       (unbox a))
+     (unbox a)))
+  (partial-sums #(1 2 3))
   )
 
 ;; (fl.utilities::test-utilities)

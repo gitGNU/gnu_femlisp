@@ -91,7 +91,7 @@
 	   corners)))
 
 
-;;; Testing: (test-inlay-domain)
+;;; Testing
 (defun test-inlay-domain ()
   (n-cube-with-cubic-inlay 2)
   (let* ((domain (n-cell-with-n-ball-inlay 2 :radius 0.3 :refinements 0))
@@ -103,5 +103,6 @@
     (fl.mesh::check-identification domain))
   )
 
+;;; (test-inlay-domain)
 (fl.tests:adjoin-test 'test-inlay-domain)
 

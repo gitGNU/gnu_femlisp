@@ -47,8 +47,8 @@ data-- or some function mapping cells to a list of corner values."
 	 (position-indices (compute-position-indices cells depth))
 	 (position-array (position-array cells position-indices depth transformation))
 	 (values (and cell->values
-			    (compute-all-position-values
-			     cells position-indices depth cell->values)))
+		      (compute-all-position-values
+		       cells position-indices depth cell->values)))
 	 (simplices (remove-if-not #'simplex-p cells))
 	 (other-cells (remove-if #'simplex-p cells)))
 	 

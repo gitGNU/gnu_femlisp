@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; spline.lisp - Cubic splines (following Stoer/Bulirsch)
+;;; spline.lisp - polygons and cubic splines
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -33,6 +33,64 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-package :fl.function)
+
+(file-documentation
+ "This file implements polygons and cubic splines.")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Polygons
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <polygon> (<function>)
+  ((points :reader points :initarg :points :documentation
+	   "A vector of points for the polygon."))
+  (:documentation "This class implements a function which maps the unit
+interval to a polygon."))
+
+(defmethod initialize-instance :after ((polygon <polygon>) &key &allow-other-keys)
+  (with-slots (domain-dimension image-dimension points) polygon
+    (setf domain-dimension 1
+	  image-dimension (length (aref points 0)))))
+
+(defclass <periodic-polygon> (<polygon>)
+  ()
+  (:documentation "This class implements a periodic polygon."))
+
+(defun find-segment-coordinates (polygon s)
+  (let ((periodic-p (typep polygon '<periodic-polygon>)))
+    (unless (<= 0.0 (aref s 0) 1.0)
+      (error "Parameter not in domain @math{[0,1]}."))
+    (with-slots (points)
+      polygon
+      (let ((segments (if periodic-p
+			  (length points)
+			  (1- (length points)))))
+	(multiple-value-bind (k s2)
+	    (floor (* (aref s 0) segments) 1.0)
+	  (values (- 1.0 s2) (aref points (if periodic-p
+					      (mod k segments)
+					      k))
+		  s2 (aref points (if periodic-p
+				      (mod (1+ k) segments)
+				      (min (1+ k) segments)))))))))
+
+(defmethod evaluate ((polygon <polygon>) s)
+  (multiple-value-bind (s1 point1 s2 point2)
+      (find-segment-coordinates polygon s)
+    (axpy! s1 point1 (scal s2 point2))))
+
+(defmethod evaluate-gradient ((polygon <polygon>) s)
+  (multiple-value-bind (s1 point1 s2 point2)
+      (find-segment-coordinates polygon s)
+    (declare (ignore s1 s2))
+    (make-real-matrix (m- point2 point1))))
+
+(defmethod differentiable-p ((f <polygon>) &optional (k 1))
+  (<= k 1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Cubic splines
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun apply-1d-stencil (stencil x)
   (let* ((n (length x))
@@ -87,21 +145,34 @@ given.  This function returns an interpolating spline."
 	    #I"beta[k]+xi*(2.0*gamma[k]+3.0*xi*delta[k])"))))))
      
 
-#+(or)  ; needs package "FL.PLOT"!
-(flet ((f (x) #I"sin(2*pi*x)"))
-  (let* ((N 3)
-	 (h (/ 1.0 N))
-	 (plot-h (/ h 10))
-	 (ip-coords (map 'vector (curry #'* h) (range< 0 N)))
-	 (spline (cubic-spline (vector-map #'f ip-coords))))
+(defun test-spline ()
+  (let ((polygon (make-instance '<periodic-polygon>
+				:points (vector #d(0.0 0.0) #d(1.0 0.0) #d(0.5 1.0)))))
+    (assert (mequalp (evaluate polygon #(1.0)) (evaluate polygon #(0.0)))))
+  #+(or)  ; needs package "FL.PLOT"!
+  (flet ((f (x) #I"sin(2*pi*x)"))
+    (let* ((N 3)
+	   (h (/ 1.0 N))
+	   (plot-h (/ h 10))
+	   (ip-coords (map 'vector (curry #'* h) (range< 0 N)))
+	   (spline (cubic-spline (vector-map #'f ip-coords))))
+      (fl.plot:plot
+       (list
+	(cons
+	 "function"
+	 (loop for x from 0.0 upto 1.0 by plot-h
+	       collect (vector x (f x))))
+	(cons
+	 "spline"
+	 (loop for x from 0.0 upto 1.0 by plot-h
+	       collect (vector x (funcall spline (vector x)))))))))
+  #+(or)
+  (let* ((vec #(-1.0 -0.99999 -0.96886 -0.89872 -0.7939 -0.6648 -0.5 -0.6648 -0.7939 -0.89872 -0.96886 -0.99999))
+	 (spline (cubic-spline vec)))
     (fl.plot:plot
-     (list
-      (cons
-       "function"
-       (loop for x from 0.0 upto 1.0 by plot-h
-	     collect (vector x (f x))))
-      (cons
-       "spline"
-       (loop for x from 0.0 upto 1.0 by plot-h
-	     collect (vector x (funcall spline (vector x)))))))))
+     (cons
+      "spline"
+      (loop for x from 0.0 upto 1.0 by 0.01
+	    collect (vector x (funcall spline (vector x)))))))
+  )
 

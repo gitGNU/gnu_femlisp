@@ -177,7 +177,7 @@ occur for the inexact arithmetic."
 	   #'(lambda (&rest args)
 	       (make-<ip>
 		:weight (reduce #'* (mapcar #'car args)) ; multiply weights
-		:coords (list->double-vec (transform (mappend #'cdr args) 1.0))))
+		:coords (coerce (transform (mappend #'cdr args) 1.0) 'double-vec)))
 	   (mapcar #'(lambda (k) (gauss-rule-for-weight k s))
 		   (nreverse (make-set 0 n))))))
 

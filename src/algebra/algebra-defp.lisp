@@ -77,6 +77,7 @@
 
    ;; sparselu.lisp
    "SPARSE-LDU" "SPARSE-M*" "SHIFT-DIAGONAL-INVERTER"
+   "SPARSE-MATRIX->CCS"
    )
   (:documentation "This package defines classes for sparse matrices and
 methods operating on them.  The interface is mostly the one used in the

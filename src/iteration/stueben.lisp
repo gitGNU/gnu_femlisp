@@ -50,9 +50,6 @@ does not claim to be equivalent to their code which can be bought at SCAI,
 St. Augustin, Germany.  At this point, I want to thank Tanja Fuellenbach
 for several discussions on AMG."))
 
-(defparameter *standard-stueben* (make-instance '<stueben>)
-  "Standard Stueben AMG.")
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Ruge-Stueben prolongation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -251,8 +248,7 @@ corresponding index."))
 				(choose-coarse-grid amg :mat A)))
 		  :prolongation))
       (coarsen amg A)
-      (solve (make-instance '<linear-solver> :iteration *lu-iteration*
-			    :output t :success-if '(>= :step 3))
+      (solve (lu-solver :output t)
 	     (blackboard :problem (lse :matrix A :rhs b)))))
   )
 

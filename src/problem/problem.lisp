@@ -34,25 +34,14 @@
 
 (in-package :fl.problem)
 
-(defclass <problem> ()
-  ((properties :initform ()))
+(defclass <problem> (property-mixin)
+  ()
   (:documentation "Base class for all problems."))
 
-(defgeneric get-property (problem name)
-  (:documentation "Finds a property of the problem."))
-(defgeneric (setf get-property) (value problem name)
-  (:documentation "Sets the property `name' to `value'."))
-
-(defmethod get-property (problem sym)
-  (getf (slot-value problem 'properties) sym))
-(defmethod (setf get-property) (prop problem sym)
-  (setf (getf (slot-value problem 'properties) sym) prop))
-
 (defgeneric linear-p (problem)
-  (:documentation "Predicate determining if a problem is linear or nonlinear."))
-
-(defmethod linear-p (problem)
-  (get-property problem 'linear-p))
+  (:documentation "Predicate determining if a problem is linear or nonlinear.")
+  (:method ((problem <problem>))
+    (get-property problem 'linear-p)))
 
 (defgeneric ensure-residual (problem blackboard)
   (:documentation "Ensures that the field :RESIDUAL is computed and that
@@ -74,20 +63,12 @@ blackboard."))
   "This default method handles nonlinear problems by linearizing them and
 computing the residual for it.  The resulting problem is additionally
 stored in a field :LINEAR-PROBLEM."
-  (when (get-property problem :linear-p)
+  (when (linear-p problem)
     (error "No method ENSURE-RESIDUAL provided for this linear problem."))
   ;; linearize and compute residual
   (with-items (&key linearization solution) blackboard
     (setq linearization (linearize problem solution))
     (ensure-residual linearization blackboard)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; General problem solving
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defgeneric select-solver (problem blackboard)
-  (:documentation "Choose a solver for PROBLEM.  The choice can also be
-influenced by other data on the BLACKBOARD."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Linear and nonlinear problems
@@ -134,14 +115,28 @@ identity on linear problems."
 
 ;;; Nonlinear problems
 
-(defclass <nlse> (<problem>)
+(defclass <nonlinear-problem> (<problem>)
   ((linearization :initarg :linearization
-    :documentation "A function linearizing the problem."))
-  (:documentation "Class for nonlinear system of equations.  The
-linearization contains a function returning a linear problem."))
+    :documentation "A function linearizing the problem.")
+   (initial-guess :initform nil :initarg :initial-guess :documentation
+		  "An initial guess for a solution."))
+  (:documentation "Class for nonlinear problems.  The linearization
+contains a function returning a linear problem."))
 
-(defmethod linearize ((problem <nlse>) solution)
+(defmethod initialize-instance :after ((problem <nonlinear-problem>)
+				       &key &allow-other-keys)
+  (setf (getf (properties problem) 'linear-p) nil))
+
+(defmethod linearize ((problem <nonlinear-problem>) solution)
   (funcall (slot-value problem 'linearization) solution))
+
+(defmethod ensure-solution ((nlpb <nonlinear-problem>) blackboard)
+  (ensure (getbb blackboard :solution)
+	  (slot-value nlpb 'initial-guess)))
+
+(defclass <nlse> (<nonlinear-problem>)
+  ()
+  (:documentation "Class for nonlinear system of equations."))
 
 (defun nlse (&rest args)
   "Constructs a standard NLSE."
@@ -152,14 +147,14 @@ linearization contains a function returning a linear problem."))
 (defun test-problem ()
   (describe (lse :matrix #m(1.0) :rhs #m(1.0)))
   ;; problem for solving x^2=2 by Newton's method
-  (let ((nlse
-	 (nlse :linearization
-	       #'(lambda (solution)
-		   (let ((x (mref solution 0 0)))
-		     (lse :matrix (make-real-matrix (vector (* 2.0 x)))
-			  :rhs (make-real-matrix (vector (+ 2.0 (* x x)))))))))
-	(bb (blackboard :solution #m(1.4))))
-    (ensure-residual nlse bb)
-    bb)
+  (let* ((nlse
+	  (nlse :linearization
+		#'(lambda (solution)
+		    (let ((x (vref solution 0)))
+		      (lse :matrix (make-real-matrix (vector (* 2.0 x)))
+			   :rhs (make-real-matrix (vector (+ 2.0 (* x x)))))))
+		:initial-guess #m(1.4))))
+    (solve (blackboard :problem nlse :output 1)))
   )
+
 (fl.tests:adjoin-test 'test-problem)

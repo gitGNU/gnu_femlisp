@@ -49,9 +49,6 @@
 Gauss-Seidel, but for many applications something special will give better
 results.")
 
-(defparameter *default-coarse-grid-iteration* *lu-iteration*
-  "The default coarse grid solver is a sparse LU decompositions.")
-
 (defclass <mg-iteration> (<linear-iteration>)
   ((pre-smooth :reader pre-smooth :initform *default-smoother*
 	       :initarg :pre-smooth :initarg :smooth)
@@ -62,7 +59,7 @@ results.")
    (gamma :reader gamma :initform 1 :initarg :gamma)
    (base-level :reader base-level :initform 0 :initarg :base-level)
    (coarse-grid-iteration :reader coarse-grid-iteration
-			  :initform *default-coarse-grid-iteration*
+			  :initform (make-instance '<lu>)
 			  :initarg :coarse-grid-iteration
 			  :initarg :coarse-grid-solver)
    (fmg :reader fmg :initform nil :initarg :fmg))

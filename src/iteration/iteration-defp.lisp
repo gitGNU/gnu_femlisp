@@ -50,12 +50,12 @@
    "<LINEAR-ITERATION>" "DAMPING-FACTOR" "COMPUTE-RESIDUAL"
    "<ITERATOR>" "MAKE-ITERATOR"
    "<MULTI-ITERATION>" "PRODUCT-ITERATOR"
-   "<LU>" "*LU-ITERATION*" "<ILU>" "*STANDARD-ILU*"
+   "<LU>" "<ILU>"
    "<JACOBI>" "<BLOCK-JACOBI>" "*UNDAMPED-JACOBI*"
    "<SOR>" "<GAUSS-SEIDEL>" "*GAUSS-SEIDEL*"
    "<SOLVER-ITERATION>")
   (:export  ; linsolve.lisp
-   "<LINEAR-SOLVER>" "*LU-SOLVER*"
+   "<LINEAR-SOLVER>" "<SAFE-LINEAR-SOLVER>" "LU-SOLVER"
    "LINSOLVE")
   (:export  ; nlsolve.lisp
    "<NEWTON>")
@@ -81,6 +81,3 @@ block of code is contained in a separate package @package{FL.MULTIGRID} and
 contains the multigrid iteration.  From this class, an algebraic multigrid
 iteration is derived in @file{amg.lisp} and a geometric multigrid iteration
 in a separate file @file{geomg.lisp} and package @package{FL.GEOMG}."))
-
-
-

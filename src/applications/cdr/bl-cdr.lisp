@@ -105,14 +105,19 @@ the load functional."
 			       (list *cbl-observe* *eta-observe*))
 	      :success-if `(= :max-level ,(1- max-levels)))))
     (when plot
-      (plot (getbb *result* :solution)))))
+      (plot (getbb *result* :solution))))
+  *result*)
 
 #+(or) (cdr-bl-computation
-	2 4 2 :plot t :amplitude 0.15 :extensible nil :output :all)
+	2 4 2 :plot t :amplitude 0.15 :shift 1.0 :extensible nil :output :all)
 #|
 (profile:unprofile)
 (profile:report-time)
 (profile:reset-time)
+(profile:profile fl.discretization::increment-global-by-local-vec)
+(profile:profile fl.discretization::increment-global-by-local-mat)
+(profile:profile fl.discretization::get-local-from-global-vec)
+(profile:profile fl.discretization::fe-cell-geometry)
 (profile:profile fl.discretization::do-fe-dofs-mblocks)
 (profile:profile fl.discretization::do-fe-dofs-vblocks)
 (profile:profile fl.discretization::fe-cell-geometry)
@@ -122,7 +127,7 @@ the load functional."
 (profile:profile fl.mesh::local->global)
 (profile:profile fl.mesh::l2g)
 (profile:profile fl.mesh::l2Dg)
-(profile:profile fl.fl.matlisp::gesv!)
+(profile:profile fl.matlisp::gesv!)
 (profile:profile fl.matlisp::gemm-nn!)
 (profile:profile fl.mesh::euclidean->barycentric)
 (profile:profile fl.mesh::weight-vector-tensorial)
@@ -159,6 +164,23 @@ the load functional."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-cdr-bl ()
+  
+  (loop
+   repeat 2 do
+   (cdr-bl-computation
+    2 4 3 :plot t :amplitude 0.15 :extensible nil :output :all)
+   finally
+   (let ((work (* (common-lisp-speed) (getbb *result* :time))))
+     ;; ensure that we have no dramatic performance drop.
+     ;; @var{work} was about 1000 for Femlisp-0.9.4 on ortler
+     (format t "~F ~F  ->  ~F~%"
+	     (common-lisp-speed :cache 0.0 :memory 1.0)
+	     (common-lisp-speed :cache 1.0 :memory 0.0)
+	     work)
+     ;;; 0.5/0.5 -> 2500 on ortler
+     (when (> work 2500)
+       (error "Performance problem: Work=~A, expected 1000+/-10%" work))))
+  
   (multiple-value-bind (f Df)
       (cubic-spline #(1.2 1.2 1.2))
     (describe 
@@ -177,7 +199,7 @@ the load functional."
 	(discretize-globally problem mesh fe-class)
       #+(or)(show mat)
       #-(or)
-      (plot (linsolve mat rhs :iteration *lu-iteration*)
+      (plot (linsolve mat rhs :iteration (make-instance '<lu>))
 	    :depth 3)
       ))
 

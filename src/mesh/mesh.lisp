@@ -41,8 +41,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <mesh> (<skeleton>)
-  ((domain :accessor domain :initarg :domain :type <domain>)
-   (parametric :accessor parametric :initform nil :initarg :parametric))
+  ((domain :reader domain :initarg :domain :type <domain>)
+   (parametric :reader parametric :initform nil :initarg :parametric))
   ;;
   (:documentation "A <mesh> is a special <skeleton> mapping cells to
 property lists with properties of the cell.  The most important property of
@@ -124,7 +124,8 @@ are modified for boundary-approximating meshes."
 			    (eq (patch-of-cell side refined-mesh) patch))
 			(boundary child))
 		  (change-class child (unmapped-cell-class (class-of child)))
-		  (setf (mapping child) (funcall parametric child))))))))
+		  (change-class child (mapped-cell-class (class-of child))
+				:mapping (funcall parametric child))))))))
 
 (defmethod update-refinement! ((mesh <mesh>) (refined-mesh <mesh>)
 			       &key region test refined)

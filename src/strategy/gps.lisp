@@ -41,23 +41,25 @@
 (defmethod select-linear-solver ((problem fl.cdr::<cdr-problem>) blackboard)
   (let ((dim (dimension (domain problem))))
     (make-instance
-     '<linear-solver>
+     '<safe-linear-solver>
      :iteration
-     (let ((smoother (if (> dim 2) *gauss-seidel* (geometric-ssc))))
-       (make-instance '<s1-reduction> :max-depth 2
-		      :pre-steps 1 :pre-smooth smoother
-		      :post-steps 1 :post-smooth smoother
-		      :gamma 2 :coarse-grid-iteration
-		      (make-instance '<s1-coarse-grid-iterator>)))
+     (if (and (= dim 1) (get-property problem 'coercive))
+	 (make-instance '<lu> :store-p nil)
+	 (let ((smoother (if (> dim 2) *gauss-seidel* (geometric-ssc))))
+	   (make-instance '<s1-reduction> :max-depth 2
+			  :pre-steps 1 :pre-smooth smoother
+			  :post-steps 1 :post-smooth smoother
+			  :gamma 2 :coarse-grid-iteration
+			  (make-instance '<s1-coarse-grid-iterator>))))
      :success-if `(or (zerop :defnorm)
-		   (and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
+		   (and (>= :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
      :failure-if `(and (> :step 2) (> :step-reduction 0.9))
      )))
 
 (defmethod select-linear-solver ((problem fl.elasticity::<elasticity-problem>) blackboard)
   (let ((dim (dimension (domain problem))))
     (make-instance
-     '<linear-solver> :iteration
+     '<safe-linear-solver> :iteration
      (let ((smoother (if (>= dim 3)
 			 *gauss-seidel*
 			 (geometric-ssc))))
@@ -66,13 +68,14 @@
 	:post-steps 1 :post-smooth smoother
 	:gamma 2 :fmg t))
      :success-if `(or (zerop :defnorm)
-		   (and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
+		   (and (>= :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)
+		     (> :reduction 1.0e-2)))
      :failure-if `(and (> :step 1) (> :step-reduction 0.9))
      )))
 
 (defmethod select-linear-solver ((problem fl.navier-stokes::<navier-stokes-problem>) blackboard)
   (make-instance
-   '<linear-solver> :iteration
+   '<safe-linear-solver> :iteration
    (let ((smoother (make-instance '<vanka>)))
      (geometric-cs
       :coarse-grid-iteration
@@ -81,7 +84,7 @@
       :post-steps 1 :post-smooth smoother
       :gamma 2))
      :success-if `(or (zerop :defnorm)
-		   (and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
+		   (and (>= :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
    :failure-if `(and (> :step 2) (> :step-reduction 0.9))
    ))
 
@@ -132,11 +135,12 @@ open."
     (cond
       (strategy				; there is a strategy on the blackboard
        (solve strategy blackboard))
-      (problem				; there is a PDE problem on the blackboard
+      (problem				; there is a problem on the blackboard
        (setq
 	strategy
 	(typecase problem
 	  (<lse> (select-linear-solver problem blackboard))
+	  (<evp> (select-solver problem blackboard))
 	  (<nlse> (select-solver problem blackboard))
 	  (<pde-problem>
 	   (apply #'make-instance '<stationary-fe-strategy>

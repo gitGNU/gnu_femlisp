@@ -299,9 +299,8 @@ of hanging degrees of freedom and does not interpolate from slaves."
 
 (defclass <s1-coarse-grid-iterator> (<linear-iteration>)
   ()
-  (:documentation "Calls the coarse-grid solver of *standard-stueben*
-directly, if the matrix was not reduced to S1 which may happen if there are
-only Dirichlet vertices."))
+  (:documentation "Calls LU directly, if the matrix was not reduced to S1
+which may happen if there are only Dirichlet vertices."))
 
 (defmethod make-iterator ((s1-cgit <s1-coarse-grid-iterator>) (A <sparse-matrix>))
   (let ((all-vertices-p t))
@@ -309,10 +308,7 @@ only Dirichlet vertices."))
 			  (unless (vertex? (representative key))
 			    (setq all-vertices-p nil)))
 		      A)
-    (assert (symmetric-p A :threshold 1.0e-5))
-    (if all-vertices-p
-	(make-iterator (make-instance '<stueben>) A)
-	(make-iterator (coarse-grid-iteration *standard-stueben*) A))))
+    (make-iterator (make-instance (if all-vertices-p '<stueben> '<lu>)) A)))
 
 (defun s1-reduction-amg-solver (order &key reduction output (maxsteps 100))
   "This is an AMG solver which works also for Lagrange fe of order p by
@@ -324,7 +320,7 @@ reducing them to P^1 first."
      :iteration
      (make-instance '<s1-reduction> :max-depth 2 :pre-steps 1 :pre-smooth smoother
 		    :post-steps 1 :post-smooth smoother
-		    :coarse-grid-iteration #+(or)*lu-iteration*
+		    :coarse-grid-iteration #+(or)(make-instance '<lu>)
 		    #-(or)(make-instance '<s1-coarse-grid-iterator>)
 		    :output output)
      :success-if `(< :reduction ,(or reduction 1.0e-2))
@@ -336,7 +332,7 @@ reducing them to P^1 first."
 
 (defun test-geomg ()
   (geometric-cs :fmg t)
-  (fas :fmg t :coarse-grid-iteration *lu-iteration*)
+  (fas :fmg t :coarse-grid-solver (lu-solver))
   (s1-reduction-amg-solver 2)
   (class-name (class-of (make-instance '<s1-reduction>)))
   )

@@ -81,7 +81,7 @@
 (defmethod plot ((skel <skeleton>) &rest rest &key transformation depth &allow-other-keys)
   (when depth
     (error "The depth option is not yet allowed for mesh plotting."))
-  (let ((dim (manifold-dimension skel)))
+  (let ((dim (embedded-dimension skel)))
     (apply #'graphic-output skel :dx
 	   :cells (plot-cells skel)
 	   :dimension (plot-dimension dim)

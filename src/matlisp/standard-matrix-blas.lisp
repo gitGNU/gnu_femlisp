@@ -33,17 +33,6 @@
 (in-package :fl.matlisp)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; BLAS macros
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun clear-blas-macros (class)
-  (setf (get class 'BLAS-MACROS) ()))
-
-(defun define-blas-macro (class macro-name macro-definition)
-  (setf (geta (get class 'BLAS-MACROS) macro-name)
-	macro-definition))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; BLAS building-blocks for standard-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -91,7 +80,7 @@ nrows and ncols of the given matrices."
 (macroexpand-1 '(with-blas-information (x y) double-float
 		 (setf (ref x) (ref y))))
   
-(define-blas-macro 'standard-matrix 'vec-for-each-entry
+(define-blas-macro 'standard-matrix
   '(vec-for-each-entry (loop-vars &rest body)
     (let ((i (gensym "I")))
       `(dotimes (,i (length ,(msym-store (first loop-vars))))
@@ -104,31 +93,31 @@ nrows and ncols of the given matrices."
       (dotimes (,i (length ,(msym-store (first loop-vars))))
 	,@body))))
 
-(define-blas-macro 'standard-matrix 'element-copy!
+(define-blas-macro 'standard-matrix
   '(element-copy! (x y) `(setf ,y ,x)))
 
-(define-blas-macro 'standard-matrix 'element-scal!
+(define-blas-macro 'standard-matrix
   '(element-scal! (alpha x) `(setf ,x (* ,alpha ,x))))
 
-(define-blas-macro 'standard-matrix 'element-m+!
+(define-blas-macro 'standard-matrix
   '(element-m+! (x y) `(incf ,y ,x)))
 
-(define-blas-macro 'standard-matrix 'element-m+
+(define-blas-macro 'standard-matrix
   '(element-m+ (x y) `(+ ,y ,x)))
 
-(define-blas-macro 'standard-matrix 'element-m-!
+(define-blas-macro 'standard-matrix
   '(element-m-! (x y) `(decf ,y ,x)))
 
-(define-blas-macro 'standard-matrix 'element-m.*!
+(define-blas-macro 'standard-matrix
   '(element-m.*! (x y) `(setf ,y (* ,y ,x))))
 
-(define-blas-macro 'standard-matrix 'element-m*
+(define-blas-macro 'standard-matrix
   '(element-m* (x y) `(* ,y ,x)))
 
-(define-blas-macro 'standard-matrix 'element-equal
+(define-blas-macro 'standard-matrix
   '(element-equal (x y) `(= ,y ,x)))
 
-(define-blas-macro 'standard-matrix 'element-gemm!
+(define-blas-macro 'standard-matrix
   '(element-gemm! (alpha x y beta z)
     `(setf ,z (+ (* ,alpha ,x ,y) (* ,beta ,z)))))
 
@@ -160,7 +149,7 @@ nrows and ncols of the given matrices."
 					bindings)))
 	,@body))))
 
-(define-blas-macro 'standard-matrix 'matrix-loop
+(define-blas-macro 'standard-matrix
   '(matrix-loop (bindings &rest body)
     (matrix-loop-expansion bindings body)))
 
@@ -178,10 +167,10 @@ nrows and ncols of the given matrices."
 ;;; define-blas-template
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun specialized-method-code (name template-args actual-args body)
+(defun blas-method-code (name class-name template-args actual-args body)
   (flet ((matrix-p (template-arg)
 		   (and (consp template-arg)
-			(eq 'standard-matrix (second template-arg))))
+			(eq class-name (second template-arg))))
 	 (number-p (template-arg)
 		   (and (consp template-arg)
 			(eq 'number (second template-arg)))))
@@ -225,13 +214,13 @@ nrows and ncols of the given matrices."
 	  (declare (type ,element-type ,@number-args))
 	  (with-blas-information (,@matrices) ,element-type
 				 ,(subst element-type 'element-type
-					 `(macrolet ,(mapcar #'cdr (get 'standard-matrix 'BLAS-MACROS))
+					 `(macrolet ,(mapcar #'cdr (get class-name 'BLAS-MACROS))
 					   (let ()
 					     ,@body)))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
-  (defun dispatcher-code (name template-args body)
+  (defun dispatcher-code (name class-name template-args body)
     "Generates a method which generates code for a type-specialized method."
     (whereas ((gf (and (fboundp name) (symbol-function name))))
 	     (fl.amop:remove-subclass-methods gf template-args))
@@ -246,8 +235,8 @@ nrows and ncols of the given matrices."
 	   ;; define specialized method
 	   (let ((*compile-print* (dbg-p :blas))
 		 (method-source
-		  (specialized-method-code
-		   ',name ',template-args ,actual-args
+		  (blas-method-code
+		   ',name ',class-name ',template-args ,actual-args
 		   ',(if (stringp (car body)) (cdr body) body))))
 	     (dbg :blas "Generated code: ~%~S~%" method-source)
 	     ;; new CMUCL/SBCL compiles methods automatically, so that eval
@@ -257,7 +246,7 @@ nrows and ncols of the given matrices."
 	   (apply #',name ,actual-args))))))
 
 (defmacro define-blas-template (name args &body body)
-  (dispatcher-code name args body))
+  (dispatcher-code name 'standard-matrix args body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Implementation of the BLAS for the standard-matrix class
@@ -310,7 +299,7 @@ result.  At bottlenecks, the use of gemm! should be preferred."
        (element-m+! (element-m* (ref x) (ref y)) sum))
     sum))
 
-;;;(test-blas 'dot 1 :generator (typed-vector-generator 'single-float))
+;;;(test-blas 'dot 1 :generator (standard-matrix-generator 'single-float))
 
 (define-blas-template mequalp ((x standard-matrix) (y standard-matrix))
   "Exact equality test for standard-matrix."
@@ -462,45 +451,19 @@ result.  At bottlenecks, the use of gemm! should be preferred."
 ;;;; Testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun typed-vector-generator (type)
+(defun standard-matrix-generator (type)
   #'(lambda (n)
       (make-instance (standard-matrix type) :nrows n :ncols 1)))
-
-(defun test-blas (fsym size &key
-		  (generator (typed-vector-generator 'double-float))
-		  (flop-calculator (curry #'* 2))
-		  (nr-of-arguments 2))
-  (let ((x (funcall generator size))
-	(y (funcall generator size))
-	(z (when (= nr-of-arguments 3)
-	     (funcall generator size)))
-	(fn (symbol-function fsym)))
-    (format
-     t "~A-~D: ~$ MFLOPS~%" fsym size
-     (loop with after = 0
-	   for before = (get-internal-run-time) then after
-	   and count of-type fixnum = 1 then (* count 2)
-	   do
-	   (if z
-	       (loop repeat count do (funcall fn x y z))
-	       (loop repeat count do (funcall fn x y)))
-	   (setq after (get-internal-run-time))
-	   (when (> (/ (- after before) internal-time-units-per-second)
-		    fl.utilities::*mflop-delta*)
-	       (return (/ (* (funcall flop-calculator size)
-			     count
-			     internal-time-units-per-second)
-			  (* 1e6 (- after before)))))))))
 
 ;;;; Testing
 
 (defun test-standard-matrix-blas ()
   (dbg-on :blas)
-  (test-blas 'm+! 7992)
+  (test-blas 'm+! 7992 :generator (standard-matrix-generator '(complex double-float)))
   (scal! 0.5 #m((1.0 2.0)))
   (copy! (eye 2) (eye 2))
-  (test-blas 'dot 2 :generator (typed-vector-generator '(complex double-float)))
-  (test-blas 'dot 1 :generator (typed-vector-generator '(complex double-float)))
+  (test-blas 'dot 2 :generator (standard-matrix-generator '(complex double-float)))
+  (test-blas 'dot 1 :generator (standard-matrix-generator '(complex double-float)))
   (time (test-blas 'm* 1024 :generator 'eye
 	     :flop-calculator (lambda (n) (* 2 n n n))))
   (loop for k = 1 then (* 2 k) until (> k 1000) do
@@ -512,9 +475,9 @@ result.  At bottlenecks, the use of gemm! should be preferred."
 	(fl.matlisp::test-blas
 	 'matlisp:m+! k :generator 'matlisp:ones
 	 :flop-calculator (lambda (n) (* n n))))
-  (test-blas 'm+! 1 :generator (typed-vector-generator 'single-float))
-  (test-blas 'm.*! 1)
-  (test-blas 'dot 1 :generator (typed-vector-generator 'single-float))
+  (test-blas 'm+! 1 :generator (standard-matrix-generator 'single-float))
+  (test-blas 'm.*! 1 :generator (standard-matrix-generator 'double-float))
+  (test-blas 'dot 1 :generator (standard-matrix-generator 'single-float))
   (let* ((x #m((2.0 1.0) (-1.0 3.0)))
 	 (y #m((2.0 1.0) (1.0 2.0)))
 	 (z (make-real-matrix 2 2)))

@@ -63,8 +63,7 @@ mappings."
 	  (unless (or (vertex? cell) (< (dimension cell) domain-dim))
 	    (if parametric
 		(change-class cell (mapped-cell-class (class-of cell))
-			      :mapping (and parametric
-					    (funcall parametric cell)))
+			      :mapping (funcall parametric cell))
 		(change-class cell (unmapped-cell-class (class-of cell)))))))
       (change-class mesh '<mesh> :domain domain :parametric parametric))))
 
@@ -230,14 +229,10 @@ midpoint."
   (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-cell-domain 1) 1)))
     (loop repeat 1 do (refine h-mesh :test (rcurry #'inside-cell? #d(0.25))))
     (describe (refinement-interface h-mesh)))
-  )
-
-;;; (test-meshgen)
-(fl.tests:adjoin-test 'test-meshgen)
-
-(defun nonlinear-cell-refinement-bug ()
-  "Ugly bug, maybe in CMUCL because SBCL works."
   (let* ((domain (n-ball-domain 2))
 	 (mesh (make-mesh-from-domain domain)))
     (describe mesh))
   )
+
+;;; (test-meshgen)
+(fl.tests:adjoin-test 'test-meshgen)

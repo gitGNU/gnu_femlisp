@@ -230,7 +230,7 @@ boundary lagrangian."
 
 (defun lagrange-polynomial-vector (cell order type)
   "Returns a vector of polynomials representing the isoparametric mapping."
-  (loop with result = (copy (make-array (manifold-dimension cell)
+  (loop with result = (copy (make-array (embedded-dimension cell)
 					:initial-element (make-polynomial '(0))))
 	with basis = (lagrange-reference-parameters (reference-cell cell) order type)
 	with subcells = (subcells cell)

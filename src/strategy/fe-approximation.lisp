@@ -104,7 +104,7 @@ This is reasonable, because the dual problem for the
 duality-error-estimator is discretized with p+1, and because the refinement
 near the boundary works significantly better with p>=2."
   (with-items (&key domain problem mesh multiplicity
-		    ansatz-space solution base-level)
+		    ansatz-space base-level solution)
       blackboard
     ;; ensure slot fe-class
     (unless (slot-boundp fe-strategy 'fe-class)
@@ -121,15 +121,19 @@ near the boundary works significantly better with p>=2."
       (ensure domain (domain problem))
       (ensure multiplicity (multiplicity problem)))
     ;; build more information
-    (ensure mesh 
-	    (uniformly-refined-hierarchical-mesh
-	     domain (or base-level 0) :parametric
-	     (let ((chars (domain-characteristics domain)))
-	       (and (getf chars :curved)
-		    (if (getf chars :exact)
-			:from-domain
-			(lagrange-mapping
-			 (max 2 (1+ (discretization-order (fe-class fe-strategy))))))))))
+    (ensure mesh
+	    (let ((parametric
+		   (let ((chars (domain-characteristics domain)))
+		     (and (getf chars :curved)
+			  (if (getf chars :exact)
+			      :from-domain
+			      (lagrange-mapping
+			       (max 2 (1+ (discretization-order (fe-class fe-strategy))))))))))
+	    (if (find-cell #'(lambda (cell) (typep cell '<boundary-cell>))
+			   domain)
+		(change-class (triangulate domain :parametric parametric) '<hierarchical-mesh>)
+		(uniformly-refined-hierarchical-mesh domain (or base-level 0)
+						     :parametric parametric))))
     (ensure multiplicity 1)
     (ensure ansatz-space
 	    (make-instance

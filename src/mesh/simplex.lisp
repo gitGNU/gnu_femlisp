@@ -74,7 +74,7 @@
 (defmethod l2g ((cell <simplex>) local-pos)
   "Evaluate the linear transformation defined by the coordinates of the
 simplex corners."
-  (let ((dim (manifold-dimension cell)))
+  (let ((dim (embedded-dimension cell)))
     (declare (type fixnum dim))
     (let ((result (make-double-vec dim)))
       (declare (type double-vec result))
@@ -119,6 +119,14 @@ derivative."
 (defmethod local-coordinates-of-midpoint ((cell <simplex>))
   (let ((dim (dimension cell)))
     (make-double-vec dim (/ 1.0 (1+ dim)))))
+
+(defmethod cell-mapping ((cell <simplex>))
+  "For non-mapped simplices, the cell mapping is linear."
+  (let* ((n (dimension cell)) (m (embedded-dimension cell))
+	 (origin (make-double-vec n)))
+    (make-instance
+     '<linear-function> :domain-dimension n :image-dimension m
+     :A (l2Dg cell origin) :b (l2g cell origin))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Regular simplex refinement by Freudenthal/Bey
@@ -353,6 +361,7 @@ and INSERT-CELL-FROM-CORNERS."
   (refine-info *unit-interval*)
   (assert (eq (reference-cell *unit-interval*)
 	      (reference-cell (n-simplex 1))))
+
   )
 
 ;;; (test-simplex)

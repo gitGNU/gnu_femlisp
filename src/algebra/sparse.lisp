@@ -129,7 +129,7 @@ sides and solutions simultaneously."))
 ;;; transformation to matlisp matrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod sparse-vector->matlisp ((svec <sparse-vector>) &key keys ranges)
+(defmethod sparse-vector->matlisp ((svec <sparse-vector>) &optional keys ranges)
   "Transforms all or a part of a <sparse-vector> corresponding to the keys
 in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
   (setq keys (coerce (or keys (keys svec)) 'vector))
@@ -171,11 +171,11 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 		      (:add (incf (mref entry i j) local-entry))
 		      (:set (setf (mref entry i j) local-entry)))))))))
   
-(defmethod set-svec-to-local-block ((svec <sparse-vector>) local-vec &key keys ranges)
+(defmethod set-svec-to-local-block ((svec <sparse-vector>) local-vec &optional keys ranges)
   "Copies a local block in matlisp format into a <sparse-vector>."
   (combine-svec-block svec local-vec keys ranges :set))
 
-(defmethod add-svec-to-local-block ((svec <sparse-vector>) local-vec &key keys ranges)
+(defmethod add-svec-to-local-block ((svec <sparse-vector>) local-vec &optional keys ranges)
   "Copies a local block in matlisp format into a <sparse-vector>."
   (combine-svec-block svec local-vec keys ranges :add))
 
@@ -195,13 +195,6 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
       (when (funcall test key entry)
 	(setf (vref sub-vec key) entry)))
     sub-vec))
-
-(defmethod extended-extract ((svec <sparse-vector>) (keys hash-table) &key &allow-other-keys)
-  (extract-if #'(lambda (key entry)
-		  (declare (ignore entry))
-		  (gethash key keys))
-	      svec))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; vector blas operations for the <svec> class
@@ -846,6 +839,12 @@ sparse, the complexity of this routine is much lower."))
      smat)
     sub-mat))
 
+(defmethod extended-extract ((svec <sparse-vector>) (keys hash-table) &key &allow-other-keys)
+  (extract-if #'(lambda (key entry)
+		  (declare (ignore entry))
+		  (gethash key keys))
+	      svec))
+
 (defmethod extended-extract ((smat <sparse-matrix>) (keys hash-table)
 			     &key (row? t) (col? t))
   "Extracts a sub-matrix from a sparse matrix.  This routine could be
@@ -872,7 +871,6 @@ col-keys=nil means to allow every key."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; transformation to matlisp matrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 (defmethod sparse-matrix->matlisp ((A <sparse-matrix>)
 				   &key keys row-keys col-keys
@@ -910,6 +908,7 @@ col-keys=nil means to allow every key."
 				      (mref mblock i j)
 				      0.0))))))
     mm))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Local matrix manipulation

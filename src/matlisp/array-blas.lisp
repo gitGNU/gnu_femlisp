@@ -32,61 +32,24 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Ensure some BLAS operations also for Lisp vectors and arrays
+;;; Ensure some Matlisp operations also for Lisp vectors and arrays
 
 (in-package :fl.matlisp)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; double-vec
+;;; vector operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftype double-vec () '(simple-array double-float (*)))
-
-(definline list->double-vec (lst)
-  (map 'double-vec #'(lambda (x) (coerce x 'double-float)) lst))
-
-(definline double-vec (&rest comps)
-  "Returns a @class{double-vec} with the entries in @arg{comps}."
-  (list->double-vec comps))
-
-(definline make-double-vec (dim &optional (init 0.0))
-  "Returns a @class{double-vec} of length @arg{dim} and initial value
-@arg{init}."
-  (make-array dim :element-type 'double-float
-	      :initial-element (float init 0.0)))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (set-dispatch-macro-character
-   #\# #\d  ; dispatch on #d for double-vec
-   #'(lambda (stream char n)
-       (declare (ignore char n))
-       (let ((list (read stream nil (values) t)))
-	 `(list->double-vec ',list)))))
-
-(definline unit-vector (dim i)
-  (let ((vec (make-double-vec dim)))
-    (setf (aref vec i) 1.0)
-    vec))
-
-(defgeneric multiplicity (vec)
-  (:documentation "We allow multiple vectors, for solving linear problems
-in parallel."))
-
-(defmethod multiplicity (vec)
-  "If vec is a matrix, the multiplicity is the number of columns by
-default."
-  (ncols vec))
-  
-;;; Sequences are considered generally as column vectors
+;;; Sequences are considered as column vectors
 
 (defmethod vlength ((seq sequence))
-  "For sequences, the number of rows is equal to the length."
+  "For sequences @function{vlength} is equivalent to @function{length}."
   (length seq))
 (defmethod nrows ((seq sequence))
-  "For sequences, the number of rows is equal to the length."
+  "For sequences @function{nrows} is equivalent to @function{length}."
   (length seq))
 (defmethod ncols ((seq sequence))
-  "For sequences, the number of columns is 1."
+  "For sequences @function{ncols} returns identically 1."
   1)
 
 (defmethod element-type ((x vector))
@@ -94,26 +57,6 @@ default."
 (defmethod scalar-type ((x vector))
   (array-element-type x))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; conversion of vectors to standard-matrix
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun ensure-matlisp (vec &optional (type :column))
-  (etypecase vec
-    (vector
-     (let ((element-type (array-element-type vec)))
-       (assert (subtypep element-type 'number)) ; preliminary
-       (make-instance
-	(standard-matrix element-type)
-	:store vec
-	:nrows (if (eq type :column) (length vec) 1)
-	:ncols (if (eq type :row) (length vec) 1))))
-    (standard-matrix vec)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; vector operations
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod vref ((vec vector) index)
   (aref vec index))
@@ -127,7 +70,6 @@ default."
   (map nil func seq))
 
 (defmethod for-each-entry (func (array array))
-  "Call @var{func} on each entry of @var{array}."
   (dotimes (i (array-total-size array))
     (funcall func (row-major-aref array i))))
 
@@ -147,34 +89,9 @@ default."
   (array-for-each func x y))
 
 
-;;; matrix-vector multiplication
-(defmethod x<-Ay (x (A standard-matrix) y)
-  (gemm! 1.0 A (ensure-matlisp y) 0.0 (ensure-matlisp x))
-  x)
-(defmethod x+=Ay (x (A standard-matrix) y)
-  (gemm! 1.0 A (ensure-matlisp y) 1.0 (ensure-matlisp x))
-  x)
-(defmethod x-=Ay (x (A standard-matrix) y)
-  (gemm! -1.0 A (ensure-matlisp y) 1.0 (ensure-matlisp x))
-  x)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Matlisp operations for arrays
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; matrix-vector multiplication
-(defmethod x<-Ay (x (A standard-matrix) y)
-  (gemm! 1.0 A (ensure-matlisp y) 0.0 (ensure-matlisp x))
-  x)
-(defmethod x+=Ay (x (A standard-matrix) y)
-  (gemm! 1.0 A (ensure-matlisp y) 1.0 (ensure-matlisp x))
-  x)
-(defmethod x-=Ay (x (A standard-matrix) y)
-  (gemm! -1.0 A (ensure-matlisp y) 1.0 (ensure-matlisp x))
-  x)
-
-(defmethod total-entries ((mat standard-matrix))
-   (* (nrows mat) (ncols mat)))
 
 ;;; copying of arrays
 
@@ -258,7 +175,8 @@ to be freshly consed, because @func{scal!} is a function, not a macro."
 
 (defmethod scal! (val (array array))
   "Call @func{scal!} on each entry of @var{array}."
-  (call-next-method))
+  (dotimes (i (array-total-size array) array)
+    (_f * (row-major-aref array i) val)))
 
 (define-vector-blas-method axpy! ((alpha number) (x vector) (y vector))
   (dotimes (i (length x) y)
@@ -300,20 +218,6 @@ then result is set to increment."
 		(setf (aref C i k) (+ (* beta cik) (* alpha (dot aij bjk))))
 		(gemm! alpha aij bjk beta cik))))))))
 
-;;; Multiplication of Matlisp matrices and Lisp vectors
-
-(defmethod m*-product-instance ((A standard-matrix) (x vector))
-  "Returns a CL vector as result of matrix * CL vector."
-  (make-array (nrows A) :element-type (array-element-type x)))
-
-(defmethod gemm-nn! (alpha (A standard-matrix) (x vector) beta (y vector))
-  (gemm-nn! alpha A (ensure-matlisp x) beta (ensure-matlisp y))
-  y)
-
-(defmethod getrs! ((lr standard-matrix) (b vector) &optional ipiv)
-  (getrs! lr (ensure-matlisp b) ipiv)
-  b)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -334,9 +238,6 @@ then result is set to increment."
     (scal 0.5
 	  (m- (axpy 0.01 x y)
 	      (axpy -0.01 x y)))
-    (m* (ensure-matlisp x)
-	(transpose (ensure-matlisp y)))
-    (gemm 1.0 (eye 2) (ensure-matlisp x) 1.0 (ensure-matlisp y))
     (norm #(1.0 2.0) 1)
   ))
 

@@ -44,19 +44,38 @@
 
 (deftype cell-vec () '(simple-array <cell> (*)))
 
+(defclass <standard-cell> (<cell>)
+  ((boundary :reader boundary :initarg :boundary :type cell-vec :documentation
+	     "A vector of boundary cells."))
+  (:documentation "The standard cell in Femlisp is defined via its boundary."))
+
+(defgeneric local->global (cell local-pos)
+  (:documentation "local->global checks if a mapping is given for the cell.
+If yes, then this mapping is evaluated.  If no, then the function l2g is called
+which should do a multilinear interpolation from the cell's corners."))
+
+(defgeneric local->Dglobal (cell local-pos)
+  (:documentation "local->Dglobal checks if a mapping is given for the cell.
+If yes, then the gradient of this mapping is evaluated (if available).  If no,
+then the function l2Dg is called which gives the gradient for a multilinear
+interpolation from the cell's corners."))
+
+(defgeneric midpoint (cell)
+  (:documentation "Returns cell midpoint in global coordinates.")
+  (:method (cell) "Default method"
+	   (local->global cell (local-coordinates-of-midpoint cell))))
+
+(defgeneric origin (cell)
+  (:documentation "Returns cell origin in global coordinates.")
+  (:method (cell) "Default method"
+	   (local->global cell (make-double-vec (dimension cell)))))
+
 (defparameter *print-cell* :midpoint
   "If set to :MIDPOINT, prints the midpoint of a cell.")
 
 (defmethod print-object :after ((cell <cell>) stream)
   (case *print-cell*
-    (:midpoint (format stream "{MP=~A}" (midpoint cell)))
-    (t (call-next-method))))
-
-(defclass <standard-cell> (<cell>)
-  ((boundary :reader boundary :initarg :boundary
-	     :type cell-vec
-	     :documentation "A vector of boundary cells."))
-  (:documentation "The standard cell in Femlisp is defined via its boundary."))
+    (:midpoint (format stream "{MP=~A}" (midpoint cell)))))
 
 ;;; Specializing for vertices is needed very soon.  Therefore, we specify
 ;;; the vertex class without initializing its class information
@@ -221,7 +240,7 @@ cell boundary is copied."))
   "Tests if a cell is a reference cell."
   (eq (reference-cell cell) cell))
 
-(defmethod copy-cell ((cell <cell>))
+(defmethod copy-cell ((cell <standard-cell>))
   "Copy constructor for cells."
   (make-instance (class-of cell) :boundary (copy-seq (boundary cell))))
 
@@ -239,12 +258,12 @@ cell boundary is copied."))
 (defmethod check :after ((cell <mapped-cell>))
   (with-slots (mapping) cell
     ;; check if mapping is reasonable
-    (when (differentiable-p mapping)
-      (let* ((mp (local-coordinates-of-midpoint cell))
-	     (grad (evaluate-gradient mapping mp))
-	     (numgrad (evaluate (numerical-gradient mapping) mp)))
-	(assert (< (norm (m- grad numgrad))
-		   (* 1.0e-2 (max (norm grad) (norm numgrad)))))))))
+    (assert (differentiable-p mapping))
+    (let* ((mp (local-coordinates-of-midpoint cell))
+	   (grad (evaluate-gradient mapping mp))
+	   (numgrad (evaluate (numerical-gradient mapping) mp)))
+      (assert (< (norm (m- grad numgrad))
+		 (* 1.0e-2 (max (norm grad) (norm numgrad))))))))
 
 (defmethod describe-all ((cell <cell>))
   (describe cell)
@@ -294,17 +313,18 @@ is called often repeatedly on the same cell in l2g."
   (mapcar #'(lambda (vtx) (l2g vtx (double-vec)))
 	  (vertices cell)))
 
-(defmethod manifold-dimension ((cell <cell>))
-  "Manifold-dimension is recursively defined, anchored at the definition
-for vertices."
-  (manifold-dimension (aref (boundary cell) 0)))
+(defgeneric embedded-dimension (object)
+  (:documentation "Dimension of the embedding space for object.")
+  (:method ((cell <cell>))
+    "Recursive definition, anchored at the definition for vertices."
+    (embedded-dimension (aref (boundary cell) 0))))
 
 (defmethod cell-mapping ((cell <cell>))
   "For non-mapped cells, this returns a <special-function> which is
 equivalent to calling l2g and l2Dg."
   (make-instance
    '<special-function>
-   :domain-dimension (dimension cell) :image-dimension (manifold-dimension cell)
+   :domain-dimension (dimension cell) :image-dimension (embedded-dimension cell)
    :evaluator (curry #'l2g cell) :gradient (curry #'l2Dg cell)))
 
 (defmethod cell-mapping ((cell <mapped-cell>))
@@ -313,47 +333,8 @@ equivalent to calling l2g and l2Dg."
   (slot-value cell 'mapping))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; cell construction from vertices
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun make-cell-from-vertices (cell-class vertices)
-  "Creates a cell of class CELL-CLASS having the given VERTICES."
-  (with-cell-class-information (reference-cell refcell-subcells nr-of-vertices
-					       boundary-indices-of-subcells)
-    cell-class
-    (assert (= nr-of-vertices (length vertices)))
-    ;; replace the refcell-subcells step by step with newly created ones
-    ;; having the given vertices
-    (loop with subcells = (copy-seq refcell-subcells)
-	  for vlist = vertices then (cdr vlist)
-	  and k downfrom (1- (length subcells)) to 0 do
-	  (setf (aref subcells k)
-		(if vlist
-		    (car vlist)
-		    (make-instance
-		     (class-of (aref subcells k))
-		     :boundary (map 'cell-vec (curry #'aref subcells)
-				    (aref boundary-indices-of-subcells k)))))
-	  finally (return (aref subcells 0)))))
-
-(defun make-cell-from-corners (cell-class corners)
-  "Creates a cell of class CELL-CLASS having the given CORNERS."
-  (make-cell-from-vertices cell-class (mapcar #'make-vertex corners)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; local->global for isoparametric cells (as an after method)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defgeneric local->global (cell local-pos)
-  (:documentation "local->global checks if a mapping is given for the cell.
-If yes, then this mapping is evaluated.  If no, then the function l2g is called
-which should do a multilinear interpolation from the cell's corners."))
-
-(defgeneric local->Dglobal (cell local-pos)
-  (:documentation "local->Dglobal checks if a mapping is given for the cell.
-If yes, then the gradient of this mapping is evaluated (if available).  If no,
-then the function l2Dg is called which gives the gradient for a multilinear
-interpolation from the cell's corners."))
 
 (defmethod local->global ((cell <cell>) local-pos)
   (l2g cell local-pos))
@@ -411,7 +392,8 @@ should work for reasonable geometries and initial values.")
    (when (> i *g2l-newton-steps*)
      (error "Newton did not converge fast enough.  Improve the mesh or
 increase *g2l-newton-steps*."))
-   until (and defnorm (<= defnorm new-defnorm))
+   until (and defnorm (or (<= defnorm new-defnorm)
+			  (<= new-defnorm (* 1.0e-10 defnorm))))
    finally (return x)))
 
 (defmethod global->local ((cell <cell>) global-pos)
@@ -443,10 +425,6 @@ reference cell."))
 (defgeneric local-coordinates-of-midpoint (cell)
   (:documentation "Returns local coordinates of the cell midpoint."))
 
-(defun midpoint (cell)
-  "Returns cell midpoint in global coordinates."
-  (local->global cell (local-coordinates-of-midpoint cell)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; global->embedded-local
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -468,10 +446,6 @@ distance to global-pos is returned."))
 		(let ((A (local->Dglobal cell x)))
 		  (m* (transpose A) A))))))
     (values x (norm (m- (local->global cell x) global-pos)))))
-
-(defgeneric inside-cell? (cell global-pos)
-  (:documentation "Checks if global-pos is inside the interior of the cell.
-It calls coordinates-inside? which is defined for every cell class."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Initialization of a cell class

@@ -38,8 +38,7 @@
 
 (defclass <store-vector> (<vector>)
   ()
-  (:documentation "A mixin yielding the behaviour that destructive vector
-operations operate on the store."))
+  (:documentation "A mixin for vectors having a store."))
 
 (defgeneric store (obj)
   (:documentation "Returns the store for the data vector."))
@@ -49,6 +48,7 @@ operations operate on the store."))
 (defgeneric multiplicity (vec)
   (:documentation "We allow multiple vectors, for solving linear problems
 in parallel."))
+
 
 (defgeneric element-type (vector)
   (:documentation "Type of the elements of the vector/matrix."))
@@ -69,9 +69,9 @@ in parallel."))
 
 ;;; Reader and writers
 (defgeneric vref (x i)
-  (:documentation "Reader to x_i."))
+  (:documentation "Reader for @math{x_i}."))
 (defgeneric (setf vref) (value x i)
-  (:documentation "Writer to x_i."))
+  (:documentation "Writer for @arg{x_i}."))
 
 ;;; Copy
 (defgeneric copy (x)
@@ -161,6 +161,14 @@ in parallel."))
   (if (numberp x)
       (* alpha x)
       (scal! alpha (copy x))))
+
+(definline normalize! (x &optional (p 2))
+  "Scales @arg{x} destructively to have @arg{p}-norm equal to 1."
+  (scal! (/ (norm x p)) x))
+
+(definline normalize (x &optional (p 2))
+  "Scales @arg{x} to have @arg{p}-norm equal to 1."
+  (scal (/ (norm x p)) x))
 
 (defun axpy (alpha x y)
   "Returns alpha X + Y.  Uses AXPY! and COPY."
@@ -274,12 +282,13 @@ in parallel."))
   t)
 
 (defmethod mequalp (x y)
-  (for-each-entry-of-vec1
-   #'(lambda (x y)
-       (unless (mequalp x y)
-	 (return-from mequalp nil)))
-   x y)
-  t)
+  (when (= (total-entries x) (total-entries y))
+    (for-each-entry-of-vec1
+     #'(lambda (x y)
+	 (unless (mequalp x y)
+	   (return-from mequalp nil)))
+     x y)
+    t))
 
 (defmethod total-entries (obj)
   (let ((entries 0))

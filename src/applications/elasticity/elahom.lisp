@@ -272,7 +272,7 @@ Parameters: order=~D, levels=~D~%~%"
        ;;(plot rhs :component 1 :index 0))))
        #-(or)
        (let* ((smoother #+(or)(geometric-ssc)
-			#+(or) *standard-ilu*
+			#+(or) (make-instance '<ilu>)
 			#-(or) *gauss-seidel*)
 	      (cs (geometric-cs
 		   :gamma 2 :coarse-grid-iteration

@@ -120,7 +120,7 @@ iteration."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <lu> (<linear-iteration>)
-  ((store-p :initarg store-p :initform t
+  ((store-p :initarg :store-p :initform nil
 	    :documentation "Store decomposition for multiple applications."))
   (:documentation "A linear iteration interface for the LU exact solver."))
 
@@ -138,14 +138,11 @@ iteration."))
        :iterate
        #'(lambda (x b r)
 	   (declare (ignore b))
-	   (unless store-p
-	     (multiple-value-setq (lu ipiv)
-	       (getrf! (copy mat))))
-	   (getrs! lu r ipiv)
+	   (if store-p
+	       (getrs! lu r ipiv)
+	       (gesv! mat r))
 	   (axpy! damp r x))
        :residual-after nil))))
-
-(defparameter *lu-iteration* (make-instance '<lu>))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ILU decomposition
@@ -178,8 +175,6 @@ parameter, eta is the diagonal enhancement."))
 		      (getrs! ldu result)
 		      (axpy! damp result x)))
        :residual-after nil))))
-
-(defparameter *standard-ilu* (make-instance '<ilu>))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Jacobi iteration
@@ -315,7 +310,7 @@ the iteration.")))
 	 (b (make-image-vector-for A)))
     (fill-random! b 1.0)
     ;; should be stable
-    (solve (make-instance '<linear-solver> :iteration *lu-iteration*
+    (solve (make-instance '<linear-solver> :iteration (make-instance '<lu>)
 			  :output t :success-if '(>= :step 3))
 	   (blackboard :problem (lse :matrix A :rhs b))))
   )

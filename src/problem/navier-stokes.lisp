@@ -113,33 +113,32 @@
   (unit-vector-force dim 0))
 
 (defun driven-cavity (dim &key (viscosity 1.0) (reynolds 0.0) smooth-p)
-  (let* ((domain (n-cube-domain dim))
-	 (upper (find-cell
-		 #'(lambda (cell)
-		     (and (= (dimension cell) (1- dim))
-			  (= (aref (midpoint cell) (1- dim)) 1.0)))
-		 domain)))
-    (assert upper)
+  (let ((domain (n-cube-domain dim)))
     (make-instance
      '<navier-stokes-problem>
      :domain domain
      :patch->coefficients
      #'(lambda (patch)
-	 (cond
-	   ((member-of-skeleton? patch (domain-boundary domain))
-	    ;; boundary coeffs
-	    (if (eq patch upper)
-		(append (when smooth-p
-			  (list 'FORCE (driven-cavity-force dim)))
-			(list 'CONSTRAINT (driven-cavity-upper-boundary
-					   dim smooth-p)))
-	    (list 'CONSTRAINT (no-slip-boundary dim))))
-	   ;; inner coeffs
-	   ((= dim (dimension patch))
-	    (list 'VISCOSITY (ensure-coefficient viscosity)
-		  'REYNOLDS (ensure-coefficient reynolds)))
-	   (t ())))
-     :linear-p (zerop reynolds))))
+	 (let ((midpoint (midpoint patch)))
+	   (cond
+	     ((= dim (dimension patch)) ; interior coefficients
+	      (list 'VISCOSITY (ensure-coefficient viscosity)
+		    'REYNOLDS (ensure-coefficient reynolds)))
+	      ;; upper boundary
+	     ((and (= (dimension patch) (1- dim))
+		   (= (aref midpoint (1- dim)) 1.0))
+	      (append (when smooth-p
+			(list 'FORCE (driven-cavity-force dim)))
+		      (list 'CONSTRAINT (driven-cavity-upper-boundary
+					 dim smooth-p))))
+	     ;; lower corner sets also pressure to zero:
+	     ((mzerop midpoint)
+	      (list 'CONSTRAINT (constant-coefficient
+				 (make-array (1+ dim) :initial-element t)
+				 (make-double-vec (1+ dim)))))
+	     ;; other boundaries have standard no-slip bc
+	     (t (list 'CONSTRAINT (no-slip-boundary dim))))))
+     :properties (list :linear-p (zerop reynolds)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Periodic cavity

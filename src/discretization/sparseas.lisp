@@ -152,6 +152,20 @@ for a specific fe-class on a given mesh."))
   "Deprecated."
   (make-instance '<ansatz-space-vector> :ansatz-space as))
 
+(defun random-ansatz-space-vector (ansatz-space)
+  "Returns a ansatz space vector for @arg{ansatz-space} filled with random
+entries.  Essential constraints are satisfied."
+  (with-slots (mesh key->size)
+    ansatz-space
+    (let ((asv (make-instance '<ansatz-space-vector> :ansatz-space ansatz-space)))
+      (doskel (cell mesh :where :surface)
+	(fill-random! (vref asv (cell-key cell mesh)) 1.0))
+      (assemble-constraints ansatz-space)
+      (destructuring-bind (&key constraints-P constraints-r &allow-other-keys)
+	  (properties ansatz-space)
+	(copy! (sparse-m* constraints-P constraints-r) asv))
+      asv)))
+  
 (defmethod component ((asv <ansatz-space-vector>) i)
   "Returns an ansatz-space-vector which denotes a component of asv.  The
 vector shares part of the values."
@@ -436,8 +450,15 @@ masters."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod select-linear-solver ((asa <ansatz-space-automorphism>) blackboard)
-  "Tries to select a suitable solver depending on the pde problem."
-  (select-linear-solver (problem asa) blackboard))
+  "Select a suitable solver depending on size of the matrix and the pde
+problem."
+  (if (case (dimension (domain (problem asa)))
+	(1 t)
+	(2 (<= (nrows asa) 20000))
+	(3 (<= (nrows asa) 5000)))
+      (make-instance '<linear-solver> :success-if `(>= :step 1)
+		     :iteration (make-instance '<lu> :store-p nil))
+      (select-linear-solver (problem asa) blackboard)))
 
 
 ;;;; Testing

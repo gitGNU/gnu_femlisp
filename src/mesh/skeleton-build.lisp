@@ -45,8 +45,25 @@ Warning: does not handle identifications yet."
 				(find cell-to-remove subcells)))))
 		 skel))))
 
+(defun synchronize-identification (new-skel skel table)
+  "Synchronizes identification information between @arg{new-skel} and
+@arg{skel}.  @arg{table} is a hash-table mapping cells from new-skel to
+skel."
+  (doskel (cell1 skel)
+    (let ((identified-cells1 (cell-identification cell1 skel)))
+      (when identified-cells1
+	(let ((cell2 (gethash cell1 table)))
+	  (unless (cell-identification cell2 new-skel)
+	    (let ((identified-cells2 (mapcar (rcurry #'gethash table)
+					     identified-cells1)))
+	      (loop for cell2 in identified-cells2 do
+		    (setf (cell-identification cell2 new-skel)
+			  identified-cells2)))))))))
+
 (defmethod copy-skeleton (skel &key properties transformation)
   "Copies a skeleton.  Properties is a list of properties to be copied."
+  (when (member 'IDENTIFIED properties)
+    "The IDENTIFIED property is handled automatically.")
   (let ((new-skel (make-analog skel))
 	(table (make-hash-table)))
     (doskel (cell skel :direction :up)
@@ -64,16 +81,7 @@ Warning: does not handle identifications yet."
 		  prop-val)))
 	(setf (gethash cell table) new-cell)))
     ;; transfer identification information
-    (doskel (cell1 skel)
-    (let ((identified-cells1 (cell-identification cell1 skel)))
-      (when identified-cells1
-	(let ((cell2 (gethash cell1 table)))
-	    (unless (cell-identification cell2 new-skel)
-	      (let ((identified-cells2 (mapcar (rcurry #'gethash table)
-					       identified-cells1)))
-		(loop for cell2 in identified-cells2 do
-		      (setf (cell-identification cell2 new-skel)
-			    identified-cells2))))))))
+    (synchronize-identification new-skel skel table)
     ;; when a transformation is defined, call it
     (when transformation
       (maphash transformation table))
@@ -89,7 +97,8 @@ Warning: does not handle identifications yet."
 ;;; Mesh construction in the UG way
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun insert-cell-from-corners (mesh corners->cell cell-class corners properties)
+(defun insert-cell-from-corners (mesh corners->cell cell-class corners properties
+				 &key (create-subcells t))
   "Creates a cell of type cell-class with corners given by corners.
 corners->cell has to be an equalp hash-table mapping corners to the
 corresponding cell.  It is updated by this function."
@@ -108,9 +117,12 @@ corresponding cell.  It is updated by this function."
 		     #'(lambda (refcell-side)
 			 (let ((side-corners (mapcar #'refcell-corner->corner
 						     (corners refcell-side))))
-			   (insert-cell-from-corners
-			    mesh corners->cell
-			    (class-of refcell-side) side-corners properties)))
+			   (or (gethash side-corners corners->cell)
+			       (if create-subcells
+				   (insert-cell-from-corners
+				    mesh corners->cell (class-of refcell-side)
+				    side-corners properties :create-subcells create-subcells)
+				   (error "Expected to find boundary cell in corners->cell.")))))
 		     (boundary refcell))))
 	    (setf (skel-ref mesh cell) properties)
 	    (setf (gethash corners corners->cell) cell))))))
@@ -134,15 +146,14 @@ dimensions h_1 x ... x h_dim."
     skel))
 
 (defun skel-add! (skel-1 skel-2 &key (override ()) active-skel-1)
-  "Adds skel-2 to skel-1 destructively for skel-1.  Overlaying objects are
-identified.  Override is a list of properties which are taken from skel-2
-on the overlap.  Active-skel-1 is used for hierarchical-meshes for
-selecting a level to which skel-2 is added.  This function returns three
-values: the first is skel-1, the second is the copy made of skel-2, the
-third is a hash-table mapping overlapping cells from the copy of skel-2 to
-their counterpart in skel-1."
-  (let ((skel-2 (copy-skeleton skel-2 :properties override))
-	(overlap (make-hash-table)))
+  "Adds @arg{skel-2} to @arg{skel-1} destructively for @arg{skel-1}.
+Overlaying cells are identified.  @arg{override} is a list of properties
+which are copied from skel-2 on the overlap.  @arg{active-skel-1} is used
+for hierarchical-meshes for selecting a level to which @arg{skel-2} is
+added.  This function returns three values: the first is @arg{skel-1}, the
+second is @arg{skel-2}, the third is a hash-table mapping overlapping cells
+from @arg{skel-2} to their counterpart in @arg{skel-1}."
+  (let ((overlap (make-hash-table)))
     (doskel (cell-2 skel-2 :direction :up)
       (let* ((bdry (vector-map #'(lambda (side) (or (gethash side overlap) side))
 			       (boundary cell-2)))
@@ -166,34 +177,52 @@ their counterpart in skel-1."
 	       (setf (gethash cell-2 overlap) (car twins))))))
     (values skel-1 skel-2 overlap)))
 
+(defgeneric transform-cell! (cell transformation)
+  (:documentation "Transforms the cell according to the transformation.
+Note that this will not work, if unmapped cells are transformed
+nonlinearly."))
+
+(defmethod transform-cell! (cell transformation)
+  cell)
+
+(defmethod transform-cell! :before (cell transformation)
+  (unless (or (vertex-p cell) (mapped-p cell)
+	      (typep transformation '<linear-function>))
+    (error "Cannot map unmapped cells nonlinearly.  Change their class to
+mapped-cell first.")))
+
+(defmethod transform-cell! :after ((cell <vertex>) transformation)
+  (setf (slot-value cell 'position)
+	(evaluate transformation (vertex-position cell))))
+
+(defmethod transform-cell! :after ((cell <mapped-cell>) transformation)
+  (setf (slot-value cell 'mapping)
+	(compose-2 transformation (mapping cell))))
+
 (defmethod transformed-skeleton ((skel <skeleton>) &key transformation properties)
-  "Transforms skel by transforming the vertex positions."
+  "Transforms skel by transforming the cell mappings resp. vertex
+positions."
   (copy-skeleton
    skel :properties properties :transformation
    #'(lambda (old-cell new-cell)
-       (if (zerop (dimension old-cell))
-	   (copy! (evaluate transformation (vertex-position old-cell))
-		  (vertex-position new-cell))
-	   (let ((mapping (cell-mapping old-cell)))
-	     (change-class new-cell (mapped-cell-class (class-of new-cell))
-			   :mapping (compose-2 transformation mapping)))))))
+       ;; we do not assume anything on the transformation, so we have to
+       ;; allow a change from vertex-defined to arbitrary mappings.
+       (unless (or (vertex-p new-cell) (mapped-p new-cell))
+	 (change-class new-cell (mapped-cell-class (class-of new-cell))
+		       :mapping (cell-mapping old-cell)))
+       (transform-cell! new-cell transformation))))
 
 (defmethod linearly-transformed-skeleton ((skel <skeleton>) &key A b properties)
   "Transforms skel by transforming the vertex positions."
   (copy-skeleton
    skel :properties properties :transformation
    #'(lambda (old-cell new-cell)
-       (if (zerop (dimension old-cell))
-	   (copy! (m+ (m* A (vertex-position old-cell)) b)
-		  (vertex-position new-cell))
-	   (when (mapped-p old-cell)
-	     (setf (mapping new-cell)
-		   (transform-function
-		    (mapping old-cell) :image-transform (list A b))))))))
+       (declare (ignore old-cell))
+       (transform-cell! new-cell (make-instance '<linear-function> :A A :b b)))))
 
 (defmethod shift-skeleton ((skel <skeleton>) shift &key properties)
   "Shifts skel by vec.  vec has to be a vector of dimension
-\(manifold-dimension skel\)."
+\(embedded-dimension skel\)."
   (linearly-transformed-skeleton
    skel :A (eye (dimension skel)) :b shift :properties properties))
 

@@ -50,7 +50,7 @@
   (:export				; cluster-amg.lisp
    "<CLUSTER-AMG>")
   (:export				; stueben.lisp
-   "<STUEBEN>" "*STANDARD-STUEBEN*")
+   "<STUEBEN>")
   (:documentation "This package contains the definition of the multigrid
 iteration including algebraic multigrid (AMG)."))
 

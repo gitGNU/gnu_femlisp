@@ -38,11 +38,13 @@
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
 	"FL.MESH" "FL.ALGEBRA" "FL.FUNCTION")
   (:export				; problem.lisp
-   "<PROBLEM>" "GET-PROPERTY" "LINEAR-P"
+   "<PROBLEM>" "GET-PROPERTY" "LINEAR-P" "<NONLINEAR-PROBLEM>"
    "<SOLVER>" "SOLVE" "SELECT-SOLVER" "SELECT-LINEAR-SOLVER"
-   "LINEAR-P"
+   "LINEAR-P" "COERCIVE"
    "<LSE>" "LSE" "MATRIX" "RHS" "ENSURE-SOLUTION" "ENSURE-RESIDUAL"
    "<NLSE>" "NLSE" "LINEARIZE")
+  (:export				; evp.lisp
+   "<EVP-MIXIN>" "LAMBDA" "MU" "<EVP>" "<LS-EVP>" "MASS" "ENERGY")
   (:export				; pde-problem.lisp
    "<DOMAIN-PROBLEM>" "<INTERPOLATION-PROBLEM>" "<PDE-PROBLEM>"
    "PATCH->COEFFICIENTS" "MULTIPLICITY"
@@ -54,10 +56,10 @@
    "<COEFFICIENT>" "DEMANDS" "FUNCTION->COEFFICIENT" "ENSURE-COEFFICIENT"
    "CONSTANT-COEFFICIENT"
    "*EMPTY-COEFFICIENT-INPUT*")
-   (:export ; time.lisp
-    "<TIME-DEPENDENT-PROBLEM>" "STATIONARY-PROBLEM-CLASS"
-    "INITIAL" "ALPHA")
-   (:documentation " The @package{FL.PROBLEM} package introduces the
+  (:export				; time.lisp
+   "<TIME-DEPENDENT-PROBLEM>" "STATIONARY-PROBLEM-CLASS"
+   "INITIAL" "ALPHA")
+  (:documentation " The @package{FL.PROBLEM} package introduces the
 general class @class{<problem>} and some subclasses.  The most interesting
 subclass is @class{<pde-problem>}.  A @class{<pde-problem>} is defined on a
 domain and provides a table mapping the domain patches to property lists

@@ -41,12 +41,13 @@
   (:documentation "This package specializes the finite element
 discretization for convection-diffusion-reaction problems.
 
-It can handle the following equation (@math{D_i=\partial{x_i}}):
+It can handle the following equation:
 
-@math{- D_i (K_{ij} (D_j u + g_j) + D_i (c u) + r u = f}
+@math{- \partial_i (K_{ij} (\partial_j u + g_j) + \partial_i (c u) + r u = f}
 
-Here, @math{K} is the diffusion tensor, @math{c} is convection, @math{r} is
-reaction and @math{f} is source."))
+Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
+@math{r} is the reaction coefficient, @math{f} is the source function, and
+@math{g} is a distributional source."))
 
 (in-package "FL.CDR-FE")
 
@@ -56,13 +57,15 @@ reaction and @math{f} is source."))
 
 (defmethod discretize-locally ((problem <cdr-problem>) coeffs fe qrule fe-geometry
 			       &key local-mat local-rhs local-sol local-u local-v
+			       mass-factor stiffness-factor
 			       coefficient-parameters)
   "Local discretization for a convection-diffusion-reaction equation."
-  (let ((diffusion-function (getf coeffs 'FL.CDR::DIFFUSION))
-	(convection-function (getf coeffs 'FL.CDR::CONVECTION))
-	(gamma-function (getf coeffs 'FL.CDR::GAMMA))
-	(source-function (getf coeffs 'FL.CDR::SOURCE))
-	(reaction-function (getf coeffs 'FL.CDR::REACTION)))
+  ;; extract active coefficient functions
+  (let ((diffusion (getf coeffs 'FL.CDR::DIFFUSION))
+	(convection (getf coeffs 'FL.CDR::CONVECTION))
+	(gamma (getf coeffs 'FL.CDR::GAMMA))
+	(source (getf coeffs 'FL.CDR::SOURCE))
+	(reaction (getf coeffs 'FL.CDR::REACTION)))
     
     ;; loop over quadrature points
     (loop
@@ -81,37 +84,43 @@ reaction and @math{f} is source."))
 		    (loop for (key data) on coefficient-parameters by #'cddr
 			  collect key collect (aref data i)))))
        
-       (when (or (and local-mat (or diffusion-function convection-function))
-		 (and local-rhs diffusion-function gamma-function))
+       (when (or (and local-mat (or diffusion convection)
+		      (not (zerop stiffness-factor)))
+		 (and local-rhs diffusion gamma))
 	 (let* ((gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
 		(right-gradients (if local-u (m*-tn local-u gradients) gradients))
 		(left-gradients (if local-v (m*-tn local-v gradients) gradients)))
 	   ;; diffusion
-	   (when diffusion-function
-	     (let* ((diff-tensor (evaluate diffusion-function coeff-input))
+	   (when diffusion
+	     (let* ((diff-tensor (evaluate diffusion coeff-input))
 		    (fluxes (m* left-gradients diff-tensor))) ; (n-basis x dim)-matrix
 	       (when local-mat
 		 (gemm! weight fluxes right-gradients 1.0 local-mat :NT))
 	       ;; gamma
-	       (when (and gamma-function local-rhs)
-		 (gemm! weight fluxes (evaluate gamma-function coeff-input)
+	       (when (and gamma local-rhs)
+		 (gemm! weight fluxes (evaluate gamma coeff-input)
 			1.0 local-rhs))
 	       ))
 	   ;; convection
-	   (when (and convection-function local-mat)
-	     (let* ((velocity-vector (evaluate convection-function coeff-input)))
+	   (when (and convection local-mat)
+	     (let* ((velocity-vector (evaluate convection coeff-input)))
 	       (gemm! (- weight) (m* left-gradients velocity-vector) right-vals 1.0 local-mat :NT)))
 	   ))
 	    
        ;; reaction
-       (when (and reaction-function local-mat)
-	 (let* ((reaction (evaluate reaction-function coeff-input))
+       (when (and local-mat reaction (not (zerop stiffness-factor)))
+	 (let* ((reaction (evaluate reaction coeff-input))
 		(factor (* weight reaction)))
 	   (gemm! factor left-vals right-vals 1.0 local-mat :NT)))
        
+       ;; mass matrix
+       (when (and local-mat (not (zerop mass-factor)))
+	 (let* ((factor (* weight mass-factor)))
+	   (gemm! factor left-vals right-vals 1.0 local-mat :NT)))
+       
        ;; source
-       (when (and source-function local-rhs)
-	 (let ((source (evaluate source-function coeff-input)))
+       (when (and source local-rhs)
+	 (let ((source (evaluate source coeff-input)))
 	   (when (numberp source) (setq source (make-real-matrix `((,source)))))
 	   (gemm! weight left-vals source 1.0 local-rhs)))))
     
@@ -183,8 +192,10 @@ reaction and @math{f} is source."))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order))
 	 (as (make-fe-ansatz-space fedisc problem h-mesh)))
-    (with-items (&key matrix rhs)
-	(fe-discretize (blackboard :ansatz-space as))
+    (with-items (&key matrix rhs interior-matrix)
+	(fe-discretize
+	 (blackboard :ansatz-space as
+		     :mass-factor 1.0 :stiffness-factor 1.0))
       (show (getrs (sparse-ldu matrix) rhs))))
   
   (let* ((level 1) (order 1)

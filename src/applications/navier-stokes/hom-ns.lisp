@@ -74,7 +74,7 @@
 ;;;; Demos
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun stokes-darcy-demo (problem &key order levels plot output (store-p t) (delta 1))
+(defun stokes-darcy-demo (problem &key order levels plot output store-p (delta 1))
   "Stokes-Darcy - Computes a Darcy permeability tensor
 
 Computes the effective permeability for Stokes flow in a domain
@@ -139,7 +139,7 @@ components."
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 3)
-		   :order 1 :levels 3 :output :all :plot nil :store-p nil)
+		   :order 1 :levels 3 :output :all :plot nil)
 
 #+(or)
 (let ((dim 2)
@@ -182,37 +182,12 @@ Parameters: order=~D, max-levels=~D~%~%"
 (make-effective-permeability-demo 2 4 2)
 (make-effective-permeability-demo 3 2 1)
 
-(defun normalize-pressure (svec &key (normalize t))
-  "This stuff is apparently not needed for good convergence."
-  (let* ((pressure (component svec 2))
-	 (mult (multiplicity pressure))
-	 (sum (make-double-vec mult))
-	 (count (make-fixnum-vec mult)))
-    ;; compute average
-    (for-each-entry
-     #'(lambda (entry)
-	 (for-each-key-and-entry
-	  #'(lambda (i j entry)
-	      (declare (ignore i))
-	      (incf (aref sum j) entry)
-	      (incf (aref count j)))
-	  entry))
-     pressure)
-    (if normalize
-	(for-each-entry
-	 #'(lambda (entry)
-	     (for-each-key
-	      #'(lambda (i j)
-		  (decf (mref entry i j)
-			(/ (aref sum j) (aref count j))))
-	      entry))
-	 pressure)
-	(map 'vector #'/ sum count))))
-
-;;; Testing: (hom-ns-tests)
-(fl.tests:adjoin-test 'hom-ns-tests)
-
+;;; Testing:
 (defun hom-ns-tests ()
   (stokes-darcy-demo
    (ns-hole-cell-problem 2)
-   :order 4 :levels 2 :plot nil :delta 1))
+   :order 2 :levels 2 :plot nil :delta 1))
+
+;;;  (hom-ns-tests)
+(fl.tests:adjoin-test 'hom-ns-tests)
+

@@ -153,20 +153,181 @@
   ;; return the result
   (values result ipiv t))
 
-;;; Alternative interface
-
-#+(or)
-(defmethod x<-Ay ((result <sparse-vector>) (ldu <ldu-sparse>) (rhs <sparse-vector>))
-  "Performs a matrix multiplication with U^-1 D^-1 L^-1."
-  (copy! rhs result)
-  (getrs! ldu result))
-
 (defmethod m* ((ldu <ldu-sparse>) (rhs <sparse-vector>))
-  "An ldu-decomposition is considered as an inverse.  This is probably only
-reasonable if the pivot vector would be incorporated and the GETRF/GETRS
-interface would change."
+  "An ldu-decomposition is considered as an inverse."
   (getrs ldu rhs))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Conversion to CCS format
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun numbering (keys &optional (count 0))
+  "Returns a hash-table mapping each element of @arg{keys} to an index."
+  (let ((numbering (make-hash-table)))
+    (map nil #'(lambda (x)
+		 (setf (gethash x numbering) count)
+		 (incf count))
+	 keys)
+    numbering))
+
+(defun sparse-matrix->ccs (A &key keys row-keys col-keys ranges row-ranges col-ranges)
+  "Converts the sparse matrix @arg{A} to CCS format.  @arg{row-keys} and
+@arg{col-keys} may denote a submatrix, @arg{col-ranges} and
+@arg{row-ranges} may be used for extracting even subblocks of the entries.
+This is a rather difficult routine, which might suggest switching to CCS
+completely."
+  (declare (optimize debug))
+  (ensure row-keys keys) (ensure col-keys keys)
+  (unless row-keys
+    (setq row-keys (coerce (row-keys A) 'vector))
+    (ensure col-keys (if (automorphism? A)
+			 row-keys
+			 (coerce (col-keys A) 'vector))))
+  (ensure row-ranges ranges) (ensure col-ranges ranges)
+  (let ((row-numbering (numbering row-keys))
+	row-sizes col-sizes row-offsets col-offsets)
+    (flet ((setup (keys ranges key->size)
+	     (let ((sizes (if ranges
+			      (vector-map #'(lambda (x) (- (cdr x) (car x))) ranges)
+			      (vector-map key->size keys))))
+	       (values sizes (concatenate 'vector #(0) (partial-sums sizes))))))
+      (multiple-value-setq (row-sizes row-offsets)
+	(setup row-keys ranges (row-key->size A)))
+      (multiple-value-setq (col-sizes col-offsets)
+	(if (and (automorphism? A) (equalp row-keys col-keys) (equalp row-ranges col-ranges))
+	    (values row-sizes row-offsets)
+	    (setup col-keys col-ranges (col-key->size A)))))
+    (let* ((nrows (vector-last row-offsets))
+	   (ncols (vector-last col-offsets))
+	   (n (loop for ck across col-keys
+		    and cs across col-sizes summing
+		    (* cs (let ((count 0))
+			    (for-each-key-in-col
+			     #'(lambda (rk)
+				 (whereas ((row-index (gethash rk row-numbering)))
+				   (incf count (aref row-sizes row-index))))
+			     A ck)
+			    count))))
+	   (column-starts (make-uint-vec (1+ ncols)))
+	   (row-indices (make-uint-vec n))
+	   (store (make-double-vec n))
+	   (column-index 0) (pos 0))
+      (setf (aref column-starts ncols) n)
+      ;; loop through columns
+      (loop
+       for ci from 0 and ck across col-keys do
+       ;; sort the block columns ...
+       (let* ((sorted-block-column
+	       (sort (remove nil (mapcar #'(lambda (x) (gethash x row-numbering))
+					 (hash-table-keys (matrix-column A ck))))
+		      #'<))
+	      (column-width (aref col-sizes ci))
+	      (col-range-start (if col-ranges
+				   (car (aref col-ranges ci))
+				   0))
+	      (column-length
+	       (loop for ri in sorted-block-column
+		     summing (aref row-sizes ri))))
+	 ;; and put in the ccs store
+	 (loop with pos1 = pos
+	       for ri in sorted-block-column
+	       for row-range-start = (if row-ranges
+					 (car (aref row-ranges ri))
+					 0)
+	       for row-offset = (aref row-offsets ri)
+	       for entry = (mref A (aref row-keys ri) ck) do
+	       (dotimes (i (aref row-sizes ri))
+		 (dotimes (j column-width)
+		   (let ((k (+ pos1 (* j column-length))))
+		     (setf (aref row-indices k) (+ i row-offset))
+		     (setf (aref store k)
+			   (mref entry (+ i row-range-start) (+ j col-range-start)))))
+		 (incf pos1)))
+	 ;; set column-starts
+	 (loop for i below column-width do
+	       (setf (aref column-starts column-index)
+		     (+ pos (* i column-length)))
+	       (incf column-index))
+	 ;; next block column
+	 (incf pos (* column-length column-width))))
+      (let ((pattern (make-instance
+		      'ccs-pattern :nrows nrows :ncols ncols
+		      :column-starts column-starts :row-indices row-indices)))
+	(make-instance (ccs-matrix 'double-float) :pattern pattern :store store)))))
+
+(defun key->index (mat keys type)
+  "Returns a hash-table mapping keys to CCS offsets."
+  (declare (optimize debug))
+  (let ((numbering (make-hash-table))
+	(k 0))
+    (map nil #'(lambda (ck)
+		 (setf (gethash ck numbering) k)
+		 (incf k (funcall (ecase type
+				    (:row (row-key->size mat))
+				    (:column (col-key->size mat)))
+				  ck)))
+	 keys)
+    (values numbering k)))
+
+#+(or)  ; old: only for testing purposes
+(defun sparse-matrix-to-ccs (smat keys)
+  "Converts the sparse-matrix @arg{smat} to ccs format.  @arg{keys} is a
+list of index keys, @arg{ranges} can be nil or a list of ranges of the same
+length as @arg{keys} which specify subblocks of the block unknowns
+associated with each key."
+  (let* ((n (total-entries smat))
+	 (nrows (total-nrows smat))
+	 (column-starts (make-uint-vec (1+ nrows)))
+	 (row-indices (make-uint-vec n))
+	 (store (make-double-vec n))
+	 (block-numbering (key->index smat keys :row))
+	 (column-index 0) (pos 0))
+    (setf (aref column-starts nrows) n)
+    ;; loop through columns (hopefully in increasing order)
+    (dolist (ck keys)
+      ;; convert the column in a sorted list
+      (let* ((sorted-block-column
+	      (sort (hash-table-keys (matrix-column smat ck))
+		    #'< :key (lambda (x) (gethash x block-numbering))))
+	     column-width
+	     (column-length
+	      (loop for rk in sorted-block-column
+		    for entry = (mref smat rk ck)
+		    do (ensure column-width (ncols entry))
+		    summing (nrows entry))))
+	(loop with pos1 = pos
+	      for rk in sorted-block-column
+	      for entry = (mref smat rk ck) do
+	      (dotimes (i (nrows entry))
+		(dotimes (j (ncols entry))
+		  (let ((k (+ pos1 (* j column-length))))
+		    (setf (aref row-indices k) (+ i (gethash rk block-numbering)))
+		    (setf (aref store k) (mref entry i j))))
+		(incf pos1)))
+	;; set column-starts
+	(loop for i below column-width do
+	      (setf (aref column-starts column-index)
+		    (+ pos (* i column-length)))
+	      (incf column-index))
+	;; next block column
+	(incf pos (* column-length column-width))))
+    (let ((pattern (make-instance
+		    'ccs-pattern :nrows nrows :ncols nrows 
+		    :column-starts column-starts :row-indices row-indices)))
+      (make-instance (ccs-matrix 'double-float) :pattern pattern :store store))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; GESV!
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod gesv! ((smat <sparse-matrix>) (svec <sparse-vector>))
+  "Solve the system by calling an external sparse solver."
+  (let* ((keys (keys svec))
+	 (ccs (sparse-matrix->ccs smat :keys (coerce keys 'vector)))
+	 (cvec (sparse-vector->matlisp svec keys)))
+    (gesv! ccs cvec)
+    (set-svec-to-local-block svec cvec keys)
+    svec))
 
 ;;; Testing:
 
@@ -180,7 +341,8 @@ interface would change."
     (setf (mref A 1 0) #m((1.0)))
     (setf (mref A 1 1) #m((1.0)))
     (setf (mref A 0 1) #m((1.0)))
-    
+    (describe (sparse-matrix->ccs A :row-keys #(0) :col-keys #(0 1)))
+    (describe (sparse-matrix->ccs A :keys #(1)))
     (display A)
     (display (lower-left (sparse-ldu A)))
     (display (diagonal (sparse-ldu A)))
@@ -211,5 +373,8 @@ interface would change."
       (setf (vref rhs 0) #m((1.0) (2.0)))
       (setf (vref rhs 1) #m((3.0) (4.0)))
       (show rhs)
-      (mzerop (m- (m* A (getrs (sparse-ldu A) rhs)) rhs) 1.0e-15)))
+      (mzerop (m- (m* A (getrs (sparse-ldu A) rhs)) rhs) 1.0e-15)
+      (gesv! A rhs)
+      (show rhs)
+      (show (m* A rhs))))
   )

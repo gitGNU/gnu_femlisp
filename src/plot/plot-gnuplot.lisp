@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; plot.lisp - Plotting with Gnuplot
+;;; plot-gnuplot.lisp - Plotting with Gnuplot
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -40,16 +40,8 @@
 
 (defmethod graphic-commands (object (program (eql :gnuplot)) &rest paras)
   "Default gnuplot plotting command."
-  ;; unfortunately, there is no command for making gnuplot to
-  ;; plot the desired tics automatically.  Also it seems that
-  ;; Gnuplot accepts only a maximum of about 16 tics.
-  (let* ((file-name (apply #'graphic-file-name object program paras))
-	 (long-file-name (concatenate 'string *images-directory* file-name)))
-    #+(or)(format stream "set xtics (~{\"\" ~G~^,\\~%~})~%" (gnuplot-tics long-file-name))
-    (list 
-     (format nil "plot ~S title \"data\" with linespoints"
-	     long-file-name))))
-
+  (list (format nil "plot ~S title \"data\" with linespoints"
+		(namestring (apply #'graphic-file-name object program paras)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Plotting of ordinary graphs (list of 2D-points)
@@ -65,16 +57,14 @@
   "Can handle either a single list of points, or a single list of the form
 \(string . points) or a list of such lists which is interpreted as multiple
 graphs."
-  (loop for polygon in (ensure-polygons polygons) do
-	(loop for point in (if (stringp (car polygon)) (cdr polygon) polygon)
-	      do
-	      (format stream "~G ~G~%" (aref point 0) (aref point 1))
-	      finally (format stream "~%~%"))))
+  (dovec (polygon (ensure-polygons polygons))
+    (dovec (point (if (stringp (car polygon)) (cdr polygon) polygon))
+      (format stream "~G ~G~%" (elt point 0) (elt point 1)))
+    (format stream "~%~%")))
 
 (defmethod graphic-commands ((polygons list) (program (eql :gnuplot))
-			     &rest rest &key (linewidth 1) &allow-other-keys)
-  (let* ((file-name (apply #'graphic-file-name polygons program rest))
-	 (long-file-name (concatenate 'string *images-directory* file-name)))
+			     &key (linewidth 1) &allow-other-keys)
+  (let ((gnuplot-file (namestring (truename (graphic-file-name t :gnuplot)))))
     (list
      (apply #'concatenate 'string
 	    "plot "
@@ -83,7 +73,7 @@ graphs."
 		  unless (zerop i) collect ", " end
 		  collect
 		  (format nil "~S index ~D title ~S with lines lw ~D"
-			  long-file-name i
+			  gnuplot-file i
 			  (if (stringp (car polygon))
 			      (car polygon)
 			      (format nil "data-~D" i))
@@ -98,7 +88,7 @@ graphs."
 
 
 (defmethod graphic-write-data (stream object (program (eql :gnuplot))
-				   &key cells cell->values (depth 0))
+				      &key cells cell->values (depth 0))
   "Writes data in gnuplot format to a stream."
   (declare (ignore object))
   (assert (= 1 (dimension (car cells))))
@@ -118,7 +108,7 @@ graphs."
 (defun test-plot-gnuplot ()
   (let ((graph '(("graph-1" #(1.0 2.0) #(3.0 4.0)))))
     (plot graph :debug t))
-  (let ((graph '("graph-2" #(1.0 2.0) #(3.0 4.0))))
+  (let ((graph '("graph-2" #(1.0 3.0) #(4.0 2.0))))
     (plot graph :debug t))
   (plot
    (list

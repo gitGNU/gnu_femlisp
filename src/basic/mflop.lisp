@@ -79,14 +79,23 @@ in seconds."
 	  (when (> secs *mflop-delta*)
 	    (return (values secs count))))))
 
-(defparameter *hardware-speed*
-  (let ((x (make-array +N-long+ :element-type 'double-float :initial-element 2.0))
-	(y (make-array +N-long+ :element-type 'double-float :initial-element 1.0)))
+(defun daxpy-speed (n)
+  "Returns the speed with which @function{daxpy} works for vectors of size
+@arg{n}."
+  (let ((x (make-array n :element-type 'double-float :initial-element 2.0))
+	(y (make-array n :element-type 'double-float :initial-element 1.0)))
     ;;(/ (measure-time #'(lambda () (blas::DAXPY n 2.0 x 1 y 1))))
-    (/ (measure-time #'(lambda () (daxpy x 2.0 y +N-long+)))))
-  "This is a guess for the speed of the hardware Femlisp is currently
-running on.  At the moment, it is chosen as the MFLOP rate of a daxpy
-operation on long vectors implemented in CL.")
+    (multiple-value-bind (secs count)
+	(measure-time #'(lambda () (daxpy x 2.0 y n)))
+      (/ (* 2 n count) 1.0e6 secs))))
+
+(defun common-lisp-speed (&key (cache 0.5) (memory 0.5))
+  "Returns the speed which should be characteristic for the setting
+determined by the keyword arguments."
+  (+ (* cache (daxpy-speed +N-short+))
+     (* memory (daxpy-speed +N-long+))))
 
 (defun test-mflop ()
+  (daxpy-speed +N-long+)
+  (common-lisp-speed)
   )

@@ -43,7 +43,7 @@
 (defclass <algebraic-mg> (<correction-scheme> <mg-iteration>)
   ((max-depth :reader max-depth :initform most-positive-fixnum
 	      :initarg :max-depth)
-   (cg-max-size :reader cg-max-size :initform 1
+   (cg-max-size :reader cg-max-size :initform 50
 		:initarg :cg-max-size)
    (output :initform nil :initarg :output))
   (:documentation "The algebraic multigrid iteration is a multigrid
@@ -101,7 +101,7 @@ can be handled well by smoothing."))
 
 (defgeneric prolongation (amg mat)
   (:documentation "Computes a prolongation matrix from amg and mat.  This
-is usually the essence of an AMG method."))
+is often the essence of an AMG method."))
 
 (defgeneric restriction (amg mat prol)
   (:documentation "Compute a restriction matrix from amg, mat and
@@ -210,9 +210,6 @@ piecewise constant prolongation."))
 (defgeneric improved-prolongation (amg &rest parameters)
   (:documentation "Precondition: items :mat and :prol in the rest
 parameters.  Postcondition: same."))
-
-(defgeneric prolongation (amg mat)
-  (:documentation "Returns AMG prolongation for the given matrix."))
 
 (defmethod prolongation (amg mat)
   "General definition for construction of a prolongation.  For

@@ -34,6 +34,10 @@
 
 (in-package :fl.strategy)
 
+(file-documentation
+ "This file contains the solution strategy for stationary problems.  The
+strategy is derived from the class @class{<fe-approximation>}.")
+
 (defvar *mentries-observe*
   (list " MENTRIES" "~9D"
 	#'(lambda (blackboard)
@@ -45,19 +49,14 @@
 
 (defvar *stationary-fe-strategy-observe*
   *fe-approximation-observe*
-   "Standard observe quantities for stationary fe-strategies.")
+   "Standard observe quantities for stationary finite element strategies.")
 
 (defclass <stationary-fe-strategy> (<fe-approximation>)
   ((fl.iteration::observe :initform *stationary-fe-strategy-observe*)
-   (solver :initarg :solver :documentation
-	   "The solver to be used for solving the discretized systems."))
+   (solver :initform nil :initarg :solver :documentation
+	   "The solver for solving the discretized systems."))
   (:documentation "This class describes some iterative finite element
 solution strategies for continuous, stationary PDE problems."))
-
-(defmethod initially :after ((strategy <stationary-fe-strategy>) blackboard)
-  (unless (slot-boundp strategy 'solver)
-    (setf (slot-value strategy 'solver)
-	  (select-solver (getbb blackboard :problem) blackboard))))
 
 (defmethod approximate ((fe-strategy <stationary-fe-strategy>) blackboard)
   "Ensures accuracy of the solution and the error estimate."
@@ -71,6 +70,8 @@ solution strategies for continuous, stationary PDE problems."))
     (setf solver-blackboard (blackboard :problem discretized-problem
 					:solution solution :residual residual
 					:output output))
+    (ensure (slot-value fe-strategy 'solver)
+	    (select-solver discretized-problem solver-blackboard))
     (solve (slot-value fe-strategy 'solver) solver-blackboard)
     (setf solution (getbb solver-blackboard :solution))))
 

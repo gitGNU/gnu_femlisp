@@ -62,8 +62,9 @@
 	  ;;"image = Render(tubes, camera);"
 	  )))))
 
-(defmethod plot ((problem <pde-problem>) &rest rest
-		 &key (depth 0) (key #'identity) refinements parametric coefficient &allow-other-keys)
+(defmethod plot ((problem <pde-problem>) &rest rest &key
+		 (depth 0) (key #'identity) (refinements 0) parametric coefficient
+		 &allow-other-keys)
   "Plots a coefficient function for problem.  It generates a temporary
 mesh, refines it as often as given in the keyword parameter refinements and
 plots the coefficient function on this mesh where each cell is resolved as
@@ -76,17 +77,17 @@ given by the additional parameter depth."
 	   :cells cells
 	   :cell->values 
 	   #'(lambda (cell)
-	       (let* ((coeff-func (getf (coefficients-of-cell cell mesh problem)
-					coefficient))
-		      (local-vertices (refcell-refinement-vertices
-				       (reference-cell cell) depth))
-		      (values (make-double-vec (length local-vertices))))
-		 (dotimes (i (length local-vertices))
-		   (let* ((lcoords (vertex-position (aref local-vertices i)))
-			  (ci (list :local lcoords :global (local->global cell lcoords))))
-		      (setf (aref values i)
-			    (funcall key (evaluate coeff-func ci)))))
-		 values))
+	       (whereas ((coeff-func (getf (coefficients-of-cell cell mesh problem)
+					   coefficient)))
+		 (let* ((local-vertices (refcell-refinement-vertices
+					 (reference-cell cell) depth))
+			(values (make-double-vec (length local-vertices))))
+		   (dotimes (i (length local-vertices))
+		     (let* ((lcoords (vertex-position (aref local-vertices i)))
+			    (ci (list :local lcoords :global (local->global cell lcoords))))
+		       (setf (aref values i)
+			     (funcall key (evaluate coeff-func ci)))))
+		   values)))
 	   rest)))
 
 ;;; Testing: (test-coeffplot)

@@ -38,7 +38,7 @@
 ;;; Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun cell-solve (problem &key (level 1) (order 1) parametric (solver *lu-solver*))
+(defun cell-solve (problem &key (level 1) (order 1) parametric (solver (lu-solver)))
   "Solves the given problem and returns a result on a blackboard."
   (let* ((domain (domain problem))
 	 (mesh (uniformly-refined-hierarchical-mesh domain level :parametric parametric))
@@ -154,17 +154,18 @@ must be a scalar multiple of the identity."
       :estimator (make-instance '<projection-error-estimator>)
       :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
       :success-if `(>= :nr-levels ,levels)
-      :solver (make-instance
-	       '<linear-solver> :iteration
-	       (let ((smoother
-		      (if (>= (dimension (domain problem)) 3)
-			  *gauss-seidel*
-			  (geometric-ssc))))
-		 (geometric-cs
-		  :gamma 2 :fmg nil :coarse-grid-iteration
-		  (make-instance '<multi-iteration> :base smoother
-				 :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
-		  :pre-steps 2 :pre-smooth smoother :post-steps 2 :post-smooth smoother))
+      :solver
+      (make-instance
+       '<linear-solver> :iteration
+       (let ((smoother
+	      (if (>= (dimension (domain problem)) 3)
+		  *gauss-seidel*
+		  (geometric-ssc :store-p nil))))
+	 (geometric-cs
+	  :gamma 2 :fmg nil :coarse-grid-iteration
+	  (make-instance '<multi-iteration> :base smoother
+			 :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
+	  :pre-steps 2 :pre-smooth smoother :post-steps 2 :post-smooth smoother))
 	       :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
 	       :failure-if `(> :step 20)
 	       :output (eq output :all))
@@ -185,25 +186,10 @@ must be a scalar multiple of the identity."
 
 ;;; Testing:
 #+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t :output :all)
-#+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 3)
+#+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 2 :output :all)
 #+(or)
 (let ((A (FL.algebra::ellipse-matrix 0.25 0.3 0.7854)))
   (cdr-interior-effective-coeff-demo (porous-cell-problem 2 :A A) 4 2 :plot t))
-
-;;; Gauss-Lobatto points
-;;; inexact domain
-;     9       450     31597       4.3   7.2318763792d-01
-;    36      2250    159768      35.7   7.2310081411d-01
-; ;;; exact domain representation:
-;     9       450     31597       5.3   7.2315790447d-01
-;    36      2250    159768      46.9   7.2310037639d-01
-; ;; standard Lagrange points
-; ;; inexact domain
-;     9       450     31597       8.6   7.2320277654d-01
-;    36      2250    159768      50.0   7.2310114601d-01
-; ;; exact domain -> Lobatto sind nur fuer Randabb wichtig
-;     9       450     31597       5.7   7.2315790447d-01
-;    36      2250    159768      48.0   7.2310037639d-01
 
 (defparameter *effective-diffusion-demo*
   (make-demo
@@ -255,11 +241,11 @@ must be a scalar multiple of the identity."
 (defparameter *result* nil)
 
 (defun cdr-hom-tests ()
-;; Warning: The default *lu-solver* in cell-solve does not really work on
+;; Warning: The default (lu-solver) in cell-solve does not really work on
 ;; these singular systems.  Often it appears to work, but introduces large
 ;; relative errors.
 
-(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2)
+(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :output :all)
 
 (cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 1 3 :output :all)
 
@@ -295,7 +281,7 @@ must be a scalar multiple of the identity."
      (cell-solve
       (inlay-cell-problem 2 0.1) :level level
       :order order :parametric (lagrange-mapping order)
-      :solver				; *lu-solver* #+(or)
+      :solver				; (lu-solver) #+(or)
       (make-instance
        '<linear-solver> :iteration
        (geometric-cs
@@ -320,7 +306,7 @@ must be a scalar multiple of the identity."
      (cell-solve
       (inlay-cell-problem dim 0.1) :level level
       :order order :parametric (lagrange-mapping (max order 2))
-      :solver ;*lu-solver* #+(or)
+      :solver ;(lu-solver) #+(or)
       (make-instance
        '<linear-solver> :iteration
        (let ((smoother *gauss-seidel*))
@@ -343,7 +329,7 @@ must be a scalar multiple of the identity."
       (make-instance
        '<stationary-fe-strategy>
        :fe-class (lagrange-fe order)
-       :solver (s1-reduction-amg-solver order) ; #-(or)*lu-solver*
+       :solver (s1-reduction-amg-solver order) ; #-(or)(lu-solver)
        :estimator (make-instance '<projection-error-estimator>)
        :indicator (make-instance '<largest-eta-indicator> :fraction 0.5)
        :success-if '(and (>= :nr-levels 2)(< :global-eta 1.0d-3))

@@ -42,6 +42,12 @@
 	      :documentation "The inner iteration."))
   (:documentation "Class for linear iterative solvers."))
 
+(defclass <safe-linear-solver> (<linear-solver>)
+  ((fallback :reader fallback :initarg :fallback :initform (make-instance '<lu>)
+	     :documentation "The fallback iteration."))
+  (:documentation "If failure occurs, object of this class try an
+alternative iteration.  Usually this will be a direct decomposition."))
+
 (defmethod next-step ((itsolve <linear-solver>) blackboard)
   "Stepping for a linear solver."
   (with-items (&key problem solution residual residual-p step iterator)
@@ -55,14 +61,29 @@
 	     solution (rhs problem) residual)
     (setq residual-p (slot-value iterator 'residual-after))))
 
-(defparameter *lu-solver*
-  (make-instance '<linear-solver> :iteration *lu-iteration*
-		 :success-if '(>= :step 1) :output nil)
-  "LU decomposition without pivoting.")
+(defmethod terminate-p ((iter <safe-linear-solver>) blackboard)
+  "If failure occurs we continue iterating with a direct decomposition.
+Note that no other parameters on the blackboard are changed.  Thus, success
+and failure have to be chosen more or less independent of the size of :step
+and :time."
+  (call-next-method)
+  (with-items (&key status iterator) blackboard
+    (when (eq status :failure)
+      (with-slots (iteration fallback) iter
+	(unless (eq iteration fallback)
+	  (dbg :iter "Changing solver iteration!")
+	  (setq iteration fallback)
+	  (setq iterator nil status nil))))
+    status))
+
+(defun lu-solver (&key output)
+  "LU decomposition without pivoting."
+  (make-instance '<linear-solver> :iteration (make-instance '<lu> :store-p nil)
+		 :success-if '(>= :step 1) :output output))
 
 (defmethod select-linear-solver (object blackboard)
   "Default method selects LU decomposition."
-  *lu-solver*)
+  (lu-solver))
 
 (defmethod select-linear-solver ((lse <lse>) blackboard)
   "Select linear solver based on the matrix."
@@ -117,7 +138,7 @@ a function, you may use this base class."))
 
 (defun test-linsolve ()
   "Linear solving on different types of vector/matrix representations."
-  (let ((lu *lu-iteration*)
+  (let ((lu (make-instance '<lu>))
 	(jac *undamped-jacobi*)
 	(gs *gauss-seidel*))
     
@@ -131,7 +152,7 @@ a function, you may use this base class."))
       (linsolve A b :output t :iteration gs)
       (linsolve A b :output t :iteration (make-instance '<sor> :omega 1.18))
       ;; new interface
-      (solve *lu-solver* (blackboard :problem (lse :matrix A :rhs b)))
+      (solve (lu-solver) (blackboard :problem (lse :matrix A :rhs b)))
       (solve (make-instance '<linear-solver> :iteration jac :output t
 			    :success-if '(> :step 10))
 	     (blackboard :problem (lse :matrix A :rhs b))))
@@ -158,7 +179,7 @@ a function, you may use this base class."))
       (assert (eql (mref (mref A 3 2) 0 0) -1.0))
       (show (linsolve A b :output t :iteration lu))
       (show (linsolve A b :output t :iteration gs))
-      (solve *lu-solver* (blackboard :problem (lse :matrix A :rhs b)
+      (solve (lu-solver) (blackboard :problem (lse :matrix A :rhs b)
 				     :solution sol)))
     )
   )

@@ -38,34 +38,31 @@
   "Default graphics program.")
 
 (defparameter *images-pathname*
-  (or (and cl-user::*images-directory*
-	   (pathname cl-user::*images-directory*))
+  (or (aand cl-user::*images-directory* (pathname it))
       (translate-logical-pathname #p"femlisp:images;"))
-  "Pathname of the images directory.")
-
-(defvar *images-directory*
-  (namestring *images-pathname*)
-  "Namestring of *IMAGES-PATHNAME*.")
+  "Pathname of the directory for @femlisp{} images.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Public interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric graphic-stream (program)
-  (:documentation "Return the stream for the program."))
+(defgeneric graphic-input-stream (program)
+  (:documentation "Return the input stream for the graphic program."))
+(defgeneric graphic-output-stream (program)
+  (:documentation "Return the output stream for the graphic program."))
 
 (defgeneric graphic-file-name (object program &rest rest &key &allow-other-keys)
   (:documentation "Return a filename for the data of this plot."))
 
 (defgeneric graphic-write-data (stream object program &rest rest &key &allow-other-keys)
-  (:documentation "Will usually be the default method depending on several
-data elements in the rest parameters."))
+  (:documentation "Write the data file for @arg{program} to
+@arg{stream}."))
 
 (defgeneric graphic-commands (object program &rest rest &key &allow-other-keys)
   (:documentation "Returns commands for plotting to be sent to the graphics
-server."))
+program."))
 
-(defgeneric send-graphic-commands (stream object program &rest rest &key &allow-other-keys)
+(defgeneric send-graphic-commands (object program &rest rest &key &allow-other-keys)
   (:documentation "Routine for sending commands to the graphics server."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -74,15 +71,15 @@ server."))
 
 (defmethod graphic-output (object program &rest rest &key &allow-other-keys)
   "Calls the generic graphic interface in appropriate order."
-  (let* ((filename (apply #'graphic-file-name object program rest))
-	 (pathname (concatenate 'string "femlisp:images;" filename)))
+  (let* ((pathname (apply #'graphic-file-name object program rest)))
+    ;; wait until the file is moved by the graphics program
+    (loop while (probe-file pathname) do (sleep 0.1))
     ;; write output to a standard file
     (with-open-file (stream pathname :direction :output :if-exists :supersede)
       (apply #'graphic-write-data stream object program rest))
+    ;; wait until the file is there
+    (loop until (probe-file pathname) do (sleep 0.1))
     ;; send script commands to plot program
-    (whereas ((stream (graphic-stream program)))
-      (dbg-when :graphic
-	(apply #'send-graphic-commands *trace-output* object program rest))
-      (apply #'send-graphic-commands stream object program rest)
-      (force-output stream))))
+    (apply #'send-graphic-commands object program rest)
+    ))
 

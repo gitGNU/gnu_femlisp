@@ -46,8 +46,22 @@ describes the use of the respective file."
   (declare (ignore docstring)))
 
 (defclass property-mixin ()
-  ((properties
-    :accessor properties :initform () :type list :documentation
+  ((properties :accessor properties :initform () :initarg :properties
+	       :type list :documentation
     "A property list which is used to store unstructured information about
 this object."))
   (:documentation "A mixin which adds a slot of properties to the class."))
+
+(defun property-set-p (object property)
+  "Returns T if @arg{property} is found in the object's properties."
+  (get-properties (slot-value object 'properties) (list property)))
+
+(defun get-property (object property)
+  "Gets @arg{property} for @arg{object}."
+  (getf (slot-value object 'properties) property))
+
+(defun (setf get-property) (value object property)
+  "Sets the property @arg{property} of @arg{problem} to @arg{value}."
+  (setf (getf (slot-value object 'properties) property) value))
+
+

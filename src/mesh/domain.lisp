@@ -41,17 +41,19 @@
 (defclass <domain> (<skeleton>)
   ((boundary :accessor domain-boundary)
    (extensible-p :reader extensible-p :initform nil))
-  (:documentation "A <domain> is a special <skeleton>.  We call its cells
-`patches', and the properties of a patch carry geometric information.
-Properties supported up to now are:
+  (:documentation "A @class{<domain>} is a special @class{<skeleton>}.  We
+call its cells @emph{patches}, and the properties of a patch carries
+geometric information.  Properties supported up to now are:
 
-IDENTIFIED <list-of-identified-patches>
-EXTENSION <extender>
-METRIC <function>
-VOLUME <function>
+@itemize
+@item @code{IDENTIFIED} @emph{list-of-identified-patches}
+@item @code{EXTENSION} @emph{extender}
+@item @code{METRIC} @emph{function}
+@item @code{VOLUME} @emph{function}
+@end itemize
 
-Here, <function> should be a function depending on keyword arguments like
-:LOCAL and :GLOBAL and allowing arbitrary other keys."))
+Here, @emph{function} should be a function depending on keyword arguments
+like @code{:LOCAL} and @code{:GLOBAL} and allowing arbitrary other keys."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Patches
@@ -246,11 +248,7 @@ cube with its opposite sides identified."
 (defparameter *circle-domain*
   (let* ((pi/2 (* 0.5 pi))
 	 (pi/2-scaling (make-real-matrix `((,pi/2))))
-	 (circle-boundary
-	  (make-instance
-	   '<special-function> :domain-dimension 1 :image-dimension 2
-	   :evaluator #'(lambda (phi)
-			  (double-vec (cos (vref phi 0)) (sin (vref phi 0)))))))
+	 (circle-boundary (circle-function)))
     ;; corners
     (let ((center (make-vertex #d(0.0 0.0)))
 	  (east-vtx (make-vertex #d(1.0 0.0)))

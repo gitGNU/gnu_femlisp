@@ -498,6 +498,44 @@ scalar product in pairing."
 		      :gradients gradients :volume volumes
 		      :gradient-inverses gradient-inverses :weights weights))))
 
+#+(or)
+(defun fe-cell-geometry (cell qrule &key metric volume)
+  "Collects cell geometry information inside a property list."
+  (let* ((mapping (cell-mapping cell))
+	 (fast-p (and (not metric) (not volume) (typep mapping '<linear-function>)))
+	 Dphi origin volume-at-point Dphi-inverse)
+    (when fast-p
+      (setf origin (first (corners cell))
+	    Dphi (evaluate-gradient mapping origin)
+	    volume-at-point (* (sqrt (abs (det (m*-tn Dphi Dphi)))))
+	    Dphi-inverse (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi))))
+    (loop
+     for ip in (integration-points qrule)
+     for local-coord = (ip-coords ip)
+     for local-weight = (ip-weight ip)
+     for global-coord = (if fast-p
+			    (gemm 1.0 Dphi local-coord 1.0 origin)
+			    (evaluate mapping local-coord)) do
+     (unless fast-p
+       (let ((metric-ip (and metric (funcall metric :local local-coord :global global-coord)))
+	     (volume-ip (and volume (funcall volume :local local-coord :global global-coord))))
+	 (setf Dphi (evaluate-gradient mapping local-coord)
+	       Dphi-inverse (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi))	       
+	       volume-at-point (* (sqrt (abs (det (if metric
+						      (m*-tn Dphi (m* metric-ip Dphi))
+						      (m*-tn Dphi Dphi)))))
+				  (or volume-ip 1.0)))))
+     collect local-coord into local-coords
+     collect global-coord into global-coords
+     collect Dphi into gradients
+     collect volume-at-point into volumes
+     collect Dphi-inverse into gradient-inverses
+     collect (* local-weight volume-at-point) into weights
+     finally
+     (return (list :cell cell :local-coords local-coords :global-coords global-coords
+		   :gradients gradients :volume volumes
+		   :gradient-inverses gradient-inverses :weights weights)))))
+
 ;;; Testing: (test-fe)
 
 (defun test-fe ()

@@ -141,6 +141,32 @@ double-float array."
   (dotimes (k (ncols mat))
     (setf (mref mat k col) 0.0)))
 
+;;; old interface matrix-vector multiplication (deprecated)
+
+(defmethod x<-Ay (x (A standard-matrix) y)
+  (gemm! 1.0 A (ensure-matlisp y) 0.0 (ensure-matlisp x))
+  x)
+(defmethod x+=Ay (x (A standard-matrix) y)
+  (gemm! 1.0 A (ensure-matlisp y) 1.0 (ensure-matlisp x))
+  x)
+(defmethod x-=Ay (x (A standard-matrix) y)
+  (gemm! -1.0 A (ensure-matlisp y) 1.0 (ensure-matlisp x))
+  x)
+
+;;; Multiplication of Matlisp matrices and Lisp vectors
+
+(defmethod m*-product-instance ((A standard-matrix) (x vector))
+  "Returns a CL vector as result of matrix * CL vector."
+  (make-array (nrows A) :element-type (array-element-type x)))
+
+(defmethod gemm-nn! (alpha (A standard-matrix) (x vector) beta (y vector))
+  (gemm-nn! alpha A (ensure-matlisp x) beta (ensure-matlisp y))
+  y)
+
+(defmethod getrs! ((lr standard-matrix) (b vector) &optional ipiv)
+  (getrs! lr (ensure-matlisp b) ipiv)
+  b)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -156,6 +182,12 @@ double-float array."
     (mzerop #(0.0))
     (mzerop #m((0.0)))
     (area-of-span (mrandom 5 3))
+    (let* ((dim 2)
+	   (x (make-double-vec dim))
+	   (y (make-double-vec dim 1.0)))
+      (m* (ensure-matlisp x)
+	  (transpose (ensure-matlisp y)))
+      (gemm 1.0 (eye 2) (ensure-matlisp x) 1.0 (ensure-matlisp y))    )
   ))
 
 ;;; (test-matlisp-vector-combination)

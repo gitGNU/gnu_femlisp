@@ -38,37 +38,47 @@
 ;;;; Routines for establishing the communication line
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *gnuplot-pathname*
-  (or (whereas ((gnuplot-name cl-user::*gnuplot-path*))
-	(probe-file (pathname gnuplot-name)))
+(defvar *gnuplot-pathname*
+  (or (aand cl-user::*gnuplot-path* (probe-file (pathname it)))
       (fl.port:find-executable "gnuplot"))
-  "Pathname to Gnuplot.")
+  "Pathname of the @program{Gnuplot} binary.")
 
-(defvar *gnuplot-stream* nil
-  "Stream to gnuplot.  Should perhaps be coalesced with the CLOCC
-version.")
+(defvar *gnuplot-process* nil
+  "The current @program{Gnuplot} process.")
 
-(defun ensure-gnuplot-stream ()
-  (setq *gnuplot-stream*
-	(if (and *gnuplot-stream* (open-stream-p *gnuplot-stream*))
-	    *gnuplot-stream*
-	    (when *gnuplot-pathname*
-	      (whereas ((process
-			 (fl.port:run-program
-			  *gnuplot-pathname* '() :input :stream
-			  :output nil :wait nil)))
-		       (fl.port:process-input process)))))
-  (unless *gnuplot-stream*
-    (format *error-output* "~&ENSURE-GNUPLOT-STREAM: could not open stream.~%"))
-  *gnuplot-stream*)
+(defvar *gnuplot-file*
+ (make-pathname :name "output.gnuplot"
+		:directory (pathname-directory *images-pathname*))
+  "The output file for @program{Gnuplot}.")
 
-(defmethod graphic-stream ((program (eql :gnuplot)))
-  (ensure-gnuplot-stream))
+;;; something went wrong last time, because this file is still there
+(when (probe-file *gnuplot-file*)
+  (delete-file *gnuplot-file*)
+  (warn "Deleted Gnuplot image file."))
 
-#+(or)  ; (ensure-gnuplot-stream)
-(progn
-  (close *gnuplot-stream*)
-  (setq *gnuplot-stream* nil))
+(defun ensure-gnuplot-process ()
+  (when (and *gnuplot-process*
+	     (eq (fl.port:process-status *gnuplot-process*) :running))
+    (return-from ensure-gnuplot-process *gnuplot-process*))
+  (setq *gnuplot-process*
+	(when *gnuplot-pathname*
+	  (fl.port:run-program
+	   *gnuplot-pathname* '() :wait nil
+	   :input :stream :output (dbg-when :graphic *trace-output*))))
+  (unless *gnuplot-process*
+    (format *error-output* "~&ENSURE-GNUPLOT-PROCESS: could not start GNUPLOT.~%"))
+  *gnuplot-process*)
+
+(defmethod graphic-input-stream ((program (eql :gnuplot)))
+  (fl.port:process-input (ensure-gnuplot-process)))
+
+(defun gnuplot-input-stream () (fl.port:process-input (ensure-gnuplot-process)))
+(defun gnuplot-output-stream () (fl.port:process-output (ensure-gnuplot-process)))
+
+#+(or)  ; (ensure-gnuplot-process)
+(when *gnuplot-process*
+  (fl.port:process-close *gnuplot-process*)
+  (setq *gnuplot-process* nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Gnuplot enhancements
@@ -84,39 +94,37 @@ version.")
 ;;;; Plotting a fe function with gnuplot
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *gnuplot-toggle* 0
-  "Depending on *gnuplot-toggle* we determine the filename.  This is a
-trick to avoid writing the file while our gnuplot job is still reading.")
+(defmethod graphic-file-name (object (program (eql :gnuplot)) &key &allow-other-keys)
+  *gnuplot-file*)
 
-(defmethod graphic-file-name (object (program (eql :gnuplot))
-			      &key &allow-other-keys)
-  (format nil "output~D.dat" *gnuplot-toggle*))
-
-(defmethod send-graphic-commands (stream object (program (eql :gnuplot)) &rest paras
-					 &key left right top bottom
-					 (border t) (tics t) (terminal "x11")
-					 (output "gnuplot.out") &allow-other-keys)
-  (format stream "set size 1.0,1.0;~%")
-  (format stream "set size square;~%")
-  (if (and left right)
-      (format stream "set xrange [~a:~a]~%" left right)
-      (format stream "set autoscale x~%"))
-  (if (and bottom top)
-      (format stream "set yrange [~a:~a]~%" bottom top)
-      (format stream "set autoscale y~%"))
-  (if border
-      (format stream "set border~%")
-      (format stream "set noborder~%"))
-  (if tics
-      (format stream "set xtics~%set ytics~%")
-      (format stream "set noxtics~%set noytics~%"))
-  (format stream "set terminal ~A~%" terminal)
-  (format stream "set output ~S~%"
-	  (concatenate 'string (namestring *images-pathname*) output))
-  (loop for script-command in (apply #'graphic-commands object program paras) do
-	(format stream "~A~%" script-command))
-  (force-output stream))
-
-(defmethod graphic-output :after (object (program (eql :gnuplot)) &key &allow-other-keys)
-  (setq *gnuplot-toggle* (if (zerop *gnuplot-toggle*) 1 0)))
+(defmethod send-graphic-commands (object (program (eql :gnuplot)) &rest paras
+				  &key left right top bottom
+				  (border t) (tics t) (terminal "x11")
+				  (output "gnuplot.out") &allow-other-keys)
+  (let ((stream (if (dbg-p :graphic)
+		    (make-broadcast-stream (gnuplot-input-stream) *trace-output*)
+		    (gnuplot-input-stream)))
+	(gnuplot-file (namestring (truename (graphic-file-name object :gnuplot)))))
+    (format stream "set size 1.0,1.0;~%")
+    (format stream "set size square;~%")
+    (if (and left right)
+	(format stream "set xrange [~a:~a]~%" left right)
+	(format stream "set autoscale x~%"))
+    (if (and bottom top)
+	(format stream "set yrange [~a:~a]~%" bottom top)
+	(format stream "set autoscale y~%"))
+    (if border
+	(format stream "set border~%")
+	(format stream "set noborder~%"))
+    (if tics
+	(format stream "set xtics~%set ytics~%")
+	(format stream "set noxtics~%set noytics~%"))
+    (format stream "set terminal ~A~%" terminal)
+    (format stream "set output ~S~%"
+	    (concatenate 'string (namestring *images-pathname*) output))
+    (loop for script-command in (apply #'graphic-commands object program paras) do
+	  (format stream "~A~%" script-command))
+    (format stream "! mv -f ~A ~A~%"
+	    gnuplot-file (concatenate 'string gnuplot-file ".bak"))
+    (force-output stream)))
 

@@ -339,8 +339,9 @@ problem."
 	  ;; data.
 	  (doskel (cell mesh :where :surface :dimension :highest)
 	    (setf (gethash cell eta) 0.0)
-	    (incf (gethash cell eta)
-		  (abs (gethash (cell-key cell mesh) key->error)))
+	    ;; for quadratic fe on triangles, there is no cell unknown
+	    (whereas ((local-err (gethash (cell-key cell mesh) key->error)))
+	      (incf (gethash cell eta) (abs local-err)))
 	    (loop for side across (boundary cell) do
 		  (incf (gethash cell eta)
 			(* 0.5

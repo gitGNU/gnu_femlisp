@@ -57,20 +57,16 @@ elements of order @var{order}."
 (defun iteration-test (linit &rest args &key (maxsteps 200) output &allow-other-keys)
   "Tests the linear iteration @var{linit} on a model problem specified via
 keyword parameters in @var{args}."
-  (multiple-value-bind (A b constraints-P constraints-Q constraints-r)
+  (multiple-value-bind (A b)
       (apply #'model-problem-discretization args)
-    (declare (ignore constraints-Q))
-    (let ((x (copy b)))
-      (x<-0 b) (fill-random! x 1.0)
-      (fill-random! x 1.0)
-      (x<-Ay x constraints-P constraints-r)
-      (let ((ls (make-instance '<linear-solver> :iteration linit
-			       :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps))
-			       :output output)))
-	(setq *result* (solve ls (blackboard :problem (lse :matrix A :rhs b :solution x))))
-	(getbb *result* :report)))))
+    (let ((x (random-ansatz-space-vector (ansatz-space A)))
+	  (ls (make-instance '<linear-solver> :iteration linit
+			     :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps))
+			     :output output)))
+      (setq *result* (solve ls (blackboard :problem (lse :matrix A :rhs b :solution x))))
+      (getbb *result* :report))))
 
-(defun solve-laplace (problem level order &key parametric (solver *lu-solver*))
+(defun solve-laplace (problem level order &key parametric (solver (lu-solver)))
   "An old routine for solving the Laplace problem.  You should use the
 interface provided by @code{solve} which provides automatic and more
 general solving together with a more flexible customization."
@@ -80,7 +76,7 @@ general solving together with a more flexible customization."
 	   :solution)))
 
 (defun check-h-convergence (problem min-level max-level
-			    &key order position (solver *lu-solver*))
+			    &key order position (solver (lu-solver)))
   (format t "~%Dimension = ~D, order = ~D, midpoint = ~A:~%"
 	  (dimension (domain problem)) order position)
   (format t "Level :  u_h(midpoint)  :  (u_h-u_2h)(midpoint)~%")
@@ -94,7 +90,7 @@ general solving together with a more flexible customization."
 	(terpri)))
 
 (defun check-p-convergence (problem min-order max-order
-			    &key level position isopar (solver *lu-solver*))
+			    &key level position isopar (solver (lu-solver)))
   (format t "~%Dimension = ~D, level = ~D, midpoint = ~A:~%"
 	  (dimension (domain problem)) level position)
   (format t "Order :  u_h(midpoint)  :  (u_h-u_2h)(midpoint)~%")

@@ -72,7 +72,8 @@ midpoint of the domain."
 (make-bratu-demo 3)
 
 (defun bratu-tests ()
-  (bratu-computation 1))
+  (bratu-computation 1 :output 1)
+  )
 
 ;;; (fl.application::bratu-tests)
 (fl.tests::adjoin-test 'bratu-tests)

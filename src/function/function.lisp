@@ -80,7 +80,11 @@ infinitely differentiable functions."))
 
 (defgeneric differentiable-p (f &optional k)
   (:documentation "Returns t if f is differentiable or differentiable of the
-given degree."))
+given degree.")
+  (:method (f &optional k)
+    "The default method returns @code{NIL}."
+    (declare (ignore k))
+    nil))
 
 ;;; further generics
 ;(define-generic differentiate)
@@ -279,6 +283,53 @@ transforms also the result."))
 	   (m* result2 it)
 	   result2))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Numerical gradient
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun numerical-gradient (func &key (shift 1.0d-8))
+  "Computes the numerical gradient of func at pos."
+  #'(lambda (pos)
+      (transpose
+       (make-real-matrix
+	(loop with dim = (length pos)
+	      for k below dim collect
+	      (coerce
+	       (scal (/ (* 2 shift))
+		     (m- (evaluate func (axpy shift (unit-vector dim k) pos))
+			 (evaluate func (axpy (- shift) (unit-vector dim k) pos))))
+	       'list))))))
+
+(defun test-gradient (func pos)
+  "Tests if numerical gradient and gradient agree."
+  (assert (differentiable-p func))
+  (let ((grad (evaluate-gradient func pos))
+	(num-grad (evaluate (numerical-gradient func) pos)))
+    (assert (< (norm (m- grad num-grad)) 1.0e-4))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; zero finding
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun interval-method (func a b accuracy)
+  "Finds zeros of functions in 1d by the interval method."
+  (let ((value_a (evaluate func a))
+	(value_b (evaluate func b)))
+    (labels ((interval-method (a b)
+	       (let* ((c (/ (+ a b) 2))
+		      (value_c (evaluate func c)))
+		 (cond
+		   ((< (abs (- b a)) accuracy) c)
+		   ((plusp value_c) (if (= b c) c (interval-method a c)))
+		   ((minusp value_c) (if (= a c) c (interval-method c b)))
+		   (t c)))))
+      (cond
+	((zerop value_a) a)
+	((zerop value_b) b)
+	((> (* value_a value_b) 0) '())
+	((plusp value_a) (interval-method b a))
+	(t (interval-method a b))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; homotopy
@@ -315,15 +366,7 @@ parameter."
 ;;; function composition
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun compose (&rest fns)
-  (if (null fns)
-      #'identity
-      (let ((fn1 (car (last fns)))
-            (fns (butlast fns)))
-        #'(lambda (&rest args)
-            (reduce #'funcall fns 
-                    :from-end t
-                    :initial-value (apply fn1 args))))))
+;;; a general function COMPOSE is defined already in utilities.lisp
 
 (defmethod compose-2 (f (g function))
   #'(lambda (&rest args)
@@ -410,43 +453,21 @@ Also grad-f has to be provided."
 		(setf (mref result dim-1 dim-1) value)
 		result))))))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Function handling
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun numerical-gradient (func &key (shift 1.0d-8))
-  "Computes the numerical gradient of func at pos."
-  #'(lambda (pos)
-      (transpose
-       (make-real-matrix
-	(loop with dim = (length pos)
-	      for k below dim collect
-	      (coerce
-	       (scal (/ (* 2 shift))
-		     (m- (evaluate func (axpy shift (unit-vector dim k) pos))
-			 (evaluate func (axpy (- shift) (unit-vector dim k) pos))))
-	       'list))))))
-
-(defun interval-method (func a b accuracy)
-  "Finds zeros of functions in 1d by the interval method."
-  (let ((value_a (evaluate func a))
-	(value_b (evaluate func b)))
-    (labels ((interval-method (a b)
-	       (let* ((c (/ (+ a b) 2))
-		      (value_c (evaluate func c)))
-		 (cond
-		   ((< (abs (- b a)) accuracy) c)
-		   ((plusp value_c) (if (= b c) c (interval-method a c)))
-		   ((minusp value_c) (if (= a c) c (interval-method c b)))
-		   (t c)))))
-      (cond
-	((zerop value_a) a)
-	((zerop value_b) b)
-	((> (* value_a value_b) 0) '())
-	((plusp value_a) (interval-method b a))
-	(t (interval-method a b))))))
-
+(defun circle-function (&optional (radial-distance 1.0) (midpoint #d(0.0 0.0)))
+  "Returns a special function drawing a polar around @arg{midpoint} with
+distance given by the function or number @arg{radial-distance}.  Without
+arguments it yields a function mapping @math{\R^1} to @math{S^1}."
+  (let ((evaluator
+	 #'(lambda (phi)
+	     (let* ((phi #I(2*pi*phi[0]))
+		    (radius (if (functionp radial-distance)
+				(funcall radial-distance phi)
+				radial-distance)))
+	       (double-vec (+ (aref midpoint 0) (* radius (cos phi)))
+			   (+ (aref midpoint 1) (* radius (sin phi))))))))
+    (make-instance
+     '<special-function> :domain-dimension 1 :image-dimension 2
+     :evaluator evaluator :gradient (numerical-gradient evaluator))))
 
 ;;;; Testing
 
@@ -463,9 +484,7 @@ Also grad-f has to be provided."
 				 2))
 	(pos #d(1.7 1.0)))
     (evaluate distortion pos)
-    (let ((grad (evaluate-gradient distortion pos))
-	  (num-grad (evaluate (numerical-gradient distortion) pos)))
-      (assert (< (norm (m- grad num-grad)) 1.0e-4))))
+    (test-gradient distortion pos))
   (interval-method #'(lambda (x) (- (* x x) 2.0)) 0.0 2.0 1e-16)
   (let ((f (make-instance '<linear-function> :A (ones 2) :b #d(1.0 0.0))))
     (evaluate f #d(1.0 1.0)))

@@ -39,13 +39,32 @@
 
 (defpackage "FL.PORT"
   (:use "COMMON-LISP")
-  (:export "FIND-EXECUTABLE" "GETENV" "UNIX-CHDIR"
-	   "RUN-PROGRAM" "PROCESS-INPUT"
-	   "MAKE-PROGRAMMATIC-INSTANCE"))
+  (:import-from
+   #+cmu "C-CALL" #+sbcl "SB-ALIEN"
+   "INT" "DOUBLE")
+  (:import-from
+   #+cmu "SYSTEM" #+sbcl "SB-SYS"
+   "VECTOR-SAP" "WITHOUT-GCING")
+  (:export
+   ;; UNIX environment
+   "FIND-EXECUTABLE" "GETENV" "UNIX-CHDIR"
+   
+   ;; process communication
+   "RUN-PROGRAM" "PROCESS-INPUT" "PROCESS-OUTPUT"
+   "PROCESS-CLOSE" "PROCESS-STATUS"
+
+   ;; load alien code
+   "LOAD-SHARED-OBJECT" "DEFINE-ALIEN-ROUTINE"
+   "INT" "DOUBLE" "LOAD-FOREIGN"
+   "VECTOR-SAP" "WITHOUT-GCING")
+  (:documentation "This package should contain the implementation-dependent
+parts of Femlisp with the exception of the MOP."))
 
 (in-package :fl.port)
 
-;;;; External communication
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; UNIX environment access
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun find-executable (name)
   #+cmu (probe-file (pathname (concatenate 'string "path:" name)))
@@ -76,6 +95,10 @@
   #-(or cmu sbcl) nil
   )
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Process communication
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defun run-program (program args &rest opts)
   "Interface to run-program."
   #+clisp (apply #'ext:run-program program :arguments args opts)
@@ -91,6 +114,35 @@
   #-(or cmu sbcl) (error "Unknown Lisp implementation")
   )
 
+(defun process-output (process)
+  "Interface to process-input."
+  #+cmu (ext:process-output process)
+  #+sbcl (sb-ext:process-output process)
+  #-(or cmu sbcl) (error "Unknown Lisp implementation")
+  )
 
+(defun process-close (process)
+  "Interface to process-input."
+  #+cmu (ext:process-close process)
+  #+sbcl (sb-ext:process-close process)
+  #-(or cmu sbcl) (error "Unknown Lisp implementation")
+  )
 
+(defun process-status (process)
+  "Interface to process-input."
+  #+cmu (ext:process-status process)
+  #+sbcl (sb-ext:process-status process)
+  #-(or cmu sbcl) (error "Unknown Lisp implementation")
+  )
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Foreign libraries
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun load-shared-object (file)
+  #+cmu (sys::load-object-file file)
+  #+sbcl (sb-alien:load-shared-object file))
+
+(defmacro define-alien-routine (&rest args)
+  #+cmu `(c-call::def-alien-routine ,@args)
+  #+sbcl `(sb-alien:define-alien-routine ,@args))

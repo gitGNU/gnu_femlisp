@@ -162,7 +162,7 @@ probably called only on relatively few values of local-pos."
 
 (defmethod l2g ((cell <tensorial>) local-pos)
   "This method is open-coded for performance reasons."
-  (let ((dim (manifold-dimension cell)))
+  (let ((dim (embedded-dimension cell)))
     (declare (type fixnum dim))
     (let ((result (make-double-vec dim)))
       (declare (type double-vec result))

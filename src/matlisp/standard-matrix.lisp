@@ -52,6 +52,8 @@
   (nrows mat))
 (defmethod multiplicity ((mat standard-matrix))
   (ncols mat))
+(defmethod total-entries ((mat standard-matrix))
+   (* (nrows mat) (ncols mat)))
 
 (defmethod element-type (matrix)
   "Default method returns T."
@@ -159,6 +161,21 @@ structure defining the contents matrix."
 		 :nrows dim :ncols 1
 		 :content (make-double-vec dim value)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; conversion of vectors to standard-matrix
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ensure-matlisp (vec &optional (type :column))
+  (etypecase vec
+    (vector
+     (let ((element-type (array-element-type vec)))
+       (assert (subtypep element-type 'number)) ; preliminary
+       (make-instance
+	(standard-matrix element-type)
+	:store vec
+	:nrows (if (eq type :column) (length vec) 1)
+	:ncols (if (eq type :row) (length vec) 1))))
+    (standard-matrix vec)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Access to the entries
@@ -211,31 +228,26 @@ elements.")
       (let ((*print-circle* nil))
 	(with-slots (nrows ncols store)
 	    matrix
-	  (cond
-	    ((= ncols 1)
-	     (format stream "#M(~{~A~^ ~})" (coerce store 'list)))
-	    ((= nrows 1)
-	     (format stream "#M((~{~A~^ ~}))" (coerce store 'list)))
-	    (t (loop with m = nrows and n = ncols
-		     initially
-		     (princ "#M(" stream)
-		     (when (numberp *print-matrix*)
-		       (setq m (min nrows *print-matrix*))
-		       (setq n (min ncols *print-matrix*)))
-		     for i below m do
-		     (princ "(" stream)
-		     (loop for j below n do
-			   (print-element matrix (mref matrix i j) stream)
-			   (unless (= j (1- n)) (format stream " "))
-			   finally
-			   (when (> ncols n)
-			     (format stream " ...")))
-		     (princ ")" stream)
-		     (unless (= i (1- m)) (format stream " "))
-		     finally
-		     (when (> nrows m)
-		       (format stream " ..."))
-		     (princ ")" stream))))))
+	    (loop with m = nrows and n = ncols
+		  initially
+		  (princ "#M(" stream)
+		  (when (numberp *print-matrix*)
+		    (setq m (min nrows *print-matrix*))
+		    (setq n (min ncols *print-matrix*)))
+		  for i below m do
+		  (princ "(" stream)
+		  (loop for j below n do
+			(print-element matrix (mref matrix i j) stream)
+			(unless (= j (1- n)) (format stream " "))
+			finally
+			(when (> ncols n)
+			  (format stream " ...")))
+		  (princ ")" stream)
+		  (unless (= i (1- m)) (format stream " "))
+		  finally
+		  (when (> nrows m)
+		    (format stream " ..."))
+		  (princ ")" stream))))
       (print-unreadable-object (matrix stream :type t :identity t))))
 
 (defmethod print-object ((matrix standard-matrix) stream)
@@ -279,7 +291,7 @@ allocated."
 		 :store (make-array (* n m) :element-type type
 				    :initial-element (coerce 1 type))))
 
-(defmethod mrandom (n &optional m (type 'double-float) (range 1.0))
+(defmethod mrandom ((n integer) &optional m (type 'double-float) (range 1.0))
   "Returns a random nxn or (if m is provided) nxm matrix.  The value is
 freshly allocated."
   (unless m (setq m n))

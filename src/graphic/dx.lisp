@@ -39,59 +39,71 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar *dx-pathname*
-  (or (whereas ((dx-name cl-user::*dx-path*))
-	(probe-file (pathname dx-name)))
+  (or (aand cl-user::*dx-path* (probe-file (pathname it)))
       (fl.port:find-executable "dx"))
-  "Pathname to DX.")
+  "Pathname of the @program{DX} binary.")
 
-(defvar *dx-stream* nil
-  "The current input stream to @program{dx}.")
+(defvar *dx-process* nil
+  "The current @program{dx} process.")
 
-(defparameter *dx-toggle* 0
-  "First, the filename is toggled between outputs for making writing to
-files and reading from that file via dx simultaneously possible.  This
-works, but it is not really safe.  Better would be waiting for @arg{dx} to
-finish output.  Furthermore, depending on @var{*dx-toggle*} the cache
-option is switched on/off.  This is a trick to make @arg{dx} redraw the
-picture.")
+(defvar *dx-file*
+ (make-pathname :name "output.dx"
+		:directory (pathname-directory *images-pathname*))
+  "The output file for @program{dx}.")
 
-(defun ensure-dx-stream ()
-  (setq *dx-stream*
-	(if (and *dx-stream* (open-stream-p *dx-stream*))
-	    *dx-stream*
-	    (when *dx-pathname*
-	      (whereas ((process
-			 (fl.port:run-program
-			  *dx-pathname* `("-script" "-cache" "off" "-log" "on") :wait nil
-			  :input :stream :output (dbg-when :graphic *trace-output*))))
-		(fl.port:process-input process)))))
-  (unless *dx-stream*
-    (format *error-output* "~&ENSURE-DX-STREAM: could not open stream.~%"))
-  *dx-stream*)
+;;; something went wrong last time, because this file is still there
+(when (probe-file *dx-file*)
+  (delete-file *dx-file*)
+  (warn "Deleted DX image file."))
 
-(defmethod graphic-stream ((program (eql :dx)))
-  (ensure-dx-stream))
+(defun ensure-dx-process ()
+  (when (and *dx-process* (eq (fl.port:process-status *dx-process*) :running))
+    (return-from ensure-dx-process *dx-process*))
+  ;;; execute it within the images directory
+  (fl.port:unix-chdir *images-pathname*)
+  (setq *dx-process*
+	(when *dx-pathname*
+	  (fl.port:run-program
+	   *dx-pathname* `("-script" "-cache" "off" "-log" "on") :wait nil
+	   :input :stream :output (dbg-when :graphic *trace-output*))))
+  (unless *dx-process*
+    (format *error-output* "~&ENSURE-DX-PROCESS: could not start DX.~%"))
+  *dx-process*)
 
-#+(or)  ; (ensure-dx-stream)
-(progn
-  (close *dx-stream*)
-  (setq *dx-stream* nil))
+(defmethod graphic-input-stream ((program (eql :dx)))
+  (fl.port:process-input (ensure-dx-process)))
+
+(defun dx-input-stream () (fl.port:process-input (ensure-dx-process)))
+(defun dx-output-stream () (fl.port:process-output (ensure-dx-process)))
+
+#+(or)  ; (ensure-dx-process)
+(when *dx-process*
+  (fl.port:process-close *dx-process*)
+  (setq *dx-process* nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Communication with graphic servers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod graphic-file-name (object (program (eql :dx)) &key &allow-other-keys)
-  (declare (ignore object))
-  (format nil "output-~D.dx" *dx-toggle*))
+(defparameter *dx-toggle* 0
+  "Depending on @var{*dx-toggle*} the cache option is switched on/off.
+This is a trick to make @arg{dx} redraw the picture.")
 
-(defmethod send-graphic-commands (stream object (program (eql :dx)) &rest paras
+(defmethod graphic-file-name (object (program (eql :dx)) &key &allow-other-keys)
+  *dx-file*)
+
+(defmethod graphic-output :after (object (program (eql :dx)) &key &allow-other-keys)
+  (setq *dx-toggle* (if (zerop *dx-toggle*) 1 0)))
+
+(defmethod send-graphic-commands (object (program (eql :dx)) &rest paras
 				  &key (plot t) dimension (background :black)
 				  (resolution 480) (width 480) (height 480)
 				  format filename &allow-other-keys)
-  (let* ((file-name (apply #'graphic-file-name object program paras))
-	 (long-file-name (concatenate 'string (namestring *images-pathname*) file-name)))
-    (format stream "data = Import(~S);~%" long-file-name)
+  (let* ((stream (if (dbg-p :graphic)
+		     (make-broadcast-stream (dx-input-stream) *trace-output*)
+		     (dx-input-stream)))
+	 (dx-file (namestring (probe-file (graphic-file-name object :dx)))))
+    (format stream "data = Import(~S);~%" dx-file)
     (format stream "data = Options(data, \"cache\", ~D);~%" *dx-toggle*)
     (loop for script-command in (apply #'graphic-commands object program paras)
 	  when script-command do
@@ -110,10 +122,10 @@ picture.")
       (:file
        (when format
 	 (format stream "WriteImage (image,~S,~S);~%"
-		 (concatenate 'string (namestring *images-pathname*)
-			      (or filename file-name))
+		 (concatenate 'string (namestring *images-pathname*) filename)
 		 format))))
+    (format stream "System(\"mv -f ~A ~A\");~%"
+	    dx-file (concatenate 'string dx-file ".bak"))
+    (force-output stream)
     ))
 
-(defmethod graphic-output :after (object (program (eql :dx)) &key &allow-other-keys)
-  (setq *dx-toggle* (if (zerop *dx-toggle*) 1 0)))
