@@ -38,17 +38,24 @@
   (:use "COMMON-LISP" "MACROS" "UTILITIES")
   (:export "DEMO" "LEAVES" "MAKE-DEMO" "ADJOIN-DEMO"
 	   "REMOVE-DEMO" "FIND-DEMO"
-	   "*DEMO-ROOT*" "*VISITED-DEMOS*"
+	   "*DEMO-ROOT*"
 	   "USER-INPUT" "EXTRACT-DEMO-STRINGS"))
 
 (in-package :femlisp-demo)
 
 (defclass <demo> ()
-  ((name :accessor name :initarg :name :type string)
-   (short :initarg :short :initform nil)
-   (long :initarg :long :initform nil)
-   (leaves :accessor leaves :initform () :type list)
-   (execute :accessor execute :initarg :execute :initform nil))
+  ((name :accessor name :initarg :name :type string
+	 :documentation "The name of the demo.")
+   (short :initarg :short :initform nil
+	  :documentation "A short description.")
+   (long :initarg :long :initform nil
+	 :documentation "A long description.")
+   (leaves :accessor leaves :initform () :type list
+	   :documentation "The child nodes of the demo.")
+   (execute :accessor execute :initarg :execute :initform nil
+	    :documentation "A function performing the demo.")
+   (input :initarg :test-input :initform nil
+	  :documentation "Sample string of user input for testing."))
   (:documentation "Femlisp demo node."))
 
 (defun make-demo (&rest initargs)
@@ -133,7 +140,7 @@ for `homogenization-2d'."
     (update-demo-status demo)))
 
 (defun demo (&optional (demo *demo-root*))
-  "Shows the standard Femlisp demos."
+  "Shows all demos below the given demo root."
   (catch 'quit (show-demo demo))
   (values))
 
@@ -157,10 +164,16 @@ for `homogenization-2d'."
 (defun find-demo (name parent)
   (find name (leaves parent) :test #'string-equal :key #'name))
 
+(defparameter *user-input-stream* *standard-input*
+  "This is an input stream for user input which is normally
+bound to *standard-input*.  During testing this can be bound to
+a string stream to provide sample input.")
+
 (defun user-input (prompt test-p)
   "User input for demo functions.  Reads lines until test-p
 returns t on the item read."
-  (loop for line = (progn (format t "~&~A" prompt) (read-line))
+  (loop for line = (progn (format t "~&~A" prompt)
+			  (read-line *user-input-stream*))
 	for item = (read-from-string line) do
 	(cond ((string-equal line "quit") (throw 'quit nil))
 	      ((string-equal line "up") (return :up))
@@ -228,23 +241,36 @@ generating function.  Uses Edi Weitz' Regex package."
     (adjoin-demo demo *adaptivity-demo*)
     (adjoin-demo demo *boundary-coeffs-demo*)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Testing
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  
+;;;; Testing: 
+
+(defun test-all-demos (demo)
+  "Performs all demos reachable from demo."
+  (let ((*visited-demos* *visited-demos* #+(or) (make-hash-table :test 'equal)))
+    (with-slots (long short execute leaves input)
+	demo
+      (format t "~&~64,,,'*<~>~%~%")
+      (when short (format t "~A~%~%" short))
+      (when long (format t "~A~%~%" long))
+      (when execute
+	(let ((*user-input-stream*
+	       (and input (make-string-input-stream input))))
+	  (funcall execute)))
+      (loop for leaf in leaves
+	    for name = (name leaf)
+	    unless (gethash name *visited-demos*)
+	    do (test-all-demos leaf))
+      (update-demo-status demo))))
 
 (defun test-demo ()
-  (extract-demo-strings "titel - Short explanation
-
-Long description
-over multiple (namely ~n~) lines."
-			'(("~n~" . "two")))
+  ;; generate and delete a demo
   (let ((demo (make-demo :name "hello" :short "Hello, world!" :long "Simple test"
 			 :execute (lambda () (princ "Hello, world!~%")))))
     (adjoin-demo demo *demo-root*)
-    (remove-demo "hello" *demo-root*)
-    (describe *demo-root*))
+    (remove-demo "hello" *demo-root*))
+  ;; test all demos
+  (test-all-demos *demo-root*)
   )
 
-;;; Testing (test-demo)
-;;; Running the demos: (femlisp-demo:demo)
+;;; (femlisp-demo::test-demo)
 (tests::adjoin-femlisp-test 'test-demo)

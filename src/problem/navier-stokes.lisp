@@ -37,7 +37,8 @@
   (:use "COMMON-LISP" "MATLISP" "MACROS" "UTILITIES" "ALGEBRA" "MESH" "PROBLEM")
   (:export
    "<NAVIER-STOKES-PROBLEM>" "NO-SLIP-BOUNDARY"
-   "STANDARD-NAVIER-STOKES-PROBLEM" "DRIVEN-CAVITY" "PERIODIC-CAVITY"))
+   "STANDARD-NAVIER-STOKES-PROBLEM" "UNIT-VECTOR-FORCE"
+   "DRIVEN-CAVITY" "PERIODIC-CAVITY"))
 (in-package :navier-stokes)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -66,15 +67,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun no-slip-boundary (dim)
-  (make-instance
-   '<coefficient>
-   :input *empty-coefficient-input*
-   :eval #'(lambda (ci)
-	     (declare (ignore ci))
-	     (let ((flags (make-array (1+ dim) :initial-element t))
-		   (values (make-double-vec (1+ dim))))
-	       (setf (aref flags dim) nil)  ; no constraint for pressure
-	       (values flags values)))))
+  (let ((flags (make-array (1+ dim) :initial-element t))
+	(values (make-double-vec (1+ dim))))
+    (setf (aref flags dim) nil)
+  (constant-coefficient flags values)))
+
+(defun unit-vector-force (dim &optional (direction 0))
+  (constant-coefficient
+   (let ((result (make-array (1+ dim) :initial-element [0.0])))
+     (setf (aref result direction) [1.0])
+     result)))
 
 (defun standard-navier-stokes-problem (domain &key (viscosity 1.0) (reynolds 0.0) force)
   (let ((dim (dimension domain)))
@@ -86,9 +88,9 @@
 	 (cond ((member-of-skeleton? patch (domain-boundary domain))
 		(list 'CONSTRAINT (no-slip-boundary dim)))
 	       ((= dim (dimension patch))
-		(list 'VISCOSITY (constant-coefficient viscosity)
-		      'REYNOLDS (constant-coefficient reynolds)
-		      'FORCE (function->coefficient force)))
+		(list 'VISCOSITY (ensure-coefficient viscosity)
+		      'REYNOLDS (ensure-coefficient reynolds)
+		      'FORCE (ensure-coefficient force)))
 	       (t ()))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -96,21 +98,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun driven-cavity-upper-boundary (dim)
-  (make-instance
-   '<coefficient>
-   :input *empty-coefficient-input*
-   :eval #'(lambda (ci)
-	     (declare (ignore ci))
-	     (let ((flags (make-array (1+ dim) :initial-element t))
-		   (values (make-double-vec (1+ dim))))
-	       (setf (aref flags dim) nil) ; no constraint for pressure
-	       (setf (aref values 0) 1.0d0)
-	       (values flags values)))))
+  (let ((flags (make-array (1+ dim) :initial-element t))
+	(values (make-double-vec (1+ dim))))
+    (setf (aref flags dim) nil) ; no constraint for pressure
+    (setf (aref values 0) 1.0d0)
+    (constant-coefficient flags values)))
 
 (defun driven-cavity-force (dim)
-  (constant-coefficient
-   (coerce (cons [1.0] (make-list dim :initial-element [0.0]))
-	   'vector)))
+  (unit-vector-force dim 0))
 
 (defun driven-cavity (dim &key (viscosity 1.0) (reynolds 0.0) smooth-p)
   (let* ((domain (n-cube-domain dim))

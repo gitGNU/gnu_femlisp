@@ -90,7 +90,8 @@
       :source-extension "lisp"
       :components
       ((:file "iteration-defp" :load-only t)
-       (:file "solve" :depends-on ("iteration-defp"))
+       (:file "iterate" :depends-on ("iteration-defp"))
+       (:file "solve" :depends-on ("iteration-defp" "iterate"))
        (:file "newton" :depends-on ("iteration-defp"))
        (:file "linit" :depends-on ("iteration-defp"))
        (:file "blockit" :depends-on ("iteration-defp"))
@@ -133,6 +134,7 @@
        ;;(:file "periodic" :depends-on ("problem"))
        ;;
        (:file "cdr" :depends-on ("problem-defp"))
+       (:file "time" :depends-on ("problem-defp" "cdr"))
        (:file "cdrsys" :depends-on ("problem-defp"))
        (:file "elasticity" :depends-on ("problem-defp"))
        (:file "navier-stokes" :depends-on ("problem-defp"))
@@ -144,8 +146,9 @@
       :source-extension "lisp"
       :components
       ((:file "discretization-defp" :load-only t)
+       (:file "discretization" :depends-on ("discretization-defp"))
        (:file "quadrature" :depends-on ("discretization-defp"))
-       (:file "fe" :depends-on ("discretization-defp" "quadrature"))
+       (:file "fe" :depends-on ("discretization" "quadrature"))
        (:file "lagrange" :depends-on ("fe"))
        (:file "fetransfer" :depends-on ("fe" "lagrange"))
        (:file "sparseas" :depends-on ("fe" "fetransfer"))
@@ -166,8 +169,9 @@
       :source-extension "lisp"
       :components
       ((:file "geomg-defp" :load-only t)
+       (:file "geoblock" :depends-on ("geomg-defp"))
+       (:file "vanka" :depends-on ("geoblock"))
        (:file "geomg" :depends-on ("geomg-defp"))
-       (:file "vanka" :depends-on ("geomg-defp"))
        ))
      (:module
       "graphic"
@@ -204,7 +208,8 @@
        (:file "strategy-utilities" :depends-on ("strategy-defp"))
        (:file "error-estimator" :depends-on ("strategy-utilities"))
        (:file "error-indicator" :depends-on ("strategy-utilities"))
-       (:file "strategy" :depends-on ("strategy-utilities" "error-estimator" "error-indicator"))))
+       (:file "stationary" :depends-on
+	      ("strategy-utilities" "error-estimator" "error-indicator"))))
      (:module
       "applications"
       :depends-on ("basic" "algebra" "iteration" "mesh"

@@ -44,11 +44,15 @@ Local and boundary assembly for finite element discretizations of
 convection-diffusion-reaction problems.  It can handle the following
 equation (D_i=\partial{x_i}):
 
-- D_i (K_ij (D_j u + g_j) + D_i (c u) + r u = f
+- D_i (K_ij (D_j u + g_j) + D_i (c u) + alpha r u = alpha f
 
-Ideally, this module should be the only one which has to be changed for other
-problems or other finite element discretizations.
-|#
+Here, K is the diffusion tensor, c is convection, r is reaction and f is
+source.  alpha is a coefficient which arises from scaling of u in porous
+media applications.  It is put separately from r and f, because it is used
+also inside time-stepping schemes as multiplier of 1/delta_t.
+
+Ideally, this module should be the only one which has to be changed for
+other problems or other finite element discretizations.  |#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Local assembly
@@ -62,6 +66,7 @@ problems or other finite element discretizations.
   (let ((diffusion-function (getf coeffs 'CDR::DIFFUSION))
 	(convection-function (getf coeffs 'CDR::CONVECTION))
 	(gamma-function (getf coeffs 'CDR::GAMMA))
+	(alpha-function (getf coeffs 'CDR::ALPHA))
 	(source-function (getf coeffs 'CDR::SOURCE))
 	(reaction-function (getf coeffs 'CDR::REACTION)))
     ;; loop over quadrature points
@@ -75,8 +80,7 @@ problems or other finite element discretizations.
 		 (sol-ip (and local-sol (m* transposed-sv local-sol)))
 		 (right-vals (if local-u (dot local-u shape-vals) shape-vals))
 		 (left-vals (if local-v (dot local-v shape-vals) shape-vals))
-		 (coeff-input (make-instance '<coefficient-input>
-					     :global global :solution sol-ip)))
+		 (coeff-input (list :global global :solution sol-ip)))
 	    
 	    (when (or (and local-mat (or diffusion-function convection-function))
 		      (and local-rhs diffusion-function gamma-function))
@@ -102,14 +106,20 @@ problems or other finite element discretizations.
 	    
 	    ;; reaction
 	    (when (and reaction-function local-mat)
-	      (let ((reaction (evaluate reaction-function coeff-input)))
-		(gemm! (* weight reaction) left-vals right-vals 1.0d0 local-mat :NT)))
+	      (let* ((reaction (evaluate reaction-function coeff-input))
+		     (factor (* weight reaction)))
+		(when alpha-function
+		  (setq factor (* factor (evaluate alpha-function coeff-input))))
+		(gemm! factor left-vals right-vals 1.0d0 local-mat :NT)))
 	    
 	    ;; source
 	    (when (and source-function local-rhs)
 	      (let ((source (evaluate source-function coeff-input)))
-		(m+! (m* left-vals (scal weight source))
-		     local-rhs)))
+		(when alpha-function
+		  (setq source (scal (evaluate alpha-function coeff-input) source)))
+		(when (numberp source) (setq source [source]))
+		(gemm! weight left-vals source 1.0d0 local-rhs)
+		))
 	    ))
     ;; custom fe rhs
     (whereas ((fe-rhs (and local-rhs (getf coeffs 'CDR::FE-RHS))))
@@ -144,8 +154,6 @@ problems or other finite element discretizations.
 		  for dof in (fe-dofs fe)
 		  for j below (nr-of-inner-dofs fe)
 		  for k = (dof-in-vblock-index dof)
-		  for ci = (make-instance '<coefficient-input> :local (dof-coord dof)
-					  :global (local->global cell (dof-gcoord dof)))
 		  do
 		  (when dirichlet-function
 		    ;; The following is only correct for degrees of freedom of
@@ -155,30 +163,32 @@ problems or other finite element discretizations.
 		    ;;		       (clear-row mat cell k)
 		    ;;		       (setf (mat-ref (mat-ref mat cell cell) k k) 1.0d0)
 		    (setf (vec-ref (vec-ref constraints-rhs cell-key) k)
-			  (evaluate dirichlet-function ci)))
+			  (evaluate dirichlet-function
+				    (list :local (dof-coord dof)
+					  :global (local->global cell (dof-gcoord dof))))))
 		  )))))
     (values constraints-P constraints-Q constraints-rhs)))
 
 ;;; Testing
 (defun cdr-fe-tests ()
   (let* ((order 1) (level 2)
-	 (problem (laplace-test-problem 1))
+	 (problem (cdr-model-problem 1))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order))
 	 (as (make-fe-ansatz-space fedisc problem h-mesh)))
     (with-items (&key matrix rhs)
-	(fe-discretize (make-assembly-line :ansatz-space as))
+	(fe-discretize (blackboard :ansatz-space as))
       (m* (sparse-ldu matrix) rhs)))
   
   (let* ((level 3) (order 2)
-	 (problem (laplace-test-problem 1))
+	 (problem (cdr-model-problem 1))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (as1 (make-fe-ansatz-space (lagrange-fe order) problem h-mesh))
 	 (as2 (make-fe-ansatz-space (lagrange-fe (1+ order)) problem h-mesh)))
     (with-items (&key matrix rhs)
-	(fe-discretize (make-assembly-line :ansatz-space as1))
+	(fe-discretize (blackboard :ansatz-space as1))
       ;; set constraints
-      (fe-discretize (make-assembly-line :ansatz-space as2))
+      (fe-discretize (blackboard :ansatz-space as2))
       (let ((sol (m* (sparse-ldu matrix) rhs))
 	    (low->high (transfer-matrix as1 as2))
 	    (high->low (transfer-matrix as2 as1)))

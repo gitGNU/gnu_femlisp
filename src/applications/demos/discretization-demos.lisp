@@ -63,7 +63,8 @@
 		   (plot-lagrange-basis 
 		    (user-input "Order (1-9): "
 				#'(lambda (x) (and (integerp x) (plusp x))))
-		    type)))))
+		    type))
+		 :test-input (format nil "3~%"))))
       (adjoin-demo demo *discretization-demo*))))
 
 (make-lagrange-basis-demo :uniform)
@@ -77,7 +78,7 @@
   "Shows the stiffness matrix for several refinements.  Maybe
 you will have to use hscroll-mode in your Emacs buffer for
 comfortably looking at the matrix."
-  (let* ((problem (laplace-test-problem-on-domain (n-cube-domain dim)))
+  (let* ((problem (cdr-model-problem dim))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order)))
     (let ((mat (discretize-globally problem h-mesh fedisc)))

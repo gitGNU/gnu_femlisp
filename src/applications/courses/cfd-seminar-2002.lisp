@@ -124,7 +124,7 @@
 
 #+(or) ; try combinations dim/level/duration = 1/5/1.0 or 2/4/0.0
 (let* ((dim 1) (level 5) (duration 1.0)
-       (problem (laplace-test-problem-on-domain (n-cube-domain dim)))
+       (problem (cdr-model-problem dim))
        (cgc (geometric-cs :gamma 1 :pre-steps 0 :post-steps 0
 			  :base-level (1- level))))
   (multiple-value-bind (A b)
@@ -142,7 +142,7 @@
 #+(or)  ; dim=1: test with levels 1,2,3,..., dim=2: test with levels 1,2,3,4
 (time
  (let* ((dim 2) (level 5)
-	(problem (laplace-test-problem-on-domain (n-cube-domain dim)))
+	(problem (cdr-model-problem-on-domain dim))
 	(geomg (geometric-cs :gamma 1 :pre-steps 0 :base-level 1)))
    (multiple-value-bind (A b)
        (problem-discretization problem :level level :order 1)
@@ -165,7 +165,7 @@
 
 #+(or)  ; dim/level = 1/4, or 2/2: orders = 1,2,...
 (let* ((dim 2) (level 2)
-       (problem (laplace-test-problem-on-domain (n-cube-domain dim)))
+       (problem (cdr-model-problem dim))
        (geomg (geometric-cs :gamma 1 :pre-steps 0 :post-steps 2
 			     :base-level 1)))
   (multiple-value-bind (A b)
@@ -177,12 +177,9 @@
 
 ;;; ** convection problems
 (defun convection-problem (dim eps)
-  (standard-cdr-problem
-   (n-cube-domain dim)
-   :diffusion (constant-coefficient (scal eps (eye dim)))
-   :convection (constant-coefficient (make-real-matrix (unit-vector dim 0)))
-   :source (constant-coefficient 1.0d0)
-   ))
+  (cdr-model-problem dim
+   :diffusion (scalar-diffusion dim eps)
+   :convection (constant-coefficient (make-real-matrix (unit-vector dim 0)))))
 
 ;;; *** dominant convection, choose eps = 1, 1/10, 1/64, 1/128, 1/200, 1/1000
 #+(or)

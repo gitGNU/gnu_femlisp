@@ -36,8 +36,8 @@
 (defpackage "CDR"
   (:use "COMMON-LISP" "MATLISP" "MACROS" "UTILITIES" "MESH" "PROBLEM")
   (:export "<CDR-PROBLEM>" "MAP-DOMAIN-TO-CDR-PROBLEM"
-	   "STANDARD-CDR-PROBLEM" "SCALAR-DIFFUSION" "IDENTITY-DIFFUSION-TENSOR"
-	   "LAPLACE-TEST-PROBLEM-ON-DOMAIN" "LAPLACE-TEST-PROBLEM"))
+	   "SCALAR-DIFFUSION" "IDENTITY-DIFFUSION-TENSOR"
+	   "CDR-MODEL-PROBLEM"))
 (in-package :cdr)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -58,7 +58,8 @@
 
 (defmethod self-adjoint-p ((problem <cdr-problem>))
   (doskel (patch (domain problem))
-    (when (getf (funcall (patch->coefficients problem) patch) 'CONVECTION)
+    (when (getf (funcall (patch->coefficients problem) patch)
+		'CDR::CONVECTION)
       (return-from self-adjoint-p (values NIL T))))
   (values T T))
 
@@ -72,14 +73,14 @@ functional."
    #'(lambda (cell)
        ;; check that problem is self adjoint
        (let ((coeffs (copy-seq (funcall (patch->coefficients problem) cell))))
-	 (when (getf coeffs 'DIRICHLET)
-	   (setf (getf coeffs 'DIRICHLET) *cf-constantly-0.0d0*))
-	 (assert (not (getf coeffs 'CONVECTION)))  ; better: change to negative
+	 (when (getf coeffs 'CDR::DIRICHLET)
+	   (setf (getf coeffs 'CDR::DIRICHLET) *cf-constantly-0.0d0*))
+	 (assert (not (getf coeffs 'CDR::CONVECTION)))  ; better: change to negative
 	 (unless (eq cell->rhs :load-functional)
 	   (let ((dual-rhs (funcall cell->rhs cell)))
-	     (setf (getf coeffs 'SOURCE) (getf dual-rhs 'SOURCE))
-	     (setf (getf coeffs 'GAMMA) (getf dual-rhs 'GAMMA))
-	     (setf (getf coeffs 'FE-RHS) (getf dual-rhs 'FE-RHS))))
+	     (setf (getf coeffs 'CDR::SOURCE) (getf dual-rhs 'CDR::SOURCE))
+	     (setf (getf coeffs 'CDR::GAMMA) (getf dual-rhs 'CDR::GAMMA))
+	     (setf (getf coeffs 'CDR::FE-RHS) (getf dual-rhs 'CDR::FE-RHS))))
 	 coeffs))
    :multiplicity (multiplicity problem)))
 
@@ -87,60 +88,70 @@ functional."
 ;;;; Generation of standard cdr problems
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun standard-cdr-problem (domain &key diffusion gamma convection reaction source
-			     (dirichlet *cf-constantly-0.0d0*))
-  "Generates a simple cdr problem.  Passing ordinary functions instead of
-coefficient functions treats them as x-dependent coefficients."
-  (flet ((ensure-coefficient (obj)
-	   (if (functionp obj) (function->coefficient obj) obj)))
-    (let ((dim (dimension domain))
-	  (bdry (skeleton-boundary domain)))
-      (make-instance
-       '<cdr-problem> :domain domain
-       :patch->coefficients
-       #'(lambda (cell)
-	   (cond ((member-of-skeleton? cell bdry)
-		  (list 'CDR::DIRICHLET dirichlet))
-		 ((= (dimension cell) dim)
-		  (nconc
-		   (and diffusion (list 'CDR::DIFFUSION (ensure-coefficient diffusion)))
-		   (and convection (list 'CDR::CONVECTION (ensure-coefficient convection)))
-		   (and source (list 'CDR::SOURCE (ensure-coefficient source)))
-		   (and reaction (list 'CDR::REACTION (ensure-coefficient reaction)))
-		   (and gamma (list 'CDR::GAMMA (ensure-coefficient gamma)))))
-		 (t nil)))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Generation of laplace test problems
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defun scalar-diffusion (dim value)
-  (make-instance '<coefficient>
-		 :input *empty-coefficient-input*
-		 :eval (constantly (scal value (eye dim)))))
+  (constant-coefficient (scal value (eye dim))))
 
 (defun identity-diffusion-tensor (dim)
   (scalar-diffusion dim 1.0d0))
 
-(defun laplace-test-problem-on-domain (domain)
-  (standard-cdr-problem
-   domain
-   :diffusion (identity-diffusion-tensor (dimension domain))
-   :source *cf-constantly-1.0d0*))
+(defun cdr-model-problem (dim/domain &key diffusion gamma convection reaction
+			  source dirichlet)
+  "Generates a cdr model problem.  Defaults are identity diffusion,
+right-hand-side equal 1, and Dirichlet zero boundary conditions.  Ordinary
+function are converted into coefficient functions depending on a global
+coordinate.  The first argument can be either a domain or an integer n
+which is interpreted as the n-dimensional unit cube."
+  (let* ((domain (if (numberp dim/domain)
+		     (n-cube-domain dim/domain)
+		     dim/domain))
+	 (dim (dimension domain))
+	 (bdry (skeleton-boundary domain)))
+    ;; set default values
+    (setq diffusion (or diffusion (identity-diffusion-tensor dim)))
+    (setq source (or source *cf-constantly-1.0d0*))
+    (setq dirichlet (or dirichlet *cf-constantly-0.0d0*))
+    (make-instance
+     '<cdr-problem> :domain domain
+     :patch->coefficients
+     #'(lambda (cell)
+	 (cond ((member-of-skeleton? cell bdry)
+		(list 'CDR::DIRICHLET (ensure-coefficient dirichlet)))
+	       ((= (dimension cell) dim)
+		(nconc
+		 (and diffusion (list 'CDR::DIFFUSION (ensure-coefficient diffusion)))
+		 (and convection (list 'CDR::CONVECTION (ensure-coefficient convection)))
+		 (and source (list 'CDR::SOURCE (ensure-coefficient source)))
+		 (and reaction (list 'CDR::REACTION (ensure-coefficient reaction)))
+		 (and gamma (list 'CDR::GAMMA (ensure-coefficient gamma)))))
+	       (t nil))))))
 
-(defun laplace-test-problem (dim)
-  "Generates the problem
-$$ -\Delta u = 1 in [0,1]^d$$
-with Dirichlet bc."
-  (laplace-test-problem-on-domain (n-cube-domain dim)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Bratu problem
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun bratu-problem (dim)
+  "Returns a problem for -Delta v + e^u v = e^u for the correction v to the
+solution u of the problem -Delta u +e^u = 0"
+  (cdr-model-problem
+   (n-cube-domain dim)
+   :diffusion (identity-diffusion-tensor dim)
+   :reaction
+   (make-instance '<coefficient> :demands '(:solution) :residual nil
+		  :eval #'(lambda (&key solution &allow-other-keys)
+			    (exp solution)))
+   :source
+   (make-instance '<coefficient> :demands '(:solution)
+		  :eval #'(lambda (&key solution &allow-other-keys)
+			    (exp solution)))))
+
 
 ;;; Testing: (test-cdr)
 
 (defun test-cdr ()
-  (check (domain (laplace-test-problem 2)))
-  (check (domain (laplace-test-problem 2)))
+  (check (domain (cdr-model-problem 2)))
+  (check (domain (cdr-model-problem 2)))
   (let* ((domain (n-cell-domain 1))
-	 (problem (laplace-test-problem-on-domain domain)))
+	 (problem (cdr-model-problem domain)))
     (problem-info problem))
   )
 

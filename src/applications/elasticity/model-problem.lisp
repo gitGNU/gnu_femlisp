@@ -53,7 +53,7 @@
        #+(or)(m* (sparse-ldu mat) rhs)
        #-(or)(linsolve mat rhs :output t :iteration (geometric-cs :fmg t) :maxsteps 10)
        ))))
-(plot *result* :component 0)
+(plot *result* :component 1)
 ;;; Test for diffusion problem
 
 (defparameter *result*
@@ -77,7 +77,7 @@
 (defparameter *result*
   (time
    (let* ((dim 2) (level 2) (order 1)
-	  (problem (laplace-test-problem dim))
+	  (problem (cdr-model-problem dim))
 	  (mm (uniformly-refined-hierarchical-mesh (domain problem) level))
 	  (fe-class (lagrange-fe order)))
      (multiple-value-bind (mat rhs)

@@ -99,13 +99,8 @@ $\mu$, i.e.: $$A_{ij}^{kl} = \lambda \delta_{ik} \delta_{jl} + \mu
     tensor))
 
 (defun clamped-boundary-coefficient (dim)
-  (make-instance
-   '<coefficient>
-   :input *empty-coefficient-input*
-   :eval #'(lambda (ci)
-	     (declare (ignore ci))
-	     (values (make-array dim :initial-element t)
-		     (make-double-vec dim)))))
+  (constant-coefficient (make-array dim :initial-element t)
+			(make-double-vec dim)))
 
 (defun standard-elasticity-problem (domain &key lambda mu force)
   (let ((dim (dimension domain)))

@@ -66,14 +66,15 @@
 ;;; Computation of the permeability tensor
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun permeability-tensor (&key solution rhs &allow-other-keys)
-  (correction-tensor solution rhs))
+(defun permeability-tensor (blackboard)
+  (with-items (&key solution rhs) blackboard
+    (correction-tensor solution rhs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Demos
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun stokes-darcy-demo (problem &key order levels plot output (store-p t))
+(defun stokes-darcy-demo (problem &key order levels plot output (store-p t) (delta 1))
   "Stokes-Darcy - Computes a Darcy permeability tensor
 
 Computes the effective permeability for Stokes flow in a domain
@@ -88,24 +89,14 @@ The solution to this cell problem in ~d~ dimensions consists of
 components."
   (let* ((domain (domain problem))
 	 (dim (dimension domain)))
-    (setf (getbb *strategy-output* :observe)
-	  `((:Ahom ,(format nil "~19@A~19@A~19@A" "K_00" "K_01" "K_11")
-	     ,#'(lambda (assembly-line)
-		  (with-items (&key solution rhs) assembly-line
-		    (let ((tensor (and solution rhs
-				       (apply #'permeability-tensor assembly-line))))
-		      (format t "~19,10,2E~19,10,2E~19,10,2E"
-			      (and tensor (matrix-ref tensor 0 0))
-			      (and tensor (matrix-ref tensor 0 1))
-			      (and tensor (matrix-ref tensor 1 1)))))))))
     (defparameter *result*
-      (solve-with
+      (solve
        (make-instance
-	'<fe-strategy>
-	:fe-class (navier-stokes-lagrange-fe order dim 1)
+	'<stationary-fe-strategy>
+	:fe-class (navier-stokes-lagrange-fe order dim delta)
 	:estimator (make-instance '<projection-error-estimator>)
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
-	:appraise (stop-if :nr-levels>= levels)
+	:success-if `(>= :nr-levels ,levels)
 	:solver
 	(make-instance
 	 '<linear-solver> :iteration
@@ -118,37 +109,44 @@ components."
 	    :post-steps 1 :post-smooth smoother
 	    :gamma 2))
 	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
-	 :failure-if `(and (> :step-reduction 0.9) (> :step 2) (>= :defnorm 1.0e-9))
+	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (>= :defnorm 1.0e-9))
 	 :output (eq output :all))
-	:output t)
-       problem
-       :output t
-       ))
+	:output t :observe
+	(append *stationary-fe-strategy-observe*
+		(list
+		 (list (format nil "~19@A~19@A~19@A" "K_00" "K_01" "K_11") "~57A"
+		      #'(lambda (blackboard)
+			  (let ((tensor (permeability-tensor blackboard)))
+			    (format t "~19,10,2E~19,10,2E~19,10,2E"
+				    (and tensor (matrix-ref tensor 0 0))
+				    (and tensor (matrix-ref tensor 0 1))
+				    (and tensor (matrix-ref tensor 1 1)))))))))
+       (blackboard :problem problem :output t)))
     (when plot
       ;; plot components of cell solution tensor
       (dotimes (i dim)
 	(dotimes (j (1+ dim))
-	  (plot (get-al *result* :solution) :component j :index i)
+	  (plot (getbb *result* :solution) :component j :index i)
 	  (sleep 1.0))))
     ;; compute the homogenized coefficient
     (format t "The permeability tensor is:~%~A~%"
-	    (apply #'permeability-tensor *result*))))
+	    (permeability-tensor *result*))))
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 2)
-		   :order 4 :levels 2 :output :all :plot nil)
-#+(or)(plot (get-al *result* :solution) :component 1 :index 1)
+		   :order 4 :levels 2 :output :all :plot t :delta 2)
+#+(or)(plot (getbb *result* :solution) :component 0 :index 0)
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 3)
-		   :order 2 :levels 4 :output :all :plot nil :store-p nil)
+		   :order 1 :levels 3 :output :all :plot nil :store-p nil)
 
 #+(or)
 (let ((dim 2)
       (counter -1))
   (dotimes (i dim)
     (dotimes (j (1+ dim))
-      (plot (get-al *result* :solution) :component j :index i :depth 3
+      (plot (getbb *result* :solution) :component j :index i :depth 3
 	    :plot :file :format "tiff" :background :white
 	    :filename (format nil "hom-ns-cell-sol-~D" (incf counter))))))
 ;; montage -geometry 480x480 -tile 2x3 hom-ns-cell-*.tiff hom-ns-cell-sols.eps
@@ -211,3 +209,10 @@ Parameters: order=~D, max-levels=~D~%~%"
 	 pressure)
 	(map 'vector #'/ sum count))))
 
+;;; Testing: (hom-ns-tests)
+(tests::adjoin-femlisp-test 'hom-ns-tests)
+
+(defun hom-ns-tests ()
+  (stokes-darcy-demo
+   (ns-hole-cell-problem 2)
+   :order 4 :levels 2 :output :all :plot nil :delta 2))

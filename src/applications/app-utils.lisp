@@ -62,8 +62,7 @@
 		     (weight (* (ip-weight ip) (abs (det Dphi))))
 		     (Dphi^-1 (m/ Dphi))
 		     (grad-N (transpose (m* gradN-hat Dphi^-1)))
-		     (coeff-input (make-instance '<coefficient-input> :global global))
-		     (diff-tensor (evaluate diffusion-function coeff-input)))
+		     (diff-tensor (evaluate diffusion-function (list :global global))))
 		(gemm! weight diff-tensor (m- id-mat grad-N) 1.0 result)))))
     result))
 
@@ -82,8 +81,7 @@
 		     (global (local->global cell lcoords))
 		     (Dphi (local->Dglobal cell lcoords))
 		     (weight (* (ip-weight ip) (abs (det Dphi))))
-		     (coeff-input (make-instance '<coefficient-input> :global global))
-		     (coeff-ip (evaluate coeff-function coeff-input)))
+		     (coeff-ip (evaluate coeff-function (list :global global))))
 		(if result
 		    (axpy! weight coeff-ip result)
 		    (setq result (scal weight coeff-ip)))
@@ -112,14 +110,16 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
 		     (+ (* dim (aref index 1)) (aref index 3) ))))
     result))
 
-(defun effective-tensor (&key ansatz-space problem solution rhs &allow-other-keys)
-  (typecase problem
-    (<cdr-problem>
-     (m- (average-coefficient ansatz-space :coefficient 'CDR::DIFFUSION)
-	 (correction-tensor solution rhs)))
-    (<elasticity-problem> 
-     (m- (average-coefficient ansatz-space :coefficient 'ELASTICITY::ELASTICITY)
-	 (convert-correction (correction-tensor solution rhs))))))
+(defun effective-tensor (blackboard)
+  (with-items (&key ansatz-space problem solution rhs) blackboard
+    (and solution rhs
+	 (typecase problem
+	   (<cdr-problem>
+	    (m- (average-coefficient ansatz-space :coefficient 'CDR::DIFFUSION)
+		(correction-tensor solution rhs)))
+	   (<elasticity-problem> 
+	    (m- (average-coefficient ansatz-space :coefficient 'ELASTICITY::ELASTICITY)
+		(convert-correction (correction-tensor solution rhs))))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -127,5 +127,5 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defparameter *result* nil
-  "Special variable used for storing the assembly line of the
-last computation.")
+  "Special variable used for storing the blackbboard of the last
+computation.")

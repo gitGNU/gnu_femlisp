@@ -52,9 +52,16 @@ on/off.  This is a trick to make dx redraw the picture.")
   (setq *dx-stream*
 	(if (and *dx-stream* (open-stream-p *dx-stream*))
 	    *dx-stream*
-	    (ext::process-input
-	     (ext::run-program *dx-path* '("-script" "-cache off" "-log on") :input :stream
-			       :output nil :wait nil)))))
+	    (whereas ((process
+		       (ext::run-program *dx-path*  '("-script" "-cache off" "-log on")
+					 :input :stream :output nil :wait nil)))
+	      (ext::process-input process))))
+  (unless *dx-stream*
+    (format *error-output*
+	    "Could not open stream to DX.  Please ensure that the
+special variable CL-USER::*DX-PATH* has a reasonable value.  Usually,]
+this is set in femlisp:src;femlisp-config.lisp."))
+  *dx-stream*)
 
 (defmethod graphic-stream ((program (eql :dx)))
   (ensure-dx-stream))
@@ -105,8 +112,5 @@ on/off.  This is a trick to make dx redraw the picture.")
 (defmethod graphic-output :after (object (program (eql :dx)) &key &allow-other-keys)
   (setq *dx-toggle* (if (zerop *dx-toggle*) 1 0)))
 
-#+(or)  ; inactive
-(defmethod graphic-end (object (program (eql :dx)) &key &allow-other-keys)
-  (setq *dx-toggle* (if (zerop *dx-toggle*) 1 0)))
 
 

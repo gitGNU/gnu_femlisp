@@ -34,135 +34,61 @@
 
 (in-package :iteration)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Linear solving
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; This file customizes the iterative solving strategy defined in
+;;; iterate.lisp and solve.lisp to the solving of linear systems.
 
-(defparameter *linsolve-output*
-  (list :initial
-	#'(lambda (&key indentation iteration &allow-other-keys)
-	    (indented-format t "Linear iteration ~A" indentation
-			     (class-name (class-of iteration)))
-	    (indented-format t "Step (k)  |residual|  res[k]/res[k-1]" indentation)
-	    (indented-format t "~37,,,'-<~>~%" indentation))
-	:after-step
-	#'(lambda (i defnorm previous-defnorm &key indentation &allow-other-keys)
-	    (indented-format t "~4D     ~12,5,2E" indentation i defnorm)
-	    (when previous-defnorm
-	      (if (zerop previous-defnorm)
-		  (format t "~@12A" (if (zerop defnorm) "nan" "infinity"))
-		  (format t "  ~12,5,2E" (/ defnorm previous-defnorm))))
-	    (terpri))
-	:final nil))
+(defclass <linear-solver> (<iterative-solver>)
+  ()
+  (:documentation "Class for linear iterative solvers."))
 
-(defun safe-divide-by-zero (a b)
-  (if (zerop a)
-      0.0d0
-      (if (zerop b)
-	  :infinity
-	  (/ a b))))
+(defmethod initial-guess ((linsolve <linear-solver>) blackboard)
+  "Ensure an initial guess and its residual."
+  (with-items (&key solution matrix rhs residual residual-p) blackboard
+    (unless solution
+      (setq solution (make-row-vector-for matrix (multiplicity rhs))))))
 
-;;; Old interface, better use the new one below
+(defmethod ensure-residual ((linsolve <linear-solver>) blackboard)
+  "Ensure the residual for a linear problem."
+  (with-items (&key solution matrix rhs residual residual-p) blackboard
+    (unless residual-p  ; ensure residual
+      (unless residual
+	(setq residual (make-column-vector-for matrix (multiplicity rhs))))
+      (setq residual (compute-residual matrix solution rhs residual))
+      (setq residual-p t))))
 
-(defun linsolve (mat rhs &rest assembly-line
-		 &key sol res output iteration (residual-norm #'norm)
-		 (threshold 1.0d-12) threshabs reduction (maxsteps 100)
+(defun linsolve (mat rhs &key sol res output iteration (residual-norm #'norm)
+		 (threshold 1.0d-12) reduction (maxsteps 100)
 		 success-if failure-if &allow-other-keys)
-  "This function solves the linear equation A sol = rhs by using the
-linear-iteration on the matrix mat."
-  (let ((indentation *output-indentation*)
-	(*output-indentation* (+ *output-indentation* 5))
-	(threshabs (and threshabs (if (functionp threshabs)
-				      (apply threshabs assembly-line)
-				      threshabs))))
-    (awhen (and output (getf *linsolve-output* :initial))
-      (funcall it :indentation indentation :iteration iteration))
-    (setq res (or res (make-column-vector-for mat (multiplicity rhs))))
-    (setq sol (or sol (make-row-vector-for mat (multiplicity rhs))))
-    (dbg :iter "linsolve: making iterator")
-    (with-slots (initialize iterate residual-after)
-      (make-iterator iteration mat)
-      (dbg :iter "linsolve: starting loop")
-      (loop with initial-residual = (compute-residual mat sol rhs res)
-	    with defnorm0 = (funcall residual-norm initial-residual)
-	    initially (when initialize (funcall initialize sol rhs res))
-	    for i from 0
-	    for new-sol = sol then (progn (funcall iterate new-sol rhs residual) new-sol)
-	    for residual = initial-residual then
-	    (cond ((eq residual-after t) residual)
-		  ((null residual-after) (compute-residual mat new-sol rhs residual))
-		  (t (funcall residual-after new-sol rhs residual)))
-	    for defnorm = defnorm0 then (funcall residual-norm residual)
-	    and previous-defnorm = nil then defnorm
-	    for red-factor = (if (zerop i)
-				 :undefined
-				 (safe-divide-by-zero defnorm defnorm0))
-	    for success-p =
-	    (if success-if
-		(test-condition
-		 success-if :defnorm defnorm :previous-defnorm previous-defnorm
-		 :initial-defnorm defnorm0 :step i)
-		(or (and threshold (< defnorm threshold))
-		    (and (and (or (not threshabs)
-				  (< defnorm threshabs))
-			      reduction)
-			 (not (eq reduction :ignore))
-			 (numberp red-factor)
-			 (< red-factor reduction))))
-	    do
-	    (awhen (and output (getf *linsolve-output* :after-step))
-	      (funcall it i defnorm previous-defnorm :indentation indentation))
-	    until (or success-p
-		      (if failure-if
-			  (test-condition
-			   failure-if :defnorm defnorm :previous-defnorm previous-defnorm
-			   :initial-defnorm defnorm0 :step i)
-			  (and maxsteps (>= i maxsteps))))
-	    finally
-	    (awhen (and output (getf *linsolve-output* :final))
-	      (funcall it :indentation indentation))
-	    (return
-	      (values
-	       new-sol
-	       ;; we return also a status report in the form of a property list
-	       (list :solution new-sol :res res :defnorm defnorm
-		     :last-step-reduction (and defnorm previous-defnorm
-					       (safe-divide-by-zero defnorm previous-defnorm))
-		     :steps i :reduction red-factor :convergence-rate
-		     (if (numberp red-factor) (expt red-factor (/ i)) red-factor)
-		     :status (if success-p :success :failure))))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Object-oriented interface
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <linear-solver> (<solver>)
-  ((iteration :accessor iteration :initarg :iteration))
-  (:documentation "Linear solver class."))
-  
-(defmethod solve ((solver <linear-solver>) &rest rest
-		  &key matrix rhs solution residual &allow-other-keys)
-  "A better interface for the old linsolve function."
-  (with-slots (iteration maxsteps threshold threshabs reduction success-if failure-if
-			 residual-norm output)
-    solver
-    (apply #'linsolve matrix rhs :sol solution :res residual :iteration iteration
-	   :maxsteps maxsteps :threshold threshold :threshabs threshabs
-	   :reduction reduction :success-if success-if :failure-if failure-if
-	   :residual-norm residual-norm :output output
-	   rest)))
+  "In easy situations, this function provides a simpler interface for
+solving a linear system."
+  (let ((result
+	 (solve (make-instance
+		 '<linear-solver> :iteration iteration :output output
+		 :residual-norm residual-norm :success-if
+		 (or success-if
+		     (cons 'or
+			   (remove nil
+				   (list 
+				    (and threshold `(< :defnorm ,threshold))
+				    (and reduction `(< :reduction ,reduction))))))
+		 :failure-if (or failure-if (and maxsteps `(> :step ,maxsteps))))
+		(blackboard :matrix mat :rhs rhs :solution sol :residual res))))
+    (values (getbb result :solution) result)))
 
 (defparameter *lu-solver*
-  (make-instance '<linear-solver> :iteration *lu-iteration* :maxsteps 1)
+  (make-instance
+   '<linear-solver> :iteration *lu-iteration*
+   :success-if '(>= :step 1)
+   :output t)
   "LU decomposition without pivoting.")
 
-(defclass <special-solver> (<solver>)
+(defclass <special-solver> (<iterative-solver>)
   ((solver-function :reader solver-function :initarg :solver-function :type function))
   (:documentation "If you happen to have a problem-adapted solver given as
 a function, you may use this base class."))
 
-(defmethod solve ((solver <special-solver>) &rest parameters)
-  (apply (solver-function solver) parameters))
+(defmethod solve ((solver <special-solver>) blackboard)
+  (funcall (solver-function solver) blackboard))
 
 ;;; solver-iteration
 (defclass <solver-iteration> (<linear-iteration>)
@@ -176,12 +102,13 @@ a function, you may use this base class."))
    :initialize nil
    :iterate
    #'(lambda (x b r)
-       (solve (slot-value solve-it 'solver)
-	      :matrix mat :rhs b :solution x :residual r))
+       (getbb (solve (slot-value solve-it 'solver)
+		     (blackboard :matrix mat :rhs b :solution x :residual r))
+	      :solution))
    :residual-after nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Testing: (test-linsolve)
+;;;; Testing: (iteration::test-linsolve)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-linsolve ()
@@ -198,10 +125,11 @@ a function, you may use this base class."))
       (linsolve A b :output t :iteration gs)
       (linsolve A b :output t :iteration (make-instance '<sor> :omega 1.18))
       ;; new interface
-      (solve *lu-solver* :matrix A :rhs b)
-      (solve (make-instance '<linear-solver> :iteration jac :output t :maxsteps 10)
-	     :matrix A :rhs b))
-      
+      (solve *lu-solver* (blackboard :matrix A :rhs b))
+      (solve (make-instance '<linear-solver> :iteration jac :output t
+			    :success-if '(> :step 10))
+	     (blackboard :matrix A :rhs b)))
+    
     ;; application to sparse matrices
     (let* ((constantly-1 (constantly 1))
 	   (b (make-instance '<sparse-vector> :key->size constantly-1))
@@ -222,9 +150,9 @@ a function, you may use this base class."))
       (setf (vec-ref (mat-ref A 2 3) 0) -1.0d0)
       (setf (vec-ref (mat-ref A 3 2) 0) -1.0d0)
       (assert (eql (matrix-ref (mat-ref A 3 2) 0 0) -1.0d0))
-      (print-svec (linsolve A b :output t :iteration lu))
-      (print-svec (linsolve A b :output t :iteration gs))
-      (print-svec (solve *lu-solver* :matrix A :rhs b :solution sol)))
+      (show (linsolve A b :output t :iteration lu))
+      (show (linsolve A b :output t :iteration gs))
+      (solve *lu-solver* (blackboard :matrix A :rhs b :solution sol)))
     )
   )
 

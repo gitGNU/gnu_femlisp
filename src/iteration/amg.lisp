@@ -44,7 +44,8 @@
   ((max-depth :reader max-depth :initform most-positive-fixnum
 	      :initarg :max-depth)
    (cg-max-size :reader cg-max-size :initform 1
-		:initarg :cg-max-size))
+		:initarg :cg-max-size)
+   (output :initform nil :initarg :output))
   (:documentation "The algebraic multigrid iteration is a multigrid
 iteration where the hierarchy of problems is derived from the fine-grid
 matrix.  Usually, an algebraic multigrid will use the same iterator as its
@@ -60,30 +61,30 @@ should be usable by a large variety of AMG algorithms.  Its purpose is to
 repeat coarsening steps until either max-depth is larger than the given
 value or the size of the problem is smaller than min-size.  The generic
 function 'coarsen' is called to do a single coarsening step."
-  (let ((mats (list mat))
-	(pmats (list nil))
-	(rmats (list nil)))
-    (when (output amg)
-      (format t "~&~A-Coarsening~%" (class-name (class-of amg)))
-      (format t "Level   n-rows  n-entries~%")
-      (format t "~3D~6T~8D~16T~9D~%" 0 (nrows mat) (nr-of-entries mat)))
-    (loop for i from 1 below (max-depth amg)
-	  until (<= (nr-nonempty-rows mat) (cg-max-size amg)) do
-	  (let ((coarsening (coarsen amg mat)))
-	    (unless coarsening (return nil))
-	    (destructuring-bind (&key coarse-grid-matrix prolongation restriction)
-		coarsening
-	      (push coarse-grid-matrix mats)
-	      (push prolongation pmats)
-	      (push restriction rmats)
-	      (setq mat coarse-grid-matrix)))
-	  (when (output amg)
-	    (format t "~3D~6T~8D~16T~9D~%" i (nrows mat) (nr-of-entries mat))))
-    (when (output amg) (terpri))
-    (make-assembly-line
-     :a-vec (list->vector 'simple-vector mats)
-     :i-vec (list->vector 'simple-vector pmats)
-     :r-vec (list->vector 'simple-vector rmats))))
+  (with-slots (output max-depth cg-max-size) amg
+    (let ((mats (list mat))
+	  (pmats (list nil))
+	  (rmats (list nil)))
+      (when output
+	(format t "~&~A-Coarsening~%" (class-name (class-of amg)))
+	(format t "Level   n-rows  n-entries~%")
+	(format t "~3D~6T~8D~16T~9D~%" 0 (nrows mat) (nr-of-entries mat)))
+      (loop for i from 1 below max-depth
+	    until (<= (nr-nonempty-rows mat) cg-max-size) do
+	    (let ((coarsening (coarsen amg mat)))
+	      (unless coarsening (return nil))
+	      (destructuring-bind (&key coarse-grid-matrix prolongation restriction)
+		  coarsening
+		(push coarse-grid-matrix mats)
+		(push prolongation pmats)
+		(push restriction rmats)
+		(setq mat coarse-grid-matrix)))
+	    (when output
+	      (format t "~3D~6T~8D~16T~9D~%" i (nrows mat) (nr-of-entries mat))))
+      (when output (terpri))
+      (blackboard :a-vec (list->vector 'simple-vector mats)
+		  :i-vec (list->vector 'simple-vector pmats)
+		  :r-vec (list->vector 'simple-vector rmats)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; coarsen - do one coarsening step

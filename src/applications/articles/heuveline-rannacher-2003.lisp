@@ -49,9 +49,8 @@
 
 (defun heuveline-rannacher-problem ()
   (let ((domain (heuveline-rannacher-domain)))
-    (standard-cdr-problem
-     domain :diffusion (identity-diffusion-tensor (dimension domain))
-     :source #'heuveline-rannacher-rhs)))
+    (cdr-model-problem
+     domain :source #'heuveline-rannacher-rhs)))
 
 #+(or)
 (check (uniform-mesh-on-box-domain (heuveline-rannacher-domain) #(1 2)))
@@ -107,17 +106,6 @@ $$  u(x,y) = sin(pi/2*(x+1))*sin(3/4*pi*(y+1))  $$
 
 Thus, the precise value is 1.026172152977031d0.
 Parameters of the computation: order=~order~, levels=~levels~."
-  (setf (getf *strategy-output* :observe)
-	`((:grad-x "   grad-x (0.5,2.5)"
-	   ,#'(lambda (assembly-line)
-		(with-items (&key solution) assembly-line
-		  (format t "~19,10,2E"
-			  (matrix-ref (fe-gradient solution *HR-evaluation-point*) 0)))))
-	  (:eta "         ETA"
-	   ,#'(lambda (assembly-line)
-		(with-items (&key global-eta) assembly-line
-		  (format t "~12,2,2E" global-eta))))))
-  (setf (getf *strategy-output* :plot-mesh) t)
   (defparameter *result*
     (let ((problem (heuveline-rannacher-problem))
 	  (solver
@@ -125,35 +113,44 @@ Parameters of the computation: order=~order~, levels=~levels~."
 	       (make-instance
 		'<linear-solver>
 		:iteration
-		(let ((smoother (make-instance '<local-bgs> :type :vertex-centered)))
+		(let ((smoother (geometric-ssc)))
 		  (make-instance '<s1-reduction> :max-depth 2 :pre-steps 1 :pre-smooth smoother
 				 :post-steps 1 :post-smooth smoother
 				 :gamma 1 :coarse-grid-iteration
 				 (?2 *lu-iteration*
-				     (make-instance '<s1-coarse-grid-iterator>
-						    :output (eq output :all)))))
-		:success-if `(< :defnorm 1.0e-10)
-		:failure-if `(> :step-reduction 0.9)
+				     (make-instance '<s1-coarse-grid-iterator>))))
+		:success-if `(and (< :defnorm 1.0e-10) (> :step-reduction 0.9))
+		:failure-if `(and (> :step 2) (> :step-reduction 0.9))
 		:output (eq output :all)))))
-      (solve-with
+      (solve
        (make-instance
-	'<fe-strategy> :fe-class (lagrange-fe order)
-	:solver solver
+	'<stationary-fe-strategy>
+	:fe-class (lagrange-fe order) :solver solver
 	:estimator (make-instance '<duality-error-estimator> :functional
 				  (heuveline-rannacher-dual-problem-fe-rhs))
 	:indicator (make-instance '<largest-eta-indicator>
 				  :pivot-factor 0.2 :from-level 1)
-	:appraise (stop-if :eta<= 1.0e-10 :nr-levels>= levels))
-       problem
-       :mesh (change-class (uniform-mesh-on-box-domain (domain problem) #(1 2))
-			   '<hierarchical-mesh>)
-       :output t)))
-  (when plot
-    (plot (getf *result* :solution) :depth 3)))
+	:success-if `(or (<= :global-eta 1.0e-10) (= :max-level ,(1- levels)))
+	:plot-mesh plot	:output output :observe
+	(append *stationary-fe-strategy-observe*
+		(list
+		 (list "   grad-x (0.5,2.5)" "~19,10,2E"
+		       #'(lambda (blackboard)
+			   (with-items (&key solution) blackboard
+			     (matrix-ref (fe-gradient solution *HR-evaluation-point*) 0))))
+		 (list "         ETA" "~12,2,2E"
+		       #'(lambda (blackboard)
+			   (getbb blackboard :global-eta))))))
+       (blackboard :problem problem
+		   :mesh (change-class (uniform-mesh-on-box-domain (domain problem) #(1 2))
+				       '<hierarchical-mesh>)
+		   :output t))))
+    (when plot
+      (plot (getf *result* :solution) :depth 3)))
 
 
 
-#+(or) (heuveline-rannacher-computation 4 6 :output :all)
+#+(or) (heuveline-rannacher-computation 4 6 :output t :plot t)
 
 (defun make-heuveline-rannacher-demo (order levels)
   (multiple-value-bind (title short long)
@@ -163,7 +160,9 @@ Parameters of the computation: order=~order~, levels=~levels~."
     (let ((demo
 	   (make-demo
 	    :name title :short short :long long
-	    :execute (lambda () (heuveline-rannacher-computation order levels :plot t)))))
+	    :execute (lambda ()
+		       (heuveline-rannacher-computation
+			order levels :output t :plot t)))))
       (adjoin-demo demo *articles-demo*))))
 
 (make-heuveline-rannacher-demo 4 4)

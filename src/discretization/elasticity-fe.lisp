@@ -70,8 +70,7 @@ scalar case we worked directly with standard-matrix."
 	  (let* ((transposed-sv (transpose shape-vals))
 		 (sol-ip (and local-sol (map 'vector #'(lambda (ls) (m* transposed-sv ls))
 					     local-sol)))
-		 (coeff-input (make-instance '<coefficient-input>
-					     :global global :solution sol-ip))
+		 (coeff-input (list :global global :solution sol-ip))
 		 (ip-tensor (and elasticity-tensor
 				 (evaluate elasticity-tensor coeff-input)))
 		 (gamma (and gamma-function local-rhs

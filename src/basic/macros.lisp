@@ -40,6 +40,20 @@
 		 syms)
      ,@body))
 
+(defun symconc (&rest args)
+  "This function builds a symbol from its arguments and interns it.  This
+is for use in some macros."
+  (intern
+   (apply #'concatenate 'string
+	  (mapcar #'(lambda (arg) (if (symbolp arg)
+				      (symbol-name arg)
+				      arg))
+		  args))
+   (let ((sym (find-if #'symbolp args)))
+     (if sym
+	 (symbol-package sym)
+	 *package*))))
+
 (defmacro aif (test-form then-form &optional else-form)
   `(let ((it ,test-form))
      (if it ,then-form ,else-form)))
@@ -85,18 +99,7 @@
     (find-method (function ,gf-name) (quote ,qualifiers)
      (mapcar #'find-class (quote ,specializers)))))
 
-(defun with-items-expander-1 (prop-vars prop-names prop-defaults plist body)
-  "Expander for with-items.  Does not work because assembly-line is not
-modified immediately."
-  `(let ,(mapcar #'(lambda (var prop default)
-		     `(,var (getf ,plist ',prop ,default)))
-		 prop-vars prop-names prop-defaults)
-    ,@body
-    ,@(mapcar #'(lambda (var prop)
-		  `(setf (getf ,plist ',prop) ,var))
-	      prop-vars prop-names)))
-
-(defun with-items-expander-2 (prop-vars prop-names prop-defaults plist body)
+(defun with-items-expander (prop-vars prop-names prop-defaults plist body)
   "Expander for with-items."
   `(progn
     ,@(mapcar #'(lambda (prop default)
@@ -107,12 +110,11 @@ modified immediately."
 		 prop-vars prop-names)
       ,@body)))
 
-(defmacro with-items (props assembly-line &body body)
+(defmacro with-items (props blackboard &body body)
   "Introduce property list members as variables.  If a parameter is a list,
 the second one is the default value and the third is an alias to be used to
 refer to this parameter.  Example:
-   (with-items (&key sol (rhs nil rhs-high))
-       assembly-line
+   (with-items (&key sol (rhs nil rhs-high)) blackboard
      (setq sol rhs-high))"
   (let (key-p prop-vars prop-defaults prop-names)
     (dolist (prop props)
@@ -133,17 +135,9 @@ refer to this parameter.  Example:
 		       prop-name)
 		   prop-names)))))
   `(progn
-    (assert (eq (car ,assembly-line) :blackboard))
-    ,(with-items-expander-2 prop-vars prop-names prop-defaults
-			    `(cddr ,assembly-line) body))))
-
-(defmacro with-properties (props plist &body body)
-  "Deprecated."
-  `(symbol-macrolet
-    ,(if (eq (car props) '&key)
-	 (mapcar #'(lambda (prop) `(,prop (getf ,plist ,(intern (symbol-name prop) :keyword)))) (cdr props))
-	 (mapcar #'(lambda (prop) `(,prop (getf ,plist ',prop))) props))
-    ,@body))
+    (assert (eq (car ,blackboard) :blackboard))
+    ,(with-items-expander prop-vars prop-names prop-defaults
+			  `(cddr ,blackboard) body))))
 
 (defmacro for ((var start end) &body body)
   "Syntax: (for (i 1 10) (princ i)).
@@ -167,21 +161,22 @@ Loops for i from 1 to 9."
   "multi-for: This macro loops through vectors of (integer) values
 between the (integer) vectors start and stop.
 Example: (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))"
-  (with-gensyms
-      (inc! begin end inside)
-    `(let ((,begin ,start)
-	   (,end ,stop))
-      (flet ((,inc! (x)
-	       (do ((i 0 (1+ i)))
-		   ((= i (length ,begin)) nil)
-		 (cond ((< (aref x i) (aref ,end i))
-			(setf (aref x i) (1+ (aref x i)))
-			(return t))
-		       (t (setf (aref x i) (aref ,begin i)))))))
-	(loop with ,var = (copy-seq ,begin)
-	      for ,inside = (every #'<= ,begin ,end) then (setf ,inside (,inc! ,var))
-	      until (not ,inside)
-	      do ,@body)))))
+  (let ((fixnum-vec '(simple-array fixnum (*))))
+    (with-gensyms
+	(inc! begin end inside)
+      `(let ((,begin (coerce ,start ',fixnum-vec))
+	     (,end (coerce ,stop ',fixnum-vec)))
+	;;(declare (type ,fixnum-vec ,begin ,start))
+	(flet ((,inc! (x)
+		 (declare (type ,fixnum-vec x))
+		 (dotimes (i (length ,begin))
+		   (cond ((< (aref x i) (aref ,end i))
+			  (incf (aref x i))
+			  (return t))
+			 (t (setf (aref x i) (aref ,begin i)))))))
+	  (do ((,var (copy-seq ,begin))
+	       (,inside (every #'<= ,begin ,end) (,inc! ,var)))
+	      ((not ,inside)) ,@body))))))
 
 ;;; delay and force
 (defmacro delay (form)
@@ -212,8 +207,8 @@ Example: (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))"
 ;;;; Testing:
 
 (defun test-macros ()
-  (let ((assembly-line (list :assembly-line t)))
-    (with-items (&key (a 2)) assembly-line
+  (let ((blackboard (list :blackboard t)))
+    (with-items (&key (a 2)) blackboard
       (princ a)))
   )
 

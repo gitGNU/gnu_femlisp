@@ -30,7 +30,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package application)
+(in-package :application)
 
 (defun further-laplace-tests ()
   "This function provides further tests for Laplace problems, partially on
@@ -41,99 +41,90 @@ non-structured meshes and/or on domains with curved boundary."
   
   (let ((problem
 	 (let ((dim 1))
-	   (standard-cdr-problem
-	    (n-cube-domain dim)
-	    :diffusion (identity-diffusion-tensor dim)
-	    :source (function->coefficient #'(lambda (x) #I"exp(x[0])"))))))
+	   (cdr-model-problem (n-cube-domain dim)
+			      :source #'(lambda (x) #I"exp(x[0])")))))
     (check-h-convergence problem 1 6 :order 1 :position #(0.5))
     (check-p-convergence problem 1 10 :level 1 :position #(0.5)))
   
   (format t "~%1d Laplace test with Dirichlet bc~%")
   (let* ((dim 1)
 	 (problem
-	  (standard-cdr-problem
+	  (cdr-model-problem
 	   (n-cube-domain dim)
-	   :diffusion (identity-diffusion-tensor dim)
-	   :source (function->coefficient #'(lambda (x) #I"exp(x[0])"))
-	   :dirichlet (function->coefficient
-		       #'(lambda (x) #I"if (x[0]==0.0) then 0.0 else 1.0")))))
+	   :source #'(lambda (x) #I"exp(x[0])")
+	   :dirichlet #'(lambda (x) #I"if (x[0]==0.0) then 0.0 else 1.0"))))
     (check-h-convergence problem dim 6 :order 1 :position #(0.5))
     (check-p-convergence problem dim 5 :level 0 :position #(0.5)))
 
   ;; 2D tests
   (format t "~%2d Laplace test on a triangle domain~%")
   
-  (let ((problem (laplace-test-problem-on-domain *unit-triangle-domain*)))
-    (check-h-convergence problem 2 6 :order 1 :position #(0.33 0.33)
-			 :iteration (geometric-cs :base-level 2 :fmg t))
-    (check-p-convergence problem 2 6 :level 2 :position #(0.33 0.33) :method :lu))
+  (let ((problem (cdr-model-problem *unit-triangle-domain*)))
+    (check-h-convergence
+     problem 2 6 :order 1 :position #(0.33 0.33)
+     :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)
+			    :success-if '(> :step 2)))
+    (check-p-convergence problem 2 6 :level 2 :position #(0.33 0.33)))
   
   (format t "~%2d Laplace test on the unit circle, exact solution u(0,0) = 0.25~%")
-  (let ((problem (laplace-test-problem-on-domain
-		  #+(or) *circle-domain*
-		  (n-ball-domain 2)
-		  )))
+  (let ((problem (cdr-model-problem (n-ball-domain 2))))
     (format t "~%h-refinement, O(h^2) convergence~%")
-    (check-h-convergence problem 1 3 :order 1 :position #(0.0 0.0)
-			 :iteration (geometric-cs :fmg t))
+    (check-h-convergence
+     problem 1 3 :order 1 :position #(0.0 0.0)
+     :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)
+			    :success-if '(> :step 2)))
     (format t "~%p-refinement, no convergence, because domain is not approximated~%")
-    (check-p-convergence problem 1 3 :level 2 :position #(0.0 0.0) :iteration :lu)
+    (check-p-convergence problem 1 3 :level 2 :position #(0.0 0.0))
     (format t "~%p-refinement, exponential convergence due to isoparametric approximation~%")
-    (check-p-convergence problem 1 5 :level 2 :position #(0.0 0.0)
-			 :isopar t :iteration :lu))
+    (check-p-convergence problem 1 5 :level 2 :position #(0.0 0.0) :isopar t))
 
   (format t "~%Laplace with exact solution u=exp(x+y), -> u(1/2,1/2)=1.6487212707~%")
   (let* ((dim 2)
 	 (problem
-	  (standard-cdr-problem
+	  (cdr-model-problem
 	   (n-cube-domain dim)
-	   :diffusion (identity-diffusion-tensor dim)
-	   :source
-	   (function->coefficient #'(lambda (x) #I"-2.0*exp(x[0]+x[1])"))
-	   :dirichlet
-	   (function->coefficient #'(lambda (x) #I"exp(x[0]+x[1])")))))
+	   :source #'(lambda (x) #I"-2.0*exp(x[0]+x[1])")
+	   :dirichlet #'(lambda (x) #I"exp(x[0]+x[1])"))))
     ;;(plot (solve-laplace problem 2 1)))
-    (check-h-convergence problem 1 3 :order 1 :position #(0.25 0.25)
-			 :method :ni :mg-steps 1)
-    (check-p-convergence problem 1 5 :level 0 :position #(0.25 0.25) :mg-steps 5))
+    (check-h-convergence
+     problem 1 3 :order 1 :position #(0.25 0.25)
+     :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)
+			    :success-if '(> :step 2)))
+    (check-p-convergence problem 1 5 :level 0 :position #(0.25 0.25)))
   
   ;; 3D tests
   (format t "~%3d Laplace test on a tetrahedron~%")
   (time
-   (let ((problem (laplace-test-problem-on-domain *unit-tetrahedron-domain*)))
-     (check-h-convergence problem 2 3 :order 1 :position #(0.25 0.25 0.25)
-			  :iteration (geometric-cs :base-level 2 :fmg t))
-     (check-p-convergence problem 1 3 :level 2 :position #(0.25 0.25 0.25) :method :lu)))
+   (let ((problem (cdr-model-problem *unit-tetrahedron-domain*)))
+     (check-h-convergence
+      problem 2 3 :order 1 :position #(0.25 0.25 0.25)
+     :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t :base-level 2)
+			    :success-if '(> :step 2)))
+     (check-p-convergence problem 1 3 :level 2 :position #(0.25 0.25 0.25))))
 
   (format t "~%Laplace with exact solution u=x*y*z(1-x-y-z), i.e. u(1/4,1/4,1/4)=1/256=3.90625e-3~%")
   (let* ((domain *unit-tetrahedron-domain*)
 	 (problem
-	  (standard-cdr-problem
-	   domain
-	   :diffusion (identity-diffusion-tensor (dimension domain))
-	   :source (make-instance
-		    '<coefficient>
-		    :eval #'(lambda (coeff-input)
-			      (let* ((in (ci-global coeff-input)))
-				#I"2.0*(in[1]*in[2]+in[0]*in[2]+in[0]*in[1])"))))))
-    (check-h-convergence problem  2 4 :order 1 :position #(0.25 0.25 0.25)
-			 :iteration (geometric-cs :base-level 2 :fmg t))
-    ;; integration appears to be ok, because it yields the exact solution
-    ;; for ansatz spaces that include the solution
+	  (cdr-model-problem
+	   domain :source #'(lambda (x) #I(2.0*(x[1]*x[2]+x[0]*x[2]+x[0]*x[1]))))))
+    (check-h-convergence
+     problem 2 4 :order 1 :position #(0.25 0.25 0.25)
+     :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t :base-level 2)
+			    :success-if '(> :step 2)))
+    ;; we should obtain the exact solution for ansatz spaces that include
+    ;; the solution
     (check-p-convergence problem 1 5 :level 0 :position #(0.25 0.25 0.25))
     (check-p-convergence problem 4 4 :level 1 :position #(0.25 0.25 0.25)))
 
   (format t "~%3d Laplace test on the unit ball, exact solution u(0,0,0)=1/6=0.1666...~%")
-  (let ((problem (laplace-test-problem-on-domain (n-ball-domain 3))))
-    ;;(plot (solve-laplace problem 1 3 :method :lu :parametric (lagrange-mapping 3)))
-    (time (check-h-convergence problem 0 3 :order 1 :position #(0.0 0.0 0.0)
-			       :iteration (geometric-cs :fmg t)))
-    ;; The following test could still be an error, because convergence
-    ;; seems to be not exponential.
-    #+(or)
-    (time (check-p-convergence problem 1 3 :level 1 :position #(0.0 0.0 0.0) :isopar t))
+  (let ((problem (cdr-model-problem (n-ball-domain 3))))
+    ;;(plot (solve-laplace problem 1 3 :parametric (lagrange-mapping 3)))
+    (time (check-h-convergence
+	   problem 0 3 :order 1 :position #(0.0 0.0 0.0)
+	   :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)
+				  :success-if '(> :step 2))))
     )
   )
 
-;;; (further-laplace-tests)
-(adjoin-femlisp-test #'further-laplace-tests)
+;;; (application::further-laplace-tests)
+(adjoin-femlisp-test 'further-laplace-tests)

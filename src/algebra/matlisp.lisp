@@ -71,11 +71,11 @@
   (make-instance 'real-matrix :nrows (length dv) :ncols 1 :store dv))
 
 (definline ensure-matlisp (vec &optional (type :column))
-  (if (vectorp vec)
-      (ecase type
-	(:column (make-column-vector vec))
-	(:row (make-row-vector vec)))
-      vec))
+  (etypecase vec
+      (vector (ecase type
+		(:column (make-column-vector vec))
+		(:row (make-row-vector vec))))
+      (standard-matrix vec)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; vector operations for matlisp matrices
@@ -414,12 +414,12 @@ then result is set to increment."
 	(setf (aref arr i) (* (aref arr i) val)))
       (call-next-method)))
 
-(defmethod matrix-ref-1d ((vec array) i) (aref vec i))
-(defmethod matrix-ref-2d ((vec array) i j) (aref vec i j))
+(defmethod matlisp::matrix-ref-1d ((vec array) i) (aref vec i))
+(defmethod matlisp::matrix-ref-2d ((vec array) i j) (aref vec i j))
 
-(defmethod (setf matrix-ref-1d) (value (vec array) i)
+(defmethod (setf matlisp::matrix-ref-1d) (value (vec array) i)
   (setf (aref vec i) value))
-(defmethod (setf matrix-ref-2d) (value (vec array) i j)
+(defmethod (setf matlisp::matrix-ref-2d) (value (vec array) i j)
   (setf (aref vec i j) value))
 
 (defun matlisp::unit-vector (dim i)
@@ -572,5 +572,5 @@ the argument mat.  For k=n, this is (abs (det mat))."
   ))
 
 ;;; (test-matlisp-vector-combination)
-(tests::adjoin-femlisp-test #'test-matlisp-vector-combination)
+(tests::adjoin-femlisp-test 'test-matlisp-vector-combination)
 

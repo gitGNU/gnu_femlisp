@@ -39,19 +39,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun cell-solve (problem &key (level 1) (order 1) parametric (solver *lu-solver*))
-  "Solves the given problem and returns a result in form of an
-assembly-line."
+  "Solves the given problem and returns a result on a blackboard."
   (let* ((domain (domain problem))
 	 (mesh (uniformly-refined-hierarchical-mesh domain level :parametric parametric))
 	 (fe-class (lagrange-fe order))
 	 (as (make-fe-ansatz-space fe-class problem mesh))
-	 (assembly-line (fe-discretize (make-assembly-line :ansatz-space as))))
-    (setf (get-al assembly-line :problem) problem)
-    (setf (get-al assembly-line :mesh) mesh)
+	 (blackboard (fe-discretize (blackboard :ansatz-space as))))
+    (setf (getbb blackboard :problem) problem)
+    (setf (getbb blackboard :mesh) mesh)
     (with-items (&key solution matrix rhs)
-	assembly-line
-      (setq solution (solve solver :matrix matrix :rhs rhs))
-      assembly-line)))
+	blackboard
+      (setq solution
+	    (getbb (solve solver (blackboard :matrix matrix :rhs rhs))
+		   :solution))
+      blackboard)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Cell problems
@@ -146,26 +147,19 @@ in a nested iteration fashion.  The solution to the cell problem is a
 vector field whose components are plotted one after the other.  The setting
 has cubic symmetry, from which one can easily see that the effective tensor
 must be a scalar multiple of the identity."
-  (setf (getf *strategy-output* :observe)
-	`((:Ahom "               Ahom"
-	   ,#'(lambda (assembly-line)
-		(with-items (&key solution rhs) assembly-line
-		  (format t "~19,10,2E"
-			  (and solution rhs
-			       (matrix-ref (apply #'effective-tensor assembly-line) 0 0))))))))
   (defparameter *result*
-    (solve-with
+    (solve
      (make-instance
-      '<fe-strategy> :fe-class (lagrange-fe order)
+      '<stationary-fe-strategy> :fe-class (lagrange-fe order)
       :estimator (make-instance '<projection-error-estimator>)
       :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
-      :appraise (stop-if :nr-levels>= levels)
+      :success-if `(>= :nr-levels ,levels)
       :solver (make-instance
 	       '<linear-solver> :iteration
 	       (let ((smoother
 		      (if (>= (dimension (domain problem)) 3)
 			  *gauss-seidel*
-			  (make-instance '<local-bgs> :type :vertex-centered))))
+			  (geometric-ssc))))
 		 (geometric-cs
 		  :gamma 2 :fmg nil :coarse-grid-iteration
 		  (make-instance '<multi-iteration> :base smoother
@@ -173,9 +167,13 @@ must be a scalar multiple of the identity."
 		  :pre-steps 2 :pre-smooth smoother :post-steps 2 :post-smooth smoother))
 	       :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
 	       :failure-if `(> :step 20)
-	       :output (eq output :all)))
-     problem :output output
-     ))
+	       :output (eq output :all))
+      :output output :observe
+      (append *stationary-fe-strategy-observe*
+	      (list (list (format nil "~19@A" "Ahom") "~19,10,2E"
+			  #'(lambda (blackboard)
+			      (matrix-ref (effective-tensor blackboard) 0 0))))))
+     (blackboard :problem problem)))
   ;; plot cell solutions and compute the homogenized coefficient
   (when plot
     (let ((solution (getf *result* :solution)))
@@ -183,11 +181,11 @@ must be a scalar multiple of the identity."
       (sleep 1.0)
       (plot solution :index 1)))
   (format t "The effective tensor is:~%~A~%"
-	  (apply #'effective-tensor *result*)))
+	  (effective-tensor *result*)))
 
 
 ;;; Testing:
-#+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t)
+#+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t :output :all)
 #+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 3)
 #+(or)
 (let ((A (algebra::ellipse-matrix 0.25 0.3 0.7854)))
@@ -274,7 +272,7 @@ must be a scalar multiple of the identity."
 (defparameter *result*
   (cell-solve (simple-ball-inlay-cell-problem 2 0.1)
 	      :level 3 :order 1))
-(apply #'effective-tensor *result*)
+(effective-tensor *result*)
 (plot (getf *result* :solution) :index 0)
 
 ;; generate 3D cell problem
@@ -288,7 +286,7 @@ must be a scalar multiple of the identity."
 (setq *result*
       (cell-solve (inlay-cell-problem 2 0.1) :level 1
 		  :order 1 :parametric (lagrange-mapping 2)))
-(apply #'effective-tensor *result*)
+(effective-tensor *result*)
 (plot (getf *result* :solution) :index 0)
 
 ;; first order with full multigrid
@@ -305,7 +303,8 @@ must be a scalar multiple of the identity."
 	:fmg t :coarse-grid-iteration
 	(make-instance '<multi-iteration> :base *gauss-seidel* :nr-steps 3))
        :output t
-       :reduction 1.0d-5
+       :success-if `(< :reduction 1.0d-5)
+       :failure-if `(> :step 20)
        )))))
 (plot (getf *result* :solution) :index 0)
 (plot (getf *result* :solution) :index 1)
@@ -330,35 +329,35 @@ must be a scalar multiple of the identity."
 	  :gamma 2 :fmg t :coarse-grid-iteration
 	  (make-instance '<multi-iteration> :base *gauss-seidel* :nr-steps 10)
 	  :pre-steps 2 :pre-smooth smoother :post-steps 2 :post-smooth smoother))
-       :reduction (expt 0.5 (* level (+ order 2))))))))
+       :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
+       :failure-if `(> :step 20))))))
 
 ;; (l=2, o=4, cgs=10 ILU, 3 smooth, fmg)*2=146.7 URT
-(apply #'effective-tensor *result*)
+(effective-tensor *result*)
 (plot (getf *result* :solution) :index 1)
 
 ;;; an adaptive calculation (working?)
 (defparameter *result*
   (time
    (let ((dim 2) (order 2))
-     (solve-with
+     (solve
       (make-instance
-       '<fe-strategy> :fe-class (lagrange-fe order)
+       '<stationary-fe-strategy>
+       :fe-class (lagrange-fe order)
+       :solver (s1-reduction-amg-solver order) ; #-(or)*lu-solver*
        :estimator (make-instance '<projection-error-estimator>)
        :indicator (make-instance '<largest-eta-indicator> :fraction 0.5)
-       :appraise #-(or) (global-estimate-smaller-than 1.0d-3) #+(or) (level= 4)
-       :solver #-(or)(s1-reduction-amg-solver order)
-       #+(or)*lu-solver*
+       :success-if '(and (>= :nr-levels 2)(< :global-eta 1.0d-3))
        :output t)
-      (inlay-cell-problem dim 0.1)))))
+      (blackboard :problem (inlay-cell-problem dim 0.1))))))
 
-(apply #'effective-tensor *result*)
+(effective-tensor *result*)
 (getf *result* :global-eta)
 
 ;; chequerboard cell
 (let ((dim 2) (order 1))
-  (apply #'effective-tensor
-	 (cell-solve (chequerboard-problem dim 0.1d0):level 3
-		     :order order)))
+  (effective-tensor
+   (cell-solve (chequerboard-problem dim 0.1d0):level 3 :order order)))
 
 ;; examine properties
 (let* ((problem (simple-ball-inlay-cell-problem 1 0.1))

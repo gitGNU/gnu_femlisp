@@ -34,125 +34,13 @@
 
 (in-package :geomg)
 
-(defclass <local-bgs> (<block-gauss-seidel>)
-  ((type :initarg :type))
-  (:documentation "Iteration where the blocks in a block Gauss-Seidel
-iteration are determined by combining the unknowns of several geometric
-entities.  We provide two versions: cell-centered where all subcells of a
-highest-dimensional cell constitute the block and vertex-centered where all
-non-vertex cells surrounding a vertex constitute the subcell.  This latter
-version can be shown to be robust in p, which seems to be a new result.  I
-reported it first at the Oberwolfach meeting on fast solvers in June,
-2003."))
-
-(defun in-subcells-support (subcells cells)
-  "Checks if one of the subcells is a subcell of one of the cells.
-Usually, this will be one element lists.  The general case occurs for
-identifications and hanging nodes."
-  (some #'(lambda (cell)
-	    (let ((cell-subcells (subcells cell)))
-	      (some #'(lambda (subcell) (find subcell cell-subcells))
-		    subcells)))
-	cells))
-
-(defun find-vertex-centered-block (vertex-key asa)
-  "Collects a block of keys for cells containing the vertex.  Handles
-identification and hanging nodes."
-  (let ((block-keys (list vertex-key))
-	(candidates (remove-if (rcurry #'slave-or-dirichlet-dof-p asa)
-			       (keys-of-row asa vertex-key)))
-	(constraints-Q (getf (structure-information (ansatz-space asa)) :constraints-Q)))
-    ;; first direct neighbors are chosen
-    (dolist (candidate candidates)
-      (when (in-subcells-support (mklist vertex-key) (mklist candidate))
-	(setq block-keys (adjoin candidate block-keys))))
-    ;; remove the positive choices
-    (setq candidates (set-difference candidates block-keys))
-    ;; next we check if dependent cells are subcells
-    (let ((dependent-keys
-	   (reduce #'union block-keys :initial-value ()
-		   :key (curry #'keys-of-column constraints-Q))))
-      ;; second loop checks if some candidate has a subcell in dependent-keys
-    (dolist (candidate candidates)
-      (when (some #'(lambda (dependent-key)
-		      (in-subcells-support (mklist dependent-key) (mklist candidate)))
-		  dependent-keys)
-	(push candidate block-keys))))
-    ;; return result
-    block-keys))
-
-(defun find-connected-blocks-in-table (table asa)
-  (flet ((extend (keys)
-	   (let ((new ()))
-	     (dolist (rk keys (append new keys))
-	       (for-each-key-in-row
-		#'(lambda (ck)
-		    (when (gethash ck table)
-		      (unless (member ck keys)
-			(push ck new)
-			(remhash ck table))))
-		asa rk)))))
-    (loop until (zerop (hash-table-count table)) collecting
-	  (loop with key = (get-arbitrary-key-from-hash-table table)
-		with keys = (list key)
-		initially (remhash key table)
-		for extend = (extend keys)
-		until (eq extend keys) do
-		(setq keys extend)
-		finally (return (coerce keys 'vector))))))
-
-
-(defmethod setup-blocks ((bgs <local-bgs>) (asa <sparse-matrix>))
-  "Collects blocks consisting either of all subcells of cells in the
-cell-centered case or all cells to which a vertex belongs in the
-vertex-centered case."
-  (dbg :iter "<local-bgs>-setup-blocks: starting")
-  (let ((mesh-dim (dimension (mesh asa)))
-	(type (slot-value bgs 'type))
-	(blocks ())
-	(remaining (make-hash-table)))
-    (for-each-row-key
-     #'(lambda (key)
-	 (let ((block-keys ()))
-	   ;; enlarge support under some circumstances
-	   (cond
-	     ((slave-dof-p key asa)
-	      (setq block-keys (list key)))
-	     #+(or) ((dirichlet-dof-p key asa)  ; is treated as everything else
-		     (setq block-keys (list key)))
-	     ((= (dimension (representative key))
-		 (ecase type (:vertex-centered 0) (:cell-centered mesh-dim)))
-	      (ecase type 
-		 (:cell-centered
-		  (for-each-key-in-row
-		   #'(lambda (col-key) (push col-key block-keys))
-		   asa key))
-		 (:vertex-centered
-		  (setq block-keys (find-vertex-centered-block key asa)))))
-	     (t ;; may remain at the boundaries (e.g. on triangles)
-	      (setf (gethash key remaining) t)))
-	   (when block-keys
-	     (push (sort (coerce block-keys 'vector) #'>
-			 :key (compose #'dimension #'representative))
-		   blocks))))
-     asa)
-    ;; remove all from remaining which are covered
-    (loop for block in blocks do
-	  (loop for key across block do
-		(remhash key remaining)))
-    (dohash (key remaining)
-      (assert (dirichlet-dof-p key asa)))
-    #+(or)(setq blocks (nconc blocks (find-connected-blocks-in-table remaining asa)))
-    (dbg :iter "<local-bgs>-blocks: ~A" blocks)
-    blocks))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <vanka>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <vanka> (<local-bgs>)
-  ((type :initform :vertex-centered))
-  (:documentation "New Vanka smoother for Q^{k+1}/Q^k discretizations of
+(defclass <vanka> (<geometric-ssc>)
+  ()
+  (:documentation "Vanka-like smoother for Q^{k+1}/Q^k discretizations of
 Navier-Stokes."))
 
 (defun extended-block (asa keys)
@@ -197,42 +85,4 @@ degrees of freedom."
     (dbg :iter "Vanka blocks: ~A" result-blocks)
     (values result-blocks result-components)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; <john-heuveline-vanka>
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <john-heuveline-vanka> (<local-bgs>)
-  ()
-  (:documentation "Special Vanka smoother used by Volker John and Vincent
-Heuveline to solve Q^{k+1}/Q^k discretizations of Navier-Stokes."))
-
-
-(defmethod setup-blocks ((vanka <john-heuveline-vanka>) (asa <ansatz-space-automorphism>))
-  "Sets the block slot by collecting blocks consisting either of all
-subcells in the cell-centered case or all cells to which a vertex belongs
-in the vertex-centered case."
-  (let ((fedisc (fe-class asa))
-	(blocks ())
-	(components ()))
-    (for-each-row-key
-     #'(lambda (key)
-	 (unless (slave-or-dirichlet-dof-p key asa)
-	   (let* ((fe (get-fe fedisc (representative key)))
-		  (pressure-fe (vector-last (components fe))))
-	     (when (plusp (nr-of-inner-dofs pressure-fe))
-	       ;; in inner-block we collect small blocks of the form (key . (from . to))
-	       (let ((inner-block (list (cons key (cons 0 (nr-of-inner-dofs fe))))))
-		 (for-each-key-in-row
-		  #'(lambda (col-key)
-		      (unless (eq key col-key)
-			(let* ((fe2 (get-fe fedisc (representative col-key)))
-			       (subcell-offsets (getf (properties fe2) 'SUBCELL-OFFSETS))
-			       (pressure-off (aref (vector-last subcell-offsets) 0)))
-			  (push (cons col-key (cons 0 pressure-off)) inner-block))))
-		  asa key)
-		 (push (map 'vector #'car inner-block) blocks)
-		 (push (map 'vector #'cdr inner-block) components))))))
-     asa)
-    (dbg :iter "John-Vanka blocks: ~D" (length blocks))
-    (values blocks components)))
 

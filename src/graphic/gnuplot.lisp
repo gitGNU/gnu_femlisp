@@ -46,9 +46,16 @@ version.")
   (setq *gnuplot-stream*
 	(if (and *gnuplot-stream* (open-stream-p *gnuplot-stream*))
 	    *gnuplot-stream*
-	    (ext::process-input
-	     (ext::run-program *gnuplot-path* '() :input :stream
-			       :output nil :wait nil)))))
+	    (whereas ((process
+		       (ext::run-program *gnuplot-path* '() :input :stream
+					 :output nil :wait nil)))
+	      (ext::process-input process))))
+  (unless *gnuplot-stream*
+    (format *error-output*
+	    "Could not open stream to Gnuplot.  Please ensure that the
+special variable CL-USER::*GNUPLOT-PATH* has a reasonable value.  Usually,
+this is set in femlisp:src;femlisp-config.lisp."))
+  *gnuplot-stream*)
 
 (defmethod graphic-stream ((program (eql :gnuplot)))
   (ensure-gnuplot-stream))
@@ -58,7 +65,6 @@ version.")
 (progn
   (close *gnuplot-stream*)
   (setq *gnuplot-stream* nil))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Gnuplot enhancements
@@ -107,103 +113,3 @@ trick to avoid writing the file while our gnuplot job is still reading.")
 (defmethod graphic-output :after (object (program (eql :gnuplot)) &key &allow-other-keys)
   (setq *gnuplot-toggle* (if (zerop *gnuplot-toggle*) 1 0)))
 
-#+(or) ; inactive
-(defmethod graphic-end (object (program (eql :gnuplot)) &key &allow-other-keys)
-  (setq *gnuplot-toggle* (if (zerop *gnuplot-toggle*) 1 0)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Old code, maybe still useful
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-#|
-(defun gnuplot-action (action &key (plot t) left right bottom top &allow-other-keys)
-  "Performs a certain gnuplot action."
-  (let ((stream (if (eq plot :file)
-		    (open *gnuplot-file* :direction :output :if-exists :supersede)
-		    (ensure-gnuplot-stream))))
-    (unwind-protect
-	 (progn
-	   (if (and left right)
-	       (format stream "set xrange [~a:~a]~%" left right)
-	       (format stream "set autoscale x~%"))
-	   (if (and bottom top)
-	       (format stream "set yrange [~a:~a]~%" bottom top)
-	       (format stream "set autoscale y~%"))
-	   (funcall action stream))
-      (ecase plot
-	((t :plot) (format *standard-output* "Done plotting.~%"))
-	(:wait
-	 (fresh-line *terminal-io*)
-	 (princ "Press <enter> to continue..." *terminal-io*)
-	 (force-output *terminal-io*) (read-line *terminal-io* nil nil))
-	(:print (format *standard-output* "Sent the plot to `~a'.~%" cllib::*gnuplot-printer*)
-		(format stream "set output~%"))
-	(:file (format *standard-output* "Wrote `~a'.~%Type \"load '~a'\" at the gnuplot prompt.~%"
-		       (extensions:unix-namestring *gnuplot-file*)
-		       (extensions:unix-namestring *gnuplot-file*))))
-      (force-output stream))))
-
-(defun gnuplot-vector-field (vec-field &rest rest &key (title "vf")
-			     (left -1.0) (right 1.0) (bottom -0.8) (top 0.8)
-			     n nx ny scale &allow-other-keys)
-  "Plot the given vec-field function."
-  (apply #'gnuplot-action
-	 #'(lambda (stream)
-	     (format stream "plot '-' using 1:2:3:4 title \"~a\" with vector~%~%" title)
-	     (loop with dx = (/ (- right left) (or nx n))
-		   and dy =  (/ (- top bottom) (or ny n))
-		   for x = left then (+ x dx)
-		   until (> x right) do
-		   (loop for y = bottom then (+ y dy)
-			 until (> y top) do
-			 (let* ((vf (funcall vec-field (vector x y)))
-				(vec (etypecase scale
-				       (number (map (type-of vf) #'(lambda (x) (* scale x)) vf))
-				       (function (funcall scale vf)))))
-			   (format stream "~f ~f ~f ~f~%"
-				   (- x (* 0.5 (aref vec 0))) (- y (* 0.5 (aref vec 1)))
-				   (aref vec 0) (aref vec 1))))
-		   finally (format stream "e~%")))
-	 :left left :right right :bottom bottom :top top
-	 rest))
-
-(defun gnuplot-polygon (points &rest rest &key (title "data") &allow-other-keys)
-  "Plot all points in list connected by lines."
-  (apply #'gnuplot-action
-	 #'(lambda (stream)
-	     (format stream "plot '-' using 1:2 title \"~a\" with lines~%~%" title)
-	     (dolist (point points)
-	       (format stream "~f ~f~%" (vec-ref point 0) (vec-ref point 1)))
-	     (format stream "e~%"))
-	 rest))
-
-(defun gnuplot-polygons (polygon-list &rest rest)
-  "Plot all points in list connected by lines."
-  (apply #'gnuplot-action
-	 #'(lambda (stream)
-	     (loop initially (format stream "plot ")
-		   for polygon in polygon-list
-		   for beginning = t then nil do
-		   (unless beginning (format stream ", "))
-		   (format stream "'-' title \"~a\" with lines" (car polygon))
-		   finally (format stream "~%~%"))
-	     (dolist (polygon polygon-list)
-	       (dolist (point (cdr polygon))
-		 (format stream "~f ~f~%" (vec-ref point 0) (vec-ref point 1)))
-	       (format stream "e~%")))
-	 rest))
-
-(defun gnuplot-array (mat &rest rest &key (h 1.0) (title "data") &allow-other-keys)
-  "Plot all points in the array mat connected by lines."
-  (apply #'gnuplot-action
-	 #'(lambda (stream)
-	     (format stream "set hidden3d~%")
-	     (format stream "splot '-' using 1:2:3 title \"~a\" with lines~%~%" title)
-             (dotimes (row (nrows mat))
-               (dotimes (col (ncols mat))
-                 (format stream "~f ~f ~f~%" (* row h) (* col h) (mat-ref mat row col)))
-               (terpri stream))
-	     (format stream "e~%")
-	     (format stream "set nohidden3d~%"))
-	 rest))
-|#

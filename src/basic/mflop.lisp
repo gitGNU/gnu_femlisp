@@ -56,6 +56,13 @@
   (loop for i of-type fixnum from 0 below n do
 	(incf (aref y i) (* a (aref x i)))))
 
+(defun ddot (x y n)
+  (declare (type fixnum n)
+	   (type (simple-array double-float (*)) x y))
+  (declare (optimize (safety 0) (space 0) (debug 0) (speed 3)))
+  (loop for i of-type fixnum from 0 below n
+	summing (* (aref x i) (aref y i)) double-float))
+
 (defun measure-time (fn)
   "Repeatedly runs fn which should be a function with no parameters until
 it takes more than *mflop-delta* seconds.  Then it returns the average time
@@ -71,7 +78,11 @@ in seconds."
 (defparameter *hardware-speed*
   (let ((x (make-array +N-long+ :element-type 'double-float :initial-element 2.0d0))
 	(y (make-array +N-long+ :element-type 'double-float :initial-element 1.0d0)))
+    ;;(/ (measure-time #'(lambda () (blas::DAXPY n 2.0d0 x 1 y 1))))
     (/ (measure-time #'(lambda () (daxpy x 2.0d0 y +N-long+)))))
   "This is a guess for the speed of the hardware Femlisp is currently
 running on.  At the moment, it is chosen as the MFLOP rate of a daxpy
 operation on long vectors implemented in CL.")
+
+(defun test-mflop ()
+  )

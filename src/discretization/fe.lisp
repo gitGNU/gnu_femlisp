@@ -240,13 +240,6 @@ in a sparse vector value block corresponding to the subcell."
 ;;; <fe-discretization>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <discretization> ()
-  ()
-  (:documentation "Discretization base class."))
-
-(defgeneric discretization-order (disc)
-  (:documentation "Returns the order of the discretization."))
-
 (defclass <fe-discretization> (<discretization>)
   ()
   (:documentation "FE discretization base class."))

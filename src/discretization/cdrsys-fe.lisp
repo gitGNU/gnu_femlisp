@@ -79,19 +79,17 @@
 		  for dof in (fe-dofs fe)
 		  for j below (nr-of-inner-dofs fe)
 		  for k = (dof-in-vblock-index dof)
-		  for ci = (make-<coefficient-input>
-			    :local (dof-coord dof)
-			    :global (local->global cell (dof-gcoord dof)))
+		  for ci = (list :local (dof-coord dof)
+				 :global (local->global cell (dof-gcoord dof)))
 		  do
-		  (when dirichlet-function
-		    ;; The following is only correct for degrees of freedom of
-		    ;; Lagrange type.  Perhaps one should use Hermite finite
-		    ;; cells only in the interior?
-		    (setf (mat-ref (mat-ref constraints-P cell-key cell-key) k k) 1.0d0)
-		    ;;		       (clear-row mat cell k)
-		    ;;		       (setf (mat-ref (mat-ref mat cell cell) k k) 1.0d0)
-		    (setf (vec-ref (vec-ref constraints-rhs cell-key) k)
-			  (evaluate dirichlet-function ci)))
+		  ;; The following is only correct for degrees of freedom of
+		  ;; Lagrange type.  Perhaps one should use Hermite finite
+		  ;; cells only in the interior?
+		  (setf (mat-ref (mat-ref constraints-P cell-key cell-key) k k) 1.0d0)
+		  ;;		       (clear-row mat cell k)
+		  ;;		       (setf (mat-ref (mat-ref mat cell cell) k k) 1.0d0)
+		  (setf (vec-ref (vec-ref constraints-rhs cell-key) k)
+			(evaluate dirichlet-function ci))
 		  )))))
     (values constraints-P constraints-Q constraints-rhs)))
 
@@ -99,7 +97,7 @@
 (defun cdrsys-fe-tests ()
   #+(or) ; something like the following
   (let* ((order 1) (level 2)
-	 (problem (laplace-test-problem 1))
+	 (problem (cdr-model-problem 1))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order)))
     (multiple-value-bind (matrix rhs)

@@ -36,7 +36,8 @@
 
   4. To set up a simple CL environment, you could use Emacs with
      inferior-lisp-mode.  Better but more difficult to install is ILISP.
-     You could also try to use Hemlock with CMUCL.
+     You could also try to use Hemlock with CMUCL.  Recently, also SLIME
+     has become a possibility.
 
   5. In any case, you should get yourself some literature on CL. An
      indispensable resource for Common Lisp is the ANSI CL specification
@@ -48,10 +49,11 @@
 *** General
 
 - Femlisp works only with CMUCL at the moment.  This will change in the
-  future.
+  near future.
 
 - The installation script works without changes only on Linux for
-  x86-architectures.  It should be easy to adapt for Solaris.
+  x86-architectures (with slight changes for Debian/Woody, see below).  It
+  should be easy to adapt for Solaris.
 
 *** Matlisp
 

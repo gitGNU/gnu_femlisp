@@ -55,10 +55,5 @@ coefficients."))
 ;;; finally also the standard demos can be accessed
 (adjoin-demo *demo-root* *effcoeff-root*)
 
-
-#+(or)
-(loop for demo in (femlisp-demo::leaves *effcoeff-root*) do
-      (remhash (femlisp-demo::name demo) *visited-demos*))
-
 #+(or)(demo *effcoeff-root*)
 

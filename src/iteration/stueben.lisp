@@ -256,10 +256,10 @@ corresponding index."))
 
     (let ((amg (make-instance '<stueben> :max-depth 1 :cg-max-size 1)))
       #+(or)
-      (print-smat (getf (apply #'improved-prolongation amg
-			       (apply #'tentative-prolongation amg
-				      (choose-coarse-grid amg :mat A)))
-			:prolongation))
+      (show (getf (apply #'improved-prolongation amg
+			 (apply #'tentative-prolongation amg
+				(choose-coarse-grid amg :mat A)))
+		  :prolongation))
       #+(or)
       (coarsen amg A)
       (linsolve A b :output t :iteration amg :maxsteps 20)))

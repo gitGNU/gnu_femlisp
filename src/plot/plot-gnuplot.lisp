@@ -118,12 +118,8 @@ graphs."
 (defun test-plot-gnuplot ()
   (unless tests:*femlisp-test-internal*
     (let ((graph '(("graph-1" #(1.0 2.0) #(3.0 4.0)))))
-      (graphic-commands graph :gnuplot)
-      (graphic-write-data t graph :gnuplot)
       (plot graph :debug t))
     (let ((graph '("graph-2" #(1.0 2.0) #(3.0 4.0))))
-      (graphic-commands graph :gnuplot)
-      (graphic-write-data t graph :gnuplot)
       (plot graph :debug t))
     (plot
      (list

@@ -36,7 +36,12 @@
 
 ;;; paths to external programs needed
 
-(defparameter *dx-path* (pathname "path:dx")
+(defparameter *dx-path*
+  (or
+   #+cmu (let ((string (cdr (assoc :OPENDX_BINARY ext:*environment-list*))))
+	   (when string
+	     (probe-file (pathname string))))
+   (probe-file (pathname "path:dx")))
   "The path to the Data Explorer executable.")
 
 (defparameter *gnuplot-path* (unix-namestring (pathname "path:gnuplot"))

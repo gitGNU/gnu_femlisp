@@ -61,8 +61,8 @@
 		  ;;for j below (nr-of-inner-dofs fe) do
 		  (let ((k (dof-in-vblock-index dof))
 			(comp (dof-component dof))
-			(ci (make-instance '<coefficient-input> :local (dof-coord dof)
-					   :global (local->global cell (dof-gcoord dof)))))
+			(ci (list :local (dof-coord dof)
+				  :global (local->global cell (dof-gcoord dof)))))
 		    ;; Very simple component-wise constraints for Lagrange
 		    ;; fe. This should be extended to constraints in the
 		    ;; form P, Q, r.  It could also be accelerated by not

@@ -102,7 +102,7 @@ used for handling multiple right-hand sides or solutions simultaneously."))
 	   (slot-value svec2 'blocks)))
 
 (defmethod show ((svec <sparse-vector>) &key keys (zeros t) &allow-other-keys)
-  (format t "Sparse vector with ~D allocated components:~%"
+  (format t "~&Sparse vector with ~D allocated components:~%"
 	  (nr-of-entries svec))
   (flet ((keyout (key vblock)
 	   (when (or zeros (not (mzerop vblock)))
@@ -111,9 +111,6 @@ used for handling multiple right-hand sides or solutions simultaneously."))
     (dolist (key (or keys (keys svec)))
       (keyout key (vec-ref svec key))))
   svec)
-
-(defmethod print-svec ((svec <sparse-vector>))
-  (show svec))
 
 (defmethod keys ((svec <sparse-vector>))
   (let ((keys ()))
@@ -153,8 +150,8 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 			(if entry (matrix-ref entry i j) 0.0d0)))))
     mm))
 
-(defmethod set-svec-to-local-block ((svec <sparse-vector>) local-vec &key keys ranges)
-  "Copies a local block in matlisp format into a <sparse-vector>."
+(defun combine-svec-block (svec local-vec keys ranges operation)
+  "Puts a local block in matlisp format into a <sparse-vector>."
   (setq keys (coerce (or keys (keys svec)) 'vector))
   (setq ranges (and ranges (coerce ranges 'vector)))
   (let ((multiplicity (multiplicity svec)))
@@ -164,12 +161,23 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 	  for end-comp of-type fixnum = (if ranges
 					    (cdr (aref ranges k))
 					    (funcall (key->size svec) key))
-	  for entry = (vector-block svec key)
-	  when entry do
+	  for entry = (vec-ref svec key) do
+	  ;; for entry = (vector-block svec key)
+	  ;; when entry do
 	  (loop for i of-type fixnum from start-comp below end-comp do
 		(dotimes (j multiplicity)
-		  (setf (matrix-ref entry i j)
-			(matrix-ref local-vec (+ offset i) j)))))))
+		  (let ((local-entry (matrix-ref local-vec (+ offset i) j)))
+		    (ecase operation
+		      (:add (incf (matrix-ref entry i j) local-entry))
+		      (:set (setf (matrix-ref entry i j) local-entry)))))))))
+  
+(defmethod set-svec-to-local-block ((svec <sparse-vector>) local-vec &key keys ranges)
+  "Copies a local block in matlisp format into a <sparse-vector>."
+  (combine-svec-block svec local-vec keys ranges :set))
+
+(defmethod add-svec-to-local-block ((svec <sparse-vector>) local-vec &key keys ranges)
+  "Copies a local block in matlisp format into a <sparse-vector>."
+  (combine-svec-block svec local-vec keys ranges :add))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; matlisp operations for the <sparse-vector> class
@@ -581,7 +589,7 @@ means a lot of consing."
 
 (defmethod show ((smat <sparse-matrix>) &key keys (zeros t) &allow-other-keys)
   (assert (null keys))
-  (format t "Sparse matrix:~%")
+  (format t "~&Sparse matrix:~%")
   (for-each-row-key
    #'(lambda (row-key)
        (format t " ~%*** ")
@@ -595,9 +603,6 @@ means a lot of consing."
 	(matrix-row smat row-key)))
    smat)
   smat)
-
-(defmethod print-smat ((smat <sparse-matrix>))
-  (show smat))
 
 (defmethod display ((smat <sparse-matrix>) &key row-order col-order order)
   (unless row-order
@@ -907,6 +912,7 @@ col-keys=nil means to allow every key."
 ;;; transformation to matlisp matrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 (defmethod sparse-matrix->matlisp ((A <sparse-matrix>)
 				   &key keys row-keys col-keys
 				   ranges row-ranges col-ranges)
@@ -940,7 +946,7 @@ col-keys=nil means to allow every key."
 		      (loop for j of-type fixnum from col-a below col-b do
 			    (setf (matrix-ref mm (+ row-offset i) (+ col-offset j))
 				  (if mblock
-				      (matrix-ref mblock i j)
+				      (mat-ref mblock i j)
 				      0.0d0))))))
     mm))
 
@@ -1027,7 +1033,7 @@ mapped to identity."
       (assert (= (norm x :1) 2.0))
       ;;
       (setf (mat-ref B 0 0) [[2.0]])
-      (print-svec (m* B x))
+      (show (m* B x))
   
       (x<-0 A)
       (x<-y A B)
@@ -1039,10 +1045,10 @@ mapped to identity."
       (sparse-matrix->matlisp AA :row-keys '(0 1) :col-keys '(1))
       ;;
       (setf (mat-ref A 0 1) [[2.0]])
-      (print-smat (sparse-m* A A))
-      (print-smat (sparse-m* A A :job :nt :sparsity :B))
-      (print-smat (sparse-m* A A :job :tn :sparsity :A))
-      (print-smat (sparse-m* A A :job :tt))
+      (show (sparse-m* A A))
+      (show (sparse-m* A A :job :nt :sparsity :B))
+      (show (sparse-m* A A :job :tn :sparsity :A))
+      (show (sparse-m* A A :job :tt))
       ;; end of testing environment
       ))
   ;; end of test procedure

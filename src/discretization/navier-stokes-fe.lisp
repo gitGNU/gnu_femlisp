@@ -111,8 +111,7 @@ up to now."
 	  (let* ((sol-ip (and local-sol
 			      (map 'vector #'(lambda (sv ls) (m* (transpose sv) ls))
 				   local-sol shape-vals)))
-		 (coeff-input (make-instance '<coefficient-input>
-					     :global global :solution sol-ip)))
+		 (coeff-input (list :global global :solution sol-ip)))
 	    (when viscosity (setq viscosity (evaluate viscosity coeff-input)))
 	    (when reynolds (setq reynolds (evaluate reynolds coeff-input)))
 	    (when force (setq force (evaluate force coeff-input)))

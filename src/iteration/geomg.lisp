@@ -108,7 +108,7 @@ already assembled.  Works only for uniformly refined meshes."
 			      :ignore (column-table imat))
 	  (setf (aref i-vec level) imat))
     ;; return result
-    (make-assembly-line :a-vec a-vec :i-vec i-vec)))
+    (blackboard :a-vec a-vec :i-vec i-vec)))
 
 #+(or)
 (defmethod multilevel-decomposition ((mgit <geometric-mg>)
@@ -185,7 +185,7 @@ is better suited for handling nonlinear problems and local refinements."))
   "Add the vector of FAS restrictions to the output of this method for
 <geometric-mg>."
   (let ((mg-data (call-next-method)))
-    (setf (get-al mg-data :fas-r-vec)
+    (setf (getbb mg-data :fas-r-vec)
 	  (let ((ansatz-space (ansatz-space mat)))
 	    (coerce
 	     (loop for level from 0 below (top-level (mesh ansatz-space))
@@ -315,31 +315,31 @@ only Dirichlet vertices."))
 	(make-iterator (make-instance '<stueben>) A)
 	(make-iterator (coarse-grid-iteration *standard-stueben*) A))))
 
-(defun s1-reduction-amg-solver (order &key (reduction nil reduction-p)
-				output (threshold 1.0d-10) (maxsteps 100))
+(defun s1-reduction-amg-solver (order &key reduction output (maxsteps 100))
   "This is an AMG solver which works also for Lagrange fe of order p by
 reducing them to P^1 first."
-  (let ((smoother (make-instance '<local-bgs> :type :vertex-centered)))
+  (declare (ignore order))
+  (let ((smoother (geometric-ssc)))
     (make-instance
      '<linear-solver>
      :iteration
      (make-instance '<s1-reduction> :max-depth 2 :pre-steps 1 :pre-smooth smoother
 		    :post-steps 1 :post-smooth smoother
 		    :coarse-grid-iteration #+(or)*lu-iteration*
-		    #-(or)(make-instance '<s1-coarse-grid-iterator> :output output))
-     :reduction (if reduction-p
-		    reduction
-		    (* 0.1 (expt 0.5 (* 2 (+ order 1)))))
-     :threshold threshold
-     :maxsteps maxsteps  ; because of difficulties with no unknowns
+		    #-(or)(make-instance '<s1-coarse-grid-iterator>)
+		    :output output)
+     :success-if `(< :reduction ,(or reduction 1.0e-2))
+     :failure-if `(> :step ,maxsteps)
      :output output)))
 
 
-;;; Testing
+;;; Testing: (test-geomg)
 
 (defun test-geomg ()
   (geometric-cs :fmg t)
   (fas :fmg t :coarse-grid-iteration *lu-iteration*)
-  (s1-reduction-amg-solver 2))
+  (s1-reduction-amg-solver 2)
+  (class-name (class-of (make-instance '<s1-reduction>)))
+  )
 
 (tests::adjoin-femlisp-test 'test-geomg)

@@ -34,20 +34,19 @@
 
 (in-package :strategy)
 
-(defun update-I-P-sol (assembly-line)
+(defun update-I-P-sol (blackboard)
   "For a given local refinement this updates interpolation and projection
-operators on the assembly line and interpolates the solution to the new
+operators on the blackboard and interpolates the solution to the new
 surface.  This is used in the strategy package."
   (with-items (&key ansatz-space interpolation projection solution refined-cells)
-      assembly-line
+      blackboard
     (unless interpolation (setf interpolation (make-ansatz-space-automorphism ansatz-space)))
     (unless projection (setf projection (make-ansatz-space-automorphism ansatz-space)))
     (let ((local-interpolation (interpolation-matrix ansatz-space :region refined-cells))
 	  (local-projection (projection-matrix ansatz-space :region refined-cells)))
       ;;(plot solution) (sleep 1.0)
-      ;; the following was x<-y!
       (x<-y solution (sparse-m* local-interpolation solution :sparsity :A))
-      ;;(plot (get-al assembly-line :solution)) (break)
+      ;;(plot (getbb blackboard :solution)) (break)
       (x+=y interpolation local-interpolation)
       (x+=y projection local-projection))))
 

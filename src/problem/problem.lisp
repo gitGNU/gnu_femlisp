@@ -41,7 +41,8 @@
 (defclass <problem> ()
   ((domain :reader domain :initform (ext:required-argument)
 	   :initarg :domain :type <domain>)
-   (p->c :reader patch->coefficients)
+   (p->c :reader patch->coefficients :initform (constantly nil)
+	 :initarg :patch->coefficients)
    (memoize :initform t :initarg :memoize)
    (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity))
   ;;
@@ -52,14 +53,12 @@ the form (SYM1 coefficient1 SYM2 coefficient2 ...).  The multiplicity slot
 can be chosen as n>1 if the problem is posed with n different right hand
 sides simultaneously."))
 
-(defmethod initialize-instance :after ((problem <problem>)
-				       &key (patch->coefficients (constantly nil))
-				       &allow-other-keys)
+(defmethod initialize-instance :after ((problem <problem>) &key &allow-other-keys)
   "Memoize the coefficient definition.  This might create problems for
 strange applications with dynamically changing problems."
   (when (slot-value problem 'memoize)
     (setf (slot-value problem 'p->c)
-	  (memoize-1 patch->coefficients))))
+	  (memoize-1 (slot-value problem 'p->c)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Coefficient functions
@@ -77,7 +76,7 @@ strange applications with dynamically changing problems."
   "This list contains keywords which make sense for several problems.
 PERIODIC: periodic boundary conditions for non-identified boundaries.  This
 is not yet implemented (not needed?).
-CONSTRAINT: essential boundary conditions for systems.")
+CONSTRAINT: essential boundary conditions.")
 
 (defgeneric interior-coefficients (problem)
   (:documentation "Yields a list of possible interior coefficients for problem."))
@@ -131,58 +130,53 @@ self-adjoint, the second says if that value has really been checked."))
   (member coeff (coefficients problem)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <coefficient-input>
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <coefficient-input> ()
-  ((local :reader ci-local :initarg :local :initform nil :type t)
-   (global :reader ci-global :initarg :global :initform nil :type t)
-   (solution :reader ci-solution :initarg :solution
-	     :initform nil :type t))
-  (:documentation "The <coefficient-input>-class represents the interface
-between discretization and problem.  It may be extended as needed, e.g. to
-allow for coefficients depending on the solution gradient.  This class is
-also used to construct a sample input for a <coefficient> by giving the
-needed entries the value t or nil."))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <coefficient>
+;;; coefficient
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <coefficient> ()
-  ((input :accessor sample-input :initarg :input
-	  :type <coefficient-input>)
-   (eval :accessor coeff-eval :initarg :eval :type function))
-  (:documentation "A class for coefficient-functions.  input is a sample
-input indicating the needed/non-needed fields with a true resp. false
-value.  eval is the evaluating function."))
+  ((demands :reader demands :initform () :initarg :demands
+	    :documentation "A list of keywords indicating which information
+the evaluation function needs.  Possible choices depend on problem and
+discretization, e.g. :local, :global, :solution are choices which will
+probably be understood.")
+   (eval :accessor coeff-eval :initarg :eval :type function
+	 :documentation "The evaluation funtion.  It accepts a list of
+keyword parameters which should correspond to the list in @code{needed}.")
+   (residual :initform t :initarg :residual)
+   (jacobian :initform t :initarg :jacobian))
+  (:documentation "The coefficient class."))
 
-(defmethod evaluate ((coeff <coefficient>) (ci <coefficient-input>))
-  "The pairing between coefficient function and input."
-  (funcall (coeff-eval coeff) ci))
+(defmethod evaluate ((coeff <coefficient>) (input list))
+  "The pairing between coefficient and input."
+  (apply (slot-value coeff 'eval) input))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; some trivial coefficient functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *empty-coefficient-input*
-  (make-instance '<coefficient-input>))
+(declaim (inline constant-coefficient))
+(defun constant-coefficient (value &rest other-values)
+  (make-instance
+   '<coefficient> :demands () :eval
+   (if other-values
+       #'(lambda (&rest args)
+	   (declare (ignore args))
+	   (apply #'values value other-values))
+       (constantly value))))
 
-(defun constant-coefficient (value)
-  (make-instance '<coefficient>
-		 :input *empty-coefficient-input*
-		 :eval (constantly value)))
-  
 (defparameter *cf-constantly-0.0d0* (constant-coefficient 0.0d0))
 (defparameter *cf-constantly-1.0d0* (constant-coefficient 1.0d0))
 
 (defun function->coefficient (func)
   "Returns a coefficient for the given function depending on global
 coordinates."
-  (make-instance '<coefficient>
-		 :input (make-instance '<coefficient-input> :global t)
-		 :eval #'(lambda (ci) (funcall func (ci-global ci)))))
+  (make-instance '<coefficient> :demands '(:global)
+		 :eval #'(lambda (&key global &allow-other-keys)
+			   (funcall func global))))
 
+(defun ensure-coefficient (obj)
+  "Filter ensuring that the result is a coefficient function."
+  (if (functionp obj) (function->coefficient obj) obj))
 
 (defun problem-info (problem &optional mesh &key (where :all))
   "Displays information about the given problem."
@@ -198,8 +192,8 @@ coordinates."
 ;;; Testing: (test-problem)
 
 (defun test-problem ()
-  (make-instance
-   '<coefficient> :eval #'(lambda (ci) (exp (aref (ci-global ci) 0))))
+  (function->coefficient
+   #'(lambda (&key global &allow-other-keys) (exp (aref global 0))))
   (make-instance '<problem> :domain *unit-interval-domain*
 		 :patch->coefficients nil)
   )

@@ -85,9 +85,10 @@ A^{lk}_{ji} N^{lr}_q = F[k*dim+i] . N[r*dim+q]."
 ;;; utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun inlay-block-decomposition (asa)
+(defun inlay-block-decomposition (blockit asa)
   "Block decomposition for obtaining a coarse-grid solver which is robust
 against the size of the coefficient jump."
+  (declare (ignore blockit))
   (let ((inlay-block ())
 	(rest-blocks ())
 	(mesh (mesh asa)))
@@ -117,32 +118,24 @@ The solution to this cell problem is a tensor field of rank 3
 with dim^3 components which are plotted one after the other."
   (let* ((domain (domain problem))
 	 (dim (dimension domain)))
-    (setf (getf *strategy-output* :observe)
-	  `((:Ahom ,(format nil "~19@A~19@A~19@A" "A^00_00" "A^00_11" "A^10_10")
-	     ,#'(lambda (assembly-line)
-		  (with-items (&key solution rhs) assembly-line
-		    (let ((tensor (and solution rhs (apply #'effective-tensor assembly-line))))
-		      (format t "~19,10,2E~19,10,2E~19,10,2E"
-			      (and tensor (matrix-ref (aref tensor 0 0) 0 0))
-			      (and tensor (matrix-ref (aref tensor 0 0) 1 1))
-			      (and tensor (matrix-ref (aref tensor 1 0) 1 0)))))))))
     (defparameter *result*
-      (solve-with
+      (solve
        (make-instance
-	'<fe-strategy> :fe-class (lagrange-fe order :nr-comps dim :type :gauss-lobatto)
+	'<stationary-fe-strategy>
+	:fe-class (lagrange-fe order :nr-comps dim :type :gauss-lobatto)
 	:estimator (make-instance '<projection-error-estimator>)
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
-	:appraise (stop-if :nr-levels>= levels)
+	:success-if `(>= :max-level ,(1- levels))
 	:solver
 	(make-instance
 	 '<linear-solver> :iteration
-	 (let ((smoother (if  (>= dim 3)
-			      *gauss-seidel*
-			      (make-instance '<local-bgs> :type :vertex-centered))))
+	 (let ((smoother (if (>= dim 3)
+			     *gauss-seidel*
+			     (geometric-ssc))))
 	   (geometric-cs
 	    :coarse-grid-iteration
 	    (make-instance '<multi-iteration> :nr-steps 10 :base
-			   (make-instance '<custom-block-gauss-seidel>
+			   (make-instance '<custom-ssc>
 					  :block-setup #'inlay-block-decomposition))
 	    :pre-steps 2 :pre-smooth smoother
 	    :post-steps 2 :post-smooth smoother
@@ -150,9 +143,18 @@ with dim^3 components which are plotted one after the other."
 	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
 	 :failure-if `(and (> :step-reduction 0.9) (> :step 2) (> :defnorm 1.0e-9))
 	 :output (eq output :all))
+	:observe
+	(append *stationary-fe-strategy-observe*
+		(list
+		 (list (format nil "~19@A~19@A~19@A" "A^00_00" "A^00_11" "A^10_10") "~57A"
+		       #'(lambda (blackboard)
+			   (let ((tensor (effective-tensor blackboard)))
+			     (format nil "~19,10,2E~19,10,2E~19,10,2E"
+				     (and tensor (matrix-ref (aref tensor 0 0) 0 0))
+				     (and tensor (matrix-ref (aref tensor 0 0) 1 1))
+				     (and tensor (matrix-ref (aref tensor 1 0) 1 0))))))))
 	:output t)
-       problem
-       ))
+       (blackboard :problem problem)))
     (when plot
       ;; plot components of cell solution tensor
       (dotimes (i dim)
@@ -162,7 +164,7 @@ with dim^3 components which are plotted one after the other."
 	    (sleep 1.0)))))
     ;; compute the homogenized coefficient
     (format t "The effective elasticity tensor is:~%~A~%"
-	    (apply #'effective-tensor *result*))))
+	    (effective-tensor *result*))))
 
 #+(or)
 (elasticity-interior-effective-coeff-demo
@@ -252,7 +254,7 @@ Parameters: order=~D, levels=~D~%~%"
   (check-elasticity-tensor average-tensor 0.0)
   (check-elasticity-tensor correction-tensor 1.0e-4)
   (check-elasticity-tensor (m- average-tensor correction-tensor)))
-(apply #'effective-tensor *result*)
+(effective-tensor *result*)
 
 (isotropic-elasticity-tensor :dim 2 :lambda 100 :mu 100)
 
@@ -269,7 +271,7 @@ Parameters: order=~D, levels=~D~%~%"
        (show rhs)
        ;;(plot rhs :component 1 :index 0))))
        #-(or)
-       (let* ((smoother #+(or)(make-instance '<local-bgs>)
+       (let* ((smoother #+(or)(geometric-ssc)
 			#+(or) *standard-ilu*
 			#-(or) *gauss-seidel*)
 	      (cs (geometric-cs
@@ -279,9 +281,8 @@ Parameters: order=~D, levels=~D~%~%"
 		   :pre-steps 1 :pre-smooth smoother :post-steps 1 :post-smooth smoother)))
 	 (linsolve mat rhs :output t :iteration cs :maxsteps 5
 		   :reduction nil #+(or) (* 0.1 (expt 0.5 (* 2 (+ order 1))))))
-       #+(or)(solve (s1-reduction-amg-solver order) :matrix mat :rhs rhs)
-       #+(or)(solve *lu-solver* :matrix mat :rhs rhs)
-       #+(or)(m* (sparse-ldu mat) rhs)
+       #+(or)(solve (s1-reduction-amg-solver order) (blackboard :matrix mat :rhs rhs))
+       #+(or)(solve *lu-solver* (blackboard :matrix mat :rhs rhs))
        ))))
 
 (plot *result* :component 1 :index 0)

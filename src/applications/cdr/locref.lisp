@@ -36,11 +36,9 @@
 
 (defun test-refined-laplace-problem ()
 
-(let* ((problem (standard-cdr-problem
+(let* ((problem (cdr-model-problem
 		 (n-cube-domain 1)
-		 :diffusion (constant-coefficient (eye 1))
-		 :source (function->coefficient
-			  #'(lambda (x) #I"exp(-5*(x[0]-0.5d0)^^2)*sin(x[0]-0.5d0)"))))
+		 :source #'(lambda (x) #I"exp(-5*(x[0]-0.5d0)^^2)*sin(x[0]-0.5d0)")))
        (fe-class (lagrange-fe 1))
        (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) 2)))
   (multiple-value-bind (mat rhs)
@@ -52,7 +50,7 @@
 
 ;; boundary refinement
 #+(or)
-(let* ((problem (laplace-test-problem 1))
+(let* ((problem (cdr-model-problem 1))
        (fe-class (lagrange-fe 1))
        (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) 1))
        (v-cycle (geometric-cs :base-level 1)))
@@ -64,17 +62,17 @@
       (show (discretization::compute-interior-level-matrix interior-mat 2)))
     #+(or)
     (let ((mg-data (multilevel-decomposition v-cycle mat)))
-      (show (aref (get-al mg-data :a-vec) 2)))
+      (show (aref (getbb mg-data :a-vec) 2)))
     #+(or)
     (let ((mg-data (multilevel-decomposition v-cycle mat)))
-      (show (aref (get-al mg-data :i-vec) 1)))
+      (show (aref (getbb mg-data :i-vec) 1)))
     (let ((sol #-(or) (linsolve mat rhs :output t :iteration (geometric-cs) :maxsteps 10)
 	       #+(or) (m* (sparse-ldu mat) rhs)))
       #+(or)(unless *femlisp-test-internal* (plot sol))
       #-(or)(show sol))))
 
 ;; interior refinement
-(let* ((problem (laplace-test-problem 1))
+(let* ((problem (cdr-model-problem 1))
        (fe-class (lagrange-fe 1))
        (h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
   (loop repeat 4 do (refine h-mesh :test (rcurry #'inside-cell? #(0.5))))
@@ -88,7 +86,7 @@
 ;; 2D case
 (time
  (let* ((dim 2) (order 1)
-	(problem (laplace-test-problem-on-domain (n-cube-domain dim)))
+	(problem (cdr-model-problem (n-cube-domain dim)))
 	(fedisc (lagrange-fe order))
 	(h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
    #-(or) (loop repeat 2 do (refine h-mesh :test (rcurry #'inside-cell? #(0.25 0.25))))
@@ -99,7 +97,7 @@
      (row-keys mat))))
 
 ;; double refinement jump
-(let* ((problem (laplace-test-problem 2))
+(let* ((problem (cdr-model-problem 2))
        (fedisc (lagrange-fe 1))
        (h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
   #+(or) (loop repeat 1 do (refine h-mesh) (refine h-mesh) (refine h-mesh))

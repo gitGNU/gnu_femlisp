@@ -58,17 +58,6 @@ server."))
 (defgeneric send-graphic-commands (stream object program &rest rest &key &allow-other-keys)
   (:documentation "Routine for sending commands to the graphics server."))
 
-#+(or)  ; inactive
-
-(defgeneric graphic-end (object program &key &allow-other-keys)
-  (:documentation "End a graphics output."))
-
-;;; default methods
-#+(or) ;inactive
-(defmethod graphic-end (object program &key &allow-other-keys)
-  "Default method: do nothing."
-  nil)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; General graphics output
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -82,35 +71,10 @@ server."))
     (with-open-file (stream pathname :direction :output :if-exists :supersede)
       (apply #'graphic-write-data stream object program rest))
     ;; send script commands to plot program
-    (let ((stream (graphic-stream program)))
+    (whereas ((stream (graphic-stream program)))
       (when debug (apply #'send-graphic-commands *trace-output* object program rest))
       (apply #'send-graphic-commands stream object program rest)
       (force-output stream)))
   ;; this is quite useful, similar to the behaviour of print
   object)
 
-
-(defun standard-graphic-output (object &rest rest &key (program *default-graphic-program*)
-				&allow-other-keys)
-  "Old Interface: might be abandoned."
-  (apply #'graphic-output object program rest))
-
-#+(or) ; inactive
-(defun standard-graphic-output (object &rest rest
-				&key (program *default-graphic-program*)
-				debug &allow-other-keys)
-  "Calls the generic graphic interface in appropriate order."
-  (apply #'graphic-start object program rest)
-  (let* ((filename (apply #'graphic-file-name object program rest))
-	 (pathname (concatenate 'string "femlisp:images;" filename)))
-    ;; write output to a standard file
-    (with-open-file (stream pathname :direction :output :if-exists :supersede)
-      (apply #'graphic-write-data stream object program rest))
-    ;; send script commands to plot program
-    (let ((stream (graphic-stream program)))
-      (when debug (apply #'send-graphic-commands *trace-output* object program rest))
-      (apply #'send-graphic-commands stream object program rest)
-      (force-output stream)))
-  (apply #'graphic-end object program rest)
-  ;; this is quite useful, similar to the behaviour of print
-  object)

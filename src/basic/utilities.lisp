@@ -294,6 +294,15 @@ Example: (map-product #'cons '(2 3) '(1 4)) -> ((2 . 1) (2 . 4) (3 . 1) (3 . 4))
 		 (funcall func node))))
     (rec tree)))
 
+(defun map-tree (func tree)
+  "Maps a tree.  (map-tree #'1+ '((1 (2)))) => ((2 (3)))"
+  (mapcar
+   #'(lambda (item)
+       (if (listp item)
+	   (map-tree func item)
+	   (funcall func item)))
+   tree))
+
 (defun rfind-if (func tree)
   "From Graham's book"
   (if (atom tree)
@@ -561,15 +570,45 @@ non-recursive functions."
       (defun ,unmemoized ,@rest)
       )))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Association lists
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declaim (inline geta))
+(defun geta (alist key)
+  "An analog to GETF for association lists."
+  (cdr (assoc key alist)))
+
+(define-setf-expander geta (alist key &environment env)
+  "An analog to (SETF GETF) for association lists."
+  (multiple-value-bind (temps vals stores store-form access-form)
+      (get-setf-expansion alist env)
+    (with-gensyms (keytemp result record maybe-new-record)
+      ;; Return the setf expansion for geta
+      (values
+       `(,@temps ,keytemp ,record ,maybe-new-record)
+       `(,@vals
+         ,key
+         (assoc ,keytemp ,access-form)
+         (or ,record (cons ,key nil)))
+       (list result)
+       `(if ,record
+         (setf (cdr ,record) ,result)
+         (let ((,(first stores) (cons ,maybe-new-record ,access-form)))
+           (setf (cdr ,maybe-new-record) ,result)
+           ,store-form
+           ,result))
+       `(cdr ,maybe-new-record)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Assembly lines / blackboards
+;;; Blackboards
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declaim (inline make-blackboard getbb make-assembly-line get-al))
+(declaim (inline make-blackboard getbb))
 
-(defun make-blackboard (&rest items)
-  "Makes items into an blackboard."
+(defun blackboard (&rest items)
+  "Makes items into an blackboard.  Copies if necessary to ensure that no
+literal list is modified."
   (if (eq (car items) :blackboard)
       items
       (list* :blackboard t (copy-seq items))))
@@ -582,27 +621,6 @@ the default value."
 (defun (setf getbb) (value blackboard key)
   "Setter for an blackboard."
   (setf (getf (cddr blackboard) key) value))
-
-(defun make-assembly-line (&rest items)
-  (apply #'make-blackboard items))
-(defun get-al (assembly-line key &optional default)
-  (getbb assembly-line key default))
-(defun (setf get-al) (value assembly-line key)
-  (setf (getbb assembly-line key) value))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Association list operations
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun alist-set! (alist key value)
-  (let ((record (assoc key alist)))
-    (if record
-	(setf (cdr record) value)
-      (push (cons key value) alist))))
-
-(definline alist-ref (alist key)
-  "Returns the value for key in alist."
-  (cdr (assoc key alist)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sets
@@ -779,6 +797,11 @@ from 0,...,n-1)."
 	    (format t "~&~A -> ~A~%" key value))
     (dohash (key ht) (format t "~A~%" key))
     (dohash ((value) ht) (format t "~A~%" value)))
+  (let ((alist ()))
+    (setf (geta alist :test) 1)
+    (setf (geta alist :hello) 2)
+    (setf (geta alist :test) 3)
+    (geta alist :test))
   )
 
 ;; (test-utilities)

@@ -125,8 +125,8 @@ to make the prolongation exact for constant functions."
   ((select :accessor select :initarg :select))
   (:documentation "If you should already have a suitable selection of
 coarse grid points, you may use it in this type of selection-amg.  Your
-routine should accept an assembly line of arguments and return two lists:
-the coarse nodes and the fine nodes."))
+routine should accept a blackboard of arguments and return two lists: the
+coarse nodes and the fine nodes."))
 
 (defmethod choose-coarse-grid ((amg <custom-coarsening-selection-amg>) &rest parameters)
   (multiple-value-bind (coarse fine)

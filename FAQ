@@ -10,9 +10,9 @@ Femlisp FAQ
 
    A: This depends mostly on Matlisp.  Matlisp works with CMUCL and ACL
    under Linux and Solaris.  If Matlisp should work with other CL
-   environments, it should be easy to port Femlisp.  An alternative idea
-   would be to make Matlisp an optional extension, but the loss would be
-   considerable.
+   environments, it should be easy to port Femlisp.  An alternative is to
+   write a Matlisp replacement which is possible because Femlisp uses only
+   a fraction of its functionality.
 
 2. Q: What manuals and other introductory material are available?
 
@@ -47,34 +47,31 @@ Femlisp FAQ
 1. Q: Why is Femlisp's linear algebra so slow?  Is this necessary?
 
    A: Because it is based on hash-tables indexed by mesh-entities like
-   vertices, lines, ...  Each entry is again a block consisting of a
-   Matlisp matrix object (or something else).  That means that generic
+   vertices, lines, ..., and each entry is again a block consisting of a
+   Matlisp matrix object (or something else).  This means that generic
    functions have to be used for handling those entries.  Of course, the
-   overhead is large, especially in the case of scalar equations with
-   low-order discretizations.  On the other hand, it adds a lot of
-   flexibility, because you can dynamically and locally manipulate your
-   linear operators with O(1) operations.
+   overhead for generic functions and hash-table is large, especially
+   in the case of scalar equations with low-order discretizations.
 
-2. Q: Is this necessary?
+2. Q: Is it possible to improve the linear algebra?
 
-   A: It is possible to improve on this by replacing the data structure by
-   a more efficient arra-based one (which has also to be specialized to
-   common cases like one-element matrix blocks).  An additional management
-   level then has to be introduced for allowing local matrix manipulations.
-   I have some thoughts about this, but it is non-trivial.  The result
-   should be a matrix-vector data structure having most of the flexibility
-   of the current approach while being as efficient as the usual CRS
-   scheme.
+   A: It is possible to improve it by replacing the data structure by a
+   more efficient array-based one where the operations are also specialized
+   depending on the type of their entries.  I have started working on this
+   and preliminary results look promising.  The result should be a
+   matrix-vector data structure having most of the flexibility of the
+   current approach while being as efficient as the usual CRS scheme.
 
 3. Q: How does Femlisp's compare with other programs wrt speed?
 
-   A: It will be slower for simple problems mainly because of the linear
-   algebra problem discussed above.  I think that it will be in the same
-   speed range for more difficult problems.  This should really be tested
-   on real applications.  In general, it is more difficult to make Lisp run
-   optimally fast than it is for C/C++, and it usually pays off to ask for
-   remedies on mailing lists or newsgroups.
-
+   A: You have to distinguish between speed of execution and speed of
+   development.  The speed of program development in Common Lisp cannot be
+   beaten by statically typed languages like C++ or Fortran and differs
+   often by an order of magnitude.  Concerning execution speed, I admit
+   that Femlisp is too slow at the moment, but I think that this situation
+   will soon improve such that it will be in the same speed range for most
+   problems.  In general, it is more difficult to make Lisp run optimally
+   fast than it is for C/C++, and a factor of 2 in speed does not count.
 
 
 * PROBLEMS
@@ -83,7 +80,8 @@ Femlisp FAQ
 
    A: It is possible to assemble problems with coefficients depending on
    the current solution.  This could then be trivially used inside a
-   fixed-point iteration.
+   fixed-point iteration.  With the help of an iteration subclass, this can
+   be easily integrated with Femlisp.
 
 2. Q: How can I solve time-dependent problems?
 
@@ -106,8 +104,8 @@ Femlisp FAQ
 
 1. Q: Is there a BiCGStab or GMRES iteration available?
 
-   A: No, not yet.  It would be really useful, if someone would extend the
-   file iterations/krylow.lisp in this direction.
+   A: No, not yet.  It would be really useful and not too difficult, if
+   someone would extend the file iterations/krylow.lisp in this direction.
 
 2. Q: Wouldn't it be useful to include also an interface to solvers like
    SuperLU?

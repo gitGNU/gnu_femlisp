@@ -83,8 +83,7 @@ given by the additional parameter depth."
 		      (values (make-double-vec (length local-vertices))))
 		 (dotimes (i (length local-vertices))
 		   (let* ((lcoords (vertex-position (aref local-vertices i)))
-			  (ci (make-instance '<coefficient-input> :local lcoords
-					     :global (local->global cell lcoords))))
+			  (ci (list :local lcoords :global (local->global cell lcoords))))
 		      (setf (aref values i)
 			    (funcall key (evaluate coeff-func ci)))))
 		 values))

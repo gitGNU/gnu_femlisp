@@ -37,16 +37,16 @@
 ;;; Testing the S1-reduction AMG
 (time
  (let* ((dim 1) (level 2) (order 2)
-	(problem (laplace-test-problem-on-domain (n-cube-domain dim))))
+	(problem (cdr-model-problem dim)))
    (multiple-value-bind (A b)
        (problem-discretization problem :level level :order order)
      (let ((amg (s1-reduction-amg-solver order :reduction 1.0d-10 :output t)))
-       (solve amg :matrix A :rhs b :output t)))))
+       (solve amg (blackboard :matrix A :rhs b :output t))))))
 
 ;;; k-fold jump in refinement depth
 (time
  (let* ((dim 2) (order 2) (k 2)
-	(problem (laplace-test-problem-on-domain (n-cube-domain dim)))
+	(problem (cdr-model-problem dim))
 	(fedisc (lagrange-fe order))
 	(h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
    #-(or) (loop repeat 1 do (refine h-mesh))
@@ -56,7 +56,7 @@
    (multiple-value-bind (mat rhs)
        (discretize-globally problem h-mesh fedisc)
      (let ((amg (s1-reduction-amg-solver order :output t :maxsteps 10 :reduction 1.0e-10)))
-       (solve amg :matrix mat :rhs rhs)))))
+       (solve amg (blackboard :matrix mat :rhs rhs))))))
 
 (let* ((mat multigrid::mat)
        (rks (row-keys mat))
@@ -67,7 +67,7 @@
   
 (time
  (let* ((dim 2) (order 2)
-	(problem (laplace-test-problem-on-domain (n-cube-domain dim)))
+	(problem (cdr-model-problem dim))
 	(fedisc (lagrange-fe order))
 	(h-mesh (make-hierarchical-mesh-from-domain (domain problem))))
    #-(or) (loop repeat 1 do (refine h-mesh))
@@ -77,23 +77,23 @@
    (multiple-value-bind (mat rhs)
        (discretize-globally problem h-mesh fedisc)
      (let ((amg (s1-reduction-amg-solver order :output t :reduction 1.0e-5 :maxsteps 5)))
-       (solve amg :matrix mat :rhs rhs)))))
+       (solve amg (blackboard :matrix mat :rhs rhs))))))
 
     
 
 ;;; AMG cycle for higher order discretizations
 (let* ((dim 2) (level 2) (order 3)
        ;;(amg (make-instance '<s1-reduction> :max-depth 2))
-       (problem (laplace-test-problem-on-domain (n-cube-domain dim))))
+       (problem (cdr-model-problem dim)))
   (multiple-value-bind (A b)
       (problem-discretization problem :level level :order order)
     #+(or)
     (let ((mg-data (multilevel-decomposition amg A)))
-      (show (aref (get-al mg-data :a-vec) 0)))
+      (show (aref (getbb mg-data :a-vec) 0)))
     #+(or)
     (let ((mg-data (multilevel-decomposition amg A)))
-      (show (aref (get-al mg-data :i-vec) 0)))
+      (show (aref (getbb mg-data :i-vec) 0)))
     #+(or) (linsolve A b :output t :iteration amg :maxsteps 10)
-    #-(or) (solve (amg-solver order) :matrix A :rhs b)
+    #-(or) (solve (amg-solver order) (blackboard :matrix A :rhs b))
     ))
 

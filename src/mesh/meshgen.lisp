@@ -118,23 +118,15 @@ corresponding cell.  It is updated by this function."
 	    (setf (skel-ref mesh cell) properties)
 	    (setf (gethash corners corners->cell) cell))))))
 
-(defun uniform-mesh-on-box-domain (domain N)
+(defun special-mesh-on-box-domain (domain patch->mesh-sizes)
   "Creates a uniform mesh on a box domain consisting of N_1 x ... x N_dim)
 cells."
-  (let* ((dim (dimension domain))
-	 (corners->cell (make-hash-table :test 'equalp))
-	 (mesh (make-instance '<mesh> :domain domain))
-	 (N (if (numberp N) (make-fixnum-vec dim N) N)))
+  (let ((corners->cell (make-hash-table :test 'equalp))
+	(mesh (make-instance '<mesh> :domain domain)))
     (doskel (patch domain)
       (let* ((patch-dim (dimension patch))
 	     (cell-class (cell-class (n-cube patch-dim)))
-	     (patch-corners (corners patch))
-	     (N-patch
-	      (coerce
-	       (loop for i below dim
-		     unless (apply #'= (mapcar (rcurry #'elt i) patch-corners))
-		     collect (elt N i))
-	       'fixnum-vec)))
+	     (N-patch (funcall patch->mesh-sizes patch)))
 	(multi-for (ivec (make-fixnum-vec patch-dim 1) N-patch)
 	  (let ((corners ()))
 	    (multi-for (jvec (make-fixnum-vec patch-dim -1) (make-fixnum-vec patch-dim 0))
@@ -146,6 +138,20 @@ cells."
 	    (insert-cell-from-corners mesh corners->cell cell-class
 				      (nreverse corners) (list 'PATCH patch))))))
     mesh))
+
+(defun uniform-mesh-on-box-domain (domain N)
+  "Creates a uniform mesh on a box domain consisting of N_1 x ... x N_dim)
+cells."
+  (let ((dim (dimension domain)))
+    (special-mesh-on-box-domain
+     domain
+     #'(lambda (patch)
+	 (let ((patch-corners (corners patch)))
+	   (coerce
+	    (loop for i below dim
+		  unless (apply #'= (mapcar (rcurry #'elt i) patch-corners))
+		  collect (if (numberp N) N (aref N i)))
+	    'fixnum-vec))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Hierarchical meshes
@@ -222,6 +228,7 @@ midpoint."
 
 (defun test-meshgen ()
   (describe (uniformly-refined-mesh *unit-interval-domain* 1))
+  (describe (uniform-mesh-on-box-domain (n-cube-domain 2) #(2 2)))
   (let ((h-mesh (uniformly-refined-hierarchical-mesh *unit-interval-domain* 2)))
     (refine h-mesh)
     (loop repeat 1 do (refine h-mesh :test (rcurry #'inside-cell? #(0.25))))

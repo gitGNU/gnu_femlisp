@@ -1,5 +1,18 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.8.3 to Femlisp-0.8.4:
+
+The iteration module was improved.  Iterative solvers and problem solution
+stragtegies are now subclasses of iterations.  This allows for the easy
+integration of nonlinear solvers and time stepping schemes.
+
+The interface for solving has changed to the form (SOLVE SOLVER
+BLACKBOARD).  That is, the problem to be solved is now defined on a
+blackboard and the solution is written to this blackboard.  This is true
+for both linear solvers and problem solution strategies.
+
+Several smaller changes.
+
 * From Femlisp-0.8.2 to Femlisp-0.8.3:
 
 Removed bug in refinement of product cells which contained simplices of

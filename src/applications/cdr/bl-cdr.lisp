@@ -34,10 +34,10 @@
 
 (in-package :application)
 
-;;; In this file we compute effective boundary-layer constants for
-;;; oscillating boundaries.  This situation was done theoretically by
-;;; [Jaeger&Mikelic_1995] and by [Allaire&Amar_1999].  A further
-;;; presentation was given in [Neuss_2002].
+;;; In this file we compute effective boundary-layer constants
+;;; for oscillating boundaries.  This was treated theoretically
+;;; by [Jaeger&Mikelic_1995] and by [Allaire&Amar_1999].  A
+;;; further presentation was given in [Neuss_2002].
 
 (defun boundary-layer-cell-problem (bl-cell-domain &key &allow-other-keys)
   "Returns a boundary layer problem for the given boundary layer
@@ -65,24 +65,19 @@ oscillating domain."
   (boundary-layer-cell-problem
    (apply #'sinusoidal-bl-cell dim key-args)))
 
-(defun compute-cbl (result)
-  (dot (getf result :solution) (getf result :rhs)))
+(defun compute-cbl (blackboard)
+  (with-items (&key solution rhs) blackboard
+    (and solution rhs (dot solution rhs))))
+
+(defparameter *cbl-observe*
+  (list "                Cbl" "~19,10,2E" #'compute-cbl)
+  "Observe list for Cbl.")
 
 (defparameter *result* nil)
 
 (defun bl-computation (&key domain order max-levels output plot &allow-other-keys)
   "Computes a boundary layer and a boundary law coefficient
 constant for a given boundary layer cell domain."
-  (setf (getf *strategy-output* :observe)
-	`((:Cbl "                Cbl"
-	   ,#'(lambda (assembly-line)
-		(with-items (&key solution rhs) assembly-line
-		  (format t "~19,10,2E" (dot solution rhs)))))
-	  (:eta "         ETA"
-	   ,#'(lambda (assembly-line)
-		(with-items (&key global-eta) assembly-line
-		  (format t "~12,2,2E" global-eta))))))
-  (setf (getf *strategy-output* :plot-mesh) plot)
   (defparameter *result*
     (let* ((dim (dimension domain))
 	   (problem (boundary-layer-cell-problem domain))
@@ -91,30 +86,28 @@ constant for a given boundary layer cell domain."
 		(make-instance
 		 '<linear-solver>
 		 :iteration
-		 (let ((smoother
-			(if (> dim 2)
-			    *gauss-seidel*
-			    (make-instance '<local-bgs> :type :vertex-centered))))
+		 (let ((smoother (if (> dim 2) *gauss-seidel* (geometric-ssc))))
 		   (make-instance '<s1-reduction> :max-depth 2 :pre-steps 1 :pre-smooth smoother
 				  :post-steps 1 :post-smooth smoother
 				  :gamma 2 :coarse-grid-iteration
 				  (?2 *lu-iteration*
-				      (make-instance '<s1-coarse-grid-iterator>
-						     :output (eq output :all)))))
+				      (make-instance '<s1-coarse-grid-iterator>))))
 		 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
-		 :failure-if `(> :step 30)
+		 :failure-if `(and (> :step 2) (> :step-reduction 0.9))
 		 :output (eq output :all)))))
-      (solve-with
+      (solve
        (make-instance
-	'<fe-strategy> :fe-class (lagrange-fe order)
-	:solver solver
+	'<stationary-fe-strategy>
+	:fe-class (lagrange-fe order) :solver solver
 	:estimator (make-instance '<duality-error-estimator> :functional :load-functional)
 	:indicator
 	(make-instance '<largest-eta-indicator> :pivot-factor 0.01
 		       :from-level 1 :block-p t)
-	:appraise (stop-if :nr-levels>= max-levels))
-       problem
-       :output output)))
+	:success-if `(= :max-level ,(1- max-levels))
+	:output output :plot-mesh plot :observe
+	(append *stationary-fe-strategy-observe*
+		(list *cbl-observe* *eta-observe*)))
+       (blackboard :problem problem))))
   (when plot
     (plot (getf *result* :solution))))
 
@@ -136,7 +129,7 @@ for the load functional."
 	 :order order :max-levels max-levels rest))
 
 #+(or) (cdr-bl-computation
-	2 4 3 :plot t :amplitude 0.15 :extensible nil :output :all)
+	2 4 2 :plot t :amplitude 0.15 :extensible nil :output :all)
 
 #+(or) (show (getf *result* :matrix))
 ;; before change (+ 1 sec on another run)
@@ -168,10 +161,10 @@ for the load functional."
 
 (defun test-cdr-bl ()
   
-  (bl-computation :domain (spline-interpolated-bl-cell #(1.0d0 0.8d0))
-		  :order 4 :max-levels 3 :plot t)
+  (bl-computation :domain (spline-interpolated-bl-cell #(1.0d0 0.8d0 0.7d0))
+		  :order 4 :max-levels 4 :plot t)
   
-  ;;; testing if identification with only one cell width works
+  ;; testing if identification with only one cell width works
   (let* ((problem (sinusoidal-boundary-layer-cell-problem 2))
 	 (mesh (make-hierarchical-mesh-from-domain (domain problem)))
 	 (fe-class (lagrange-fe 1)))
@@ -188,7 +181,8 @@ for the load functional."
   (plot (strategy::eta->p2-vec (getf *result* :eta) (getf *result* :problem)
 			       (getf *result* :mesh)))
   (display-ht (getf *result* :eta))
-  (apply #'strategy::compute-local-estimate (strategy::estimator (getf *result* :strategy)) *result*)
+  (apply #'strategy::compute-local-estimate
+	 (slot-value (getf *result* :strategy) 'strategy::estimator) *result*)
 
   (dohash (key (getf *result* :eta))
     (let ((mp (midpoint key)))
@@ -198,15 +192,11 @@ for the load functional."
   (plot (getf *result* :solution))
 
   ;; reiteration
-  (setf (getf *result* :solution)
-	(destructuring-bind (&key matrix solution rhs &allow-other-keys)
-	    *result*
-	  (solve (s1-reduction-amg-solver 4 :reduction 1.0e-3 :output t)
-		 :matrix matrix :rhs rhs :solution solution)))
-  (plot *result*)
+  (solve (s1-reduction-amg-solver 4 :reduction 1.0e-3 :output t) *result*)
+  (plot (getf *result* :solution))
   (plot (getf *result* :mesh))
   (getf *result* :global-eta)
-  (print-svec (getf *result* :solution))
+  (show (getf *result* :solution))
   (plot (getf *result* :solution) :depth 2 :plot :file :filename "bl-cell-sol" :format "eps")
   (plot (mesh (getf *result* :solution)) :plot :file :filename "bl-cell-mesh.ps" :format "eps")
   (compute-cbl *result*)

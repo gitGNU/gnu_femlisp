@@ -38,31 +38,32 @@
 ;;;; Demos
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun adaptive-laplace-1d-a ()
+(defun laplace-1d-demo-a ()
   "Solve the equation -u''(x) = x^5, u(0)=u(1)=0 adaptively.  We use
 fourth order finite elements, a direct solver, and error estimation by
 projection between subsequent levels."
   (defparameter *result*
-    (let ((dim 1) (order 4))
-      (solve-with
+    (let* ((dim 1) (order 4)
+	   (problem
+	    (cdr-model-problem dim :source #'(lambda (x) #I"x[0]^^5"))))
+      (solve
        (make-instance
-	'<fe-strategy> :fe-class (lagrange-fe order)
+	'<stationary-fe-strategy> :fe-class (lagrange-fe order)
 	:estimator (make-instance '<projection-error-estimator>)
-	:indicator (make-instance '<largest-eta-indicator> :fraction 0.5 :from-level 1)
-	:appraise (stop-if :eta<= 1.0d-8)
-	:solver *lu-solver*)
-       (standard-cdr-problem
-	(n-cube-domain dim) :diffusion (identity-diffusion-tensor dim)
-	:source (function->coefficient #'(lambda (x) #I"x[0]^^5")))
-       :output t)))
+	:indicator (make-instance '<largest-eta-indicator> :fraction 0.5 :from-level 2)
+	:success-if '(and (>= :nr-levels 2) (< :global-eta 1.0d-8))
+	:solver *lu-solver*
+	:output t)
+       (blackboard :problem problem))))
   (sleep 1.0)
   (plot (getf *result* :solution)))
 
-;;; Executing: (adaptive-laplace-1d-a)
+;;; (laplace-1d-demo-a)
+
 (let ((demo
        (make-demo
 	:name "1D-laplace-A" :short "u''=x^5, adaptive, projection error estimate"
-	:long (documentation 'adaptive-laplace-1d-a 'function) 
+	:long (documentation 'laplace-1d-demo-a 'function) 
 	:execute #'adaptive-laplace-1d-a)))
   (adjoin-demo demo *laplace-demo*)
   (adjoin-demo demo *adaptivity-demo*))
@@ -74,20 +75,18 @@ the error in the load functional (which is the same as the energy error).
 The dual problem is solved with a fifth order method so that this error
 estimator is asymptotically exact.  Accuracy threshold is 1.0e-8."
   (defparameter *result*
-    (let ((dim 1) (order 4))
-      (solve-with
+    (let* ((dim 1) (order 4)
+	   (problem (cdr-model-problem dim :source #'(lambda (x) #I"x[0]^^5"))))
+      (solve
        (make-instance
-	'<fe-strategy> :fe-class (lagrange-fe order)
+	'<stationary-fe-strategy> :fe-class (lagrange-fe order)
 	:estimator (make-instance '<duality-error-estimator> :functional :load-functional)
-	:indicator (make-instance '<largest-eta-indicator> :fraction 0.5 :from-level 2)
-	:appraise (stop-if :eta<= 1.0d-8)
+	:indicator (make-instance '<largest-eta-indicator> :from-level 1)
+	:success-if '(< :global-eta 1.0d-10)
 	:solver #+(or)(s1-reduction-amg-solver order :output t) #-(or)*lu-solver*)
-       (standard-cdr-problem
-	(n-cube-domain dim) :diffusion (identity-diffusion-tensor dim)
-	:source (function->coefficient #'(lambda (x) #I"x[0]^^5")))
-       :output t))))
+       (blackboard :problem problem :output t)))))
 
-;;; Executing: (laplace-1d-demo-b)
+;;; (laplace-1d-demo-b)
 (let ((demo
        (make-demo
 	:name "1D-laplace-B" :short "u''=x^5, adaptive, duality error estimate"
@@ -103,19 +102,20 @@ estimator for the error in the load functional (which is the same as the
 energy error).  The dual problem is solved with a (p+1)-method so that this
 error estimator is asymptotically exact."
   (defparameter *result*
-    (solve-with
+    (solve
      (make-instance
-      '<fe-strategy> :fe-class (lagrange-fe order)
+      '<stationary-fe-strategy> :fe-class (lagrange-fe order)
       :estimator
       (make-instance '<duality-error-estimator> :functional :load-functional)
       :indicator (make-instance '<largest-eta-indicator> :fraction 0.25)
-      :appraise (stop-if :eta<= threshold) ; #-(or) (nr-of-levels>= 5)
-      :solver #-(or)(s1-reduction-amg-solver order))
-     (standard-cdr-problem
-      (l-domain dim) :diffusion (identity-diffusion-tensor dim)
-      :source (constant-coefficient 1.0d0))
-     :output t))
+      :success-if `(<= :global-eta ,threshold)
+      :solver (s1-reduction-amg-solver order))
+     (blackboard
+      :problem (cdr-model-problem (l-domain dim)
+				  :source (constant-coefficient 1.0d0))
+      :output t)))
   (plot (getf *result* :solution)))
+;;; (laplace-l-domain-demo)
 
 (defun create-l-domain-demo (dim order threshold)
   (let ((demo
@@ -142,67 +142,33 @@ error estimator is asymptotically exact."
   
 ;;; duality error estimator
 
-(defparameter *result*
-  (time
-   (let ((dim 1) (order 1))
-     (solve-with
-      (make-instance
-       '<fe-strategy> :fe-class (lagrange-fe order)
-       :estimator
-       #+(or)(make-instance '<projection-error-estimator>)
-       #-(or)(make-instance '<duality-error-estimator> :functional :load-functional)
-       :indicator (make-instance '<largest-eta-indicator> :fraction 0.5)
-       :appraise (stop-if :nr-levels>= 5 :eta<= 1.0d-7)
-       :solver #+(or)(s1-reduction-amg-solver order :output t) #-(or)*lu-solver*)
-      (standard-cdr-problem
-       (n-cube-domain dim) :diffusion (identity-diffusion-tensor dim)
-       :source (function->coefficient #'(lambda (x) #+(or) #I"1" #-(or) #I"x[0]^^5")))
-      :output t))))
+(laplace-1d-demo-a)
 
-(defparameter *result*
-  (time
-   (let ((dim 2) (order 2) (levels 4))
-     (solve-with
-      (make-instance
-       '<fe-strategy> :fe-class (lagrange-fe order)
-       :estimator
-       #+(or)(make-instance '<projection-error-estimator>)
-       #-(or)(make-instance '<duality-error-estimator> :functional :load-functional)
-       :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
-       :appraise (stop-if :nr-levels>= levels)
-       :solver #-(or)(s1-reduction-amg-solver order :output t) #+(or)*lu-solver*)
-      (standard-cdr-problem
-       (n-cube-domain dim) :diffusion (identity-diffusion-tensor dim)
-       :source (function->coefficient #'(lambda (x) #+(or) #I"1" #-(or) #I"x[0]^^5")))
-      :output t))))
-
-(show (getf *result* :rhs))
-(getf *result* :global-eta)
-(plot (getf *result* :solution))
 ;; exakt: 1/12
 ;; Dualitaet 18, gesch 8.8e-4, wahr 2.95e-4
 ;; IP: gesch 9.18e-4, wahr 2.95e-4
 
+(laplace-1d-demo-b)
+(laplace-l-domain-demo)
+
 ;;; 1D test case: Dirichlet b.c.
 (defparameter *result*
   (time
-   (let ((dim 1) (order 1))
-     (solve-with
+   (let* ((dim 1) (order 1)
+	  (problem (cdr-model-problem
+		    dim :source #'(lambda (x) #I"-4*exp(-2*x[0])")
+		    :dirichlet
+		    #'(lambda (x) #I"exp(-2*x[0])"))))
+     (solve
       (make-instance
-       '<fe-strategy> :fe-class (lagrange-fe order)
+       '<stationary-fe-strategy> :fe-class (lagrange-fe order)
        :estimator (make-instance '<projection-error-estimator>)
        :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
-       :appraise (stop-if :nr-levels>= 5 :eta<= 1.0d-8)
+       :success-if '(or (and (>= :nr-levels 2) (< :global-eta 1.0d-8))
+		     (= :max-level 4))
        :solver #+(or)(s1-reduction-amg-solver order) #-(or)*lu-solver*)
-      (standard-cdr-problem
-       (n-cube-domain dim) :diffusion (identity-diffusion-tensor dim)
-       :source (function->coefficient #'(lambda (x) #I"-4*exp(-2*x[0])"))
-       :dirichlet
-       (make-instance
-	'<coefficient>
-	:eval #'(lambda (coeff-input)
-		  (let ((in (ci-global coeff-input)))
-		    #I"exp(-2*in[0])"))))
-      :output t))))
+      (blackboard :problem problem :output t)))))
+
 )  ; end tests
 
+(adjoin-femlisp-test 'strategy-cdr-tests)

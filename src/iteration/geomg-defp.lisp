@@ -42,5 +42,7 @@
    ;; geomg.lisp
    "<GEOMETRIC-CS>" "GEOMETRIC-CS" "<GEOMETRIC-FAS>" "FAS"
    "<S1-REDUCTION>" "<S1-COARSE-GRID-ITERATOR>" "S1-REDUCTION-AMG-SOLVER"
+   ;; geoblock.lisp
+   "GEOMETRIC-SSC" "GEOMETRIC-PSC"
    ;; vanka.lisp
-   "<LOCAL-BGS>" "<VANKA>" "<JOHN-HEUVELINE-VANKA>"))
+   "<VANKA>"))

@@ -208,14 +208,6 @@ ordering)."))
   (mapcar #'(lambda (vtx) (l2g vtx (double-vec)))
 	  (vertices cell)))
 
-(defun is-cell? (cell corners &key (tolerance 0.0))
-  "This routine is quite useful for debugging."
-  (and (= (dimension cell) (1-(length corners)))
-       (set-equal? corners (corners cell)
-		   :test #'(lambda (xvec yvec)
-			     (every #'(lambda (x y) (<= (abs (- x y)) tolerance))
-				    xvec yvec)))))
-
 (defmethod manifold-dimension ((cell <cell>))
   "Manifold-dimension is recursively defined, anchored at the definition
 for vertices."

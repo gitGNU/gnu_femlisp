@@ -125,11 +125,12 @@ further steps are trickier, but usually of minor complexity."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defun fe-discretize (assembly-line)
-  "Finite element discretization for the given ansatz space."
+(defun fe-discretize (blackboard)
+  "Finite element discretization for an ansatz space provided on the
+blackboard."
   (with-items (&key ansatz-space cells (assemble-constraints-p t)
 		    matrix rhs solution interior-matrix interior-rhs)
-      assembly-line
+      blackboard
     (setq interior-matrix (or interior-matrix
 			      (make-ansatz-space-automorphism ansatz-space)))
     (setq interior-rhs (or interior-rhs
@@ -169,16 +170,29 @@ further steps are trickier, but usually of minor complexity."
 	(setf (getf (discretization-info result-rhs) :interior-rhs)
 	      interior-rhs)
 	(setf matrix result-mat
-	      rhs result-rhs)))
-    ;; pass assembly-line
-    assembly-line))
+	      rhs result-rhs))))
+  ;; return blackboard
+  blackboard)
 
 (defun discretize-globally (problem h-mesh fe-class)
+  "Old, but effective discretization interface."
   (let ((ansatz-space (make-fe-ansatz-space fe-class problem h-mesh)))
     (destructuring-bind (&key matrix rhs &allow-other-keys)
-	(fe-discretize (make-assembly-line :ansatz-space ansatz-space))
+	(fe-discretize (blackboard :ansatz-space ansatz-space))
       (destructuring-bind (&key ip-constraints-P ip-constraints-Q
 				ip-constraints-r &allow-other-keys)
 	  (structure-information ansatz-space)
 	(values matrix rhs ip-constraints-P ip-constraints-Q ip-constraints-r)))))
 
+(defmethod discretize ((fedisc <fe-discretization>) (problem <problem>) blackboard)
+  "General discretization interface for FE."
+  (whereas ((as (getbb blackboard :ansatz-space)))
+    (assert (and (eq (fe-class as) fedisc)
+		 (eq (problem as) problem)))
+    (return-from discretize (fe-discretize blackboard)))
+  (whereas ((mesh (getbb blackboard :mesh))) 
+    (setf (getbb blackboard :ansatz-space)
+	  (make-fe-ansatz-space fedisc problem mesh))
+    (fe-discretize blackboard))
+  (error "You have to provide either an ansatz-space or a mesh in the
+blackboard."))

@@ -107,46 +107,49 @@ the given matrix-vector representation."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <pcg> (<linear-iteration>)
-  ((preconditioner :accessor preconditioner :initform nil
-		   :initarg :preconditioner :type (or null <linear-iteration>)))
+  ((preconditioner :initform nil :initarg :preconditioner))
   (:documentation "Preconditioned CG iteration"))
 
 (defparameter *standard-pcg* (make-instance '<pcg>)
   "PCG iteration.")
 
-(defmethod make-iterator ((linit <pcg>) mat)
+(defmethod make-iterator ((pcg <pcg>) mat)
   "Standard method for PCG iteration.  Works if matlisp methods are defined
 for the given matrix-vector representation."
   (let ((p (make-column-vector-for mat))
 	(a (make-column-vector-for mat))
 	(q (make-column-vector-for mat))
 	(alpha 0.0d0)
-	(precond (aand (preconditioner linit) (make-iterator it mat))))
-    (make-instance
-     '<iterator>
-     :matrix mat
-     :residual-before t
-     :initialize
-     #'(lambda (x b r)
-	 (declare (ignore x b))
-	 (cond (precond (awhen (initialize precond) (funcall it p r r))
-			(funcall (iterate precond) p r r))
-	       (t (copy! r p)))
-	 (setq alpha (dot p r)))
-     :iterate
-     #'(lambda (x b r)
-	 (declare (ignore b))
-	 (unless (zerop alpha)
-	   (copy! p a)
-	   (setq a (m* mat a))
-	   (let* ((beta (dot a p))
-		  (lam (/ alpha beta)))
-	     (axpy! lam p x)
-	     (axpy! (- lam) a r)
-	     (cond (precond (x<-0 q) (funcall (iterate precond) q r r))
-		   (t (copy! r q)))
-	     (let ((new-alpha (dot q r)))
-	       (scal! (/ new-alpha alpha) p)
-	       (m+! q p)
-	       (setq alpha new-alpha)))))
-     :residual-after t)))
+	(precond (whereas ((preconditioner (slot-value pcg 'preconditioner)))
+		   (make-iterator preconditioner mat))))
+    (with-slots (initialize iterate) precond
+      (make-instance
+       '<iterator>
+       :matrix mat
+       :residual-before t
+       :initialize
+       #'(lambda (x b r)
+	   (declare (ignore x b))
+	   (cond
+	     (precond
+	      (when initialize (funcall initialize p r r))
+	      (funcall iterate p r r))
+	     (t (copy! r p)))
+	   (setq alpha (dot p r)))
+       :iterate
+       #'(lambda (x b r)
+	   (declare (ignore b))
+	   (unless (zerop alpha)
+	     (copy! p a)
+	     (setq a (m* mat a))
+	     (let* ((beta (dot a p))
+		    (lam (/ alpha beta)))
+	       (axpy! lam p x)
+	       (axpy! (- lam) a r)
+	       (cond (precond (x<-0 q) (funcall iterate q r r))
+		     (t (copy! r q)))
+	       (let ((new-alpha (dot q r)))
+		 (scal! (/ new-alpha alpha) p)
+		 (m+! q p)
+		 (setq alpha new-alpha)))))
+       :residual-after t))))

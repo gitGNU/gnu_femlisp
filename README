@@ -24,7 +24,7 @@ Installation instructions can be found in the file 'INSTALL'.
 Femlisp's homepage is <http://www.femlisp.org>.
 
 Some documentation can be found in the subdirectory 'doc'.  Please remember
-also documentation and apropos function of your CL environment.
+also the functions DOCUMENTATION and APROPOS of your CL environment.
 
 Have much fun using Femlisp!
 

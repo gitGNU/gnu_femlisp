@@ -38,22 +38,22 @@
   ((ensure-mesh-quality :accessor ensure-mesh-quality
 			:initform t :initarg :ensure-mesh-quality))
   (:documentation "An indicator is used as first argument in the generic
-functions indicate which works on an assembly line.  Based on the
+functions indicate which works on a blackboard.  Based on the
 quantities computed by an error estimator, i.e. eta, indicate puts a list
-of elements to be refined on the assembly line.  When ensure-mesh-quality
+of elements to be refined on the blackboard.  When ensure-mesh-quality
 is t, the indicator ensures that the difference of mesh widths of
 neighboring cells does not become larger than a factor of 4."))
 
-(defgeneric indicate (indicator assembly-line)
-  (:documentation "Puts a list of elements to be refined on the assembly line."))
+(defgeneric indicate (indicator blackboard)
+  (:documentation "Puts a list of elements to be refined on the blackboard."))
 
-(defmethod indicate :around (indicator assembly-line)
+(defmethod indicate :around (indicator blackboard)
   "This around-method refines a cell if it detects a side that is refined
 more than two times.  Thus, a maximum of two refinement levels between
 side-adjacent cells is ensured."
   (call-next-method)
-  (let ((mesh (get-al assembly-line :mesh))
-	(refinement-table (get-al assembly-line :refinement-table)))
+  (let ((mesh (getbb blackboard :mesh))
+	(refinement-table (getbb blackboard :refinement-table)))
     (when (ensure-mesh-quality indicator)
       (doskel (cell mesh :dimension :highest :where :surface)
 	(unless (gethash cell refinement-table)
@@ -62,8 +62,8 @@ side-adjacent cells is ensured."
 			    (some (rcurry #'refined-p mesh) children)))
 		      (boundary cell))
 	    (setf (gethash cell refinement-table) t)))))
-    ;; pass on the assembly line
-    assembly-line))
+    ;; pass on the blackboard
+    blackboard))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; uniform-refinement-indicator
@@ -73,11 +73,11 @@ side-adjacent cells is ensured."
   ()
   (:documentation "Marks all cells for refinement."))
 
-(defmethod indicate ((indicator <uniform-refinement-indicator>) assembly-line)
+(defmethod indicate ((indicator <uniform-refinement-indicator>) blackboard)
   "Marks all cells for refinement which have no parent or for which the
 error estimator yields a large eta."
   (with-items (&key mesh refinement-table)
-      assembly-line
+      blackboard
     (let ((hash-table (make-hash-table)))
       (doskel (cell mesh :dimension :highest :where :surface)
 	(setf (gethash cell hash-table) cell))
@@ -91,11 +91,11 @@ error estimator yields a large eta."
   ((in-region :reader in-region :initarg :in-region))
   (:documentation "Marks all cells in a region for refinement."))
 
-(defmethod indicate ((indicator <region-indicator>) assembly-line)
+(defmethod indicate ((indicator <region-indicator>) blackboard)
   "Marks all cells for refinement which have no parent or for which the
 error estimator yields a large eta."
   (with-items (&key mesh refinement-table)
-      assembly-line
+      blackboard
     (let ((hash-table (make-hash-table))
 	  (in-region (in-region indicator)))
       (doskel (cell mesh :dimension :highest :where :surface)
@@ -117,12 +117,12 @@ contributions in the refinement table.  Note that a fraction of 1.0 yields
 uniform refinement.  Below from-level, global refinement is used.  block-p
 indicates that all children of a parent cell have to be refined at once."))
 
-(defmethod indicate ((indicator <largest-eta-indicator>) assembly-line)
+(defmethod indicate ((indicator <largest-eta-indicator>) blackboard)
   "Marks all cells for refinement which have no parent or for which the
 error estimator yields a large eta."
-  (with-items (&key refinement-table) assembly-line
-    (let ((mesh (get-al assembly-line :mesh))
-	  (eta (get-al assembly-line :eta)))
+  (with-items (&key refinement-table) blackboard
+    (let ((mesh (getbb blackboard :mesh))
+	  (eta (getbb blackboard :eta)))
       (with-slots (fraction pivot-factor from-level block-p)
 	indicator
 	(let ((hash-table (make-hash-table)))

@@ -34,19 +34,21 @@
 
 (defpackage "GENERAL"
   (:use "COMMON-LISP")
-  (:export "MAKE-ANALOG" "*OUTPUT-INDENTATION*" "INDENTED-FORMAT"))
+  (:export "MAKE-ANALOG" "*INDENTATION-LEVEL*" "INDENTED-FORMAT"))
 
 (in-package :general)
 
-(defparameter *output-indentation* 0
+(defparameter *indentation-level* 0
   "Indentation for Femlisp output.  Is used for sorting the printout of
 status information.")
 
-(defun indented-format (stream control-string indentation &rest args)
-  (if (zerop indentation)
-      (apply #'format stream (concatenate 'string "~&" control-string) args)
+(defun indented-format (stream control-string &rest args)
+  (let ((indentation (* 5 (1- *indentation-level*))))
+    (if (plusp indentation)
       (apply #'format stream (concatenate 'string "~&>~VT" control-string)
-	     (1- indentation) args)))
+	     indentation args)
+      (apply #'format stream (concatenate 'string "~&" control-string)
+	     args))))
 
 (defgeneric make-analog (obj)
   (:documentation "Generate an analogous but empty data structure."))

@@ -56,7 +56,7 @@ Lagrange finite elements of a given order of the Laplace model
 problem in dim space dimensions on a mesh with mesh-width
 2^{-level}.  This is done by plotting the approximation starting
 with an initial random guess and right-hand side 0."
-  (let* ((problem (laplace-test-problem-on-domain (n-cube-domain dim)))
+  (let* ((problem (cdr-model-problem dim))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order)))
     (multiple-value-bind (A b)
@@ -120,10 +120,7 @@ with an initial random guess and right-hand side 0."
 				  output simplex)
   "Tests performance of smoother on a Laplace model problem.
 See make-smoother-demo for more information."
-  (let* ((problem (laplace-test-problem-on-domain
-		   (if simplex
-		       (n-simplex-domain dim)
-		       (n-cube-domain dim))))
+  (let* ((problem (cdr-model-problem (if simplex (n-simplex-domain dim) dim)))
 	 (mm (uniformly-refined-hierarchical-mesh
 	      (domain problem) level))
 	 (fe-class (lagrange-fe order)))
@@ -164,12 +161,13 @@ dimensions."
     (let ((demo
 	   (make-demo
 	    :name name :short short :long long
-	    :execute (smoother-demo-execute smoother))))
+	    :execute (smoother-demo-execute smoother)
+	    :test-input (format nil "2~%4~%up~%up~%"))))
       (adjoin-demo demo *multigrid-demo*))))
 
 #+(or)(make-smoother-demo *gauss-seidel* "GS")
-#+(or)(make-smoother-demo (make-instance '<local-bgs> :type :vertex-centered) "VC-BGS")
-#+(or)(make-smoother-demo (make-instance '<local-bgs> :type :cell-centered) "CC-BGS")
+#+(or)(make-smoother-demo (geometric-ssc) "VC-BGS")
+#+(or)(make-smoother-demo (geometric-ssc) "CC-BGS")
 
 (defun smoother-graph-execute (smoother)
   (lambda ()
@@ -201,10 +199,10 @@ problem on cubes of different dimensions."
     (let ((demo
 	   (make-demo
 	    :name name :short short :long long
-	    :execute (smoother-graph-execute smoother))))
+	    :execute (smoother-graph-execute smoother)
+	    :test-input (format nil "2~%up~%"))))
       (adjoin-demo demo *multigrid-demo*))))
 
 (make-smoother-performance-graph-demo *gauss-seidel* "GS")
-(make-smoother-performance-graph-demo
- (make-instance '<local-bgs> :type :vertex-centered) "VC-BGS")
+(make-smoother-performance-graph-demo (geometric-ssc) "VC-BGS")
 

@@ -122,8 +122,6 @@ their counterpart in skel-1."
       (funcall transform cell))
     (values new-skel copy-table)))
 
-
-
 (defmethod linearly-transform-skeleton ((skel <skeleton>) &key A b properties)
   "Transforms skel by transforming the vertex positions."
   (transform-skeleton-copy
@@ -172,9 +170,6 @@ their counterpart in skel-1."
 
 ;;; Testing: (test-skeleton-build)
 (defun test-skeleton-build ()
-  (describe
-   (let ((skel (skeleton *reference-vertex*)))
-     (skel-add! (shift-skeleton skel (double-vec 0.0d0 1.0d0)) skel)))
   (describe
    (let ((skel (skeleton  *unit-quadrangle*)))
      (skel-add! (shift-skeleton skel (double-vec 0.0d0 1.0d0)) skel)))
