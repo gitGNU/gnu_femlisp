@@ -40,7 +40,7 @@ infix:
 	wget http://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/lang/lisp/code/syntax/infix/infix.cl
 
 slime:
-	wget -O - http://common-lisp.net/cgi-bin/viewcvs.cgi/cvs_root.tar.gz?tarball=1&cvsroot=slime| tar xzvf -
+	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
 
 femlisp-core:
 	cd bin; sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :site-init NIL :print-herald nil) (quit))"
