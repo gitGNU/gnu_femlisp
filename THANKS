@@ -1,0 +1,39 @@
+# -*- mode: text; -*-
+
+Femlisp owes thanks mainly to the following people, groups, and
+institutions (in something like chronological order):
+
+- The FSF for hosting Femlisp at savannah.nongnu.org.
+
+- Professor Gabriel Wittum and the University of Heidelberg for allowing me
+  to publish Femlisp under the FreeBSD license.
+
+- Gabriel Wittum for supporting me especially during the last years when I
+  used a considerable part of my time for writing Femlisp.
+
+- The Lisp gurus and non-gurus of the comp.lang.lisp newsgroup for sharing
+  their knowledge with me in the years from 2000 onwards.
+
+- Kent Pitman et al for giving us the CL Hyperspec.
+
+- The CMUCL implementors for writing this nice Lisp implementation, and
+  them and the CMUCL users for the immediate help on the mailing lists.
+
+- The Matlisp crew for providing this nice LAPACK interface.
+
+- IBM for letting OpenDX become free software.
+
+- The people from the Guile mailing list which helped me in learning Scheme
+  which led me finally to Common Lisp.
+
+- Richard Stallman and all other Emacs contributors for writing Emacs.
+
+- Christian Wieners for showing me Emacs for the first time.
+
+- The UG group in which I learned a lot about PDE software.
+
+
+ Heidelberg, 12.9.2003
+
+ Nicolas Neuss
+

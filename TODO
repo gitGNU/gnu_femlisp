@@ -1,0 +1,30 @@
+Femlisp needs the following more or less urgently:
+--------------------------------------------------
+
+Near future, relatively easy extensions:
+
+* Removal of all bugs, see the file BUGS.
+
+* Dirichlet boundary values should be allowed to be defined differently for
+  multiple right-hand sides.  OTOH, changing the type of BC for different
+  rhs is not easy, see the FAQ.
+
+* Local multigrid for systems.  Up to now, this works only for scalar
+  equations and with AMG as coarse-mesh solver.
+
+* Improved linear algebra, see the FAQ.
+
+* Integration of nonlinear solvers.
+
+* Integration of time-stepping schemes.
+
+* Plotting for prisms.  This is very easy by mapping prisms to cubes, but
+  will probably only be done when someone needs it.
+
+
+Far future:
+
+* Parallelization
+
+
+

@@ -1,0 +1,121 @@
+## -*- mode: text; -*-
+
+Femlisp FAQ
+-----------
+
+* INSTALLATION AND GETTING STARTED
+
+1. Q: On which computers is Femlisp available?  Does Femlisp work
+   with other CL environments than CMUCL?
+
+   A: This depends mostly on Matlisp.  Matlisp works with CMUCL and ACL
+   under Linux and Solaris.  If Matlisp should work with other CL
+   environments, it should be easy to port Femlisp.  An alternative idea
+   would be to make Matlisp an optional extension, but the loss would be
+   considerable.
+
+2. Q: What manuals and other introductory material are available?
+
+   A: There is a short description of Femlisp in the doc-directory.
+   Additionally, you should know how to get documentation of functions and
+   variables out of your Lisp environment.  Hopefully, somewhat later a
+   better manual will be available.
+
+3. Q: What is the best way to get started?
+
+   A: Work through the demos to see what is possible.  The set up an own
+   directory for yourself and try something like (taken from
+   cdr/model-problem.lisp):
+
+  (let* ((dim 2) (order 1) (level 2)
+	 (problem (laplace-test-problem dim))
+	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
+	 (fedisc (lagrange-fe order)))
+    (multiple-value-bind (matrix rhs)
+	(discretize-globally problem h-mesh fedisc)
+      (m* (sparse-ldu matrix) rhs)))
+
+  Plot the result.  Then try to build your own problem and try again.  Try
+  switching to the multigrid solver.  Maybe look at the (somewhat old) file
+  cfd-seminar-2002.lisp.  Then look at how the demos are built.
+
+* MESH MANAGEMENT
+
+
+* LINEAR ALGEBRA
+
+1. Q: Why is Femlisp's linear algebra so slow?  Is this necessary?
+
+   A: Because it is based on hash-tables indexed by mesh-entities like
+   vertices, lines, ...  Each entry is again a block consisting of a
+   Matlisp matrix object (or something else).  That means that generic
+   functions have to be used for handling those entries.  Of course, the
+   overhead is large, especially in the case of scalar equations with
+   low-order discretizations.  On the other hand, it adds a lot of
+   flexibility, because you can dynamically and locally manipulate your
+   linear operators with O(1) operations.
+
+2. Q: Is this necessary?
+
+   A: It is possible to improve on this by replacing the data structure by
+   a more efficient arra-based one (which has also to be specialized to
+   common cases like one-element matrix blocks).  An additional management
+   level then has to be introduced for allowing local matrix manipulations.
+   I have some thoughts about this, but it is non-trivial.  The result
+   should be a matrix-vector data structure having most of the flexibility
+   of the current approach while being as efficient as the usual CRS
+   scheme.
+
+3. Q: How does Femlisp's compare with other programs wrt speed?
+
+   A: It will be slower for simple problems mainly because of the linear
+   algebra problem discussed above.  I think that it will be in the same
+   speed range for more difficult problems.  This should really be tested
+   on real applications.  In general, it is more difficult to make Lisp run
+   optimally fast than it is for C/C++, and it usually pays off to ask for
+   remedies on mailing lists or newsgroups.
+
+
+
+* PROBLEMS
+
+1. Q: How can I solve nonlinear problems?
+
+   A: It is possible to assemble problems with coefficients depending on
+   the current solution.  This could then be trivially used inside a
+   fixed-point iteration.
+
+2. Q: How can I solve time-dependent problems?
+
+   A: At the moment, the easiest way is to set up your time-stepping scheme
+   yourself by assembling a delta-t dependent term in matrix and right-hand
+   side.  In this way, simple time-stepping schemes are possible.  More
+   elaborate choices and adaptivity require more work, of course.
+
+* DISCRETIZATION
+
+1. Q: Is it possible to handle problems with more than one right-hand side
+   with different choice of essential boundary?
+   
+   A: For the moment, no.  This feature uses that within the right-hand
+   side and solution vectors every data block is a Matlisp matrix.  Changes
+   in the location of essential boundary would require slightly different
+   matrices which does not fit into this pattern.
+
+* SOLVERS
+
+1. Q: Is there a BiCGStab or GMRES iteration available?
+
+   A: No, not yet.  It would be really useful, if someone would extend the
+   file iterations/krylow.lisp in this direction.
+
+2. Q: Wouldn't it be useful to include also an interface to solvers like
+   SuperLU?
+
+   A: Yes, but I do not have the time to do it now.
+
+3. Q: When will local multigrid work for systems?
+
+   A: Rather soon.  Almost everything necessary is available, but at the
+   moment I do not have time to put it together.
+

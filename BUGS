@@ -1,0 +1,8 @@
+This is a list of known bugs:
+-----------------------------
+
+* There is still a bug for refining n-dimensional cubes for n>=5.  This has
+  the effect that 5-dimensional hypercubes cannot even be generated,
+  because a reference refinement is then generated.  On the other hand,
+  n-dimensional simplices work.
+
