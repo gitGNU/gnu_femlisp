@@ -53,8 +53,8 @@ available.
 @node Quick installation , Detailed installation, Software needed, Installation
 @section Quick installation
 
-For certain operating systems, there is a short way of installing a
-Common Lisp environment and Femlisp.
+For certain operating systems, it is easy to install a Common Lisp
+environment and Femlisp.
 
 @menu
 * Debian GNU/Linux::            
@@ -63,18 +63,16 @@ Common Lisp environment and Femlisp.
 @node Debian GNU/Linux,  , Quick installation , Quick installation
 @subsection Debian GNU/Linux
 
-You can use the following commands:
+The following approach should work if you are on Debian/Sarge and your
+@path{/etc/apt/sources.list} file is setup to find also nonfree
+packages:
+
 @example
 apt-get install gnuplot dx hyperspec wget
-apt-get -t testing install cmucl sbcl cl-infix cl-asdf
-apt-get -t testing install gnuplot dx hyperspec wget
-apt-get -t testing blas blas-dev lapack3 lapack3-dev
-
-# something like the following (depends on your machine)
-# apt-get -t testing atlas3-sse2 atlas3-sse2-dev
-
-# highly recommended
-apt-get -t testing libsuperlu3 libsuperlu3-dev libumfpack4 libumfpack4-dev
+apt-get install cmucl sbcl cl-infix cl-asdf
+apt-get install blas blas-dev lapack3 lapack3-dev
+# maybe, machine-dependent: apt-get install atlas3-sse2 atlas3-sse2-dev
+apt-get install libsuperlu3 libsuperlu3-dev libumfpack4 libumfpack4-dev
 
 cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
 
@@ -82,26 +80,20 @@ cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
 #cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
 wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
 
-cd femlisp
-make infix
-make triangle
+cd femlisp          # change to the Femlisp directory
+make triangle       # gets and compiles the Triangle mesh generator
 
-# after checking the library paths in "femlisp/interface/Makefile"
-make superlu
-make umfpack
-
-make femlisp
-
-# if you work with CMUCL the following gives you an executable
-# make femlisp-core 
-
-# generate the documentation
-make doc
+# after checking the library paths in "femlisp/interface/Makefile":
+make superlu        # compiles the SuperLU interface
+make umfpack        # compiles the UMFPACK interface
+make femlisp        # compiles Femlisp
+make femlisp-core   # creates a Femlisp executable
+make doc            # generate the Femlisp documentation
 
 @end example
 
-Now you should be in the @femlisp{} directory and you can continue
-as described in @ref{Setup of an interactive environment}.
+Now you can continue as described in @ref{Setup of an interactive
+environment}.
 
 @c ----------------------------------------------------------------
 
@@ -143,20 +135,20 @@ cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
 @subsection Installation of a CL implementation
 
 There are two Common Lisp implementations with which @femlisp{} is
-known to work, namely CMUCL or SBCL.  I am usually using CMUCL, mainly
-because it behaves slightly nicer with respect to heap overflow and
-because I observed problems within SBCL with respect to DX graphics.
+known to work, namely CMUCL or SBCL.  Personally, I use both.  CMUCL
+behaves slightly nicer with respect to heap overflow.  On the other
+hand, SBCL gives better information when generating the manual.
 
-@femlisp{} should also run with little changes within other ANSI
-Common Lisp environments, especially the commercial implementations
-Allegro CL and Scieneer CL.  It might also be possible to use
-@femlisp{} with GCL, after some changes due to the lack of ANSI
-compliance of GCL.  On the other hand, using @femlisp{} with
-interpreters or bytecode compilers like CLISP does not make much
-sense, because such implementations are probably much too slow.  Also
-using Lispworks, Corman CL, and OpenMCL will probably be too slow,
-because those implementations are to my knowledge not strong enough
-with respect to fast floating point arithmetic.
+@femlisp{} should also run with little changes with other ANSI Common
+Lisp environments, especially the commercial implementations Allegro
+CL and Scieneer CL.  It might also be possible to use @femlisp{} with
+GCL, after some changes due to the lack of ANSI compliance of GCL.  On
+the other hand, using @femlisp{} with interpreters or bytecode
+compilers like CLISP does not make much sense, because such
+implementations are probably much too slow.  Also using Lispworks,
+Corman CL, and OpenMCL will probably be too slow, because those
+implementations are to my knowledge not strong enough with respect to
+fast floating point arithmetic.
 
 @node Graphics, Direct solvers, Installation of a CL implementation, Detailed installation
 @subsection Graphics
@@ -247,13 +239,13 @@ necessary and only when everything works.}
 @node Setup of an interactive environment,  , Compiling Femlisp, Detailed installation
 @subsection Setup of an interactive environment
 
-It is essential to use @femlisp{} from within a Lisp environment because
-otherwise you do not even have a command history.  A freely available
-Lisp environment is Emacs where you can use the built-in
-inferior-lisp-mode, ILISP, or SLIME.  Since inferior-lisp-mode is not
-very good and ILISP does not seem to be actively developed anymore, I
-recommend using SLIME.  If you do not have it installed on your system,
-you may try the command
+It is essential to use @femlisp{} from within a Lisp environment
+because otherwise you do not even have a command history.  A freely
+available Lisp environment is Emacs where you can use the built-in
+inferior-lisp-mode, Ilisp, or SLIME.  Since inferior-lisp-mode is not
+very good and Ilisp does not seem to be actively developed anymore, I
+recommend using SLIME.  If you do not have it installed on your
+system, you may try the command
 
 @example
 make slime
@@ -262,17 +254,30 @@ make slime
 from within the @femlisp{} directory @path{femlisp}.  This will try to
 download a version of SLIME in @path{femlisp/external}.
 
-Finally, put the following lines in the file @file{.emacs} in your home
-directory.
+Finally, you should put the following lines in the file @file{.emacs}
+in your home directory.
 
 @lisp
-(setq inferior-lisp-program "/usr/bin/lisp")  ; path to CMUCL or SBCL
 (setq *femlisp-root* "ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE/femlisp/")
-(push *femlisp-root* load-path)
+(add-to-list *femlisp-root* load-path)
+
+;;; if you have installed SLIME with "make slime" in the Femlisp directoy
+(add-to-list 'load-path (concat *femlisp-root* "/elisp/slime"))
+
+(require 'slime)
+(slime-setup)
+
 (require 'femlisp)
+
+;;; for showing the SLIME buffer if it is hidden
+(defun show-repl-maybe-start-slime ()
+  (interactive)
+  (if (slime-connected-p)
+      (slime-display-output-buffer)
+      (slime)))
+(global-set-key [f9] 'show-repl-maybe-start-slime)
 @end lisp
 
 Now the Emacs command @kbd{M-x femlisp} should fire up SLIME and load
-@femlisp{}.
-
-
+@femlisp{}.  Whenever your SLIME buffer is hidden, you can bring it up
+again by pressing @kbd{F9}.

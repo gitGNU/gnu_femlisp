@@ -86,12 +86,12 @@ for approximating the solution has increased beyond 20 seconds.
 
 The following sequence is a short excerpt from the Driven cavity demo
 in @file{femlisp/src/applications/navier-stokes/driven-cavity.lisp}.
-It solves the two-dimensional Driven cavity problem with Reynolds
-number 10.  During the approximation the approximation of the velocity
-components at the midpoint @math{(0.5,0.5)} is printed.
+It solves the two-dimensional driven cavity problem with Reynolds
+number 10.  During the approximation the velocity components at the
+midpoint @math{(0.5,0.5)} are printed.
 
 @verbatim
-  (let ((dim 2) (reynolds 0.0))
+  (let ((dim 2) (reynolds 10.0))
     (solve 
      (blackboard
       :problem (driven-cavity 2 :reynolds reynolds) :base-level 0
@@ -115,30 +115,31 @@ need some polishing.
 
 @subsection Eigenvalue problems
 
-@femlisp{} can solve eigenvalue problems by Wielandt's iteration.  For
-example, the second eigenvalue of the Laplace operator on a unit
-square can be approximated with
+There is some preliminary support for solving eigenvalue problems by
+Wielandt's iteration.  For example, the first eigenvalue of the
+Laplace operator on a unit square can be approximated with
 @lisp
-  (let ((problem (cdr-model-problem 2 :evp '(lambda 50))))
+  (let ((problem (cdr-model-problem 2 :evp (list :lambda (box 20.0) :mu (box 1.0)))))
     (defparameter *result*
       (solve (blackboard :problem problem
-			 :success-if '(>= :time 20)
-			 :output 1))))
-  (slot-value (getbb *result* :problem) 'lambda) @result{} eigenvalue
+                         :success-if '(or (>= :time 5) (>= :nr-levels 5))
+                         :output 1))))
+  (slot-value (getbb *result* :problem) 'lambda)
+  (plot (getbb *result* :solution))
 @end lisp
 
-Unfortunately, the multigrid algorithm has not yet been adapted to
-this kind of problems.  Therefore, a direct decomposition is used for
-solving the linear systems which does not work for a large number of
-unknowns.
+Note that the multigrid algorithm has not yet been adapted for
+eigenvalue problems.  Therefore, a sparse decomposition is used for
+solving the linear systems which does not work for large problems.
 
 @node Plotting, Common Lisp environment, Solving problems, First steps
 @section Plotting
 
 It is possible to plot mesh, solution, coefficient, the graph of the
 stiffness matrix, or globally defined functions on a domain.  We
-illustrate this on the example from @ref{Stationary diffusion problem}.
-Plotting solution, mesh, source, and matrix can then be done with
+illustrate this on the example from @ref{Stationary diffusion
+problem}.  When this example has been run, the plotting of solution,
+mesh, source, and matrix can be done with
 
 @lisp
 (plot (getbb *result* :solution))
@@ -160,11 +161,12 @@ You can also plot the result to several graphic formats.  For example,
 
 First, it is of uttermost importance that you use an editor which
 "understands" Lisp code and can indent it correctly, show matching
-parentheses or do suitable syntax-highlighting.  Otherwise, it is simply
-not possible to program any nontrivial Lisp code.  On the other hand, if
-such an editor is available, it will often provide also commands for
-moving through the code and manipulating the code expression-wise.  It
-is really worthwile to learn these editor features.
+parentheses or do suitable syntax-highlighting.  Otherwise, it is
+almost impossible to write nontrivial Lisp code.  On the other hand,
+if such an editor is available, it will often provide commands for
+moving through the code and manipulating the code expression-wise,
+which makes writing Lisp even easier than writing, say, C.  It is very
+useful to learn these editor features.
 
 Furthermore, in contrast to most other languages, the ANSI Common Lisp
 standard defines an interface for introspection.  E.g., functions and
@@ -178,14 +180,16 @@ be extracted at any time.  For example:
 @end lisp
 
 Now, @code{(documentation '*result* 'variable)} returns the docstring
-provided before.
+provided before.  If you use a decent Lisp environment, this command
+can be invoked by pressing some key when the cursor is on the symbol
+@code{*result*}.
 
-The standard requires also an interface for tracing, inspecting data,
-together with some debugging commands.  However, implementations vary in
-the quality of the provided tools.  Commercial Lisps as Allegro CL,
-Lispworks or Corman CL usually provide very elaborate IDEs which allow
-for easy access to the above-mentioned features.  A free alternative is
-the editor Emacs together with the SLIME package.  Emacs/SLIME can
-handle a large range of Lisp implementations and provides more or less
-the same possibilities as the commercial IDEs.
+The ANSI Common Lisp standard requires also an interface for tracing,
+inspecting data, together with some debugging commands.  However,
+implementations vary in the quality of the provided tools.  Commercial
+Lisps as Allegro CL, Lispworks or Corman CL provide very elaborate
+IDEs which allow for easy access to the above-mentioned features.  A
+free alternative is the editor Emacs together with the SLIME package.
+Emacs/SLIME can handle a large range of Lisp implementations and
+provides more or less the same possibilities as the commercial IDEs.
 

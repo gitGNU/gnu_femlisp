@@ -152,7 +152,7 @@ Parameters of the computation: order=~order~, levels=~levels~."
 			order levels :output 1 :plot t)))))
       (adjoin-demo demo *articles-demo*))))
 
-(make-heuveline-rannacher-demo 4 4)
+(make-heuveline-rannacher-demo 4 5)
 
 #|
  CELLS     DOFS  MENTRIES   TIME   grad-x (0.5,2.5)                ETA

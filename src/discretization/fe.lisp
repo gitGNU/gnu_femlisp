@@ -111,12 +111,12 @@ cells as keys."))
 (defmethod nr-of-components ((fe <scalar-fe>)) 1)
 (defmethod components ((fe <scalar-fe>)) (vector fe))
 
-(definline subcell-ndofs (fe)
-  (the fixnum-vec (getf (properties fe) 'SUBCELL-NDOFS)))
-(definline subcell-indices (fe)
-  (the list (getf (properties fe) 'SUBCELL-INDICES)))
-(definline inner-dof-indices (fe)
-  (the list (getf (properties fe) 'INNER-DOF-INDICES)))
+(defun subcell-ndofs (fe)
+  (getf (properties fe) 'SUBCELL-NDOFS))
+(defun subcell-indices (fe)
+  (getf (properties fe) 'SUBCELL-INDICES))
+(defun inner-dof-indices (fe)
+  (getf (properties fe) 'INNER-DOF-INDICES))
 
 (defmacro do-dofs ((dof fe) &body body)
   `(loop for ,dof of-type <dof> in (fe-dofs ,fe) do

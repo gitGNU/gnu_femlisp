@@ -72,8 +72,9 @@ In @femlisp{}, this feature is used at several places.  In the package
 @package{FL.MESH}, it is used when dynamically generating cell classes
 of arbitrary dimension and type.  In the package @package{FL.MATLISP},
 it is used for generating matrices with entries of a given type as
-well as the corresponding methods which.  This is somewhat similar to
-C++ templates which are applied at runtime whenever needed.
+well as the corresponding methods.  This is somewhat similar to C++
+templates which are applied at runtime as soon as a method of a
+certain signature is needed.
 
 @node Memoization, Blackboards, Dynamic class generation, Programming techniques
 @section Memoization
@@ -141,13 +142,13 @@ an even number of elements which appear in pairs of the form
 symbol/value (such a list is called a @emph{property list}).  This
 allows for a very flexible parametrization of a lot of operations.
 
-Another possibility of flexible passing of unstructured data is provided
-by the class @class{blackboard} which is defined in the package
-@package{FL.UTILITIES}.  Such blackboards are also modifiable allowing
-functions to write return results via the blackboard.  Sometimes
-(e.g. within the generic function @function{iterate}) several functions
-operate one after the other on the same blackboard which resembles very
-much an assembly line.
+Another possibility of flexible passing of unstructured data is
+provided by the class @class{blackboard} which is defined in the
+package @package{FL.UTILITIES}.  Such blackboards can also be modified
+which allows functions to return results via the blackboard.
+Sometimes (e.g. within the generic function @function{iterate})
+several functions operate one after the other on the same blackboard
+which resembles very much an assembly line.
 
 @node Documentation,  , Blackboards, Programming techniques
 @section Documentation, testing, and demos

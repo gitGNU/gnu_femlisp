@@ -29,9 +29,9 @@ Common Lisp
 @alias path = file
 @alias program = file
 
-@set EDITION 0.2
-@set VERSION 0.9.4
-@set UPDATED 28 December 2004
+@set EDITION 0.3
+@set VERSION 0.9.5
+@set UPDATED 08 March 2005
 
 @c for install-info
 @dircategory Math
@@ -43,14 +43,14 @@ Common Lisp
 @femlisp{} User Manual @value{EDITION} (documenting @femlisp{}
 @value{VERSION})
 
-Copyright @copyright{} 2004 Nicolas Neuss, University of Heidelberg.
+Copyright @copyright{} 2005 Nicolas Neuss, University of Heidelberg.
 @end ifinfo
 
 @copying
 This is Version @value{EDITION} of the @femlisp{} manual, last updated
 @value{UPDATED}, for @femlisp{} @value{VERSION}.
 
-Copyright @copyright{} 2004 Nicolas Neuss.
+Copyright @copyright{} 2005 Nicolas Neuss.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document

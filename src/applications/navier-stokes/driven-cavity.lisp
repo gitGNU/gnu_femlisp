@@ -119,7 +119,7 @@ Taylor-Hood finite elements (Q^{k+1})^~dim~/Q^k with k=~order~."
 				 (list (watch-dc-center-velocity dim)))))))
   (fe-extreme-values (getbb *result* :solution))
   (time (plot (getbb *result* :solution) :component 1))
-  (time (plot (component (getbb *result* :solution) 0)))
+  (time (plot (component (getbb *result* :solution) 1)))
 )
 
 ;;; (test-driven-cavity)
