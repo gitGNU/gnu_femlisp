@@ -108,9 +108,9 @@ error estimator yields a large eta."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <largest-eta-indicator> (<refinement-indicator>)
-  ((fraction :accessor fraction :initform nil :initarg :fraction)
-   (pivot-factor :accessor pivot-factor :initform 0.2 :initarg :pivot-factor)
-   (from-level :accessor from-level :initform 0 :initarg :from-level)
+  ((fraction :reader fraction :initform nil :initarg :fraction)
+   (pivot-factor :reader pivot-factor :initform 0.2 :initarg :pivot-factor)
+   (from-level :reader from-level :initform 0 :initarg :from-level)
    (block-p :reader block-p :initform nil :initarg :block-p))
   (:documentation "Puts the fraction of the cells with the largest error
 contributions in the refinement table.  Note that a fraction of 1.0 yields
