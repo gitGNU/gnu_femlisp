@@ -228,6 +228,10 @@ cube with its opposite sides identified."
     domain))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Special domains (mainly for testing purposes)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defparameter *circle-domain*
   (let ((pi/2 (* 0.5 pi))
 	(circle-boundary
@@ -247,18 +251,26 @@ cube with its opposite sides identified."
 	    (seg-cw (make-line center west-vtx))
 	    (seg-cs (make-line center south-vtx)))
 	;; curved boundaries
-	(let ((seg-en (make-line east-vtx north-vtx
-				 :mapping (transform-function
-					   circle-boundary [pi/2] (double-vec 0.0d0))))
-	      (seg-nw (make-line north-vtx west-vtx
-				 :mapping (transform-function
-					   circle-boundary [pi/2] (double-vec pi/2))))
-	      (seg-ws (make-line west-vtx south-vtx
-				 :mapping (transform-function
-					   circle-boundary [pi/2] (double-vec pi))))
-	      (seg-es (make-line east-vtx south-vtx
-				 :mapping (transform-function
-					   circle-boundary [(- pi/2)] (double-vec (* 2 pi))))))
+	(let ((seg-en
+	       (make-line
+		east-vtx north-vtx
+		:mapping (transform-function
+			  circle-boundary :domain-transform (list [pi/2] (double-vec 0.0d0)))))
+	      (seg-nw
+	       (make-line
+		north-vtx west-vtx
+		:mapping (transform-function
+			  circle-boundary :domain-transform (list [pi/2] (double-vec pi/2)))))
+	      (seg-ws
+	       (make-line
+		west-vtx south-vtx
+		:mapping (transform-function
+			  circle-boundary :domain-transform (list [pi/2] (double-vec pi)))))
+	      (seg-es
+	       (make-line
+		east-vtx south-vtx
+		:mapping (transform-function
+			  circle-boundary :domain-transform (list [(- pi/2)] (double-vec (* 2 pi)))))))
 	  ;; Now the four triangle cells.  Note, that we don't bother about
 	  ;; the precise mappings for now.  Nevertheless, these would be needed,
 	  ;; if we wanted to work with completely nonlinear (and not only
@@ -276,10 +288,6 @@ cube with its opposite sides identified."
   "This definition of a circle domain gives somewhat better results than
 the general n-ball-domain, probably because the boundary parametrization is
 better.")
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Special domains (mainly for testing purposes)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defparameter *rotated-square-domain*
   ;; corners

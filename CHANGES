@@ -1,0 +1,10 @@
+# -*- mode: text; -*-
+
+* From Femlisp-0.8.2 to Femlisp-0.8.3:
+
+Removed bug in refinement of product cells which contained simplices of
+dimension >=3.
+
+Adaption to the new Matlisp. MATRIX-REF is a macro dispatching to
+MATRIX-REF-1D and MATRIX-REF-2D.  We also unexport MATLISP:REAL after
+loading Matlisp, because it interferes with COMMON-LISP:REAL.

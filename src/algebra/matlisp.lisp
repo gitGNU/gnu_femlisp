@@ -414,17 +414,13 @@ then result is set to increment."
 	(setf (aref arr i) (* (aref arr i) val)))
       (call-next-method)))
 
-(defmethod matrix-ref ((matrix t) row &optional col)
-  (declare (ignore row col))
-  (error "~S is not a matrix" matrix))
+(defmethod matrix-ref-1d ((vec array) i) (aref vec i))
+(defmethod matrix-ref-2d ((vec array) i j) (aref vec i j))
 
-(defmethod matrix-ref ((vec array) (i fixnum) &optional j)
-  (if j (aref vec i j) (aref vec i)))
-
-(defmethod (setf matrix-ref) (value (vec array) (i fixnum) &optional j)
-  (if j
-      (setf (aref vec i j) value)
-      (setf (aref vec i) value)))
+(defmethod (setf matrix-ref-1d) (value (vec array) i)
+  (setf (aref vec i) value))
+(defmethod (setf matrix-ref-2d) (value (vec array) i j)
+  (setf (aref vec i j) value))
 
 (defun matlisp::unit-vector (dim i)
   (let ((vec (make-float-matrix dim 1)))

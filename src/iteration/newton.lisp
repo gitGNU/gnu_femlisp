@@ -68,31 +68,11 @@ fixed-point iteration for $identity-f$."
 	until (< (norm f-value) threshold)
 	finally (return x)))
 
-(defun numerical-gradient (f h)
-  #'(lambda (x)
-      (loop with n = (nrows x)
-	    with gradient = (make-float-matrix n n)
-	    with f0 = (funcall f x)
-	    for i below n do
-	    (loop with fi = (funcall f (m+ x (scal h (matlisp::unit-vector n i))))
-		  with diff = (scal (/ h) (m- fi f0))
-		  for j below n do
-		  (setf (mat-ref gradient j i) (vec-ref diff j)))
-	    finally (return gradient))))
-
-
 (defun test-newton ()
   (flet ((simple-linear-f (x) (+ 1.0 (* 0.5 x))))
     (newton #'simple-linear-f 1.0 :output t)
     (newton #'simple-linear-f 1.0 :approximate-gradient (constantly 0.5) :output t))
-
-  #+(or)(let ((f (linear-function [[1.0 0.0]' [0.0 1.0]'])))
-	  (funcall (numerical-gradient f 0.1) [0.0 0.0]'))
-  
-  (let ((newton-f #'(lambda (x) [(- 2.0 (* (vec-ref x 0) (vec-ref x 0)))]')))
-    (newton newton-f [1.0]
-	    :approximate-gradient (numerical-gradient newton-f 1.0e-7)
-	    :output t)))
+  )
 
   
 ;;;; Testing: (test-newton)

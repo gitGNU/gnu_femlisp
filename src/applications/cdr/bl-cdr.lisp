@@ -136,7 +136,7 @@ for the load functional."
 	 :order order :max-levels max-levels rest))
 
 #+(or) (cdr-bl-computation
-	2 4 2 :plot t :amplitude 0.15 :extensible nil :output :all)
+	2 4 3 :plot t :amplitude 0.15 :extensible nil :output :all)
 
 #+(or) (show (getf *result* :matrix))
 ;; before change (+ 1 sec on another run)

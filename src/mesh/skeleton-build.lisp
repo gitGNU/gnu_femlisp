@@ -122,19 +122,26 @@ their counterpart in skel-1."
       (funcall transform cell))
     (values new-skel copy-table)))
 
-(defmethod linearly-transform-skeleton ((skel <skeleton>) transform &key properties)
+
+
+(defmethod linearly-transform-skeleton ((skel <skeleton>) &key A b properties)
   "Transforms skel by transforming the vertex positions."
   (transform-skeleton-copy
    skel #'(lambda (cell)
-	    (when (zerop (dimension cell))
-	      (x<-y (vertex-position cell)
-		    (funcall transform (vertex-position cell)))))
+	    (if (zerop (dimension cell))
+		(x<-y (vertex-position cell)
+		      (vec+ (m* A (vertex-position cell)) b))
+		(when (mapping cell)
+		  (setf (mapping cell)
+			(transform-function (mapping cell)
+					    :image-transform (list A b))))))
    :properties properties))
 
 (defmethod shift-skeleton ((skel <skeleton>) shift &key properties)
   "Shifts skel by vec.  vec has to be a vector of dimension
 \(manifold-dimension skel\)."
-  (linearly-transform-skeleton skel #'(lambda (x) (x+=y x shift)) :properties properties))
+  (linearly-transform-skeleton
+   skel :A (eye (dimension skel)) :b shift :properties properties))
 
 (defmethod subskeleton ((skel <skeleton>) test)
   (let ((subskel (make-instance '<skeleton> :cells (find-cells test skel))))

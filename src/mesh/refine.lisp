@@ -259,8 +259,10 @@ meshes the domain patches have to be put in the properties."
 			    (whereas ((cell-map (mapping cell)))
 			      (transform-function
 			       cell-map
-			       (child-transform-A child-info)
-			       (child-transform-b child-info))))
+			       :domain-transform
+			       (list
+				(child-transform-A child-info)
+				(child-transform-b child-info)))))
 		      new-cell)))))
       ;; finally, insert the children in the refined skeleton.
       (loop for child across children-vector do

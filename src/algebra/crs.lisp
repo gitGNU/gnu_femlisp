@@ -167,10 +167,10 @@ its actual offsets in the sparse graph."))
 		   (setf (aref (crs-store A) (aref (crs-offsets pattern) k)) val)))
 	  finally (error "i/j not in pattern"))))
 
-(defmethod matrix-ref ((A <crs-matrix>) i &optional j)
+(defmethod matrix-ref-2d ((A <crs-matrix>) i j)
   (mat-ref A i j))
 
-(defmethod (setf matrix-ref) (val (A <crs-matrix>) i &optional j)
+(defmethod (setf matrix-ref-2d) (val (A <crs-matrix>) i j)
   (setf (mat-ref A i j) val))
 
 ;;; read-only access

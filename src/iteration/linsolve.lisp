@@ -55,7 +55,12 @@
 	    (terpri))
 	:final nil))
 
-
+(defun safe-divide-by-zero (a b)
+  (if (zerop a)
+      0.0d0
+      (if (zerop b)
+	  :infinity
+	  (/ a b))))
 
 ;;; Old interface, better use the new one below
 
@@ -91,9 +96,7 @@ linear-iteration on the matrix mat."
 	    and previous-defnorm = nil then defnorm
 	    for red-factor = (if (zerop i)
 				 :undefined
-				 (if (zerop defnorm0)
-				     (if (zerop defnorm) 0.0d0 :infinity)
-				     (/ defnorm defnorm0)))
+				 (safe-divide-by-zero defnorm defnorm0))
 	    for success-p =
 	    (if success-if
 		(test-condition
@@ -124,7 +127,7 @@ linear-iteration on the matrix mat."
 	       ;; we return also a status report in the form of a property list
 	       (list :solution new-sol :res res :defnorm defnorm
 		     :last-step-reduction (and defnorm previous-defnorm
-					       (/ defnorm previous-defnorm))
+					       (safe-divide-by-zero defnorm previous-defnorm))
 		     :steps i :reduction red-factor :convergence-rate
 		     (if (numberp red-factor) (expt red-factor (/ i)) red-factor)
 		     :status (if success-p :success :failure))))))))

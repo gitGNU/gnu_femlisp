@@ -128,6 +128,12 @@ boundary."
 	 (minusp (aref (midpoint patch) (1- dim)))
 	 (or (vertex? patch) (not (identified-p patch bl-domain))))))
 
+(defun bl-patch-on-pellet-boundary (bl-domain patch)
+  "Returns T if the patch is on the lower oscillating boundary."
+  (let ((dim (dimension bl-domain)))
+    (and (< (dimension patch) dim)
+	 (notany (rcurry #'identified-p bl-domain) (vertices patch)))))
+
 (defun bl-patch-on-upper-boundary (bl-domain patch)
   "Returns T if the patch is on the upper boundary."
   (let ((dim (dimension bl-domain)))
@@ -141,76 +147,11 @@ acts."
   (zerop (aref (midpoint patch) (1- (dimension bl-domain)))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Alter Code
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-#+(or)
-
-(defun distort-skeleton (skel f)
-  "Distorts a skeleton by modifying the position of its vertices and the
-mappings of the other cells.  We use this to construct an oscillating
-boundary."
-  (let* ((dim (manifold-dimension skel))
-	 (dim-1 (1- dim)))
-    (skel-for-each-cell
-     #'(lambda (cell)
-	 (cond
-	   ((vertex? cell)
-	    (let ((g (vertex-position cell)))
-	      (setf (aref g dim-1) (funcall f (vector-slice g 0 dim-1)))
-	      g))
-	   (t (setf (mapping cell)
-		    (make-instance
-		     '<special-function>
-		     :domain-dimension (dimension cell) :image-dimension dim
-		     :evaluator
-		     #'(lambda (x)
-			 (let ((g (l2g cell x)))
-			   (setf (aref g dim-1) (funcall f (vector-slice g 0 dim-1)))
-			   g)))))))
-     skel)
-    skel))
-
-#+(or)
-(defun boundary-layer-cell-domain (dim f)
-  (let* ((dim-1 (1- dim))
-	 (part (copy-skeleton (skeleton (n-cube dim))))
-	 (skel (skel-add! part (shift-skeleton part (vec-s* -1.0d0 (unit-vector dim dim-1)))))
-	 (lower (find-cell
-		 #'(lambda (cell)
-		     (every #'(lambda (coords) (= (aref coords dim-1) -1.0d0))
-			    (corners cell)))
-		 skel :dimension dim-1))
-	 (lower-skel (skeleton lower)))
-    (distort-skeleton lower-skel f)
-    (check skel)
-    ;; TODO: make upper into an infinite boundary
-    (let* ((domain (change-class skel '<domain>))
-	   (boundary (domain-boundary domain))
-	   (table (make-hash-table :test 'equalp)))
-    ;; sort boundary cells in lists by their non-(0.0,1.0) coordinates
-    (skel-for-each-cell
-     #'(lambda (side)
-	 (push side
-	       (gethash (loop for coord across (midpoint side)
-			      and i from 0 collect
-			      (if (and (< i dim-1) (= coord 1.0))
-				  0.0 coord))
-			table)))
-     boundary)
-    ;; identify
-    (loop for id-list being the hash-values of table
-	  unless (single? id-list) do
-	  (identify id-list domain))
-    ;; return the domain and the lower cell
-    (values domain lower-skel))))
-
-
 ;;;; Testing: (test-bl-cell)
 (defun test-bl-cell ()
   (cubic-spline #(-1.0 -0.8))
   (spline-interpolated-bl-cell #(-1.0 -0.8))
+  (describe (sinusoidal-bl-cell 2))
   (let* ((domain (sinusoidal-bl-cell 2))
 	 (mesh (uniformly-refined-hierarchical-mesh
 		domain 0 :parametric :from-domain)))

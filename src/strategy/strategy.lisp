@@ -207,6 +207,7 @@ cells works better with p>=2."
 			     (if (getf chars :exact)
 				 :from-domain
 				 (lagrange-mapping (1+ (discretization-order fe-class)))))))))
+      (check mesh)
       (awhen (getbb *strategy-output* :plot-mesh)
 	(if (functionp it) (funcall it mesh) (plot mesh)))
       (setf ansatz-space (make-fe-ansatz-space fe-class problem mesh))

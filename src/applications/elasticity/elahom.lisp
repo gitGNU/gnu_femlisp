@@ -129,7 +129,7 @@ with dim^3 components which are plotted one after the other."
     (defparameter *result*
       (solve-with
        (make-instance
-	'<fe-strategy> :fe-class (lagrange-fe order :nr-comps dim)
+	'<fe-strategy> :fe-class (lagrange-fe order :nr-comps dim :type :gauss-lobatto)
 	:estimator (make-instance '<projection-error-estimator>)
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
 	:appraise (stop-if :nr-levels>= levels)
@@ -137,8 +137,8 @@ with dim^3 components which are plotted one after the other."
 	(make-instance
 	 '<linear-solver> :iteration
 	 (let ((smoother (if  (>= dim 3)
-			     *gauss-seidel*
-			     (make-instance '<local-bgs> :type :vertex-centered))))
+			      *gauss-seidel*
+			      (make-instance '<local-bgs> :type :vertex-centered))))
 	   (geometric-cs
 	    :coarse-grid-iteration
 	    (make-instance '<multi-iteration> :nr-steps 10 :base

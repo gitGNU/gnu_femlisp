@@ -121,9 +121,12 @@ inlay and the component of the cell vector."
 		(scal! (if (patch-in-inlay-p patch) eps 1.0) (eye dim)))
 	  'CDR::GAMMA (constant-coefficient (eye dim)))))))
 
-(defun porous-cell-problem (dim)
+(defun porous-cell-problem (dim &key (radius 0.3) A)
   (make-instance
-   '<cdr-problem> :domain (n-cell-with-n-ball-hole dim :radius 0.3)
+   '<cdr-problem> :domain
+   (if A
+       (n-cell-with-ellipsoidal-hole dim :A A)
+       (n-cell-with-n-ball-hole dim :radius radius))
    :multiplicity dim :patch->coefficients
    #'(lambda (patch)
        (when (= (dimension patch) dim)
@@ -184,8 +187,12 @@ must be a scalar multiple of the identity."
 
 
 ;;; Testing:
-#+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 1 2)
+#+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t)
 #+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 3)
+#+(or)
+(let ((A (algebra::ellipse-matrix 0.25 0.3 0.7854)))
+  (cdr-interior-effective-coeff-demo (porous-cell-problem 2 :A A) 4 2 :plot t))
+
 ;;; Gauss-Lobatto points
 ;;; inexact domain
 ;     9       450     31597       4.3   7.2318763792d-01

@@ -49,6 +49,7 @@
 
 #-matlisp (setq debug:*debug-readtable* (copy-readtable *readtable*))
 #-matlisp (load "cl:matlisp;start.lisp")
+(unexport 'MATLISP::REAL :MATLISP)
 #-infix (load "cl:utilities;infix.cl")
 
 (load "cl:cl-ppcre;load.lisp")
@@ -69,7 +70,7 @@
 (mk:oos 'femlisp 'compile :minimal-load t :verbose t :compile-during-load t)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-(defparameter *femlisp-version* "0.8.2")
+(defparameter *femlisp-version* "0.8.3")
 (defun femlisp-version () *femlisp-version*)
 (defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
 #+cmu (setf (getf ext:*herald-items* :femlisp)
@@ -77,7 +78,7 @@
 
 (defun femlisp-banner ()
   (format
-   t "~&~%*** Femlisp-0.8.2 ***
+   t "~&~%*** Femlisp-0.8.3 ***
 
 Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
 

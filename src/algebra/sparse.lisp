@@ -82,9 +82,8 @@ used for handling multiple right-hand sides or solutions simultaneously."))
   ;;(declare (type real-matrix value))
   (setf (gethash key (slot-value svec 'blocks)) value))
 
-(defmethod matrix-ref ((svec <sparse-vector>) key &optional key2)
+(defmethod matrix-ref-1d ((svec <sparse-vector>) key)
   "For matlisp like access."
-  (assert (null key2))
   (vec-ref svec key))
 
 (defmethod for-each-key ((fn function) (svec <sparse-vector>))
@@ -402,10 +401,9 @@ means a lot of consing."
 			   (make-hash-table :size 30 :test #'eq))))
 	value))
 
-#+(or)
-(defmethod matrix-ref ((svec <sparse-matrix>) key &optional key2)
+(defmethod matrix-ref-2d ((smat <sparse-matrix>) key1 key2)
   "For matlisp like access - should not be necessary."
-  (mat-ref svec key key2))
+  (mat-ref smat key1 key2))
 
 (defmethod remove-entry ((smat <sparse-matrix>) row-key col-key)
   (let ((row (matrix-row smat row-key))

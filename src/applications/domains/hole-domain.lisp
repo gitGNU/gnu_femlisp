@@ -34,29 +34,29 @@
 
 (in-package :application)
 
-(defun n-cube-with-hole (dim &key (refinements 0))
+(defun n-cube-with-cubic-hole (dim &key (refinements 0))
   "Generates an n-cube-domain with an n-cube hole."
   (let* ((skel1 (copy-skeleton
 		 (skeleton-boundary
 		  (refcell-refinement-skeleton (n-cube dim) refinements))))
 	 (1->2 (nth-value 1 (linearly-transform-skeleton
-			     skel1 #'(lambda (x)
-				       (m+ (scal 0.5 x)
-					   (make-double-vec (length x) 0.25d0)))))))
+			     skel1 :A (scal 0.5 (eye dim))
+			     :b (make-double-vec dim 0.25d0)))))
     (change-class (telescope skel1 1->2) '<domain>)))
 
-(defun n-cell-with-hole (dim &key (refinements 0))
+(defun n-cell-with-cubic-hole (dim &key (refinements 0))
   "Generates an n-dimensional cell domain with an n-cube hole."
   (identify-unit-cell-faces
-   (n-cube-with-hole dim :refinements refinements)))
+   (n-cube-with-cubic-hole dim :refinements refinements)))
 
-(defun n-cube-with-n-ball-hole (dim &key (refinements 0) (radius 0.25))
-  "Generates an n-cube-domain with an n-ball hole using n-cube patches."
+(defun n-cube-with-ellipsoidal-hole (dim &key (refinements 0) A)
+  "Generates an n-cube-domain with an ellipsoidal hole satisfying (Ax,x)=1
+using n-cube patches."
   (let* ((skel1 (copy-skeleton
 		 (skeleton-boundary
 		  (refcell-refinement-skeleton (n-cube dim) refinements))))
 	 (midpoint (make-double-vec dim 0.5))
-	 (sphere-projection (project-to-sphere midpoint radius))
+	 (projection (project-to-ellipsoid midpoint A))
 	 (1->2 (nth-value
 		1 (transform-skeleton-copy
 		   skel1
@@ -64,9 +64,19 @@
 		       (let ((mapping (cell-mapping cell)))
 			 (setf (mapping cell)
 			       (if (vertex? cell)
-				   (evaluate sphere-projection (evaluate mapping #()))
-				   (compose-2 sphere-projection mapping)))))))))
+				   (evaluate projection (evaluate mapping #()))
+				   (compose-2 projection mapping)))))))))
     (change-class (telescope skel1 1->2) '<domain>)))
+
+(defun n-cell-with-ellipsoidal-hole (dim &key (refinements 0) A)
+  "Generates an n-dimensional cell domain with an ellipsoidal hole."
+  (identify-unit-cell-faces
+   (n-cube-with-ellipsoidal-hole dim :refinements refinements :A A)))
+
+(defun n-cube-with-n-ball-hole (dim &key (refinements 0) (radius 0.25))
+  "Generates an n-cube-domain with an n-ball hole using n-cube patches."
+  (n-cube-with-ellipsoidal-hole dim :refinements refinements
+				:A (scal (/ (* radius radius)) (eye dim))))
 
 (defun n-cell-with-n-ball-hole (dim &key (radius 0.25) (refinements 0))
   "Generates an n-dimensional cell domain with an n-ball hole."
@@ -80,7 +90,7 @@
 
 ;;; Testing: (test-hole-domain)
 (defun test-hole-domain ()
-  (n-cube-with-hole 2)
+  (n-cube-with-cubic-hole 2)
   (let ((skel (n-cell-with-n-ball-hole 2 :radius 0.3 :refinements 0)))
     (doskel (cell skel)
       (whereas ((id (cell-identification cell skel)))

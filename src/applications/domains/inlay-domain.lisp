@@ -34,22 +34,21 @@
 
 (in-package :application)
 
-(defun n-cube-with-inlay (dim &key (refinements 0))
+(defun n-cube-with-cubic-inlay (dim &key (refinements 0))
   "Generates an n-cube-domain with an n-cube inlay."
   (multiple-value-bind (inlay)
       (linearly-transform-skeleton
        (refcell-refinement-skeleton (n-cube dim) refinements)
-       #'(lambda (x)
-	   (m+ (scal 0.5 x)
-	       (make-double-vec (length x) 0.25d0))))
+       :A (scal 0.5 (eye dim))
+       :b (make-double-vec dim 0.25d0))
     (change-class
-     (skel-add! inlay (n-cube-with-hole dim :refinements refinements))
+     (skel-add! inlay (n-cube-with-cubic-hole dim :refinements refinements))
      '<domain>)))
 
-(defun n-cell-with-inlay (dim &key (refinements 0))
+(defun n-cell-with-cubic-inlay (dim &key (refinements 0))
   "Generates an n-dimensional cell domain with an n-cube hole."
   (identify-unit-cell-faces
-   (n-cube-with-inlay dim :refinements refinements)))
+   (n-cube-with-cubic-inlay dim :refinements refinements)))
 
 (defun n-cube-with-n-ball-inlay (dim &key (refinements 0) (radius 0.25))
   "Generates an n-cube-domain with an n-ball inlay using n-cube patches."
@@ -68,12 +67,11 @@
 			      (evaluate sphere-projection (evaluate mapping #()))
 			      (compose-2 sphere-projection mapping)))))))))
     (multiple-value-bind (center-block unit-cell->center-block)
-	(linearly-transform-skeleton
-	 (refcell-refinement-skeleton (n-cube dim) refinements)
-	 #'(lambda (x)
-	     (m+ midpoint
-		 (scal (/ radius (sqrt dim))
-		       (m- x  midpoint)))))
+	(let ((factor (/ radius (sqrt dim))))
+	  (linearly-transform-skeleton
+	   (refcell-refinement-skeleton (n-cube dim) refinements)
+	   :A (scal factor (eye dim))
+	   :b (scal (- 1.0d0 factor) midpoint)))
       (let ((center-skin (skeleton-boundary center-block))
 	    (center->middle (make-hash-table)))
 	;; fill center->middle table
@@ -101,7 +99,7 @@
 
 ;;; Testing: (test-inlay-domain)
 (defun test-inlay-domain ()
-  (n-cube-with-inlay 2)
+  (n-cube-with-cubic-inlay 2)
   (let* ((domain (n-cell-with-n-ball-inlay 2 :radius 0.3 :refinements 0))
 	 (chars (domain-characteristics domain)))
     (assert (and (getf chars :exact) (getf chars :curved)))

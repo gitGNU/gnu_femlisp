@@ -172,38 +172,77 @@ computation are trivial."))
 
 (defclass <linearly-transformed-function> (<function>)
   ((original :reader original :initarg :original)
-   (A :reader trans-A :initarg :A)
-   (b :reader trans-b :initarg :b))
+   (domain-A :reader domain-A :initform nil :initarg :domain-A)
+   (domain-b :reader domain-b :initform nil :initarg :domain-b)
+   (image-A :reader image-A :initform nil :initarg :image-A)
+   (image-b :reader image-b :initform nil :initarg :image-b))
   (:documentation "<linearly-transformed-function> calls the original
-function evaluation on transformed coordinates."))
+function evaluation on linearly transformed coordinates and linearly
+transforms also the result."))
 
-(defun transform-function (func A b)
-  (assert (= (domain-dimension func) (nrows A)))
-  (typecase func
-    (<linearly-transformed-function>
-     (make-instance
-      '<linearly-transformed-function>
-      :domain-dimension (ncols A)
-      :image-dimension (image-dimension func)
-      :original (original func)
-      :A (m* (trans-A func) A)
-      :b (m+ (m* (trans-A func) b) (trans-b func))))
-    (t 
-     (make-instance
-      '<linearly-transformed-function>
-      :domain-dimension (ncols A)
-      :image-dimension (image-dimension func)
-      :original func :A A :b b))))
+(defun transform-function (func &key domain-transform image-transform)
+  (let ((domain-A (first domain-transform))
+	(domain-b (second domain-transform))
+	(image-A (first image-transform))
+	(image-b (second image-transform)))
+    (when domain-transform
+      (assert (= (domain-dimension func) (length domain-b) (nrows domain-A))))
+    (when image-transform
+      (assert (= (image-dimension func) (ncols image-A))))
+    ;; compute resulting values, we always expect pairs.  This could be made
+    ;; faster by allowing shifts only.
+    (when (typep func '<linearly-transformed-function>)
+      (when (domain-A func)
+	(setq domain-A (if domain-A
+			   (m* (domain-A func) domain-A)
+			   (domain-A func)))
+	(setq domain-b (if domain-b
+			   (m+ (m* (domain-A func) domain-b) (domain-b func))
+			   (domain-b func))))
+      (when (image-A func)
+	(setq image-A (if image-A
+			  (m* image-A (image-A func))
+			  (image-A func)))
+	(setq image-b (if image-b
+			  (m+ image-b (m* image-A (image-b func)))
+			  (image-b func)))))
+    (make-instance
+     '<linearly-transformed-function>
+     :domain-dimension (if domain-A (ncols domain-A) (domain-dimension func))
+     :image-dimension (if image-A (nrows image-A) (image-dimension func))
+     :original (typecase func
+		 (<linearly-transformed-function> (original func))
+		 (t func))
+     :domain-A domain-A :domain-b domain-b
+     :image-A image-A :image-b image-b)))
 
 (defun intermediate-coordinates (func pos)
-  (m+ (m* (trans-A func) pos) (trans-b func)))
+  (if (domain-A func)
+      (m+ (m* (domain-A func) pos) (domain-b func))
+      pos))
 
 (defmethod evaluate ((func <linearly-transformed-function>) pos)
-  (evaluate (original func) (intermediate-coordinates func pos)))
+  (let ((result1 (evaluate (original func)
+			   (intermediate-coordinates func pos))))
+    (if (image-A func)
+	(m+ (m* (image-A func) result1) (image-b func))
+	result1)))
+
+(defmethod differentiable-p ((f <linearly-transformed-function>) &optional (k 1))
+  (or (< k 1)
+      (differentiable-p (original f) k)))
 
 (defmethod evaluate-gradient ((func <linearly-transformed-function>) pos)
-  (m* (evaluate-gradient (original func) (intermediate-coordinates func pos))
-      (trans-A func)))
+  (let ((result1 (evaluate-gradient
+		  (original func)
+		  (intermediate-coordinates func pos))))
+    (let ((result2 (aif (image-A func)
+			(m* it result1)
+			result1)))
+      (aif (domain-A func)
+	   (m* result2 it)
+	   result2))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; homotopy
@@ -271,6 +310,41 @@ parameter."
 ;;; Special functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun ellipse-matrix (radius excentricity phi)
+  "Returns a matrix A suitable for describing the ellipse as (Ax,x)=1."
+  (let ((ev1 [(cos phi) (- (sin phi))]')
+	(ev2 [(sin phi) (cos phi)]'))
+    (m+ (scal #I"((1+excentricity)/radius)^^2" (m* ev1 (transpose ev1)))
+	(scal #I"((1-excentricity)/radius)^^2" (m* ev2 (transpose ev2))))))
+
+(defun project-to-ellipsoid (midpoint A)
+  "Returns a function which projects to the ellipsoid given by
+Q(x-midpoint)=1 where Q is the quadratic form associated with the matrix
+A."
+  (let ((dim (length midpoint)))
+    (make-instance
+     '<special-function> :domain-dimension dim :image-dimension dim
+     :evaluator
+     #'(lambda (x)
+	 (let ((z (m- x midpoint)))
+	   (axpy (/ (sqrt (dot z (m* A z)))) z midpoint)))
+     :gradient
+     #'(lambda (x)
+	 (let* ((z (ensure-matlisp (m- x midpoint)))
+		(Az (m* A z))
+		(Qz (dot z Az))
+		(norm-z (sqrt Qz)))
+	   (m- (scal (/ norm-z) (eye dim))
+	       (scal (/ 1 norm-z Qz) (m* z (transpose Az)))))))))
+
+(defun project-to-sphere (midpoint radius)
+  "Returns a function which projects to the sphere with given midpoint and
+radius."
+  (project-to-ellipsoid
+   midpoint
+   (scal (/ (* radius radius)) (eye (length midpoint)))))
+
+#+(or)
 (defun project-to-sphere (midpoint radius)
   "Returns a function which projects to the sphere with given midpoint and
 radius."
@@ -320,11 +394,23 @@ Also grad-f has to be provided."
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; finding roots of functions in 1d
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Function handling
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun numerical-gradient (func &key (shift 1.0d-8))
+  "Computes the numerical gradient of func at pos."
+  #'(lambda (pos)
+      (transpose
+       (make-real-matrix
+	(loop with dim = (length pos)
+	      for k below dim collect
+	      (scal (/ (* 2 shift))
+		    (m- (evaluate func (axpy shift (unit-vector dim k) pos))
+			(evaluate func (axpy (- shift) (unit-vector dim k) pos)))))))))
 
 (defun interval-method (func a b accuracy)
+  "Finds zeros of functions in 1d by the interval method."
   (let ((value_a (evaluate func a))
 	(value_b (evaluate func b)))
     (labels ((interval-method (a b)
@@ -349,11 +435,18 @@ Also grad-f has to be provided."
   (let ((project (project-to-sphere (double-vec 0.5 0.5) 0.5)))
     (evaluate project (double-vec 1.0 0.5))
     (evaluate-gradient project (double-vec 1.0 0.5)))
+  (evaluate (project-to-ellipsoid #(0.0d0 0.0d0) (eye 2)) #(3.0d0 4.0d0))
+  (evaluate-gradient (project-to-ellipsoid #(-1.0d0 0.0d0) (eye 2)) #(3.0d0 4.0d0))
+  (evaluate-gradient (project-to-sphere #(-1.0d0 0.0d0) 1.0) #(3.0d0 4.0d0))
   (let ((distortion
 	 (xn-distortion-function #'(lambda (x) #I"1+0.5*sin(x[0])")
 				 #'(lambda (x) (vector #I"0.5*cos(x[0])"))
-				 2)))
-  (evaluate-gradient distortion #(1.7 1.0)))
+				 2))
+	(pos #(1.7 1.0)))
+    (evaluate distortion pos)
+    (let ((grad (evaluate-gradient distortion pos))
+	  (num-grad (evaluate (numerical-gradient distortion) pos)))
+      (assert (< (norm (m- grad num-grad)) 1.0e-4))))
   (interval-method #'(lambda (x) (- (* x x) 2.0)) 0.0 2.0 1e-16))
 
 (tests::adjoin-femlisp-test 'test-function)

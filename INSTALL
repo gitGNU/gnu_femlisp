@@ -6,7 +6,7 @@
 
  Non-Lisp software:
   - f77, for compiling the LAPACK library for Matlisp
-  - gnuplot, 
+  - Gnuplot, 
   - OpenDX, see http://www.opendx.org
 
  Common Lisp software:
@@ -18,63 +18,44 @@
 
  Lisp-Environment:
   - Emacs
-  - Ilisp
+  - (Ilisp?)
   - Hyperspec
 
 
 ** Installation
 
-  0. Make sure that f77 (bundled with gcc), dx and gnuplot are available
-     and working.
+  0. Make sure that "dx" and "gnuplot" are available and working.
+  
+  1. Get the shell script <http://www.femlisp.org/install-femlisp>.
 
-  1. Create a directory for all Lisp stuff you will be installing.  Put
-     also the Femlisp directory there.  Set the shell variable $CL-HOME to
-     point to this directory.
+  2. Run it, accept the license, and name the installation directory X.
+     Installation will need about 120MB disk space.
 
-  2. Install CMUCL.  Load the binaries for your machine (two files).  I
-     would suggest to install also the sources because they are sometimes
-     referenced in error messages.
+  3. If the script runs successfully, a startup script for Femlisp can be
+     found at X/bin/femlisp.
 
-  3. For editing / writing Lisp code I recomend using emacs with Ilisp / or
-     Xemacs (where ilisp comes preinstalled in the standard installation).
+  4. To set up a simple CL environment, you could use Emacs with
+     inferior-lisp-mode.  Better but more difficult to install is ILISP.
+     You could also try to use Hemlock with CMUCL.
 
-  4. An indispensable resource for Common Lisp is the ANSI CL specification
-     (Hyperspec), which you should get as well.
-
-[Debian users: All the libraries mentioned before this line are available
-as Debian packages (maybe in 'testing').  The following are not yet.]
-
-  5. Install and compile Matlisp.
-
-  6. Install and compile CL-PPCRE.
-
-  7. Get the infix package.
-
-  8. In your Lisp initialization file do something like:
-
-  ;;; *cl-home* should be a string containing the absolute path to CL-HOME
-  (setf (logical-pathname-translations "cl")
-        `(("**;*.*.*" ,(concatenate 'string *cl-home* "**/*.*.~*~"))))
-
-  (setf (logical-pathname-translations "femlisp")
-        '(("**;*.*.*" "cl:femlisp;**;*.*.*")))
-
-  9. Look at the files femlisp/start.lisp and femlisp/femlisp-config.lisp
-     and check if they do what you want.
-
-  10. Compile and load Femlisp using (load "femlisp:start").
-
-  11. Switch to the application package by typing "(in-package
-      :application)" into the Lisp listener.  Then you can start the demos
-      by typing "(demo)".
+  5. In any case, you should get yourself some literature on CL. An
+     indispensable resource for Common Lisp is the ANSI CL specification
+     (Hyperspec), which is available online.
 
 
 ** Possible problems:
 
+*** General
+
+- Femlisp works only with CMUCL at the moment.  This will change in the
+  future.
+
+- The installation script works without changes only on Linux for
+  x86-architectures.  It should be easy to adapt for Solaris.
+
 *** Matlisp
 
 - I had problems compiling with gcc-2.95.4 on Debian/Woody.  It worked with
-gcc-3.0.
-
+  gcc-3.0.  Therefore, one should install gcc, g77 and f2c with version >3.
 
 

@@ -140,19 +140,16 @@ packages."))
 restricted set of operations is allowed for these matrices and element
 access is slow.  They are indexed with ordinary integers."))
 
-(defmethod matrix-ref ((submat <submatrix>) i &optional j)
-  (with-slots (matrix row-keys col-keys)
-    submat
-    (if j
-	(matrix-ref matrix (aref row-keys i) (aref col-keys j))
-	(matrix-ref matrix (aref row-keys i)))))
+(defmethod matrix-ref-2d ((submat <submatrix>) i j)
+  (matrix-ref (slot-value submat 'matrix)
+	      (aref (row-keys submat) i)
+	      (aref (col-keys submat) j)))
 
-(defmethod (setf matrix-ref) (value (submat <submatrix>) i &optional j)
-  (with-slots (matrix row-keys col-keys)
-    submat
-    (if j
-	(setf (matrix-ref matrix (aref row-keys i) (aref col-keys j)) value)
-	(setf (matrix-ref matrix (aref row-keys i)) value))))
+(defmethod (setf matrix-ref-2d) (value (submat <submatrix>) i j)
+  (setf (matrix-ref (slot-value submat 'matrix)
+		    (aref (row-keys submat) i)
+		    (aref (col-keys submat) j))
+	value))
 
 (defmethod nrows ((mat <submatrix>)) (length (row-keys mat)))
 

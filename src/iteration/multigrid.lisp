@@ -297,18 +297,22 @@ grid, or an algebraic multigrid iteration."
 	      post-smooth-vec (make-array nr-levels))
 	;; smoothers on levels above base-level
 	(loop for level from top-level above base-level
-	      for pre-smooth-it = (make-iterator pre-smooth (aref a-vec level))
+	      for pre-smooth-l = (if (functionp pre-smooth)
+				     (funcall pre-smooth level)
+				     pre-smooth)
+	      for post-smooth-l = (if (functionp post-smooth)
+				      (funcall post-smooth level)
+				      post-smooth)
+	      for pre-smooth-it = (and (plusp pre-steps)
+				       (make-iterator pre-smooth-l (aref a-vec level)))
+	      for post-smooth-it = (and (plusp post-steps)
+					(or (and (eq pre-smooth-l post-smooth-l) pre-smooth-it)
+					    (make-iterator post-smooth-it (aref a-vec level))))
 	      do
 	      (setf (aref pre-smooth-vec level)
-		    (and (plusp pre-steps)
-			 (product-iterator pre-smooth-it pre-steps)))
+		    (and pre-smooth-it (product-iterator pre-smooth-it pre-steps)))
 	      (setf (aref post-smooth-vec level)
-		    (and (plusp post-steps)
-			 (product-iterator
-			  (if (eq post-smooth pre-smooth)
-			      pre-smooth-it ; initialization may be costly
-			      (make-iterator post-smooth (aref a-vec level)))
-			  post-steps))))
+		    (and post-smooth-it (product-iterator post-smooth-it post-steps))))
 	;; coarse-grid iterator
 	(when (or (= top-level base-level) (> gamma 0))
 	  (setq coarse-grid-it

@@ -96,7 +96,15 @@ interpolation between the corners is used for constructing the mapping."))
 (defmethod check ((cell <cell>))
   (loop with side-dim = (1- (dimension cell))
 	for side across (boundary cell)	do
-	(assert (= side-dim (dimension side)))))
+	(assert (= side-dim (dimension side))))
+  (whereas ((mapping (and (not (vertex? cell)) (mapping cell))))
+    ;; check if mapping is reasonable
+    (when (differentiable-p mapping)
+      (let* ((mp (local-coordinates-of-midpoint cell))
+	     (grad (evaluate-gradient mapping mp))
+	     (numgrad (evaluate (numerical-gradient mapping) mp)))
+	(assert (< (norm (m- grad numgrad))
+		   (* 1.0e-2 (max (norm grad) (norm numgrad)))))))))
 
 ;;; accessors
 (declaim (ftype (function (*) positive-fixnum) dimension))

@@ -250,7 +250,7 @@ all cells, otherwise it loops through cells and properties."
   "Checks the skeleton.  An error is signaled if the skeleton appears bad."
   ;; check dimensions
   (loop with mfd-dim = (manifold-dimension skel)
-	for dim from 0 to (dimension skel) do
+	for dim from 0 upto (dimension skel) do
 	(loop for cell being the hash-keys of (etable skel dim) do
 	      (check cell)
 	      (cond
@@ -262,6 +262,7 @@ all cells, otherwise it loops through cells and properties."
   (doskel (cell skel)
     (loop for subcell across (subcells cell) do
 	  (assert (member-of-skeleton? subcell skel)))))
+
 
 (defmethod skeleton-boundary ((skel <skeleton>))
   "Returns a skeleton consisting of cells of skel of dimension n-1 which

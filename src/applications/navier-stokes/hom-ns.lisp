@@ -66,7 +66,7 @@
 ;;; Computation of the permeability tensor
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod permeability-tensor ((solution <ansatz-space-vector>) (rhs <ansatz-space-vector>))
+(defun permeability-tensor (&key solution rhs &allow-other-keys)
   (correction-tensor solution rhs))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -88,11 +88,12 @@ The solution to this cell problem in ~d~ dimensions consists of
 components."
   (let* ((domain (domain problem))
 	 (dim (dimension domain)))
-    (setf (getf *strategy-output* :observe)
+    (setf (getbb *strategy-output* :observe)
 	  `((:Ahom ,(format nil "~19@A~19@A~19@A" "K_00" "K_01" "K_11")
 	     ,#'(lambda (assembly-line)
 		  (with-items (&key solution rhs) assembly-line
-		    (let ((tensor (and solution rhs (permeability-tensor solution rhs))))
+		    (let ((tensor (and solution rhs
+				       (apply #'permeability-tensor assembly-line))))
 		      (format t "~19,10,2E~19,10,2E~19,10,2E"
 			      (and tensor (matrix-ref tensor 0 0))
 			      (and tensor (matrix-ref tensor 0 1))
@@ -116,8 +117,8 @@ components."
 	    :pre-steps 1 :pre-smooth smoother
 	    :post-steps 1 :post-smooth smoother
 	    :gamma 2))
-	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
-	 :failure-if `(> :step 30)
+	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
+	 :failure-if `(and (> :step-reduction 0.9) (> :step 2) (>= :defnorm 1.0e-9))
 	 :output (eq output :all))
 	:output t)
        problem
@@ -130,9 +131,8 @@ components."
 	  (plot (get-al *result* :solution) :component j :index i)
 	  (sleep 1.0))))
     ;; compute the homogenized coefficient
-    (with-items (&key solution rhs) *result*
-      (format t "The permeability tensor is:~%~A~%"
-	      (permeability-tensor solution rhs)))))
+    (format t "The permeability tensor is:~%~A~%"
+	    (apply #'permeability-tensor *result*))))
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 2)
