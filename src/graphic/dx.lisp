@@ -60,7 +60,7 @@
   (when (and *dx-process* (eq (fl.port:process-status *dx-process*) :running))
     (return-from ensure-dx-process *dx-process*))
   ;;; execute it within the images directory
-  (fl.port:unix-chdir *images-pathname*)
+  (fl.port:unix-chdir (namestring *images-pathname*))
   (setq *dx-process*
 	(when *dx-pathname*
 	  (fl.port:run-program
