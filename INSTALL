@@ -5,59 +5,75 @@
 ** Software needed
 
  Non-Lisp software:
-  - f77, for compiling the LAPACK library for Matlisp
   - Gnuplot, 
   - OpenDX, see http://www.opendx.org
 
  Common Lisp software:
   - CMUCL, see http://www.cons.org/cmucl/
-  - Matlisp, see http://matlisp.sourceforge.net
   - CL-PPCRE, see http://www.weitz.de/cl-ppcre/
   - infix, see ftp://ftp.cs.cmu.edu/user/ai/lang/lisp/code/syntax/infix/infix.cl
   - [maybe later: CLOCC, see http://clocc.sourceforge.net]
 
  Lisp-Environment:
   - Emacs
-  - (Ilisp?)
-  - Hyperspec
-
 
 ** Installation
 
-  0. Make sure that "dx" and "gnuplot" are available and working.
+  0. Make sure that "dx" and "gnuplot" are found in your path and work.
+     Otherwise, you will have no graphics.
   
-  1. Get the shell script <http://www.femlisp.org/install-femlisp>.
+  1. Load the shell script "femlisp-install" by
 
-  2. Run it, accept the license, and name the installation directory X.
-     Installation will need about 120MB disk space.
+        wget http://www.femlisp.org/femlisp-install
 
-  3. If the script runs successfully, a startup script for Femlisp can be
-     found at X/bin/femlisp.
+  2. Run it using
 
-  4. To set up a simple CL environment, you could use Emacs with
-     inferior-lisp-mode.  Better but more difficult to install is ILISP.
-     You could also try to use Hemlock with CMUCL.  Recently, also SLIME
-     has become a possibility.
+        sh femlisp-install
 
-  5. In any case, you should get yourself some literature on CL. An
-     indispensable resource for Common Lisp is the ANSI CL specification
-     (Hyperspec), which is available online.
+  3. Accept the license (it allows essentially everything except being
+     changed), enter the name of the installation directory (called
+     FEMLISP-DIRECTORY in the following which defaults to
+     YOUR-HOME-DIRECTORY/FEMLISP).  Installation will need about 120MB disk
+     space.
+
+  4. If the script runs successfully, a startup script for Femlisp can be
+     found at FEMLISP-DIRECTORY/bin/femlisp which can be executed.
+
+  5. However, it is most reasonable to use Femlisp from within a Lisp
+     environment because otherwise you have no command history, etc.  
+
+	 A freely available Lisp environment is Emacs where you can use Ilisp,
+     SLIME, or the built-in inferior-lisp-mode together with Femlisp.  For
+     inferior-lisp-mode, you should add the following lines to your
+     .emacs-file (replacing FEMLISP-DIRECTORY with the correct path):
+
+	 (defun femlisp ()
+       "Start femlisp in an inferior-lisp buffer."
+       (interactive)
+       (run-lisp "FEMLISP-DIRECTORY/bin/femlisp"))
+
+     (setq same-window-buffer-names  ; recommended
+        (delete "*inferior-lisp*" same-window-buffer-names))
+
+     Now the Emacs command 'M-x femlisp' should run Femlisp in an inferior
+     Lisp buffer.
+
+  6. Start Femlisp and look at the demos by typing in "(demo)" at the
+     prompt (do not forget the parentheses!).
+
+  7. If you want to start real work with Femlisp, you should get yourself
+     some literature on CL. An indispensable resource for Common Lisp is
+     the ANSI CL specification in the form of the Hyperspec, which is
+     available online.
 
 
-** Possible problems:
+** Notes:
 
-*** General
+- Femlisp is known to work only with CMUCL and SBCL on Linux at the moment.
+  It should not be difficult to port it to other CL implementations and
+  other computer architectures.
 
-- Femlisp works only with CMUCL at the moment.  This will change in the
-  near future.
-
-- The installation script works without changes only on Linux for
-  x86-architectures (with slight changes for Debian/Woody, see below).  It
-  should be easy to adapt for Solaris.
-
-*** Matlisp
-
-- I had problems compiling with gcc-2.95.4 on Debian/Woody.  It worked with
-  gcc-3.0.  Therefore, one should install gcc, g77 and f2c with version >3.
-
+- Without changes the installation script installs CMUCL for Linux on
+  x86-architectures.  It should be easy to adapt it to CMUCL on Solaris or
+  SBCL on MacOS.
 

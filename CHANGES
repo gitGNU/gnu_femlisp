@@ -10,9 +10,11 @@ Femlisp is almost completely ANSI-compliant now.  At least, it works on
 both SBCL and CMUCL.  The platform/implementation dependent parts are
 concentrated in femlisp:src;basic;port.lisp.
 
+DOUBLE-FLOAT is the standard read format now.
+
 Some packages have been renamed for avoiding name clashes with other CL
-libraries, e.g. MACROS is now FL.MACROS, UTILITIES is FL.UTILITIES, etc.  I
-intend to do the analogous change for other Femlisp packages, too.
+libraries, e.g. MACROS became FL.MACROS, UTILITIES became FL.UTILITIES,
+etc.  I intend to do the analogous change for other Femlisp packages, too.
 
 Femlisp now uses the ASDF system definition facility by Dan Barlow instead
 of MK-DEFSYSTEM.  Thanks to Dan and thanks to Christophe Rhodes for helping
