@@ -30,7 +30,10 @@
 ###########################################################################
 
 help:
-	echo "Options: cl-ppcre, femlisp-doc, femlisp-core, clean."
+	echo "Options: doc, infix, slime, femlisp-core, clean."
+
+doc:
+	cd doc; make all
 
 infix:
 	cd external;\
@@ -41,9 +44,6 @@ slime:
 
 femlisp-core:
 	cd bin; sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :site-init NIL :print-herald nil) (quit))"
-
-femlisp-doc:
-	cd doc; make all
 
 clean:
 	cd src; make clean;
