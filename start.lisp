@@ -45,7 +45,7 @@
 
 (load "femlisp:femlisp-config.lisp")
 
-#-infix (load "cl:lisp;infix.lisp")
+#-infix (load "cl:lisp;infix.cl")
 
 #-cl-ppcre (load "cl:cl-ppcre;load" :verbose nil)
 (pushnew :cl-ppcre *features*)
@@ -72,7 +72,8 @@ file LICENSE in the Femlisp main directory.  This is free
 software, and you are welcome to redistribute it under certain
 conditions.
 
-Type (demo) to get a guided tour through Femlisp.~%~%"
+You can enter \"(demo)\" to get a guided tour through Femlisp,
+and enter \"(quit)\" to leave the program.~%~%"
    *femlisp-version*))
 
 (femlisp-banner)
