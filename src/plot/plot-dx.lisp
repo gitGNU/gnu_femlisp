@@ -1,0 +1,110 @@
+;;; -*- mode: lisp; -*-
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; plot-dx.lisp - DX plotting of meshes and finite element functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; All rights reserved.
+;;; 
+;;; Redistribution and use in source and binary forms, with or without
+;;; modification, are permitted provided that the following conditions are
+;;; met:
+;;; 
+;;; 1. Redistributions of source code must retain the above copyright
+;;; notice, this list of conditions and the following disclaimer.
+;;; 
+;;; 2. Redistributions in binary form must reproduce the above copyright
+;;; notice, this list of conditions and the following disclaimer in the
+;;; documentation and/or other materials provided with the distribution.
+;;; 
+;;; THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+;;; WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+;;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
+;;; NO EVENT SHALL THE AUTHOR, THE UNIVERSITY OF HEIDELBERG OR OTHER
+;;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+;;; EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+;;; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+;;; PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+;;; LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(in-package :plot)
+
+(defmethod graphic-write-data (stream object (program (eql :dx))
+				      &key cells cell->values (depth 0))
+  "Rather general plotting procedure writing data to a file.  Plots in
+Gnuplot format in 1D, to DX format in 2D and 3D.  Can plot data either
+discontinuous or continuous at the cell boundaries when coefficient
+functions are involved.  cell->values has to be either nil --meaning no
+data-- or some function mapping cells to a list of corner values."
+  (declare (ignore object))
+  (unless cells (return-from graphic-write-data))
+  (let* ((dim (dimension (car cells)))
+	 (position-indices (compute-position-indices cells depth))
+	 (position-array (position-array cells position-indices depth))
+	 (values (and cell->values
+			    (compute-all-position-values
+			     cells position-indices depth cell->values)))
+	 (simplices (remove-if-not #'simplex? cells))
+	 (cubes (remove-if #'simplex? cells)))
+	 
+    ;; write positions
+    (format stream "object 1 class array type float rank 1 shape ~D items ~D data follows~%"
+	    dim (length position-array))
+    (loop for position across position-array do
+	  (loop for coord across position do
+		(format stream "~G " (float coord 1.0))
+		finally (terpri stream)))
+    
+    ;; write simplices
+    (when simplices
+      (let ((connections (connections simplices position-indices depth)))
+	(format stream "object 2 class array type int rank 1 shape ~D items ~D data follows~%"
+		(1+ dim) (length connections))
+	(loop for connection in connections do
+	      (format stream "~{~D~^ ~}~%" connection))
+	(format stream "attribute \"element type\" string \"~A\"~%"
+		(ecase dim (1 "lines") (2 "triangles") (3 "tetrahedra")))
+	(format stream "attribute \"ref\" string \"positions\"~%")))
+       
+    ;; write cubes
+    (when cubes
+      (let ((connections (connections cubes position-indices depth)))
+	(format stream "object 3 class array type int rank 1 shape ~D items ~D data follows~%"
+		(expt 2 dim) (length connections))
+	(loop for connection in connections do
+	      (format stream "~{~D~^ ~}~%" connection))
+	(format stream "attribute \"element type\" string \"~A\"~%"
+		(ecase dim (2 "quads") (3 "cubes")))
+	(format stream "attribute \"ref\" string \"positions\"~%")))
+    
+    ;; write data
+    (when values
+      (format stream "object 4 class array type float rank 0 items ~A data follows~%"
+	      (length values))
+      (loop for value across values do (format stream "~F~%" (float value 1.0)))
+      (format stream "attribute \"dep\" string \"positions\"~%"))
+
+    ;; epilogue
+    (when simplices
+      (format stream "object \"simplex-part\" class field~%")
+      (format stream "component \"positions\" value 1~%")
+      (format stream "component \"connections\" value 2~%")
+      (when values
+	(format stream "component \"data\" value 4~%")))
+    (when cubes
+      (format stream "object \"quad-part\" class field~%")
+      (format stream "component \"positions\" value 1~%")
+      (format stream "component \"connections\" value 3~%")
+      (when values
+	(format stream "component \"data\" value 4~%")))
+    (when (and simplices cubes)
+      (format stream "object \"both-grids\" class group~%")
+      (format stream "member \"simplex-part\" value \"simplex-part\"~%")
+      (format stream "member \"quad-part\" value \"quad-part\"~%"))
+    (format stream "end~%")))
+

@@ -1,0 +1,76 @@
+;;; -*- mode: lisp; -*-
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; utilities-defp.lisp
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; All rights reserved.
+;;; 
+;;; Redistribution and use in source and binary forms, with or without
+;;; modification, are permitted provided that the following conditions are
+;;; met:
+;;; 
+;;; 1. Redistributions of source code must retain the above copyright
+;;; notice, this list of conditions and the following disclaimer.
+;;; 
+;;; 2. Redistributions in binary form must reproduce the above copyright
+;;; notice, this list of conditions and the following disclaimer in the
+;;; documentation and/or other materials provided with the distribution.
+;;; 
+;;; THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+;;; WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+;;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
+;;; NO EVENT SHALL THE AUTHOR, THE UNIVERSITY OF HEIDELBERG OR OTHER
+;;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+;;; EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+;;; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+;;; PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+;;; LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(in-package "COMMON-LISP-USER")
+
+(defpackage "UTILITIES"
+  (:use "COMMON-LISP" "MACROS")
+  (:import-from "MATLISP" "GEMM" "M+" "M*" "NROWS" "NCOLS")
+  (:export
+   "FACTORIAL" "SGN" "SQUARE"
+   "COMPOSE" "CURRY" "RCURRY" "SANS"
+   "VECTOR->LIST" "LIST->VECTOR" "VECTOR-MAP" "MAKE-VECTOR"
+   "INT" "UINT" "INT-VEC" "UINT-VEC" "MAKE-UINT-VEC" 
+   "POSITIVE-FIXNUM" "FIXNUM-VEC" "LIST->FIXNUM-VEC" "MAKE-FIXNUM-VEC" "*EMPTY-FIXNUM-VEC*"
+   "VECTOR-SLICE" "VECTOR-CUT" "VECTOR-LAST"
+   "IVEC+" "IVEC-"
+   "FOR-EACH"
+   "MAP-ARRAY" "ARRAY-FOR-EACH"
+   "MAKE_LIST" "SINGLE?" "FILTER" "FLATTEN-1"
+   "SAME-P" "ENCAPSULATE" "RANGE" "RANGE<" "MAKE-SET" "SPLICE" "TAKE"
+   "THRICE" "TWICE"
+   "MAP-PRODUCT" "MAPPEND" "MKLIST" "SUM-OVER"
+   "TREE-UNIFORM-NUMBER-OF-BRANCHES" "TREE-UNIFORMP"
+   "ON-LEAVES" "WALK-TREE" "REMOVE-FROM-TREE" "TREE-MEMBER"
+   "CHECK-PROPERTIES" "SORT-LEXICOGRAPHICALLY"
+   "MAKE-QUEUE" "ENQUEUE" "DEQUEUE" "QUEUE->LIST" "PEEK-FIRST" "PEEK-LAST"
+   "MAKE-DLL" "DLL" "DLL-ITEM" "DLI-OBJECT" "DLI-SUCC" "DLI-PRED"
+   "DLL-FRONT-INSERT" "DLL-REAR-INSERT" "DLL-REMOVE-ITEM" "DLL-FIND"
+   "DLL-REMOVE"
+   "DLL-POP-FIRST" "DLL-POP-LAST"
+   "DLL->LIST" "DLL-EMPTY-P"
+   "DOHASH" "MAP-HASH-TABLE" "COPY-HASH-TABLE" "GET-ARBITRARY-KEY-FROM-HASH-TABLE"
+   "DISPLAY-HT" "HASH-TABLE-KEYS" "HASH-TABLE-VALUES"
+   "MEMOIZE" "MEMOIZE-1" "MEMOIZE-1-SYMBOL" "MEMOIZE-SYMBOL" "DEFMEMO-1" "DEFMEMO"
+   "COMPOSE"
+   "MAKE-ASSEMBLY-LINE" "GET-AL"
+   "ALIST-SET!" "ALIST-REF"
+   "SET?" "MAXIMALLY-CONNECTED"
+   "ORDERED-SET-DIFFERENCE" "ORDERED-INTERSECTION" "ORDERED-UNION" "SUBSET?" "SET-EQUAL?"
+   "K-SUBSETS" "K->L-SUBSETS" "SUBSETS" "NONEMPTY-SUBSETS"
+   "N-PARTITIONS-OF-K" "POSITIVE-N-PARTITIONS-OF-K" "POSITIVE-PARTITIONS-OF-K"
+   "PERMUTATION?" "IDENTITY-PERMUTATION?" "PERMUTE" "PERMUTE-INTO"
+   "PERMUTATION-INVERSE" "PERMUTATION-SHIFTED-INVERSE" "PERMUTATION-SIGNUM"
+   ))
