@@ -164,10 +164,11 @@ patches."
   "Returns a function which compares two vectors lexicographically."
   #'(lambda (pos1 pos2)
       (loop for x across pos1 and y across pos2
-	    and dirs on direction for dir = (or (car dirs) :up)
-	    when (< x (- y fuzzy)) do (return (eq dir :up))
-	    when (> x (+ y fuzzy)) do (return (eq dir :down))
-	    finally (return nil))))
+	 for dirs = direction then (cdr dirs)
+	 for dir = (or (car dirs) :up)
+	 when (< x (- y fuzzy)) do (return (eq dir :up))
+	 when (> x (+ y fuzzy)) do (return (eq dir :down))
+	 finally (return nil))))
 
 (defun sort-lexicographically (elist &key (fuzzy 1.0d-12))
   "Sorts a cell list lexicographically by the coordinates of their
