@@ -32,14 +32,27 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :problem)
+(in-package :fl.problem)
 
 (defclass <problem> ()
-  ()
+  ((properties :initform ()))
   (:documentation "Base class for all problems."))
+
+(defgeneric get-property (problem name)
+  (:documentation "Finds a property of the problem."))
+(defgeneric (setf get-property) (value problem name)
+  (:documentation "Sets the property `name' to `value'."))
+
+(defmethod get-property (problem sym)
+  (getf (slot-value problem 'properties) sym))
+(defmethod (setf get-property) (prop problem sym)
+  (setf (getf (slot-value problem 'properties) sym) prop))
 
 (defgeneric linear-p (problem)
   (:documentation "Predicate determining if a problem is linear or nonlinear."))
+
+(defmethod linear-p (problem)
+  (get-property problem 'linear-p))
 
 (defgeneric ensure-residual (problem blackboard)
   (:documentation "Ensures that the field :RESIDUAL is computed and that
@@ -61,7 +74,7 @@ blackboard."))
   "This default method handles nonlinear problems by linearizing them and
 computing the residual for it.  The resulting problem is additionally
 stored in a field :LINEAR-PROBLEM."
-  (when (linear-p problem)
+  (when (get-property problem :linear-p)
     (error "No method ENSURE-RESIDUAL provided for this linear problem."))
   ;; linearize and compute residual
   (with-items (&key linearization solution) blackboard
@@ -71,20 +84,6 @@ stored in a field :LINEAR-PROBLEM."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; General problem solving
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <solver> ()
-  ((output :reader output :initform nil :initarg :output))
-  (:documentation "The base class of linear, nonlinear and whatever
-iterative solvers."))
-
-(defgeneric solve (solver &optional blackboard)
-  (:documentation "Solve a problem specified on the blackboard.  Returns a
-modified blackboard.  The returned blackboard is guaranteed to contain at
-least the fields :solution and :status.  :status is one of the values
-:success or :failure.
-
-SOLVE can also be called as (SOLVE blackboard) and will then try to figure
-out a suitable solver itself."))
 
 (defgeneric select-solver (problem blackboard)
   (:documentation "Choose a solver for PROBLEM.  The choice can also be
@@ -105,7 +104,8 @@ influenced by other data on the BLACKBOARD."))
   "Constructs a standard LSE."
   (apply #'make-instance '<lse> args))
 
-(defmethod linear-p ((lse <lse>)) t)
+(defmethod initialize-instance :after ((lse <lse>) &key &allow-other-keys)
+  (setf (get-property lse 'linear-p) t))
 
 (defgeneric linearize (problem solution)
   (:documentation "Linearize the nonlinear problem PROBLEM at the point
@@ -114,7 +114,7 @@ SOLUTION.  The result should be a linear problem."))
 (defmethod linearize (problem solution)
   "This default method throws an error for nonlinear problems and is the
 identity on linear problems."
-  (if (linear-p problem)
+  (if (get-property problem 'linear-p)
       problem
       (error "No method LINEARIZE provided for this problem.")))
 
@@ -125,9 +125,8 @@ identity on linear problems."
 
 (defmethod ensure-residual ((lse <lse>) blackboard)
   (with-items (&key solution residual residual-p) blackboard
-    (unless residual
-      (setq residual (make-image-vector-for
-		      (matrix lse) (multiplicity (rhs lse)))))
+    (ensure residual (make-image-vector-for
+		      (matrix lse) (multiplicity (rhs lse))))
     (unless residual-p
       (copy! (rhs lse) residual)
       (gemm! -1.0 (matrix lse) solution 1.0 residual)
@@ -141,8 +140,6 @@ identity on linear problems."
   (:documentation "Class for nonlinear system of equations.  The
 linearization contains a function returning a linear problem."))
 
-(defmethod linear-p ((nlse <nlse>)) nil)
-
 (defmethod linearize ((problem <nlse>) solution)
   (funcall (slot-value problem 'linearization) solution))
 
@@ -150,7 +147,7 @@ linearization contains a function returning a linear problem."))
   "Constructs a standard NLSE."
   (apply #'make-instance '<nlse> args))
 
-;;; Testing: (problem::test-problem)
+;;; Testing: (test-problem)
 
 (defun test-problem ()
   (describe (lse :matrix #m(1.0) :rhs #m(1.0)))

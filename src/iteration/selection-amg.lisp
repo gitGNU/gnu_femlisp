@@ -38,7 +38,7 @@
 ;;;; variant see their paper on AMG which appeared in 'Multigrid methods'
 ;;;; edited by S. F. McCormick in 1987.
 
-(in-package multigrid)
+(in-package :fl.multigrid)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <selection-amg> class
@@ -81,8 +81,9 @@ have to solve for e_i in
 
 $$ a_{ii} e_i = - \sum_{j \in N_i} a_{ij} e_j $$
 
-with N_i being the neighborhood of $i$.  Now $\sum_{j \in N_i} a_{ij} e_j$ is replaced by
-$\alpha \sum_{j \in P_i} a_{ij} e_j$ where $\alpha$ is chosen as
+with N_i being the neighborhood of $i$.  Now $\sum_{j \in N_i} a_{ij} e_j$
+is replaced by $\alpha \sum_{j \in P_i} a_{ij} e_j$ where $\alpha$ is
+chosen as
 
 $$ \alpha = \frac{\sum_{j \in N_i} a_{ij}}}{\sum_{j \in P_i} a_{ij}} $$
 

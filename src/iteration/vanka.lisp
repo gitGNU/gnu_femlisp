@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :geomg)
+(in-package :fl.geomg)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <vanka>
@@ -40,8 +40,8 @@
 
 (defclass <vanka> (<geometric-ssc>)
   ()
-  (:documentation "Vanka-like smoother for Q^{k+1}/Q^k discretizations of
-Navier-Stokes."))
+  (:documentation "Vanka-like smoother for @math{Q^{k+1}/Q^k}
+discretizations of Navier-Stokes."))
 
 (defun extended-block (asa keys)
   "Collect the next layer around keys in the matrix graph of asa."

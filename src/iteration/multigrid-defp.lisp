@@ -32,10 +32,10 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defpackage "MULTIGRID"
+(defpackage "FL.MULTIGRID"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
 	"FL.DEBUG"
-	"ALGEBRA" "FL.FUNCTION" "PROBLEM" "ITERATION")
+	"FL.ALGEBRA" "FL.FUNCTION" "FL.PROBLEM" "FL.ITERATION")
   (:export				; multigrid.lisp
    "<MG-ITERATION>" "PRE-SMOOTH" "PRE-STEPS" "POST-SMOOTH" "POST-STEPS"
    "BASE-LEVEL" "COARSE-GRID-ITERATION" "FMG"
@@ -51,5 +51,6 @@
    "<CLUSTER-AMG>")
   (:export				; stueben.lisp
    "<STUEBEN>" "*STANDARD-STUEBEN*")
-  )
+  (:documentation "This package contains the definition of the multigrid
+iteration including algebraic multigrid (AMG)."))
 

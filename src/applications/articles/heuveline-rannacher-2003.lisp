@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defparameter *HR-evaluation-point*
   #d(0.5 2.5))
@@ -89,7 +89,7 @@ function assumes that a structured cube mesh is used!"
 (defun heuveline-rannacher-dual-problem-fe-rhs ()
   #'(lambda (cell)
       (when (= (dimension cell) 2)
-	(list 'CDR::FE-RHS
+	(list 'FL.CDR::FE-RHS
 	      (make-instance
 	       '<coefficient> :demands '(:cell :fe) :eval
 	       #'heuveline-rannacher-dual-problem-rhs)))))

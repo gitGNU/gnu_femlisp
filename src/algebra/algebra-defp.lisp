@@ -32,9 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
-(defpackage "ALGEBRA"
+(defpackage "FL.ALGEBRA"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP")
   (:export
 
@@ -90,4 +88,7 @@
 
    ;; sparselu.lisp
    "SPARSE-LDU" "SPARSE-M*" "SHIFT-DIAGONAL-INVERTER"
-   ))
+   )
+  (:documentation "This package defines classes for sparse matrices and
+methods operating on them.  The interface is mostly the one used in the
+package @code{FL.MATLISP} extended suitably."))

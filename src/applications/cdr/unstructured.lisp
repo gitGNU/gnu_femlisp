@@ -30,7 +30,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defun further-laplace-tests ()
   "This function provides further tests for Laplace problems, partially on
@@ -124,6 +124,6 @@ non-structured meshes and/or on domains with curved boundary."
     )
   )
 
-;;; (application::further-laplace-tests)
+;;; (FL.application::further-laplace-tests)
 (fl.tests:adjoin-test 'further-laplace-tests)
 

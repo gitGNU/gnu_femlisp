@@ -32,11 +32,9 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
 (defpackage "FL.FUNCTION"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"ALGEBRA")
+	"FL.ALGEBRA")
   (:export
    ;; from function.lisp
    "<FUNCTION>" "DOMAIN-DIMENSION" "IMAGE-DIMENSION"

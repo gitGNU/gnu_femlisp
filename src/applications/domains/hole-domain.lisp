@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defun n-cube-with-cubic-hole (dim &key (refinements 0))
   "Generates an n-cube-domain with an n-cube hole."

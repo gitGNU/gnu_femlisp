@@ -32,8 +32,6 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
 (defpackage "FL.PATCHES"
   (:use "COMMON-LISP")
   (:export))

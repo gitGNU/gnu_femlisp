@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :plot)
+(in-package :fl.plot)
 
 (defmemo local-evaluation-matrix (fe depth)
   "Returns an evaluation matrix for the fe with the specified local

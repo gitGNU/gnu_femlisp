@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 ;;; This file provides the interface between finite-cell
 ;;; discretization and sparse-matrix representation.

@@ -87,14 +87,14 @@ given.  This function returns an interpolating spline."
 	    #I"beta[k]+xi*(2.0*gamma[k]+3.0*xi*delta[k])"))))))
      
 
-#+(or)  ; needs package "PLOT"!
+#+(or)  ; needs package "FL.PLOT"!
 (flet ((f (x) #I"sin(2*pi*x)"))
   (let* ((N 3)
 	 (h (/ 1.0 N))
 	 (plot-h (/ h 10))
 	 (ip-coords (map 'vector (curry #'* h) (range< 0 N)))
 	 (spline (cubic-spline (vector-map #'f ip-coords))))
-    (plot:plot
+    (fl.plot:plot
      (list
       (cons
        "function"

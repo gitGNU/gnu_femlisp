@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :mesh)
+(in-package :fl.mesh)
 
 (defclass <skeleton> ()
   ((dim :accessor dimension :initarg :dimension :type (integer -1))
@@ -148,16 +148,20 @@ constructor by giving a cell-list."
   (whereas ((cell (get-arbitrary-key-from-hash-table (etable skel 0))))
     (manifold-dimension cell)))
 
-(defun skel-for-each (func skel &key direction dimension where with-properties)
+(defun skel-for-each (func skel &key direction dimension where (with-cell t) with-properties)
   "Loops through a skeleton applying func.  When direction is :down then loops
 with dimension of the cells decreasing, otherwise increasing."
   (flet ((etable-for-each (etable)
 	   (maphash #'(lambda (cell props)
 			(unless (and (eq where :surface)
 				     (refined-p cell skel))
-			  (if with-properties
-			      (funcall func cell props)
-			      (funcall func cell))))
+			  (if with-cell
+			      (if with-properties
+				  (funcall func cell props)
+				  (funcall func cell))
+			      (if with-properties
+				  (funcall func props)
+				  (funcall func)))))
 		    etable)))
     (let ((dim (if (eq dimension :highest)
 		   (dimension skel)
@@ -173,10 +177,12 @@ with dimension of the cells decreasing, otherwise increasing."
 (defmacro doskel ((looping-var skel &key (direction :up) where dimension) &body body)
   "Loops through a skeleton.  If looping-var is an atom, it loops through
 all cells, otherwise it loops through cells and properties."
-  (let ((arguments (if (consp looping-var) looping-var (list looping-var))))
+  (let ((with-cell (or (atom looping-var) (= (length looping-var) 2)))
+	(with-properties (consp looping-var))
+	(arguments (if (listp looping-var) looping-var (list looping-var))))
     `(skel-for-each #'(lambda ,arguments ,@body)
       ,skel :direction ,direction :dimension ,dimension :where ,where
-      :with-properties ,(consp looping-var))))
+      :with-cell ,with-cell :with-properties ,with-properties)))
 
 (defun skel-map (func skel)
   (let ((new-skel (make-analog skel)))
@@ -240,7 +246,7 @@ all cells, otherwise it loops through cells and properties."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod check ((skel <skeleton>))
-  "Checks the skeleton.  An error is signaled if the skeleton appears bad."
+  "Checks the skeleton.  An error is signaled if the skeleton looks bad."
   ;; check dimensions
   (loop with mfd-dim = (manifold-dimension skel)
 	for dim from 0 upto (dimension skel) do
@@ -255,7 +261,6 @@ all cells, otherwise it loops through cells and properties."
   (doskel (cell skel)
     (loop for subcell across (subcells cell) do
 	  (assert (member-of-skeleton? subcell skel)))))
-
 
 (defmethod skeleton-boundary ((skel <skeleton>))
   "Returns a skeleton consisting of cells of skel of dimension n-1 which
@@ -284,7 +289,7 @@ have only one neighbor."
 (defmethod closed? ((skel <skeleton>))
   "Checks if the boundary of skel is empty.  This should be the case for
 boundaries of skeletons."
-  (minusp (dimension (skeleton-boundary skel))))
+  (skel-empty-p (skeleton-boundary skel)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; This function is called during cell class activation

@@ -61,12 +61,9 @@
 	(det-from-lr lr pivot))))
 
 (defun area-of-span (mat)
-  "Computes the area/volume spanned by k vectors in Rn given as columns of
-the argument mat.  For k=n, this is (abs (det mat))."
-  (sqrt
-   (loop for set in (k-subsets (range< 0 (nrows mat)) (ncols mat))
-	 for det = (det (submatrix mat :row-indices set))
-	 summing (* det det))))
+  "Computes the area/volume spanned by k vectors in R^n given as columns of
+the argument mat."
+  (sqrt (abs (det (m*-tn mat mat)))))
 
 (defmethod mzerop ((x number) &optional (threshold 0.0))
   (<= (abs x) threshold))
@@ -159,6 +156,7 @@ double-float array."
     (axpy 0.5 B A)
     (mzerop #(0.0))
     (mzerop #m((0.0)))
+    (area-of-span (mrandom 5 3))
   ))
 
 ;;; (test-matlisp-vector-combination)

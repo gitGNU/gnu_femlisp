@@ -96,6 +96,8 @@ trick to avoid writing the file while our gnuplot job is still reading.")
 					 &key left right top bottom
 					 (border t) (tics t) (terminal "x11")
 					 (output "gnuplot.out") &allow-other-keys)
+  (format stream "set size 1.0,1.0;~%")
+  (format stream "set size square;~%")
   (if (and left right)
       (format stream "set xrange [~a:~a]~%" left right)
       (format stream "set autoscale x~%"))
@@ -108,7 +110,7 @@ trick to avoid writing the file while our gnuplot job is still reading.")
   (if tics
       (format stream "set xtics~%set ytics~%")
       (format stream "set noxtics~%set noytics~%"))
-  (format stream "set size 1.0,1.0~%set terminal ~A~%" terminal)
+  (format stream "set terminal ~A~%" terminal)
   (format stream "set output ~S~%"
 	  (concatenate 'string (namestring *images-pathname*) output))
   (loop for script-command in (apply #'graphic-commands object program paras) do

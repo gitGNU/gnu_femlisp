@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 (defclass <discretization> ()
   ()
@@ -42,13 +42,15 @@
   (:documentation "Returns the order of the discretization."))
 
 (defgeneric discretize (discretization problem blackboard)
-  (:documentation "Produces Jacobian and residual for the discretization
-and the problem.  Further parameters are provided inside a blackboard."))
+  (:documentation "Calculates matrix and right-hand side for the
+@var{discretization} and the @var{problem}.  Further parameters are
+provided inside the @var{blackboard}."))
 
 (defgeneric select-discretization (problem blackboard)
-  (:documentation "Select a discretization for the given problem."))
+  (:documentation "Select a discretization for the given @var{problem}
+depending on the parameters on the @var{blackboard}."))
 
 (defmethod select-discretization :around (problem blackboard)
-  "If a discretization is on the blackboard, use it."
+  "Forces the use of a discretization on the blackboard."
   (aif (getbb blackboard :fe-class) it (call-next-method)))
 

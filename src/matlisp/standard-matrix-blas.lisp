@@ -180,15 +180,15 @@ nrows and ncols of the given matrices."
 
 (defun specialized-method-code (name template-args actual-args body)
   (flet ((matrix-p (template-arg)
-	   (and (consp template-arg)
-		(eq 'standard-matrix (second template-arg))))
+		   (and (consp template-arg)
+			(eq 'standard-matrix (second template-arg))))
 	 (number-p (template-arg)
-	   (and (consp template-arg)
-		(eq 'number (second template-arg)))))
+		   (and (consp template-arg)
+			(eq 'number (second template-arg)))))
     (let* ((pos (or (position-if #'(lambda (x)
 				     (member x '(&optional &key &allow-other-keys)))
 				 template-args)
-		  (length template-args)))
+		    (length template-args)))
 	   (primary-args (subseq template-args 0 pos))
 	   (rest-args (subseq template-args pos)))
       (let (matrices number-args numbers specialized-class element-type)
@@ -196,22 +196,22 @@ nrows and ncols of the given matrices."
 	      and actual-arg in actual-args
 	      for arg = (if (consp template-arg)
 			    (car template-arg)
-			    template-arg)
+			  template-arg)
 	      do
 	      (cond
-		((matrix-p template-arg)
-		 (cond (specialized-class
-			(unless (eq specialized-class (class-of actual-arg))
-			  (error "Template depends on different classes.")))
-		       (t
-			(setq specialized-class (class-of actual-arg))
-			(setq element-type (element-type actual-arg))))
-		 (push arg matrices))
-		((number-p template-arg)
-		 (push arg number-args)
-		 (push actual-arg numbers))
-		;; otherwise: do nothing
-		))
+	       ((matrix-p template-arg)
+		(cond (specialized-class
+		       (unless (eq specialized-class (class-of actual-arg))
+			 (error "Template depends on different classes.")))
+		      (t
+		       (setq specialized-class (class-of actual-arg))
+		       (setq element-type (element-type actual-arg))))
+		(push arg matrices))
+	       ((number-p template-arg)
+		(push arg number-args)
+		(push actual-arg numbers))
+	       ;; otherwise: do nothing
+	       ))
 	(dolist (number numbers)
 	  (unless (subtypep (type-of number) element-type)
 	    (error "Type of number does not fit with element-type.")))
@@ -224,47 +224,37 @@ nrows and ncols of the given matrices."
 	   ,@rest-args)
 	  (declare (type ,element-type ,@number-args))
 	  (with-blas-information (,@matrices) ,element-type
-	    ,(subst element-type 'element-type
-		    `(macrolet ,(mapcar #'cdr (get 'standard-matrix 'BLAS-MACROS))
-		      (let ()
-			,@body)))))))))
+				 ,(subst element-type 'element-type
+					 `(macrolet ,(mapcar #'cdr (get 'standard-matrix 'BLAS-MACROS))
+					   (let ()
+					     ,@body)))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun remove-subclass-methods (gf template-args)
-    "Removes all methods dispatching on subclasses of the template
-arguments."
-    (loop for method in (copy-seq (fl.port::generic-function-methods gf))
-	  when (every #'subtypep
-		      (fl.port::method-specializers method)
-		      (mapcar #'(lambda (arg)
-				  (if (consp arg)
-				      (second arg)
-				      T))
-			      template-args))
-	  do (remove-method gf method)))
 
   (defun dispatcher-code (name template-args body)
     "Generates a method which generates code for a type-specialized method."
     (whereas ((gf (and (fboundp name) (symbol-function name))))
-      (remove-subclass-methods gf template-args))
-    (let ((actual-args (gensym "ACTUAL-ARGS")))
+	     (fl.amop:remove-subclass-methods gf template-args))
+    (let* ((actual-args (gensym "ACTUAL-ARGS")))
       `(defmethod ,name ,template-args
-	,@(when (stringp (car body)) (list (car body)))
-	(let ((,actual-args
-	       (list ,@(loop for arg in template-args
-			     unless (member arg '(&optional))
-			     collect (if (consp arg) (car arg) arg)
-			     do (assert (not (member arg '(&key &allow-other-keys))))))))
-	  ;; define specialized method
-	  (let ((method-source
-		 `(let ((*compile-print* (dbg-p :blas)))
-		   ,(specialized-method-code
-		     ',name ',template-args ,actual-args
-		     ',(if (stringp (car body)) (cdr body) body)))))
-	    (dbg :blas "Generated method: ~%~S~%" method-source)
-	    (eval method-source))
-	  ;; retry call
-	  (apply ',name ,actual-args))))))
+	 ,@(when (stringp (car body)) (list (car body)))
+	 (let ((,actual-args
+		(list ,@(loop for arg in template-args
+			      unless (member arg '(&optional))
+			      collect (if (consp arg) (car arg) arg)
+			      do (assert (not (member arg '(&key &allow-other-keys))))))))
+	   ;; define specialized method
+	   (let ((*compile-print* (dbg-p :blas))
+		 (method-source
+		  (specialized-method-code
+		   ',name ',template-args ,actual-args
+		   ',(if (stringp (car body)) (cdr body) body))))
+	     (dbg :blas "Generated code: ~%~S~%" method-source)
+	     ;; new CMUCL/SBCL compiles methods automatically, so that eval
+	     ;; is sufficient.  however, other CLs might not.
+	     (funcall (compile nil `(lambda () ,method-source))))
+	   ;; retry call
+	   (apply #',name ,actual-args))))))
 
 (defmacro define-blas-template (name args &body body)
   (dispatcher-code name args body))
@@ -320,6 +310,8 @@ result.  At bottlenecks, the use of gemm! should be preferred."
        (element-m+! (element-m* (ref x) (ref y)) sum))
     sum))
 
+;;;(test-blas 'dot 1 :generator (typed-vector-generator 'single-float))
+
 (define-blas-template mequalp ((x standard-matrix) (y standard-matrix))
   "Exact equality test for standard-matrix."
   (or (and (or (zerop x-nrows) (zerop x-ncols))
@@ -344,7 +336,7 @@ result.  At bottlenecks, the use of gemm! should be preferred."
   (vec-for-each-entry (x y) (element-m+! (ref x) (ref y)))
   y)
 
-#+(or) (m+! #m((1.0)) #m((1.0)))
+;;#+(or) (m+! #m((1.0)) #m((1.0)))
 
 (define-blas-template m.*! ((x standard-matrix) (y standard-matrix))
   (declare (optimize speed))
@@ -523,7 +515,7 @@ result.  At bottlenecks, the use of gemm! should be preferred."
   (test-blas 'm+! 1 :generator (typed-vector-generator 'single-float))
   (test-blas 'm.*! 1)
   (test-blas 'dot 1 :generator (typed-vector-generator 'single-float))
-  (let* ((x #m((2.0 1.0) (-1.0 2.0)))
+  (let* ((x #m((2.0 1.0) (-1.0 3.0)))
 	 (y #m((2.0 1.0) (1.0 2.0)))
 	 (z (make-real-matrix 2 2)))
     (scal 2.0 x)
@@ -533,6 +525,7 @@ result.  At bottlenecks, the use of gemm! should be preferred."
     (axpy -0.5 x y)
     (gemm 1.0 x y 0.0 z)
     (transpose x))
+  (transpose #m((1.0 2.0 3.0) (4.0 5.0 6.0)))
   (let ((x (eye 1))
 	(y (zeros 1)))
     (copy! x y)
@@ -557,8 +550,3 @@ result.  At bottlenecks, the use of gemm! should be preferred."
 
 ;;; (fl.matlisp::test-standard-matrix-blas)
 (fl.tests:adjoin-test 'test-standard-matrix-blas)
-
-
-
-
-

@@ -33,14 +33,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-package :cl-user)
-(defpackage "NAVIER-STOKES"
+(defpackage "FL.NAVIER-STOKES"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"ALGEBRA" "FL.FUNCTION" "MESH" "PROBLEM")
+	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH" "FL.PROBLEM")
   (:export
    "<NAVIER-STOKES-PROBLEM>" "NO-SLIP-BOUNDARY"
    "STANDARD-NAVIER-STOKES-PROBLEM" "UNIT-VECTOR-FORCE"
-   "DRIVEN-CAVITY" "PERIODIC-CAVITY"))
-(in-package :navier-stokes)
+   "DRIVEN-CAVITY" "PERIODIC-CAVITY")
+  (:documentation "Defines the class of Navier-Stokes problems."))
+(in-package "FL.NAVIER-STOKES")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <navier-stokes-problem>
@@ -169,7 +170,7 @@
 
 
 
-;;; Testing: (navier-stokes::test-navier-stokes)
+;;; Testing: (test-navier-stokes)
 
 (defun test-navier-stokes ()
   (describe

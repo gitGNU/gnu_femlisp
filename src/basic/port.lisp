@@ -37,16 +37,15 @@
 ;;; installable in all CL implementations we are interested in or if the
 ;;; maintenance of this file should become too difficult.
 
-(in-package "COMMON-LISP-USER")
-
 (defpackage "FL.PORT"
   (:use "COMMON-LISP")
-  #+cmu(:import-from "PCL" "GENERIC-FUNCTION-METHODS" "METHOD-SPECIALIZERS")
-  #+sbcl(:import-from "SB-PCL" "GENERIC-FUNCTION-METHODS" "METHOD-SPECIALIZERS")
   (:export "FIND-EXECUTABLE" "GETENV"
-	   "RUN-PROGRAM" "PROCESS-INPUT"))
+	   "RUN-PROGRAM" "PROCESS-INPUT"
+	   "MAKE-PROGRAMMATIC-INSTANCE"))
 
 (in-package :fl.port)
+
+;;;; External communication
 
 (defun find-executable (name)
   #+cmu (probe-file (pathname (concatenate 'string "path:" name)))
@@ -84,5 +83,7 @@
   #+sbcl (sb-ext:process-input process)
   #-(or cmu sbcl) (error "Unknown Lisp implementation")
   )
+
+
 
 

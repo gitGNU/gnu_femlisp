@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :strategy)
+(in-package :fl.strategy)
 
 (defun update-I-P-sol (blackboard)
   "For a given local refinement this updates interpolation and projection
@@ -40,8 +40,8 @@ operators on the blackboard and interpolates the solution to the new
 surface.  This is used in the strategy package."
   (with-items (&key ansatz-space interpolation projection solution refined-cells)
       blackboard
-    (unless interpolation (setf interpolation (make-ansatz-space-automorphism ansatz-space)))
-    (unless projection (setf projection (make-ansatz-space-automorphism ansatz-space)))
+    (ensure interpolation (make-ansatz-space-automorphism ansatz-space))
+    (ensure projection (make-ansatz-space-automorphism ansatz-space))
     (let ((local-interpolation (interpolation-matrix ansatz-space :region refined-cells))
 	  (local-projection (projection-matrix ansatz-space :region refined-cells)))
       ;;(plot solution) (sleep 1.0)

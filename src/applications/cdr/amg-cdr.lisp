@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defvar *amg-cdr-demo*
   (make-demo :name "amg-cdr"

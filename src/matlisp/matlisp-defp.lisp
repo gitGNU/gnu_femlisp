@@ -77,6 +77,9 @@
    "FOR-EACH-KEY" "FOR-EACH-ENTRY" "FOR-EACH-KEY-AND-ENTRY"
    "FOR-EACH-ENTRY-OF-VEC1" "FOR-EACH-ENTRY-OF-VEC2"
    "DOVEC" "MEXTRACT" "MINJECT"
+
+   ;; standard-matrix.lisp
+   "MRANDOM"
    
    ;; array-blas.lisp
    "DOUBLE-VEC" "LIST->DOUBLE-VEC" "MAKE-DOUBLE-VEC" "UNIT-VECTOR"
@@ -87,5 +90,12 @@
    "ENSURE-MATLISP"
    "MULTIPLICITY"
 
-   ))
+   )
+  (:documentation "This package provides a Common Lisp version of full
+matrices with elements being numbers of a given type.  Those classes are
+automatically generated when needed.  It provides also part of the BLAS and
+LAPACK operations for those matrices.  The corresponding methods are
+automatically compiled for the given matrix classes.  The interface is very
+similar to the library @cite{Matlisp}, which provides an interface to the
+Fortran BLAS and LAPACK routines."))
 

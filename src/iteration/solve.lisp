@@ -32,7 +32,25 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :iteration)
+(in-package :fl.iteration)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; General solvers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <solver> ()
+  ((output :reader output :initform nil :initarg :output))
+  (:documentation "The base class of linear, nonlinear and whatever
+iterative solvers."))
+
+(defgeneric solve (solver &optional blackboard)
+  (:documentation "Solve a problem specified on the blackboard.  Returns a
+modified blackboard.  The returned blackboard is guaranteed to contain at
+least the fields :solution and :status.  :status is one of the values
+:success or :failure.
+
+SOLVE can also be called as (SOLVE blackboard) and will then try to figure
+out a suitable solver itself."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Iterative solvers

@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package mesh)
+(in-package :fl.mesh)
 
 (defun extend (mesh &key (test (constantly t)))
   "Extends a mesh on all extensible cells for which test ---if provided---

@@ -44,11 +44,11 @@
   (:documentation "Number of matrix rows."))
 
 (defgeneric mref (A i j)
-  (:documentation "Reader to A_{ij}."))
+  (:documentation "Returns the matrix element @code{A[i,j]}."))
 (defgeneric (setf mref) (value A i j)
-  (:documentation "Writer to A_{ij}."))
+  (:documentation "Writes the matrix element @code{A[i,j]}."))
 
-;;; BLAS Level 2
+;;; BLAS Level 3
 (defgeneric gemm-nn! (a x y b z)
   (:documentation "General matrix-matrix multiplication: Z <- alpha * X * Y
 + beta * Z"))

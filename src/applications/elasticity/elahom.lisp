@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package application)
+(in-package :fl.application)
 
 (defun elasticity-inlay-cell-problem (domain &key (inlay-p #'patch-in-inlay-p))
   "Generates the inlay cell problem.  The coefficient is of the
@@ -59,13 +59,13 @@ A^{lk}_{ji} N^{lr}_q = F[k*dim+i] . N[r*dim+q]."
      #'(lambda (patch)
 	 (when (= (dimension patch) dim)
 	   (list
-	    'ELASTICITY::ELASTICITY
+	    'FL.ELASTICITY::ELASTICITY
 	    (constant-coefficient
 	     (check-elasticity-tensor
 	      (if (funcall inlay-p patch)
 		  (isotropic-elasticity-tensor :dim dim :lambda 100 :mu 100)
 		  (isotropic-elasticity-tensor :dim dim :lambda 1 :mu 1))))
-	    'ELASTICITY::GAMMA
+	    'FL.ELASTICITY::GAMMA
 	    (constant-coefficient
 	     (let* ((gamma (make-array dim)))
 	       (dotimes (j dim)
@@ -141,7 +141,7 @@ with dim^3 components which are plotted one after the other."
 	    :post-steps 2 :post-smooth smoother
 	    :gamma 2 :fmg t))
 	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
-	 :failure-if `(and (> :step-reduction 0.9) (> :step 2) (> :defnorm 1.0e-9))
+	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (> :defnorm 1.0e-9))
 	 :output (eq output :all))
 	:observe
 	(append *stationary-fe-strategy-observe*
@@ -246,7 +246,7 @@ Parameters: order=~D, levels=~D~%~%"
 
 (let ((average-tensor
        (average-coefficient (getbb *result* :ansatz-space)
-			    :coefficient 'ELASTICITY::ELASTICITY))
+			    :coefficient 'FL.ELASTICITY::ELASTICITY))
       (correction-tensor
        (convert-correction
 	(correction-tensor (getbb *result* :solution)

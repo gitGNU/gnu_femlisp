@@ -1,10 +1,10 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; macros-defp.lisp
+;;; amop.lisp - AMOP extensions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2004 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -32,12 +32,47 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defpackage "FL.MACROS"
+(defpackage "FL.AMOP"
   (:use "COMMON-LISP")
-  (:export
-   "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF"
-   "AAND" "ACOND" "_F" "IT" "ENSURE" "REMOVE-THIS-METHOD"
-   "FOR" "FOR<" "MULTI-FOR" "DEFINLINE"
-   "?1" "?2" "?3")
-  (:documentation "This package contains some basic macro definitions used
-in Femlisp."))
+  (:export "FIND-PROGRAMMATIC-CLASS" "MAKE-PROGRAMMATIC-INSTANCE"
+	   "REMOVE-SUBCLASS-METHODS"))
+
+(in-package :fl.amop)
+
+(defun find-programmatic-class (superclasses)
+  "Finds and, if necessary, generates a class from the given superclasses."
+  (cond
+    ((null superclasses) T)
+    ((null (cdr superclasses)) (car superclasses))
+    (t (let ((class (find-if
+		     #'(lambda (class)
+			 (equal superclasses
+				(mop:class-direct-superclasses class)))
+		     (mop:class-direct-subclasses (car superclasses)))))
+	 (or class
+	     (make-instance 'standard-class
+			    :name (intern (format nil "~A" (mapcar #'class-name superclasses)))
+			    :direct-superclasses superclasses
+			    :direct-slots ()))))))
+
+(defun make-programmatic-instance (superclass-names &rest initargs)
+  "Makes an instance of a class denoted by a list of the names of its
+superclasses.  This class is generated automatically, if necessary."
+  (apply #'make-instance
+	 (if (symbolp superclass-names)
+	     (find-class superclass-names)
+	     (find-programmatic-class (mapcar #'find-class superclass-names)))
+         initargs))
+
+(defun remove-subclass-methods (gf template-args)
+  "Removes all methods dispatching on subclasses of the template
+arguments."
+  (loop for method in (copy-seq (mop:generic-function-methods gf))
+	when (every #'subtypep
+		    (mop:method-specializers method)
+		    (mapcar #'(lambda (arg)
+				(if (consp arg)
+				    (second arg)
+				    T))
+			    template-args))
+	do (remove-method gf method)))

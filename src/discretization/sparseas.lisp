@@ -32,28 +32,24 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ansatz-space
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <ansatz-space> ()
-  ((fe-class :reader fe-class :initarg :fe-class :type <fe-discretization>)
-   (problem :reader problem :initarg :problem)
+(defclass <ansatz-space> (property-mixin)
+  ((fe-class :reader fe-class :initarg :fe-class :type <fe-discretization> :documentation
+	     "The finite element class for this ansatz space.")
+   (problem :reader problem :initarg :problem :documentation
+	    "The proplem for this ansatz space which determines essential constraints.")
+   (mesh :reader mesh :initarg :mesh :type <mesh> :documentation
+	    "The mesh for this ansatz space which determines hanging-node constraints.")
    (multiplicity :reader multiplicity :initarg :multiplicity
-		 :documentation "Should be a copy of problem multiplicity.")
-   (mesh :reader mesh :initarg :mesh :type <mesh>)
-   (structure-information :accessor structure-information :initform () :type list))
-  (:documentation "An <ansatz-space> is determined by finite element
-discretization and problem.  The problem determines constraints like
-essential boundary conditions.  These together with hanging-node
-constraints are determined during assembly and stored into the
-structure-information slot.
-
-This class is used as a mixin for deriving the classes
-<ansatz-space-vector> and <ansatz-space-matrix> from <sparse-vector> and
-<sparse-matrix>, respectively."))
+		 :documentation "Should be a copy of problem multiplicity."))
+  (:documentation "A finite element ansatz space is determined by finite
+element discretization, mesh and problem.  The constraints are stored in
+the slot @var{properties}."))
 
 (defmethod initialize-instance :after ((as <ansatz-space>) &key &allow-other-keys)
   (unless (slot-boundp as 'multiplicity)
@@ -112,11 +108,8 @@ these matrices change when mesh or discretization are adapted."))
 ;;;; ansatz-space objects
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <ansatz-space-object> ()
-  ((ansatz-space :reader ansatz-space :initarg :ansatz-space :type <ansatz-space>)
-   (discretization-info
-    :type list :initform () :accessor discretization-info :documentation
-    "Contains additional information obtained when discretizing."))
+(defclass <ansatz-space-object> (property-mixin)
+  ((ansatz-space :reader ansatz-space :initarg :ansatz-space :type <ansatz-space>))
   (:documentation "Mixin for objects to which an ansatz-space is associated."))
 
 (defmethod mesh ((aso <ansatz-space-object>))
@@ -250,7 +243,7 @@ ansatz-space-morphism."))
 
 (defmethod extract-level ((asv <ansatz-space-vector>) level)
   (let* ((sub-vec (make-ansatz-space-vector (ansatz-space asv)))
-	 (vblocks (slot-value sub-vec 'algebra::blocks))
+	 (vblocks (slot-value sub-vec 'fl.algebra::blocks))
 	 (level-skel (cells-on-level (hierarchical-mesh asv) level)))
     (for-each-key-and-entry
      #'(lambda (key vblock)
@@ -323,23 +316,6 @@ reference finite element is collected into an interpolation matrix."
       (skel-for-each #'insert-local-imat (or region level-mesh)))
     imat))
 
-(defun constrained-interpolation-matrix (ansatz-space &key level where imat)
-  "The multigrid algorithm needs an interpolation which satisfies the
-constraints like essential or periodic boundary conditions."
-  (let ((imat (interpolation-matrix ansatz-space :level level :imat imat)))
-    ;; Could this create problems for FAS and non-Dirichlet b.c.??  Should
-    ;; prolongation respect the constraints for level+1 and restriction for
-    ;; level?  Alternatively, this could be achieved by enforcing the
-    ;; constraints after the operation, as in UG.
-    (let ((constraints-P (compute-essential-boundary-constraints
-			  ansatz-space :level (1+ level) :where where)))
-      (remove-projection-range imat constraints-P :row-p t))
-    (let ((constraints-P (compute-essential-boundary-constraints
-			  ansatz-space :level level :where where)))
-      (remove-projection-range imat constraints-P :column-p t))
-    imat))
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Projection
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -393,10 +369,10 @@ masters."
 
 (defun transfer-matrix (domain-as image-as &key no-slaves)
   "Builds a transfer matrix from domain-as to image-as."
-  (let* ((domain-constraints-P (getf (structure-information domain-as) :ip-constraints-P))
-	 (domain-constraints-Q (getf (structure-information domain-as) :ip-constraints-Q))
-	 (image-constraints-P (getf (structure-information image-as) :ip-constraints-P))
-	 (image-constraints-Q (getf (structure-information image-as) :ip-constraints-Q))
+  (let* ((domain-constraints-P (getf (properties domain-as) :ip-constraints-P))
+	 (domain-constraints-Q (getf (properties domain-as) :ip-constraints-Q))
+	 (image-constraints-P (getf (properties image-as) :ip-constraints-P))
+	 (image-constraints-Q (getf (properties image-as) :ip-constraints-Q))
 	 (mesh (mesh domain-as))
 	 (interface (refinement-interface mesh))
 	 (domain-disc (fe-class domain-as))

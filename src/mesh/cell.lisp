@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :mesh)
+(in-package :fl.mesh)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Cell class definition
@@ -175,17 +175,17 @@ special mapping."))
 (defun mapped-cell-class (class)
   "Constructs a cell class with <mapped-cell> mixin."
   (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
-	      (find-package :mesh)))
+	      (find-package "FL.MESH")))
   (if (subtypep class '<mapped-cell>)
       class
       (let* ((unmapped-class (class-name class))
 	     (mapped-class
 	      (intern (concatenate 'string "<MAPPED-"
 				   (subseq (symbol-name unmapped-class) 1))
-		      :mesh)))
+		      "FL.MESH")))
 	(or (find-class mapped-class nil)
 	    (let ((new-class (eval `(defclass ,mapped-class
-				     (mesh::<mapped-cell> ,unmapped-class) ()))))
+				     (fl.mesh::<mapped-cell> ,unmapped-class) ()))))
 	      (setf (cell-class-information new-class)
 		    (cell-class-information class))
 	      new-class)))))
@@ -193,12 +193,12 @@ special mapping."))
 (defun unmapped-cell-class (class)
   "Returns the cell class without mapping mixin."
   (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
-	      (find-package :mesh)))
+	      (find-package "FL.MESH")))
   (if (subtypep class '<mapped-cell>)
       (let* ((mapped-class (class-name class))
 	     (unmapped-class
 	      (intern (concatenate 'string "<" (subseq (symbol-name mapped-class) 8))
-		      :mesh)))
+		      "FL.MESH")))
 	(find-class unmapped-class nil))
       class))
 

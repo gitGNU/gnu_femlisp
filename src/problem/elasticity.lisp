@@ -34,16 +34,17 @@
 
 (in-package :cl-user)
 
-(defpackage "ELASTICITY"
+(defpackage "FL.ELASTICITY"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"ALGEBRA" "FL.FUNCTION" "MESH" "PROBLEM")
+	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH" "FL.PROBLEM")
   (:export
    "<ELASTICITY-PROBLEM>" "ISOTROPIC-ELASTICITY-TENSOR"
    "CHECK-ELASTICITY-TENSOR"
    "SYSTEM-DIFFUSION-PROBLEM" "STANDARD-ELASTICITY-PROBLEM"
-   "CLAMPED-BOUNDARY-COEFFICIENT"))
+   "CLAMPED-BOUNDARY-COEFFICIENT")
+  (:documentation "Defines elasticity problems."))
 
-(in-package :elasticity)
+(in-package :fl.elasticity)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <elasticity-problem>
@@ -65,9 +66,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun isotropic-elasticity-tensor (&key dim lambda mu)
-  "Returns the tensor corresponding to the Lam\'e constants $\lambda$ and
-$\mu$, i.e.: $$A_{ij}^{kl} = \lambda \delta_{ik} \delta_{jl} + \mu
-\(\delta_{ij} \delta_{kl} + \delta_{kj} \delta_{il})$$"
+  "Returns the tensor corresponding to the Lam'e constants @math{lambda}
+and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
+(delta_{ij} delta_{kl} + delta_{kj} delta_{il})}."
   (let ((tensor (make-array (list dim dim) :initial-element nil)))
     (dotimes (k dim)
       (dotimes (l dim)

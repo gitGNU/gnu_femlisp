@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :algebra)
+(in-package :fl.algebra)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; crs-pattern : sparse matrix pattern
@@ -232,5 +232,5 @@ its actual offsets in the sparse graph."))
   (describe (full-crs-pattern 2 2))
   nil)
 
-;;; (algebra::test-crs)
+;;; (fl.algebra::test-crs)
 (fl.tests:adjoin-test 'test-crs)

@@ -39,7 +39,7 @@
 
 ;;;(declaim (optimize (safety 3) (debug 3)))
 
-(in-package :algebra)
+(in-package :fl.algebra)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

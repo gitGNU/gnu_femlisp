@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defun ns-driven-cavity-demo (dim order levels &key plot output (reynolds 0.0))
   (defparameter *result*
@@ -59,7 +59,7 @@
 	(plot solution :component i :depth 2)
 	(sleep 1.0)))))
 
-;;; (ns-driven-cavity-demo 2 2 3 :output :all :plot nil :reynolds 100.0)
+;;; (ns-driven-cavity-demo 2 2 5 :output :all :plot nil :reynolds 100.0)
 ;;; (plot (getbb *result* :solution) :component 0 :depth 2)
 
 (defun make-driven-cavity-demo (dim order reynolds)
@@ -100,7 +100,7 @@ Taylor-Hood finite elements (Q^{k+1})^~dim~/Q^k with k=~order~."
 	     #+(or)
 	     (standard-navier-stokes-problem
 	      (?1 (n-cube-with-ellipsoidal-hole
-		   2 :A (algebra::ellipse-matrix 0.25 0.3 0.7854))
+		   2 :A (fl.algebra::ellipse-matrix 0.25 0.3 0.7854))
 		  (n-cube-domain dim))
 	      :force (unit-vector-force dim 1))
 	      )
@@ -129,5 +129,5 @@ Taylor-Hood finite elements (Q^{k+1})^~dim~/Q^k with k=~order~."
   ;;(fe-extreme-values  (getbb *result* :solution))
 )
 
-;;; (application::test-driven-cavity)
+;;; (fl.application::test-driven-cavity)
 (fl.tests:adjoin-test 'test-driven-cavity)

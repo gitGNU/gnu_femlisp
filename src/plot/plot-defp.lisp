@@ -32,14 +32,16 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
-(defpackage "PLOT"
+(defpackage "FL.PLOT"
   (:use "COMMON-LISP"
 	"FL.MACROS" "FL.UTILITIES" "FL.DEMO"
-	"FL.MATLISP" "ALGEBRA" "FL.FUNCTION"
+	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION"
 	"FL.GRAPHIC"
-	"MESH" "PROBLEM" "DISCRETIZATION")
+	"FL.MESH" "FL.PROBLEM" "FL.DISCRETIZATION")
   (:import-from "FL.GRAPHIC" "*IMAGES-DIRECTORY*")
-  (:export "PLOT"))
+  (:export "PLOT")
+  (:documentation "This package provides a high-level interface to
+plotting.  It defines a generic function @code{PLOT} which can be used to
+plot several types of objects, e.g. cells, meshes, finite element and
+coefficient functions."))
 

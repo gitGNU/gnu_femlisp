@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :plot)
+(in-package :fl.plot)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Public interface
@@ -50,7 +50,7 @@ printed to *trace-output* instead of plotting.")
 (defmethod plot :around (object &key &allow-other-keys)
   "Handles the *plot* parameter."
   (case *plot*
-    (t (call-next-method))
+    ((t) (call-next-method))
     (:message (format *trace-output* "~&<Plotting>~%")))
   ;; and generally we return the object itself
   object)
@@ -109,7 +109,7 @@ consisting of cell and vertex indices."
 		   (cons (cadr vertices) (cons (car vertices) (cddr vertices)))
 		   vertices)))
 	    connection-list))
-       (mesh::refcell-refinement-skeleton (reference-cell cell) depth)
+       (fl.mesh::refcell-refinement-skeleton (reference-cell cell) depth)
        :dimension :highest))))
 
 (defun compute-all-position-values (cells position-indices depth cell->values)

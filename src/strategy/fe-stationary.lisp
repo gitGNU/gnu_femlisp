@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :strategy)
+(in-package :fl.strategy)
 
 (defvar *mentries-observe*
   (list " MENTRIES" "~9D"
@@ -48,7 +48,7 @@
    "Standard observe quantities for stationary fe-strategies.")
 
 (defclass <stationary-fe-strategy> (<fe-approximation>)
-  ((iteration::observe :initform *stationary-fe-strategy-observe*)
+  ((fl.iteration::observe :initform *stationary-fe-strategy-observe*)
    (solver :initarg :solver :documentation
 	   "The solver to be used for solving the discretized systems."))
   (:documentation "This class describes some iterative finite element

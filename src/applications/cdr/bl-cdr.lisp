@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 ;;; In this file we compute effective boundary-layer constants
 ;;; for oscillating boundaries.  This was treated theoretically
@@ -52,11 +52,11 @@ $x_n=0$."
      #'(lambda (patch)
 	 (cond ((and (= (dimension patch) (1- dim))
 		     (bl-patch-on-artificial-boundary bl-cell-domain patch))
-		(list 'CDR::SOURCE *cf-constantly-1.0*))
+		(list 'FL.CDR::SOURCE (constant-coefficient 0.0)))
 	       ((bl-patch-on-lower-boundary bl-cell-domain patch)
-		(list 'CDR::DIRICHLET *cf-constantly-0.0*))
+		(list 'FL.PROBLEM::CONSTRAINT (constant-coefficient 0.0)))
 	       ((= (dimension patch) dim)
-		(list 'CDR::DIFFUSION (identity-diffusion-tensor dim)))
+		(list 'FL.CDR::DIFFUSION (identity-diffusion-tensor dim)))
 	       (t nil))))))
 
 (defun sinusoidal-boundary-layer-cell-problem (dim &rest key-args)
@@ -97,6 +97,8 @@ the load functional."
 	      (make-instance '<duality-error-estimator>
 			     :functional :load-functional)
 	      :indicator
+	      (make-instance '<uniform-refinement-indicator>)
+	      #+(or)
 	      (make-instance '<largest-eta-indicator> :pivot-factor 0.01
 			     :from-level 1 :block-p t)
 	      :output output :plot-mesh t
@@ -107,28 +109,28 @@ the load functional."
       (plot (getbb *result* :solution)))))
 
 #+(or) (cdr-bl-computation
-	2 4 3 :plot t :amplitude 0.15 :extensible nil :output 1)
+	2 4 2 :plot t :amplitude 0.15 :extensible nil :output :all)
 #|
 (profile:unprofile)
 (profile:report-time)
 (profile:reset-time)
-(profile:profile discretization::do-fe-dofs-mblocks)
-(profile:profile discretization::do-fe-dofs-vblocks)
-(profile:profile discretization::fe-cell-geometry)
-(profile:profile discretization::assemble-interior)
-(profile:profile :methods 'discretization::discretize-locally)
-(profile:profile mesh::local->Dglobal)
-(profile:profile mesh::local->global)
-(profile:profile mesh::l2g)
-(profile:profile mesh::l2Dg)
-(profile:profile fl.matlisp::gesv!)
+(profile:profile fl.discretization::do-fe-dofs-mblocks)
+(profile:profile fl.discretization::do-fe-dofs-vblocks)
+(profile:profile fl.discretization::fe-cell-geometry)
+(profile:profile fl.discretization::assemble-interior)
+(profile:profile :methods 'fl.discretization::discretize-locally)
+(profile:profile fl.mesh::local->Dglobal)
+(profile:profile fl.mesh::local->global)
+(profile:profile fl.mesh::l2g)
+(profile:profile fl.mesh::l2Dg)
+(profile:profile fl.fl.matlisp::gesv!)
 (profile:profile fl.matlisp::gemm-nn!)
-(profile:profile mesh::euclidean->barycentric)
-(profile:profile mesh::weight-vector-tensorial)
-(profile:profile mesh::corners)
-(profile:profile mesh::vertices)
-(profile:profile application::bottom-mapping)
-(profile:profile mesh::weight-lists-grad-tensorial)
+(profile:profile fl.mesh::euclidean->barycentric)
+(profile:profile fl.mesh::weight-vector-tensorial)
+(profile:profile fl.mesh::corners)
+(profile:profile fl.mesh::vertices)
+(profile:profile fl.application::bottom-mapping)
+(profile:profile fl.mesh::weight-lists-grad-tensorial)
 |#
 
 ;; before change (+ 1 sec on another run)
@@ -181,11 +183,11 @@ the load functional."
       ))
 
   (plot (getbb *result* :mesh))
-  (plot (strategy::eta->p2-vec (getbb *result* :eta) (getbb *result* :problem)
+  (plot (fl.strategy::eta->p2-vec (getbb *result* :eta) (getbb *result* :problem)
 			       (getbb *result* :mesh)))
   (display-ht (getbb *result* :eta))
-  (apply #'strategy::compute-local-estimate
-	 (slot-value (getbb *result* :strategy) 'strategy::estimator) *result*)
+  (apply #'fl.strategy::compute-local-estimate
+	 (slot-value (getbb *result* :strategy) 'fl.strategy::estimator) *result*)
 
   (dohash (key (getbb *result* :eta))
     (let ((mp (midpoint key)))

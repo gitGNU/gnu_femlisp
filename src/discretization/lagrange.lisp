@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 ;;;; This module provides Lagrange dofs and Lagrange basis functions
 ;;;; of arbitrary order and for arbitrary tensorial cells.

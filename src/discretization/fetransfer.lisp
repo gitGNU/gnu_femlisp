@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 ;;;; This file provides routines for computing local transfer routines
 ;;;; between fes for a cell and its refinement as well as between fes on

@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :plot)
+(in-package :fl.plot)
 
 
 (defmethod graphic-commands ((asa <ansatz-space-automorphism>) (program (eql :dx))

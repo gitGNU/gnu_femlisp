@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :multigrid)
+(in-package :fl.multigrid)
 
 ;;; This file provides the algebraic multigrid iteration.
 

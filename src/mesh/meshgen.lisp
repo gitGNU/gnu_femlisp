@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package mesh)
+(in-package :fl.mesh)
 
 ;;;; meshgen.lisp contains routines for mesh and hierarchical-mesh
 ;;;; generation.
@@ -81,45 +81,12 @@ argument."
     ;; return result
     new-mesh))
 
-
-
 (defun uniformly-refined-mesh (domain n &key parametric)
   "Generates a mesh by refining the domain partition uniformly."
   (do ((mesh (make-mesh-from-domain domain :parametric parametric)
 	     (refine mesh))
        (k 0 (1+ k)))
       ((= k n) mesh)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Mesh construction in the UG way
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun insert-cell-from-corners (mesh corners->cell cell-class corners properties)
-  "Creates a cell of type cell-class with corners given by corners.
-corners->cell has to be an equalp hash-table mapping corners to the
-corresponding cell.  It is updated by this function."
-  (assert (flat-mesh-p mesh))
-  (or (gethash corners corners->cell)
-      (let* ((refcell (reference-cell cell-class))
-	     (refcell-corners (corners refcell)))
-	(assert (= (length refcell-corners) (length corners)))
-	(flet ((refcell-corner->corner (refcell-corner)
-		 (nth (position refcell-corner refcell-corners :test #'equal) corners)))
-	  (let ((cell (if (vertex? refcell)
-			  (make-vertex (car corners))
-			  (copy-cell refcell))))
-	    (unless (vertex-p cell)
-	      (setf (slot-value cell 'boundary)
-		    (vector-map
-		     #'(lambda (refcell-side)
-			 (let ((side-corners (mapcar #'refcell-corner->corner
-						     (corners refcell-side))))
-			   (insert-cell-from-corners
-			    mesh corners->cell
-			    (class-of refcell-side) side-corners properties)))
-		     (boundary refcell))))
-	    (setf (skel-ref mesh cell) properties)
-	    (setf (gethash corners corners->cell) cell))))))
 
 (defun special-mesh-on-box-domain (domain patch->mesh-sizes)
   "Creates a uniform mesh on a box domain consisting of N_1 x ... x N_dim)
@@ -155,6 +122,23 @@ cells."
 		  unless (apply #'= (mapcar (rcurry #'elt i) patch-corners))
 		  collect (if (numberp N) N (aref N i)))
 	    'fixnum-vec))))))
+
+(defun isotropic-mesh-on-rectangle-domain (domain)
+  "Generates a rather isotropic mesh on a domain consisting of rectangular
+patches."
+  (special-mesh-on-box-domain
+   domain
+   #'(lambda (patch)
+       (if (vertex? patch)
+	   #()
+	   (let ((Dphi (l2Dg patch (local-coordinates-of-midpoint patch))))
+	     (if (= (dimension patch) 1)
+		 (loop for i from 0 below 2 for D = (mref Dphi i 0)
+		       unless (zerop D) do (return (vector (truncate D))))
+		 (coerce (loop for i from 0 below 2 for D = (mref Dphi i i)
+			       unless (zerop D) collecting (truncate D))
+			 'vector)))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Hierarchical meshes

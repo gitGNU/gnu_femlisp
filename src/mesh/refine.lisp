@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :mesh)
+(in-package :fl.mesh)
 
 ;;;; This module provides the basic structure of refinement information and
 ;;;; for the regular refinement of skeletons.  The actual form of
@@ -100,20 +100,27 @@ transform-A, transform-b:  determine the transformation mapping for the child"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; TODO: put in refinement information in cell classes
+(defparameter *refcell-refinement-memoize-depth* T
+  "Depth up to which we store the refinements of the reference cell.  NIL
+indicates no memoization, T indicates infinite depth.  This should be made
+to fit with other memoized functions!")
+
 (let ((refcell-refinement-table (make-hash-table :test 'equal)))
   (defun refcell-refinement-skeleton (refcell &optional (level 1))
-    "This function is needed in its whole generality e.g. for plotting.
-Calling it for large level arguments may cause a breakdown of the program,
-thus the level argument is bounded conservatively."
+    "Returns an LEVEL times refined skeleton of REFCELL.  It is partially
+memoized, see the documentation of *REFCELL-REFINEMENT-MEMOIZE-DEPTH*."
     (assert (reference-cell-p refcell))
-    (assert (<= level 4))
     (or (gethash (cons refcell level) refcell-refinement-table)
 	(let ((result
 	       (cond
 		 ((zerop level) (refcell-skeleton refcell))
 		 (t (refine-globally (refcell-refinement-skeleton refcell (1- level)))))))
-	  (setf (gethash (cons refcell level) refcell-refinement-table)
-		result)))))
+	  (when (and *refcell-refinement-memoize-depth*
+		     (or (eq *refcell-refinement-memoize-depth* T)
+			 (<= level *refcell-refinement-memoize-depth*)))
+	    (setf (gethash (cons refcell level) refcell-refinement-table)
+		  result))
+	  result))))
 
 (defun subcell-children (cell skeleton)
   "This procedure gets the children of all subcells of cell."

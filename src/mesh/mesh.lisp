@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package mesh)
+(in-package :fl.mesh)
 ;;;(declaim (optimize (speed 0) (safety 3)))
 ;;;(declaim (optimize (debug 3)))
 

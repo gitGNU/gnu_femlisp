@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :mesh)
+(in-package :fl.mesh)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; abstract class <simplex>
@@ -110,7 +110,7 @@ derivative."
 	(case i
 	  ((0) (l2g simplex local-pos))
 	  ((1) (l2Dg simplex local-pos))
-	  (t (make-real-tensor (make-uint-vec i dim))))))
+	  (t (make-real-tensor (make-fixnum-vec i dim))))))
 
 (defmethod coordinates-inside? ((cell <simplex>) local-pos)
   (and (not (some #'minusp local-pos))
@@ -276,7 +276,7 @@ the zero-vector.  The others are equal to (unit-vector dim 1-i)."
 
 (defun simplex-class (dim &optional mapped)
   "Returns the n-simplex class."
-  (let* ((class-name (intern (format nil "<~D-SIMPLEX>" dim) :mesh))
+  (let* ((class-name (intern (format nil "<~D-SIMPLEX>" dim) "FL.MESH"))
 	 (class (find-class class-name nil)))
     (cond (class (if mapped (mapped-cell-class class) class))
 	  (t

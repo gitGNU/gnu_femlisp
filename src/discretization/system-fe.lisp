@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 (defmethod essential-boundary-constraints
     ((problem <pde-problem>) (ansatz-space <ansatz-space>)
@@ -52,7 +52,7 @@
 			    (member-of-skeleton? cell interface)))
 	      (:all t))
 	(let* ((coeffs (coefficients-of-cell cell h-mesh problem))
-	       (constraint-function (getf coeffs 'PROBLEM:CONSTRAINT))
+	       (constraint-function (getf coeffs 'FL.PROBLEM:CONSTRAINT))
 	       (cell-key (cell-key cell h-mesh)))
 	  (when constraint-function
 	    (loop with fe = (get-fe fe-class cell)

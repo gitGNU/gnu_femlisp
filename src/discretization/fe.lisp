@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <dof>
@@ -89,12 +89,11 @@ functional:      an application to a function defined on the
 ;;; <fe>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <fe> ()
+(defclass <fe> (property-mixin)
   ((refcell :reader reference-cell :initarg :cell :type <cell>)
    (discretization :accessor discretization :initarg :discretization)
    (dofs :reader fe-dofs :initform () :initarg :dofs :type list)
-   (basis :reader fe-basis :initform () :initarg :basis :type list)
-   (properties :accessor properties :initform () :type list))
+   (basis :reader fe-basis :initform () :initarg :basis :type list))
   (:documentation "A finite element <fe> is given for each reference cell,
 e.g. <2-simplex>.  dofs are the degrees of freedom associated with the
 cell, basis is the dual basis to dofs in some polynomial space.
@@ -276,9 +275,9 @@ and reference cell."))
   (let ((refcell (reference-cell fe))
 	(order (discretization-order fedisc)))
     (gauss-rule (mapcar #'dimension (factor-simplices refcell))
-		(if (typep refcell '<simplex>)
-		    order
-		    (1+ order)))))
+		;; does not integrate reaction terms precisely
+		#+(or)(if (typep refcell '<simplex>) order (1+ order))
+		(1+ order))))
 
 (defclass <standard-fe-discretization> (<fe-discretization>)
   ((cell->fe :initarg :cell->fe))
@@ -399,6 +398,12 @@ cell->fe mapping given as a class slot."))
   "Returns a list of monomials of degree = deg or <= deg for a simplex."
   (n-variate-monomials-of-degree (dimension simplex) deg type))
 
+(defun encapsulate (item dim)
+  "Encapsulates @var{item} @var{dim} times."
+  (if (zerop dim)
+      item
+      (encapsulate (list item) (- dim 1))))
+
 (defun Q-nomials-of-degree (cell deg &optional (type '=))
   "Builds the Qn = Pn-Pn-Pn ... on a tensorial cell."
   (cond ((or (vertex-p cell) (simplex-p cell))
@@ -469,18 +474,25 @@ scalar product in pairing."
 ;;;; fe-cell-geometry
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun fe-cell-geometry (cell qrule)
+(defun fe-cell-geometry (cell qrule &key metric volume)
   "Collects cell geometry information inside a property list."
   (loop for ip in (integration-points qrule)
 	for local-coord = (ip-coords ip)
+	for global-coord = (local->global cell local-coord)
 	for Dphi = (local->Dglobal cell local-coord)
-	for volume = (area-of-span Dphi)
+	for metric-ip = (and metric (funcall metric :local local-coord :global global-coord))
+	for volume-ip = (and volume (funcall volume :local local-coord :global global-coord))
+	for volume-at-point =
+	(* (sqrt (abs (det (if metric
+			       (m*-tn Dphi (m* metric-ip Dphi))
+			       (m*-tn Dphi Dphi)))))
+	   (or volume-ip 1.0))
 	collect local-coord into local-coords
-	collect (local->global cell local-coord) into global-coords
+	collect global-coord into global-coords
 	collect Dphi into gradients
-	collect volume into volumes
+	collect volume-at-point into volumes
 	collect (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi)) into gradient-inverses
-	collect (* (ip-weight ip) volume) into weights
+	collect (* (ip-weight ip) volume-at-point) into weights
 	finally
 	(return (list :cell cell :local-coords local-coords :global-coords global-coords
 		      :gradients gradients :volume volumes

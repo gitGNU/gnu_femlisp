@@ -215,13 +215,16 @@ in parallel."))
   y)
 
 (defmethod scal! (s x)
-  (for-each-entry (curry #'scal! s) x)
+  (for-each-entry #'(lambda (x) (scal! (coerce s (scalar-type x)) x))
+		  x)
   x)
 
 (defmethod axpy! (alpha x y)
   "Recursive definition for AXPY! usable for sparse block vectors."
-  (for-each-entry-of-vec1 #'(lambda (x y) (axpy! alpha x y))
-			  x y)
+  (for-each-entry-of-vec1
+   #'(lambda (x y)
+       (axpy! (coerce alpha (scalar-type x)) x y))
+   x y)
   y)
 
 (defmethod l2-norm (vec)
@@ -265,6 +268,14 @@ in parallel."))
        (unless (mzerop entry threshold)
 	 (return-from mzerop nil)))
    mat)
+  t)
+
+(defmethod mequalp (x y)
+  (for-each-entry-of-vec1
+   #'(lambda (x y)
+       (unless (mequalp x y)
+	 (return-from mequalp nil)))
+   x y)
   t)
 
 (defmethod total-entries (obj)

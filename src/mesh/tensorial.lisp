@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :mesh)
+(in-package :fl.mesh)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; class <tensorial>
@@ -335,7 +335,7 @@ boundary paths."
 	  (mapcar #'ensure-simplex factor-dims)))
 
 (defun tensorial-class (factor-dims &optional mapped)
-  (let* ((class-name (intern (format nil "<~{~S-~}TENSORIAL>" factor-dims) :mesh))
+  (let* ((class-name (intern (format nil "<~{~S-~}TENSORIAL>" factor-dims) "FL.MESH"))
 	 (class (find-class class-name nil)))
     (cond (class (if mapped (mapped-cell-class class) class))
 	  (t
@@ -430,5 +430,5 @@ factors."
   (inside-cell? *unit-quadrangle* #d(0.0 0.0))
   )
 
-;;; (mesh::test-tensorial)
+;;; (test-tensorial)
 (fl.tests:adjoin-test 'test-tensorial)

@@ -33,26 +33,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-package :cl-user)
-(defpackage "CDR-FE"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"MESH" "PROBLEM" "CDR" "DISCRETIZATION" "ALGEBRA" "FL.FUNCTION")
-  (:export ))
-(in-package :cdr-fe)
+(defpackage "FL.CDR-FE"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
+	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION"
+	"FL.MESH" "FL.PROBLEM" "FL.CDR" "FL.DISCRETIZATION")
+  (:export )
+  (:documentation "This package specializes the finite element
+discretization for convection-diffusion-reaction problems.
 
-#|
-Local and boundary assembly for finite element discretizations of
-convection-diffusion-reaction problems.  It can handle the following
-equation (D_i=\partial{x_i}):
+It can handle the following equation (@math{D_i=\partial{x_i}}):
 
-- D_i (K_ij (D_j u + g_j) + D_i (c u) + alpha r u = alpha f
+@math{- D_i (K_ij (D_j u + g_j) + D_i (c u) + r u = f}
 
-Here, K is the diffusion tensor, c is convection, r is reaction and f is
-source.  alpha is a coefficient which arises from scaling of u in porous
-media applications.  It is put separately from r and f, because it is used
-also inside time-stepping schemes as multiplier of 1/delta_t.
+Here, @math{K} is the diffusion tensor, @math{c} is convection, @math{r} is
+reaction and @math{f} is source."))
 
-Ideally, this module should be the only one which has to be changed for
-other problems or other finite element discretizations.  |#
+(in-package "FL.CDR-FE")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Local assembly
@@ -62,12 +58,11 @@ other problems or other finite element discretizations.  |#
 			       &key local-mat local-rhs local-sol local-u local-v
 			       coefficient-parameters)
   "Local discretization for a convection-diffusion-reaction equation."
-  (let ((diffusion-function (getf coeffs 'CDR::DIFFUSION))
-	(convection-function (getf coeffs 'CDR::CONVECTION))
-	(gamma-function (getf coeffs 'CDR::GAMMA))
-	(alpha-function (getf coeffs 'CDR::ALPHA))
-	(source-function (getf coeffs 'CDR::SOURCE))
-	(reaction-function (getf coeffs 'CDR::REACTION)))
+  (let ((diffusion-function (getf coeffs 'FL.CDR::DIFFUSION))
+	(convection-function (getf coeffs 'FL.CDR::CONVECTION))
+	(gamma-function (getf coeffs 'FL.CDR::GAMMA))
+	(source-function (getf coeffs 'FL.CDR::SOURCE))
+	(reaction-function (getf coeffs 'FL.CDR::REACTION)))
     
     ;; loop over quadrature points
     (loop
@@ -112,21 +107,16 @@ other problems or other finite element discretizations.  |#
        (when (and reaction-function local-mat)
 	 (let* ((reaction (evaluate reaction-function coeff-input))
 		(factor (* weight reaction)))
-	   (when alpha-function
-	     (setq factor (* factor (evaluate alpha-function coeff-input))))
 	   (gemm! factor left-vals right-vals 1.0 local-mat :NT)))
-	    
+       
        ;; source
        (when (and source-function local-rhs)
 	 (let ((source (evaluate source-function coeff-input)))
-	   (when alpha-function
-	     (setq source (scal (evaluate alpha-function coeff-input) source)))
 	   (when (numberp source) (setq source (make-real-matrix `((,source)))))
-	   (gemm! weight left-vals source 1.0 local-rhs)
-	   ))
-       ))
+	   (gemm! weight left-vals source 1.0 local-rhs)))))
+    
     ;; custom fe rhs
-    (whereas ((fe-rhs (and local-rhs (getf coeffs 'CDR::FE-RHS))))
+    (whereas ((fe-rhs (and local-rhs (getf coeffs 'FL.CDR::FE-RHS))))
       (m+! (evaluate fe-rhs (list :cell (getf fe-geometry :cell) :fe fe))
 	   local-rhs))
     ))
@@ -152,7 +142,7 @@ other problems or other finite element discretizations.  |#
 			    (member-of-skeleton? cell interface)))
 	      (:all t))
 	(let* ((coeffs (coefficients-of-cell cell h-mesh problem))
-	       (dirichlet-function (getf coeffs 'CDR::DIRICHLET))
+	       (dirichlet-function (getf coeffs 'FL.PROBLEM::CONSTRAINT))
 	       (cell-key (cell-key cell h-mesh)))
 	  (when dirichlet-function
 	    (loop with fe = (get-fe fe-class cell)

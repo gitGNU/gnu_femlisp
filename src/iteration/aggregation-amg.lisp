@@ -36,7 +36,7 @@
 ;;; algebraic multigrid of aggregation type which were proposed by Braess
 ;;; and Vanek.
 
-(in-package :multigrid)
+(in-package :fl.multigrid)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <cluster-amg> class

@@ -32,20 +32,24 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :cl-user)
-(defpackage "ELASTICITY-FE"
-  (:use "COMMON-LISP" "FL.MATLISP" "FL.MACROS" "FL.UTILITIES" "ALGEBRA" "FL.FUNCTION"
-	"MESH" "PROBLEM" "ELASTICITY" "DISCRETIZATION")
-  (:export))
-(in-package :elasticity-fe)
+(in-package :CL-USER)
+(defpackage "FL.ELASTICITY-FE"
+  (:use "COMMON-LISP" "FL.MATLISP" "FL.MACROS" "FL.UTILITIES" "FL.ALGEBRA" "FL.FUNCTION"
+	"FL.MESH" "FL.PROBLEM" "FL.ELASTICITY" "FL.DISCRETIZATION")
+  (:export)
+  (:documentation "This package specializes the finite element
+discretization for elasticity problems.  In fact, even more general
+elliptic systems can be handled by providing suitable coefficient matrices.
+Here, local solution and local right-hand side are vectors of standard
+matrices (which allows multiple solutions), and the local stiffness matrix
+is an array of rank 2 with standard-matrix entries."))
+(in-package "FL.ELASTICITY-FE")
 
-(defmethod discretize-locally ((problem <elasticity-problem>) coeffs vecfe qrule fe-geometry
-			       &key local-mat local-rhs local-sol local-u local-v
-			       coefficient-parameters &allow-other-keys)
-  "Local discretization for an elasticity problem, in fact, even more
-general it can be used for solving elliptic systems.  The basic idea is
-that we work with arrays having standard-matrix entries whereas in the
-scalar case we worked directly with standard-matrix."
+(defmethod discretize-locally
+    ((problem <elasticity-problem>) coeffs vecfe qrule fe-geometry
+     &key local-mat local-rhs local-sol local-u local-v
+     coefficient-parameters &allow-other-keys)
+  "Local discretization for an elasticity problem."
   ;; we want isotropic ansatz spaces...
   (assert (same-p (components vecfe)))
   ;; and this situation should be checked before use
@@ -53,10 +57,10 @@ scalar case we worked directly with standard-matrix."
   
   (let ((fe (aref (components vecfe) 0))
 	(nr-comps (nr-of-components vecfe))
-	(elasticity-tensor (getf coeffs 'ELASTICITY::ELASTICITY))
-	(gamma-function (getf coeffs 'ELASTICITY::GAMMA))
-	(reaction-function (getf coeffs 'ELASTICITY::REACTION))
-	(force-function (getf coeffs 'ELASTICITY::FORCE)))
+	(elasticity-tensor (getf coeffs 'FL.ELASTICITY::ELASTICITY))
+	(gamma-function (getf coeffs 'FL.ELASTICITY::GAMMA))
+	(reaction-function (getf coeffs 'FL.ELASTICITY::REACTION))
+	(force-function (getf coeffs 'FL.ELASTICITY::FORCE)))
 
     ;; loop over quadrature points
     (loop
@@ -79,34 +83,35 @@ scalar case we worked directly with standard-matrix."
 	    (reaction (and reaction-function
 			   (evaluate reaction-function coeff-input)))
 	    (force (and force-function (evaluate force-function coeff-input)))
-	    (gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
-	    (right-gradients gradients)
-	    (left-gradients gradients)
-	    (fluxes (make-analog gradients))
 	    (right-vals shape-vals)
 	    (left-vals shape-vals))
-	    
-       (dotimes (i nr-comps)
-	 ;; matrix-part
-	 (dotimes (j nr-comps)
-	   ;; diffusion 
-	   (when ip-tensor
-	     (let ((D (aref ip-tensor i j)))
+       (when ip-tensor
+	 (dotimes (i nr-comps)
+	   (dotimes (j nr-comps)
+	     ;; diffusion 
+	     (let* ((gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
+		    (right-gradients gradients)
+		    (left-gradients gradients)
+		    (fluxes (make-analog gradients))
+		    (D (aref ip-tensor i j)))
 	       (unless (mzerop D)
 		 (gemm! 1.0 left-gradients D 0.0 fluxes)
 		 (when local-mat
 		   (gemm! weight fluxes right-gradients 1.0 (aref local-mat i j) :NT))
 		 ;; gamma
 		 (when (and gamma local-rhs)
-		   (gemm! weight fluxes (aref gamma j) 1.0 (aref local-rhs i))))))
-	   ;; reaction
-	   (when (and reaction local-mat)
+		   (gemm! weight fluxes (aref gamma j) 1.0 (aref local-rhs i))))))))
+       ;; reaction
+       (when (and reaction local-mat)
+	 (dotimes (i nr-comps)
+	   (dotimes (j nr-comps)
 	     (let ((R (aref reaction i j)))
 	       (unless (mzerop R)
 		 (gemm! (* weight R)
-			left-vals right-vals 1.0 local-mat :NT)))))
-	 ;; rhs-part / force
-	 (when (and force local-rhs)
+			left-vals right-vals 1.0 local-mat :NT))))))
+       ;; rhs-part / force
+       (when (and force local-rhs)
+	 (dotimes (i nr-comps)
 	   (gemm! weight left-vals (aref force i)
 		  1.0 (aref local-rhs i))))))))
 

@@ -36,7 +36,7 @@
 ;;;; approximation which is used for interpolation with finite elements and
 ;;;; for the solution of stationary problems with finite elements.
 
-(in-package :strategy)
+(in-package :fl.strategy)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Data used
@@ -66,7 +66,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <fe-approximation> (<strategy>)
-  ((iteration::observe :initform *fe-approximation-observe* :initarg :observe
+  ((fl.iteration::observe :initform *fe-approximation-observe* :initarg :observe
     :documentation "Providing initform for <iteration> slot.")
    (plot-mesh :initform t :initarg :plot-mesh
     :documentation "Plot the mesh at the beginning and after changes.  Can
@@ -113,16 +113,15 @@ near the boundary works significantly better with p>=2."
 		(select-discretization problem blackboard))))
     ;; ensure maximal information directly on the blackboard
     (when ansatz-space
-      (unless mesh (setf mesh (mesh ansatz-space)))
-      (unless problem (setf problem (problem ansatz-space)))
-      (unless multiplicity (setf multiplicity (multiplicity ansatz-space))))
-    (when mesh (unless domain (setf domain (domain mesh))))
+      (ensure mesh (mesh ansatz-space))
+      (ensure problem (problem ansatz-space))
+      (ensure multiplicity (multiplicity ansatz-space)))
+    (when mesh (ensure domain (domain mesh)))
     (when problem
-      (unless domain (setf domain (domain problem)))
-      (unless multiplicity (setf multiplicity (multiplicity problem))))
+      (ensure domain (domain problem))
+      (ensure multiplicity (multiplicity problem)))
     ;; build more information
-    (unless mesh
-      (setf mesh 
+    (ensure mesh 
 	    (uniformly-refined-hierarchical-mesh
 	     domain (or base-level 0) :parametric
 	     (let ((chars (domain-characteristics domain)))
@@ -130,14 +129,13 @@ near the boundary works significantly better with p>=2."
 		    (if (getf chars :exact)
 			:from-domain
 			(lagrange-mapping
-			 (max 2 (1+ (discretization-order (fe-class fe-strategy)))))))))))
-    (unless multiplicity (setf multiplicity 1))
-    (unless ansatz-space
-      (setf ansatz-space
+			 (max 2 (1+ (discretization-order (fe-class fe-strategy))))))))))
+    (ensure multiplicity 1)
+    (ensure ansatz-space
 	    (make-instance
 	     '<ansatz-space> :fe-class (fe-class fe-strategy)
-	     :mesh mesh :problem problem :multiplicity multiplicity)))
-    (setf solution (make-ansatz-space-vector ansatz-space))
+	     :mesh mesh :problem problem :multiplicity multiplicity))
+    (ensure solution (make-ansatz-space-vector ansatz-space))
     ;; ensure data correctness and compatibility
     (check mesh)
     (assert (eq mesh (mesh ansatz-space)))

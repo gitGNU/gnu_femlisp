@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :geomg)
+(in-package :fl.geomg)
 
 (defclass <geometric-blocking-mixin> ()
   ((type :initform :vertex-centered :initarg :type))
@@ -78,7 +78,7 @@ identification and hanging nodes."
   (let ((block-keys (list vertex-key))
 	(candidates (remove-if (rcurry #'slave-or-dirichlet-dof-p asa)
 			       (keys-of-row asa vertex-key)))
-	(constraints-Q (getf (structure-information (ansatz-space asa)) :constraints-Q)))
+	(constraints-Q (getf (properties (ansatz-space asa)) :constraints-Q)))
     ;; first direct neighbors are chosen
     (dolist (candidate candidates)
       (when (in-subcells-support (mklist vertex-key) (mklist candidate))

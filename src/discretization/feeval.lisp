@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 (defmethod fe-local-value ((asv <ansatz-space-vector>) cell local-pos)
   "Evaluates a finite element function in CELL at LOCAL-POS."

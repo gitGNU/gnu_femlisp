@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Cell problem for Navier-Stokes in a porous cell
@@ -56,9 +56,9 @@
 	 (cond ((patch-on-inner-boundary-p patch)
 		(list 'CONSTRAINT (no-slip-boundary dim)))
 	       ((= dim (dimension patch))  ; inner coeffs
-		(list 'NAVIER-STOKES::VISCOSITY (constant-coefficient viscosity)
-		      'NAVIER-STOKES::REYNOLDS (constant-coefficient reynolds)
-		      'NAVIER-STOKES::FORCE (ns-cell-problem-force dim)))
+		(list 'FL.NAVIER-STOKES::VISCOSITY (constant-coefficient viscosity)
+		      'FL.NAVIER-STOKES::REYNOLDS (constant-coefficient reynolds)
+		      'FL.NAVIER-STOKES::FORCE (ns-cell-problem-force dim)))
 	       (t ())))
      :multiplicity dim)))
 

@@ -32,15 +32,15 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
-(defpackage "APPLICATION"
+(defpackage "FL.APPLICATION"
   (:use "COMMON-LISP"
 	"FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
 	"FL.DEBUG" "FL.DEMO"
-	"ALGEBRA" "FL.FUNCTION" "MESH"
-	"PROBLEM" "CDR" "ELASTICITY" "NAVIER-STOKES"
-	"DISCRETIZATION" "CDR-FE" "ELASTICITY-FE" "NAVIER-STOKES-FE"
-	"ITERATION" "MULTIGRID" "GEOMG"
-	"STRATEGY" "PLOT")
-  (:export ))
+	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH"
+	"FL.PROBLEM" "FL.CDR" "FL.ELASTICITY" "FL.NAVIER-STOKES"
+	"FL.DISCRETIZATION" "FL.CDR-FE" "FL.ELASTICITY-FE" "FL.NAVIER-STOKES-FE"
+	"FL.ITERATION" "FL.MULTIGRID" "FL.GEOMG"
+	"FL.STRATEGY" "FL.PLOT")
+  (:export )
+  (:documentation "This package uses most other Femlisp packages.  It is
+meant to be package a Femlisp user works in."))

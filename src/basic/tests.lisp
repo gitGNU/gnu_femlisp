@@ -36,8 +36,6 @@
 ;;;; able to add locally consistency checks.  Those tests should be
 ;;;; performed before a CVS commit or a release.
 
-(in-package "COMMON-LISP-USER")
-
 (defpackage "FL.TESTS"
   (:use "COMMON-LISP")
   (:export "ADJOIN-TEST" "REMOVE-TEST" "TEST-FEMLISP"))
@@ -79,6 +77,8 @@
   (setq *report* ())
   (loop for fsym in (reverse *tests*)
 	for result =
+	#+gcl (funcall fsym)
+	#-gcl
 	(catch 'trap
 	  (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
 	    (format t "~&~%***** Testing ~A *****~%~%" fsym)
@@ -102,4 +102,4 @@
 ;;; (time (fl.tests:test-femlisp))
 ;;;
 ;;; Test without plotting:
-;;; (time (let ((plot::*plot* nil)) (fl.tests:test-femlisp)))
+;;; (time (let ((fl.plot::*plot* nil)) (fl.tests:test-femlisp)))

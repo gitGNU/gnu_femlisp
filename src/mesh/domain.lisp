@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :mesh)
+(in-package :fl.mesh)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Domain class
@@ -41,15 +41,24 @@
 (defclass <domain> (<skeleton>)
   ((boundary :accessor domain-boundary)
    (extensible-p :reader extensible-p :initform nil))
-  (:documentation "A <domain> is a special <skeleton>.  Its cells are
-called patches, and the values are property lists carrying geometric
-information, e.g. metric, volume-form, embedding or identification."))
+  (:documentation "A <domain> is a special <skeleton>.  We call its cells
+`patches', and the properties of a patch carry geometric information.
+Properties supported up to now are:
+
+IDENTIFIED <list-of-identified-patches>
+EXTENSION <extender>
+METRIC <function>
+VOLUME <function>
+
+Here, <function> should be a function depending on keyword arguments like
+:LOCAL and :GLOBAL and allowing arbitrary other keys."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Patches
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *known-patch-properties* '(METRIC VOLUME IMBEDDING EXTENSION)
+(defparameter *known-patch-properties*
+  '(METRIC VOLUME IDENTIFIED EXTENSION)
   "This list contains some pre-defined keywords for use as patch
 properties.")
 
@@ -347,6 +356,6 @@ the unit cube."
   (assert (= -1 (dimension (skeleton-boundary (n-cell-domain 2)))))
   )
 
-;;; (mesh::test-domain)
+;;; (test-domain)
 (fl.tests:adjoin-test 'test-domain)
 

@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :mesh)
+(in-package :fl.mesh)
 
 (defun skeleton-without-cell (skel cell-to-remove)
   "Removes a cell from a skeleton such that the rest remains a skeleton.
@@ -84,6 +84,54 @@ Warning: does not handle identifications yet."
   (loop for newskel = (copy-skeleton skel) then (refine-globally newskel)
 	repeat refinements
 	finally (return newskel)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Mesh construction in the UG way
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun insert-cell-from-corners (mesh corners->cell cell-class corners properties)
+  "Creates a cell of type cell-class with corners given by corners.
+corners->cell has to be an equalp hash-table mapping corners to the
+corresponding cell.  It is updated by this function."
+  (or (gethash corners corners->cell)
+      (let* ((refcell (reference-cell cell-class))
+	     (refcell-corners (corners refcell)))
+	(assert (= (length refcell-corners) (length corners)))
+	(flet ((refcell-corner->corner (refcell-corner)
+		 (nth (position refcell-corner refcell-corners :test #'equal) corners)))
+	  (let ((cell (if (vertex? refcell)
+			  (make-vertex (car corners))
+			  (copy-cell refcell))))
+	    (unless (vertex-p cell)
+	      (setf (slot-value cell 'boundary)
+		    (vector-map
+		     #'(lambda (refcell-side)
+			 (let ((side-corners (mapcar #'refcell-corner->corner
+						     (corners refcell-side))))
+			   (insert-cell-from-corners
+			    mesh corners->cell
+			    (class-of refcell-side) side-corners properties)))
+		     (boundary refcell))))
+	    (setf (skel-ref mesh cell) properties)
+	    (setf (gethash corners corners->cell) cell))))))
+
+(defun structured-skeleton (N h &key corners->cell)
+  "Create a uniform box skeleton consisting of N_1 x ... x N_dim cubes of
+dimensions h_1 x ... x h_dim."
+  (assert (= (length N) (length h)))
+  (let* ((dim (length N))
+	 (skel (make-instance '<skeleton> :dimension dim))
+	 (cube-class (class-of (n-cube dim))))
+    (ensure corners->cell (make-hash-table :test 'equalp))
+    (multi-for (ivec (make-fixnum-vec dim 1) N)
+      (let ((corners ()))
+	(multi-for (jvec (make-fixnum-vec dim -1) (make-fixnum-vec dim 0))
+	  (push (map 'double-vec
+		     #'(lambda (k_i h_i) (float (* k_i h_i) 1.0))
+		     (m+ ivec jvec) h)
+		corners))
+	(insert-cell-from-corners skel corners->cell cube-class (nreverse corners) ())))
+    skel))
 
 (defun skel-add! (skel-1 skel-2 &key (override ()) active-skel-1)
   "Adds skel-2 to skel-1 destructively for skel-1.  Overlaying objects are

@@ -145,7 +145,8 @@ If content is a 2d array, the dimensions can be deduced."
    #\# #\m  ; dispatch on #m for real matrices
    #'(lambda (stream char n)
        (declare (ignore char n))
-       (let ((list (read stream nil (values) t)))
+       (let ((list (read stream nil nil t)))
+	 ;; TODO: try without quoting
 	 `(make-real-matrix ',list)))))
 
 (defun make-real-vector (dim &optional (value 0.0))
@@ -274,6 +275,12 @@ allocated."
 		 :store (make-array (* n m) :element-type type
 				    :initial-element (coerce 1 type))))
 
+(defmethod mrandom (n &optional m (type 'double-float) (range 1.0))
+  "Returns a random nxn or (if m is provided) nxm matrix.  The value is
+freshly allocated."
+  (unless m (setq m n))
+  (fill-random! (zeros n m) (coerce range type)))
+
 (defmethod diag (vec)
   "Returns a diagonal matrix with diagonal entries from vec."
   (let* ((n (vlength vec))
@@ -344,16 +351,21 @@ depending on the value of ORIENTATION."
 ;;;; Testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-standard-matrix ()
-  (describe (standard-matrix 'double-float))
-  (standard-matrix 'single-float)
-  (describe (eye 1))
-  (eye 2)
-  (zeros 1)
-  (make-real-matrix `((,(cos 1.0))))
-  (make-real-matrix #((2.0 3.0) (4.0 5.0)))
-  (make-instance 'standard-matrix :content #((2.0 3.0) (4.0 5.0)))
-  (copy (eye 5))
-  (norm #m((1.0 2.0)) 1))
+(eval-when (:load-toplevel :execute)
+  ;; to have the #M reader macro working in its modified form this use is
+  ;; wrapped in an EVAL-WHEN
+  (defun test-standard-matrix ()
+    (describe (standard-matrix 'double-float))
+    (standard-matrix 'single-float)
+    (describe (eye 1))
+    (eye 2)
+    (zeros 1)
+    (make-real-matrix `((,(cos 1.0))))
+    (make-real-matrix #((2.0 3.0) (4.0 5.0)))
+    (make-instance 'standard-matrix :content #((2.0 3.0) (4.0 5.0)))
+    (copy (eye 5))
+    (norm #m((1.0 2.0)) 1)
+    )
+  )
 
 ;;; (test-standard-matrix)

@@ -39,27 +39,32 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun required-argument ()
-  (error "A required keyword argument was not supplied."))
+  "Calling this function results in an error.  @code{(required-argument)}
+may be used as default form when an argument has to be supplied."
+  (error "A required argument was not supplied."))
 
-(defun compose (&rest funcs)
-  "Returns the composition of the given functions."
-  (destructuring-bind (func1 . rest) (reverse funcs)
+(defun compose (&rest functions)
+  "Returns the composition of @var{functions}."
+  (destructuring-bind (func1 . rest) (reverse functions)
     #'(lambda (&rest args)
 	(reduce #'(lambda (v f) (funcall f v))
 		rest
 		:initial-value (apply func1 args)))))
 
 (definline curry (func &rest args)
+  "Supplies @var{args} to @var{func} from the left."
   #'(lambda (&rest after-args)
       (apply func (append args after-args))))
 
 (definline rcurry (func &rest args)
+  "Supplies @var{args} to @var{func} from the right."
   #'(lambda (&rest before-args)
       (apply func (append before-args args))))
 
-
 (defun sans (plist &rest keys)
-  "Erik Naggum's sans function (2.12.2002)."
+  "Removes the items marked by @var{keys} from the property list
+@var{plist}.  This function was posted at 2.12.2002 to the
+@emph{comp.lang.lisp} newsgroup by Erik Naggum."
   (let ((sans ()))
     (loop
       (let ((tail (nth-value 2 (get-properties plist keys))))
@@ -82,8 +87,9 @@
     (loop for i from 1 below nn do
 	  (setf (aref fac-vec i) (* i (aref fac-vec (1- i)))))
     (defun factorial (n)
-      "Returns the factorial of a number or a list of numbers (product of
-factorials)."
+      "Compute the factorial of @var{n}.  @var{n} can also be a list of
+numbers in which case the product of the factorials of the components is
+computed."
       (declare (type (or fixnum list) n))
       (flet ((fac (n)
 	       (declare (type fixnum n))
@@ -100,41 +106,32 @@ factorials)."
 		  finally (return f)))))))
 
 (definline square (x)
-  "Computes the square of its argument."
+  "Return the square of @var{x}."
   (* x x))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Conversion
+;;;; Vectors
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun make-vector (dim func)
-  (let ((vec (make-array dim)))
-    (dotimes (i dim vec)
-      (setf (aref vec i) (funcall func i)))))
 
 (definline vector-map (func vec)
+  "Map @var{vec} with @var{func} to a vector of the same type."
   (map (type-of vec) func vec))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Special typed vectors
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(deftype positive-fixnum ()
+  "Positive fixnum tpye."
+  '(and fixnum unsigned-byte))
 
-(deftype int () '(signed-byte 32))
-(deftype uint () '(unsigned-byte 32))
-(deftype int-vec () '(simple-array int (*)))
-(deftype uint-vec () '(simple-array uint (*)))
-
-(definline make-uint-vec (dim &optional (init 0))
-  (make-array dim :element-type 'uint :initial-element init))
-
-(deftype positive-fixnum () '(and fixnum unsigned-byte))
-
-(deftype fixnum-vec () '(simple-array fixnum (*)))
+(deftype fixnum-vec ()
+  "Vector with elements of type @code{fixnum}."
+  '(simple-array fixnum (*)))
 
 (definline fixnum-vec (&rest elements)
+  "Returns a @code{fixnum-vec} constructed from the parameters."
   (coerce elements 'fixnum-vec))
 
 (definline make-fixnum-vec (dim &optional (init 0))
+  "Consruct a @code{fixnum-vec} of size @var{dim} initialized by
+@var{init}."
   (make-array dim :element-type 'fixnum :initial-element init))
 
 (defun vector-cut (vec comp)
@@ -143,26 +140,20 @@ factorials)."
       (setf (aref new-vec i)
 	    (aref vec (if (< i comp) i (1+ i)))))))
 
-;;; vector operations
 (defmethod for-each ((func function) (seq sequence))
+  "Applies @var{func} to each element of @var{seq}."
   (map nil func seq))
 
 (definline vector-last (vec)
+  "Returns the last element of @var{vec}."
   (aref vec (1- (length vec))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; arrays
+;;; Arrays
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun map-array (func arr)
-  (let ((result (make-array (array-dimensions arr) :initial-element nil)))
-    (dotimes (i (car (array-dimensions arr)))
-      (dotimes (j (cadr (array-dimensions arr)))
-	(setf (aref result i j)
-	      (funcall func (aref arr i j)))))
-    result))
-
 (defun array-for-each (func &rest arrays)
+  "Calls @var{func} on all element tuples of the array arguments."
   (assert (same-p arrays :test #'equalp :key #'array-dimensions))
   (labels ((loop-index (current-indices further-dims)
 	   (if (null further-dims)
@@ -175,7 +166,7 @@ factorials)."
 
 (defun undisplace-array (array)
   "Return the fundamental array and the start and end positions into it of
-a displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
+the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
   (loop with start = 0 do
 	(multiple-value-bind (to offset)
 	    (array-displacement array)
@@ -188,31 +179,23 @@ a displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 ;;;; List operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun same-p (seq &key (test #'eql) (key #'identity))
-  "Returns t if list consists of equal elements."
-  (or (= 0 (length seq))
-      (let ((item (funcall key (elt seq 0))))
+(defun same-p (sequence &key (test #'eql) (key #'identity))
+  "Returns t if @var{sequence} consists of equal elements."
+  (or (= 0 (length sequence))
+      (let ((item (funcall key (elt sequence 0))))
 	(not (find-if-not #'(lambda (elem) (funcall test item (funcall key elem)))
-			  seq)))))
+			  sequence)))))
 
-(defun encapsulate (p-list dim)
-  "Example: (encapsulate 1 3) -> (((1)))"
-  (if (zerop dim)
-      p-list
-      (encapsulate (list p-list) (- dim 1))))
-
-(defun filter (item list &key (key #'identity) (test #'eql))
-  "Example: (filter 2 '(1 2 3 4))"
-  (remove-if-not  #'(lambda (x) (funcall test x item)) list :key key))
-
-(defun flatten (x)
-  "Flattens a tree.
-Example: (flatten '((1 2) (3) ((4))))  ->  (1 2 3 4)"
-  (labels ((rec (x acc)
-	     (cond ((null x) acc)
-		   ((not (consp x)) (cons x acc))
-		   (t (rec (car x) (rec (cdr x) acc))))))
-    (rec x ())))
+(defun flatten (tree)
+  "Flatten a tree.  Example:
+@lisp
+  (flatten '((1 2) (3) ((4))))  @result{}  (1 2 3 4)
+@end lisp"
+  (labels ((rec (tree acc)
+	     (cond ((null tree) acc)
+		   ((not (consp tree)) (cons tree acc))
+		   (t (rec (car tree) (rec (cdr tree) acc))))))
+    (rec tree ())))
 
 (defun flatten-1 (lst) (apply #'append lst))
 
@@ -239,7 +222,7 @@ Example: (flatten '((1 2) (3) ((4))))  ->  (1 2 3 4)"
 (definline twice (x) (list x x))
 
 (defun splice (args nrins)
-  "Example: (splice '(1 2 3 4) '(1 3))  ->  ((1) (2 3 4))"
+  "Example: (splice '(1 2 3 4) '(1 3))  @result{}  ((1) (2 3 4))"
   (loop for nrin in nrins
 	and tail = args then (nthcdr nrin tail)
 	collect (take nrin tail)))
@@ -250,7 +233,7 @@ Example: (flatten '((1 2) (3) ((4))))  ->  (1 2 3 4)"
 (defun map-product (func list &rest rest-lists)
   "Applies a function to a product of lists.
 Example: (map-product #'cons '(2 3) '(1 4))
-          -> ((2 . 1) (2 . 4) (3 . 1) (3 . 4))"
+          @result{} ((2 . 1) (2 . 4) (3 . 1) (3 . 4))"
   (if (null rest-lists)
       (mapcar func list)
       (mappend #'(lambda (x) (apply #'map-product (curry func x) rest-lists))
@@ -258,8 +241,6 @@ Example: (map-product #'cons '(2 3) '(1 4))
 
 (defun mklist (obj)
   (if (listp obj) obj (list obj)))
-
-(definline sum-over (lst) (loop for k in lst summing k))
 
 (defun tree-uniform-number-of-branches (tree)
   (if (listp tree)
@@ -330,24 +311,24 @@ Example: (map-product #'cons '(2 3) '(1 4))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun make-queue ()
-  "Makes a queue represented by a pair of pointers to start and end."
+  "Creates a queue."
   (cons nil nil))
 
-(defun enqueue (obj q)
-  "Puts an object into the queue."
-  (if (null (car q))
-      (setf (cdr q) (setf (car q) (list obj)))
-    (setf (cdr (cdr q)) (list obj)
-	  (cdr q) (cdr (cdr q)))))
+(defun enqueue (object queue)
+  "Puts `object' into the `queue'."
+  (if (null (car queue))
+      (setf (cdr queue) (setf (car queue) (list object)))
+    (setf (cdr (cdr queue)) (list object)
+	  (cdr queue) (cdr (cdr queue)))))
 
-(defun dequeue (q)
-  "Pops an object from the queue."
-  (pop (car q)))
+(defun dequeue (queue)
+  "Pops an object from `queue'."
+  (pop (car queue)))
 
-(defun queue->list (q) (car q))
+(defun queue->list (queue) (car queue))
 
-(defun peek-first (q) (caar q))
-(defun peek-last (q) (cadr q))
+(defun peek-first (queue) (caar queue))
+(defun peek-last (queue) (cadr queue))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Doubly linked lists
@@ -433,9 +414,10 @@ Example: (map-product #'cons '(2 3) '(1 4))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro dohash ((looping-var hash-table) &body body)
-  "Loops through a hash-table.  If looping-var is an atom it loops through
-the keys, if it is a list of one element it loops through the values, if it
-is a list of two items it loops through key and value."
+  "Loops through @var{hash-table}.  If @var{looping-var} is an atom
+@code{key}, loop through the keys; if it is a list of the form
+@emph{(value)} loop through the values; if it is a list of the form
+@emph{(code value)} loop through key and value."
   (flet ((single? (lst) (and (consp lst) (null (cdr lst)))))
     (let ((key (if (single? looping-var)
 		   (gensym)
@@ -450,42 +432,38 @@ is a list of two items it loops through key and value."
 	    ,@body)
 	,hash-table))))
 
-(defun map-hash-table (func ht)
-  "Calls func given in the first argument on each key of the
-hash-table from the second argument.  func must be a two-valued
-function returning the new key and the new value.  Those pairs are
-stored in a new hash-table."
-  (let ((new-ht (make-hash-table :test (hash-table-test ht))))
-    (dohash ((key val) ht)
+(defun map-hash-table (func hash-table)
+  "Call @var{func} given in the first argument on each key of
+@var{hash-table}.  @var{func} must return the new key and the new value as
+two values.  Those pairs are stored in a new hash-table."
+  (let ((new-ht (make-hash-table :test (hash-table-test hash-table))))
+    (dohash ((key val) hash-table)
       (multiple-value-bind (new-key new-val)
 	  (funcall func key val)
 	(setf (gethash new-key new-ht) new-val)))
     new-ht))
 
 (defun copy-hash-table (hash-table)
-  "Copies a hash-table."
-  (let ((new-hash-table (make-hash-table :test (hash-table-test hash-table))))
-    (dohash ((key val) hash-table)
-      (setf (gethash key new-hash-table) val))
-    new-hash-table))
+  "Copy @var{hash-table}."
+  (map-hash-table #'(lambda (key value) (values key value)) hash-table))
 
-(defun get-arbitrary-key-from-hash-table (ht)
-  "Get an arbitrary key from hash-table."
-  (dohash (key ht)
+(defun get-arbitrary-key-from-hash-table (hash-table)
+  "Get an arbitrary key from @var{hash-table}."
+  (dohash (key hash-table)
     (return-from get-arbitrary-key-from-hash-table key)))
 
 (defun display-ht (hash-table)
-  "Displays hash-table in the form key1 --> value1 ..."
+  "Display @var{hash-table} in the form key1 -> value1 ..."
   (dohash ((key val) hash-table)
-    (format t "~A --> ~A~%" key val)))
+    (format t "~A -> ~A~%" key val)))
 
 (defun hash-table-keys (hash-table)
-  "Collects the keys of hash-table into a list."
+  "Collect the keys of @var{hash-table} into a list."
   (loop for key being the hash-keys of hash-table
 	collect key))
 
 (defun hash-table-values (hash-table)
-  "Collects the values of hash-table into a list."
+  "Collect the values of @var{hash-table} into a list."
   (loop for val being the hash-values of hash-table
 	collect val))
 
@@ -563,11 +541,11 @@ non-recursive functions."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun geta (alist key)
-  "An analog to GETF for association lists."
+  "An analog to @code{GETF} for association lists."
   (cdr (assoc key alist)))
 
 (define-setf-expander geta (alist key &environment env)
-  "An analog to (SETF GETF) for association lists."
+  "An analog to @code{(SETF GETF)} for association lists."
   (multiple-value-bind (temps vals stores store-form access-form)
       (get-setf-expansion alist env)
     (with-gensyms (keytemp result record maybe-new-record)
@@ -593,11 +571,13 @@ non-recursive functions."
 
 (defclass blackboard ()
   ((items :initform () :initarg :items))
-  (:documentation "A blackboard from where you can put and extract data."))
+  (:documentation
+   "A blackboard where data items can be put and extracted using the
+function @code{GETBB}."))
 
 (defun blackboard (&rest items)
-  "Makes items into an blackboard.  Copies if necessary to ensure that no
-literal list is modified."
+  "Make the property list supplied in @var{items} into an blackboard.
+Copies @var{items} to make sure that no literal list is modified."
   (make-instance 'blackboard :items (copy-seq items)))
 
 (defmethod describe-object ((blackboard blackboard) stream)
@@ -605,17 +585,17 @@ literal list is modified."
 	  blackboard (slot-value blackboard 'items)))
 
 (defun getbb (blackboard key &optional default)
-  "Gets an item from the blackboard.  If there is no such item it returns
-the default value."
+  "Get the item for @var{key} from @var{blackboard}.  If there is no such
+@var{key} return @var{default}."
   (getf (slot-value blackboard 'items) key default))
 
 (defun (setf getbb) (value blackboard key)
-  "Setter for an blackboard."
+  "Setter corresponding to @code{GETBB}."
   (setf (getf (slot-value blackboard 'items) key) value))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun with-items-expander (prop-vars prop-names prop-defaults plist body)
-    "Expander for with-items."
+    "Helper function for @code{with-items}."
     `(progn
       #+(or)
       ,@(mapcar #'(lambda (prop default)
@@ -627,49 +607,67 @@ the default value."
 		     prop-vars prop-names prop-defaults)
 	  ,@body))))
 
-(defmacro with-items (props blackboard &body body)
-  "Work with blackboard items.  If a parameter is a list, the second one is
-the default value and the third is an alias to be used to refer to this
+(defmacro with-items (properties blackboard-form &body body)
+  "Work with the items on @var{blackboard} corresponding to
+@var{properties}.  If some property is a list, the second element is the
+default value and the third is an alias to be used to refer to this
 parameter.  Example:
->  (with-items (&key sol (rhs nil rhs-high)) blackboard
->     (setq sol rhs-high))"
-  (let (key-p prop-vars prop-defaults prop-names)
-    (dolist (prop props)
-      (cond
-	((eq prop '&key) (assert (not key-p))
-	 (setq key-p t))
-	(t (let ((prop-var
-		  (if (atom prop)
-		      prop
-		      (or (nth 2 prop) (nth 0 prop))))
-		 (prop-default (and (listp prop) (nth 1 prop)))
-		 (prop-name (if (atom prop) prop (nth 0 prop))))
-	     ;;(format t "~A ~A ~A" prop-var prop-default prop-name)
-	     (push prop-var prop-vars)
-	     (push prop-default prop-defaults)
-	     (push (if key-p
-		       (intern (symbol-name prop-name) :keyword)
-		       prop-name)
-		   prop-names)))))
-    (with-items-expander prop-vars prop-names prop-defaults
-			 `(slot-value ,blackboard 'items) body)))
+@lisp
+  (with-items (&key sol (rhs nil rhs-high)) blackboard
+     (setq sol rhs-high))
+@end lisp"
+  (with-gensyms (blackboard) 
+    (let (key-p prop-vars prop-defaults prop-names)
+      (dolist (prop properties)
+	(cond
+	  ((eq prop '&key) (assert (not key-p))
+	   (setq key-p t))
+	  (t (let ((prop-var
+		    (if (atom prop)
+			prop
+			(or (nth 2 prop) (nth 0 prop))))
+		   (prop-default (and (listp prop) (nth 1 prop)))
+		   (prop-name (if (atom prop) prop (nth 0 prop))))
+	       ;;(format t "~A ~A ~A" prop-var prop-default prop-name)
+	       (push prop-var prop-vars)
+	       (push prop-default prop-defaults)
+	       (push (if key-p
+			 (intern (symbol-name prop-name) :keyword)
+			 prop-name)
+		     prop-names)))))
+      `(let ((,blackboard ,blackboard-form))
+	,(with-items-expander prop-vars prop-names prop-defaults
+			      `(slot-value ,blackboard 'items) body)))))
+
+(defun transfer-bb (from-bb to-bb items &key ensure)
+  "Transfer @var{items} between the blackboards @var{from-bb} and
+@var{to-bb}.  When @var{ensure} is set, an existing item is not modified."
+  (dolist (item items)
+    (destructuring-bind (from to)
+	(if (consp item) item (list item item))
+      (if ensure
+	  (ensure (getbb to-bb to)) (getbb from-bb from))
+	  (setf (getbb to-bb to) (getbb from-bb from)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun set-p (lst)
-  (or (null lst)
-      (and (not (member (car lst) (cdr lst)))
-	   (set-p (cdr lst)))))
+(defun set-p (list)
+  "Checks if @var{list} is a set, i.e. if no members occur twice."
+  (or (null list)
+      (and (not (member (car list) (cdr list)))
+	   (set-p (cdr list)))))
 
 (defun maximally-connected (connected disconnected &key (test #'eql) (combine #'adjoin))
   "Finds a maximally connected set by taking the union of the elements in
 connected with the sets of disconnected-sets.  Returns the maximally
-connected sets and the remaining disconnected ones.
+connected sets and the remaining disconnected ones.  Example:
 
-Example: (maximally-connected '(1 2) '((3 4) (2 3) (5 6)) :test #'intersection :combine #'union))
--> values '(1 2 3 4) '((5 6))"
+@lisp
+  (maximally-connected '(1 2) '((3 4) (2 3) (5 6)) :test #'intersection :combine #'union)
+  @result{} (1 2 3 4), ((5 6))
+@end lisp"
   (loop while
 	(dolist (elem disconnected)
 	  (when (funcall test elem connected)
@@ -702,8 +700,8 @@ Example: (maximally-connected '(1 2) '((3 4) (2 3) (5 6)) :test #'intersection :
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun k-subsets (set k)
-  "Returns all subsets of SET with length K.
-Example: (k-subsets '(1 2 3) 2)  -> ((1 2) (1 3) (2 3))"
+  "Returns all subsets of @var{set} with length @var{k}.
+Example: @code{(k-subsets '(1 2 3) 2)  @result{} ((1 2) (1 3) (2 3))}"
   (cond ((minusp k) '())
 	((zerop k) (list '()))
 	((= k 1) (mapcar #'list set))
@@ -713,13 +711,17 @@ Example: (k-subsets '(1 2 3) 2)  -> ((1 2) (1 3) (2 3))"
 
 (defun k->l-subsets (set k l)
   "Returns all subsets of SET with length between K and L.
-Example: (k->l-subsets '(1 2 3) 1 2)
-          -> ((1) (2) (3) (1 2) (1 3) (2 3))"
+Example: @code{(k->l-subsets '(1 2 3) 1 2)} @result{} @code{((1) (2) (3) (1 2) (1 3) (2 3))}"
   (loop for i from k to l
 	nconc (k-subsets set i)))
 
-(defun subsets (set) (k->l-subsets set 0 (length set)))
-(defun nonempty-subsets (set) (k->l-subsets set 1 (length set)))
+(defun subsets (set)
+  "Returns a list of all subsets of @var{set}."
+  (k->l-subsets set 0 (length set)))
+
+(defun nonempty-subsets (set)
+  "Returns a list of all nonempty subsets of @var{set}."
+  (k->l-subsets set 1 (length set)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Ordered partitions of natural numbers
@@ -727,7 +729,7 @@ Example: (k->l-subsets '(1 2 3) 1 2)
 
 (defun n-partitions-of-k (n k)
   "Returns a list of all ordered partitions of k into n natural numbers.
-Example: (n-partitions-of-k 2 3) -> ((0 3) (1 2) (2 1) (3 0))"
+Example: (n-partitions-of-k 2 3) @result{} ((0 3) (1 2) (2 1) (3 0))"
   (cond ((zerop n) (if (zerop k) (list ()) ()))
 	((= n 1) (list (list k)))
 	(t (loop for i upto k
@@ -736,7 +738,7 @@ Example: (n-partitions-of-k 2 3) -> ((0 3) (1 2) (2 1) (3 0))"
 
 (defun positive-n-partitions-of-k (n k)
   "Returns a list of all positive ordered partitions of k into n natural numbers.
-Example: (positive-n-partitions-of-k 2 3) -> ((1 2) (2 1))"
+Example: (positive-n-partitions-of-k 2 3) @result{} ((1 2) (2 1))"
   (cond ((or (< n 1) (zerop k)) ())
 	((= n 1) (list (list k)))
 	(t (loop for i from 1 to k
@@ -745,7 +747,7 @@ Example: (positive-n-partitions-of-k 2 3) -> ((1 2) (2 1))"
 
 (defun positive-partitions-of-k (k)
   "Returns a list of all positive ordered partitions of k.
-Example: (positive-partitions-of-k 3) -> ((1 2) (2 1))"
+Example: (positive-partitions-of-k 3) @result{} ((1 2) (2 1))"
   (loop for n from 1 upto k
 	nconc (positive-n-partitions-of-k n k)))
 

@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :multigrid)
+(in-package :fl.multigrid)
 
 ;;; This file provides an abstract interface for a multigrid iteration.
 ;;; The standard methods work for multilevel hierarchies obtained by
@@ -177,10 +177,10 @@ to be performed."))
 		    (:pre pre-smoother_l)
 		    (:post post-smoother_l))))
     (when smoother
-      (when (slot-value smoother 'iteration::residual-before)
+      (when (slot-value smoother 'fl.iteration::residual-before)
 	(ensure-mg-residual mg-it mg-data))
-      (funcall (slot-value smoother 'iteration::iterate) sol_l rhs_l res_l)
-      (setq residual-p (slot-value smoother 'iteration::residual-before)))))
+      (funcall (slot-value smoother 'fl.iteration::iterate) sol_l rhs_l res_l)
+      (setq residual-p (slot-value smoother 'fl.iteration::residual-before)))))
 
 (defmethod ensure-sol-rhs-res ((mg-it <mg-iteration>) mg-data level)
   (unless (sol_ level)
@@ -245,7 +245,7 @@ level for computing the correction to be prolongated."
     (cond
       ((= current-level base-level)
        (funcall (slot-value coarse-grid-it 'iterate) sol_l rhs_l res_l)
-       (setq residual-p (slot-value coarse-grid-it 'iteration::residual-after)))
+       (setq residual-p (slot-value coarse-grid-it 'fl.iteration::residual-after)))
       (t
        (smooth mg-it mg-data :pre)
        (restrict mg-it mg-data)
@@ -344,7 +344,7 @@ grid, or an algebraic multigrid iteration."
 	     x)
 	 :residual-after
 	 (if (= base-level top-level)
-	     (slot-value coarse-grid-it 'iteration::residual-after)
+	     (slot-value coarse-grid-it 'fl.iteration::residual-after)
 	     (aand (aref post-smooth-vec top-level)
-		   (slot-value it 'iteration::residual-after))))
+		   (slot-value it 'fl.iteration::residual-after))))
 	))))

@@ -32,8 +32,14 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :problem)
+(in-package :fl.problem)
 
+(defclass <time-dependent-problem> ()
+  ()
+  (:documentation "A mixin which should be used together with a
+<PDE-PROBLEM> in a call to MAKE-PROGRAMMATIC-INSTANCE."))
+
+#|  OLD version:
 (defclass <time-dependent-problem> (<pde-problem>)
   ((stationary-problem :accessor stationary-problem
     :initarg :stationary-problem :documentation
@@ -41,20 +47,20 @@
 time-dependent version."))
   (:documentation "The problem d/dt(alpha u) + F(u) = 0, where F(u) is
 given by stationary-problem."))
+|#
 
 (defmethod interior-coefficients ((problem <time-dependent-problem>))
   "Derived interior coefficients for a time-dependent problem."
-  (append '(INITIAL ALPHA)
-	  (interior-coefficients (slot-value problem 'stationary-problem))))
-
-(defmethod boundary-coefficients ((problem <time-dependent-problem>))
-  "Boundary coefficients for a time-dependent problem."
-  (boundary-coefficients (slot-value problem 'stationary-problem)))
+  (cons 'INITIAL (call-next-method)))
 
 (defmethod self-adjoint-p ((problem <time-dependent-problem>))
   nil)
 
-(defmethod initialize-instance :after ((problem <time-dependent-problem>) &key &allow-other-keys)
-  (setf (slot-value problem 'multiplicity)
-	(multiplicity (slot-value problem 'stationary-problem))))
+(defun stationary-problem-class (tdp)
+  "Finds the stationary pde problem for the time-dependent problem TDP."
+  (find-if #'(lambda (class) (typep class '<pde-problem>))
+	   (mop:class-direct-superclasses (class-of tdp))))
 
+(defun test-time ()
+  (stationary-problem-class (make-instance '<time-dependent-problem>))
+  )

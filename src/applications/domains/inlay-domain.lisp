@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defun n-cube-with-cubic-inlay (dim &key (refinements 0))
   "Generates an n-cube-domain with an n-cube inlay."
@@ -100,7 +100,7 @@
     (doskel (cell domain)
       (whereas ((id (cell-identification cell domain)))
 	(format t "~A~% --> ~A~%" cell id)))
-    (mesh::check-identification domain))
+    (fl.mesh::check-identification domain))
   )
 
 (fl.tests:adjoin-test 'test-inlay-domain)

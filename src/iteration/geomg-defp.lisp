@@ -33,11 +33,9 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
-(defpackage "GEOMG"
-  (:use "COMMON-LISP" "COMMON-LISP-USER" "FL.UTILITIES" "FL.MACROS" "ALGEBRA" "FL.FUNCTION"
-	"FL.MATLISP" "ITERATION" "MULTIGRID" "MESH" "DISCRETIZATION" "FL.DEBUG")
+(defpackage "FL.GEOMG"
+  (:use "COMMON-LISP" "COMMON-LISP-USER" "FL.UTILITIES" "FL.MACROS" "FL.ALGEBRA" "FL.FUNCTION"
+	"FL.MATLISP" "FL.ITERATION" "FL.MULTIGRID" "FL.MESH" "FL.DISCRETIZATION" "FL.DEBUG")
   (:export
    ;; geomg.lisp
    "<GEOMETRIC-CS>" "GEOMETRIC-CS" "<GEOMETRIC-FAS>" "FAS"
@@ -45,4 +43,11 @@
    ;; geoblock.lisp
    "GEOMETRIC-SSC" "GEOMETRIC-PSC"
    ;; vanka.lisp
-   "<VANKA>"))
+   "<VANKA>")
+
+  (:documentation "The @code{GEOMG} package contains iterations which
+depend on geometric information, obtained for example from the
+discretization.  At the moment, these are the geometric multigrid
+iteration, an AMG-like scheme for preconditioning high-order
+discretizations with low-order ones, and some block smoothers with
+overlapping blocks."))

@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :strategy)
+(in-package :fl.strategy)
 
 (defclass <refinement-indicator> ()
   ((ensure-mesh-quality :accessor ensure-mesh-quality

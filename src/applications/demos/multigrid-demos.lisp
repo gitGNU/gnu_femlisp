@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defvar *multigrid-demo*
   (make-demo
@@ -49,7 +49,7 @@ of multigrid."))
 ;;;; Smoothing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun plot-iteration-behavior (dim level order iteration &key (nr-steps 10))
+(defun plot-iteration-behavior (dim order level iteration &key (nr-steps 10))
   "Plots the propagation of the error for some iteration.  The
 iteration is applied to a finite element discretization with
 Lagrange finite elements of a given order of the Laplace model
@@ -68,26 +68,26 @@ with an initial random guess and right-hand side 0."
 	      (funcall iteration A b x)
 	      finally (plot x))))))
 
-(defun make-plot-iteration-behavior-demo (dim level order iteration &key it-name)
+(defun make-plot-iteration-behavior-demo (dim order level iteration &key it-name)
   (unless it-name (setq it-name (class-name (class-of iteration))))
   (let ((demo
 	 (make-demo
 	  :name (format nil "~A-error-~DD" it-name dim)
 	  :short (format nil "Error development for ~A." it-name)
-	  :long (format nil "~A~%Parameters: dim=~D, level=~D, order=~D, iteration=~A~%"
+	  :long (format nil "~A~%Parameters: dim=~D, order=~D, level=~D, iteration=~A~%"
 			(documentation 'plot-iteration-behavior 'function)
-			dim level order it-name)
+			dim order level it-name)
 	  :execute
 	  (lambda ()
 	    (plot-iteration-behavior
-	     dim level order
+	     dim order level
 	     #'(lambda (A b x)
 		 (linsolve A b :sol x :output t :iteration iteration :maxsteps 1)))))))
     (adjoin-demo demo *multigrid-demo*)))
 
 (make-plot-iteration-behavior-demo 1 5 1 *gauss-seidel* :it-name "GS")
 
-(defun make-two-grid-behavior-demo (dim level order)
+(defun make-two-grid-behavior-demo (dim order level)
   (let* ((cgc (geometric-cs :gamma 1 :pre-steps 0 :post-steps 0
 			    :base-level (1- level)))
 	 (smooth (make-instance '<multi-iteration> :base *gauss-seidel* :nr-steps 3))
@@ -95,13 +95,13 @@ with an initial random guess and right-hand side 0."
 	  (make-demo
 	   :name (format nil "two-grid-method-~DD" dim)
 	   :short (format nil "Error development for a two-grid method.")
-	   :long (format nil "~A~%Parameters: dim=~D, level=~D, order=~D, smoother=GS~%"
+	   :long (format nil "~A~%Parameters: dim=~D, order=~D, level=~D, smoother=GS~%"
 			 (documentation 'plot-iteration-behavior 'function)
-			 dim level order)
+			 dim order level)
 	   :execute
 	   (lambda ()
 	     (plot-iteration-behavior
-	      dim level order
+	      dim order level
 	      (let ((cgc-p nil))
 		#'(lambda (A b x)
 		    (linsolve A b :sol x :output t :maxsteps 1

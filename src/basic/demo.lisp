@@ -36,7 +36,7 @@
 
 (defpackage "FL.DEMO"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES")
-  (:export "DEMO" "LEAVES" "MAKE-DEMO" "ADJOIN-DEMO"
+  (:export "FEMLISP-DEMO" "LEAVES" "MAKE-DEMO" "ADJOIN-DEMO"
 	   "REMOVE-DEMO" "FIND-DEMO"
 	   "*DEMO-ROOT*" "*DEMO-TIME*"
 	   "USER-INPUT" "EXTRACT-DEMO-STRINGS"))
@@ -161,7 +161,7 @@ for `homogenization-2d'."
        (when short (format t "~A~%~%" short))))
     (update-demo-status demo)))
 
-(defun demo (&optional (demo *demo-root*))
+(defun femlisp-demo (&optional (demo *demo-root*))
   "Shows all demos below the given demo root."
   (catch 'quit (show-demo demo))
   (values))
@@ -203,16 +203,30 @@ returns t on the item read."
 	      ((funcall test-p item) (return item)))))
 
 (defun translate (item translations)
+  "Performs certain translations from an association table on the string item.
+Example: (translate \"abcdefg\" '((\"a\" . \"x\")  (\"b\" . \"yz\")))"
   (loop for (from . to) in translations
 	for to-string = (if (stringp to) to (format nil "~A" to))
-	do (setq item (cl-ppcre:regex-replace from item to-string)))
+	do
+;;	#+cl-ppcre (setq item (cl-ppcre:regex-replace from item to-string))
+	(loop for pos = (search from item) while pos do
+	      (setq item (concatenate
+			  'string (subseq item 0 pos)
+			  to-string
+			  (subseq item (+ pos (length from)))))))
   item)
 
 (defun extract-demo-strings (string &optional translations)
   "Extract demo information from the documentation string of the
-generating function.  Uses Edi Weitz' Regex package."
-  (let ((results (nth-value 1 (cl-ppcre:scan-to-strings
-			       "(.*) - (.*)\\s*((?s).*)" string))))
+generating function."
+  (let ((results
+	 ;; #+cl-ppcre (nth-value 1 (cl-ppcre:scan-to-strings
+	 ;; 			  "(.*) - (.*)\\s*((?s).*)" string))
+	 (let ((pos1 (search " - " string))
+	       (pos2 (search (format nil "~%~%") string)))
+	   (list (subseq string 0 pos1)
+		 (and pos1 (subseq string (+ pos1 3) pos2))
+		 (and pos2 (subseq string (+ pos2 2)))))))
     (values-list (map 'list (rcurry #'translate translations) results))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

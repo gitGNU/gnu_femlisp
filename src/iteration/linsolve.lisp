@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :iteration)
+(in-package :fl.iteration)
 
 ;;; This file customizes the iterative solving strategy defined in
 ;;; iterate.lisp and solve.lisp to the solving of linear systems.
@@ -113,9 +113,7 @@ a function, you may use this base class."))
 			    :solution sol :residual res))))
     (values (getbb result :solution) result)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Testing: (iteration::test-linsolve)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Testing
 
 (defun test-linsolve ()
   "Linear solving on different types of vector/matrix representations."

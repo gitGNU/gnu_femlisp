@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :iteration)
+(in-package :fl.iteration)
 
 (defclass <iteration> ()
   ((initially :initform () :initarg :initially
@@ -56,9 +56,7 @@ indicating if output is to be done.")
    )
   (:documentation "The iteration base class."))
 
-
 ;;; Output
-
 
 (defparameter *iteration-level* 0
   "Depth of nested iteration.  This is used for steering output and the
@@ -148,25 +146,27 @@ name together with the name of the inner iteration."
 	       (class-name (class-of it)))
        (class-name (class-of iter))))
 
+(defmethod initially :before ((iter <iteration>) blackboard)
+  "Reset data on the blackboard."
+  (setf (slot-value iter 'start-time) (get-internal-run-time)
+	(getbb blackboard :time) 0.0
+	(getbb blackboard :step) 0))
+
 (defmethod initially ((iter <iteration>) blackboard)
   "Default method.  Prints the header line for observed quantities and
 performs all actions in initial."
   (dbg :iter "Initially: blackboard = ~A" blackboard)
-  (with-slots (start-time observe) iter
-    (setq start-time (get-internal-run-time))
-    (setf (getbb blackboard :time) 0.0)
-    (setf (getbb blackboard :step) 0)
-    (when (output-p iter)
-      (indented-format t "Iteration ~A" (name iter))
-      (let ((fstr (make-array '(0) :element-type 'base-char
-			      :fill-pointer 0 :adjustable t)))
-	(with-output-to-string (s fstr)
-	  (dolist (item observe)
-	    (let ((title (first item)))
-	      (format s (if (functionp title) (funcall title) title))
-	      (format s "  "))))
-	(indented-format t "~A" fstr)
-	(indented-format t "~V,,,'-<~>" (length fstr))))))
+  (when (output-p iter)
+    (indented-format t "Iteration ~A" (name iter))
+    (let ((fstr (make-array '(0) :element-type 'base-char
+			    :fill-pointer 0 :adjustable t)))
+      (with-output-to-string (s fstr)
+	(dolist (item (slot-value iter 'observe))
+	  (let ((title (first item)))
+	    (format s (if (functionp title) (funcall title) title))
+	    (format s "  "))))
+      (indented-format t "~A" fstr)
+      (indented-format t "~V,,,'-<~>" (length fstr)))))
 
 (defmethod initially :after ((iter <iteration>) blackboard)
   "Perform user-defined actions."

@@ -34,12 +34,14 @@
 
 (in-package :cl-user)
 
-(defpackage "CDRSYS"
+(defpackage "FL.CDRSYS"
   (:use "COMMON-LISP" "FL.MATLISP" "FL.MACROS" "FL.UTILITIES"
-	"MESH" "PROBLEM")
-  (:export "<CDRSYS-PROBLEM>"))
+	"FL.MESH" "FL.PROBLEM")
+  (:export "<CDRSYS-PROBLEM>")
+  (:documentation "This package contains the problem definition of systems
+of convection-diffusion-reaction equations."))
 
-(in-package :cdrsys)
+(in-package "FL.CDRSYS")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <cdrsys-problem>
@@ -49,7 +51,7 @@
   ((n :reader nr-of-components :initarg :nr-of-components))
   (:documentation "Systems of convection-diffusion-reaction equations."))
 
-(defmethod coefficients ((problem <cdrsys-problem>))
+(defmethod interior-coefficients ((problem <cdrsys-problem>))
   "Coefficients for a CDR system."
   '(DIFFUSION CONVECTION REACTION SOURCE GAMMA CONSTRAINT))
   

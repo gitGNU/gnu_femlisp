@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :plot)
+(in-package :fl.plot)
 
 (defmethod graphic-write-data (stream object (program (eql :dx))
 			       &key cells cell->values (depth 0) transformation)

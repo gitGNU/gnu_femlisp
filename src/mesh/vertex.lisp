@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :mesh)
+(in-package :fl.mesh)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Vertex class and reference vertex generation
@@ -166,7 +166,7 @@ derivative."
   ;;
   (refine-info *reference-vertex*)
   (cell-class-information *reference-vertex*)
-  *
+  
   (describe (refcell-skeleton *reference-vertex*))
   (describe (refcell-refinement-skeleton *reference-vertex* 1))
   (describe (refcell-skeleton *reference-vertex*))

@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; coeffplot.lisp - plotting of coefficient functions
+;;; function-plot.lisp - plotting of coefficient functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -34,11 +34,11 @@
 
 (in-package :fl.plot)
 
-(defmethod graphic-commands ((problem <pde-problem>) (program (eql :dx))
+(defmethod graphic-commands ((f <function>) (program (eql :dx))
 			     &key (foreground :white) &allow-other-keys)
   (let ((axis-color (ecase foreground (:black "black")(:white "white")))
 	(graph-color (ecase foreground (:black "black")(:white "yellow"))))
-    (case (dimension (domain problem))
+    (case (domain-dimension f)
       (1 (list
 	  "data = Options(data, \"mark\", \"circle\");"
 	  (format nil "data = Color(data,~S);" graph-color)
@@ -62,43 +62,48 @@
 	  ;;"image = Render(tubes, camera);"
 	  )))))
 
-(defmethod plot ((problem <pde-problem>) &rest rest
-		 &key (depth 0) (key #'identity) refinements parametric coefficient &allow-other-keys)
-  "Plots a coefficient function for problem.  It generates a temporary
-mesh, refines it as often as given in the keyword parameter refinements and
-plots the coefficient function on this mesh where each cell is resolved as
-given by the additional parameter depth."
-  (let* ((mesh (uniformly-refined-mesh (domain problem)	refinements
-				       :parametric parametric))
+(defmethod plot ((f <function>) &rest rest &key (depth 0) (key #'identity)
+		 domain (refinements 0) parametric &allow-other-keys)
+  "Plots a function defined on the domain.  It generates a temporary mesh
+on the domain, refines it as often as given in the keyword parameter
+refinements and plots the coefficient function on this mesh where each cell
+is resolved as given by the additional parameter depth."
+  (let* ((mesh (uniformly-refined-mesh domain refinements :parametric parametric))
 	 (cells (cells-of-highest-dim mesh)))
-    (apply #'graphic-output problem :dx
+    (apply #'graphic-output f :dx
 	   :dimension (dimension mesh)
 	   :cells cells
 	   :cell->values 
 	   #'(lambda (cell)
-	       (let* ((coeff-func (getf (coefficients-of-cell cell mesh problem)
-					coefficient))
-		      (local-vertices (refcell-refinement-vertices
+	       (let* ((local-vertices (refcell-refinement-vertices
 				       (reference-cell cell) depth))
 		      (values (make-double-vec (length local-vertices))))
 		 (dotimes (i (length local-vertices))
-		   (let* ((lcoords (vertex-position (aref local-vertices i)))
-			  (ci (list :local lcoords :global (local->global cell lcoords))))
+		   (let* ((lcoords (vertex-position (aref local-vertices i))))
 		      (setf (aref values i)
-			    (funcall key (evaluate coeff-func ci)))))
+			    (funcall key (evaluate f (local->global cell lcoords))))))
 		 values))
 	   rest)))
 
-;;; Testing: (test-coeffplot)
+;;; Testing: (test-function-plot)
 
-(defun test-coeffplot ()
-  (let* ((dim 1) (domain (n-cell-domain dim))
-	 (my-problem
-	  (make-instance
-	   '<pde-problem> :domain domain :patch->coefficients
-	   (constantly (list 'MY-COEFFICIENT
-			     (ensure-coefficient #'(lambda (x) (aref x 0))))))))
-    (plot my-problem :refinements 0 :coefficient 'MY-COEFFICIENT))
+(defun test-function-plot ()
+  (plot (make-instance
+	 '<special-function> :evaluator
+	 
+	 #'(lambda (x)
+	     (let ((x (aref x 0))
+		   (y (aref x 1)))
+	       (if (or (> (abs (- 0.5 x)) 0.4)
+			(> (abs (- 0.5 y)) 0.4))
+		   0.0
+		   (let ((x (/ (- x 0.1) 0.8))
+			 (y (/ (- y 0.1) 0.8)))
+		     #I(x*(1-x)*y*(1-y)*sin(20*pi*x)*sin(16*pi*y))))))
+	 :domain-dimension 2 :image-dimension 1)
+	:domain (n-cube-domain 2)
+	:depth 6)
+  (refcell-refinement-skeleton (n-cube 2) 5)
   )
 
-(fl.tests:adjoin-test 'test-coeffplot)
+(fl.tests::adjoin-test 'test-function-plot)

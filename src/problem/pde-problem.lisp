@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :problem)
+(in-package :fl.problem)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; coefficient
@@ -81,9 +81,6 @@ keyword parameters which should correspond to the list in DEMANDS.")
 	   (apply #'values value other-values))
        (constantly value))))
 
-(defparameter *cf-constantly-0.0* (constant-coefficient 0.0))
-(defparameter *cf-constantly-1.0* (constant-coefficient 1.0))
-
 (defun function->coefficient (func)
   "Returns a coefficient for the given function depending on global
 coordinates."
@@ -100,53 +97,41 @@ made into a constant coefficient."
 	(t (constant-coefficient obj))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <pde-problem>
+;;; <domain-problem>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <pde-problem> (<problem>)
+(defclass <domain-problem> (<problem>)
   ((domain :reader domain :initform (required-argument)
 	   :initarg :domain :type <domain>)
-   (coefficients :initform (make-hash-table))
-   (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity)
-   (linear-p :reader linear-p :initarg :linear-p))
+   (coefficients :accessor coefficients :initform (make-hash-table)
+		 :initarg :coefficients :documentation
+		 "Hash table which maps domain patches to coefficients.")
+   (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity))
   ;;
-  (:documentation "Base-class for a pde-problem.  The slot DOMAIN contains
-the domain on which the problem lives.  The slot COEFFICIENTS contains a
-table from domain patches to coefficients on this patch which are property
-lists of the form (SYM1 coefficient1 SYM2 coefficient2 ...).  When the
-problem instance is initialized this table is set up by calling the
-function PATCH->COEFFICIENTS which has to be provided as a key argument.
-The multiplicity slot can be chosen as n>1 if the problem is posed with n
-different right hand sides simultaneously."))
+  (:documentation "Base-class for problems posed on a domain.  The slot
+DOMAIN contains the domain on which the problem lives.  The slot
+COEFFICIENTS contains a table from domain patches to coefficients on this
+patch which are property lists of the form (SYM1 coefficient1 SYM2
+coefficient2 ...).  When the problem instance is initialized this table is
+set up by calling the function PATCH->COEFFICIENTS which has to be provided
+as a key argument.  The multiplicity slot can be chosen as n>1 if the
+problem is posed with n different right hand sides simultaneously."))
 
-(defmethod initialize-instance :after ((problem <pde-problem>)
+(defmethod initialize-instance :after ((problem <domain-problem>)
 				       &key patch->coefficients &allow-other-keys)
-  "Sets up the coefficient table, if the coefficients are given as a
-function mapping domain patches to coefficient property lists.
-Furthermore, we try to find out if the problem is linear or nonlinear.
-However, this will only work if the nonlinearity is introduced by the user
-with dependencies of the coefficient functions on the solution."
-  (with-slots (domain coefficients linear-p) problem
+  "Setup the coefficient table, if the coefficients are given as a function
+mapping domain patches to coefficient property lists."
+  (with-slots (domain coefficients) problem
     (when patch->coefficients
       (doskel (patch domain)
 	(setf (gethash patch coefficients)
-	      (funcall patch->coefficients patch))))
-    (unless (slot-boundp problem 'linear-p)
-      (setq linear-p t)
-      (loop for coeffs being each hash-value of coefficients do
-	    (loop for (nil coeff) on coeffs by #'cddr
-		  when (member :solution (demands coeff)) do
-		  (setq linear-p nil))))))
+	      (funcall patch->coefficients patch))))))
 
-(defmethod describe-object :after ((problem <pde-problem>) stream)
+(defmethod describe-object :after ((problem <domain-problem>) stream)
   (doskel ((patch properties) (domain problem))
     (format t "~&Cell ~A  [Mapping ~A]~%Properties: ~A~%Coeffs: ~A~2%"
 	    patch (mapping patch) properties
 	    (coefficients-of-patch patch problem))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Coefficient functions
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (declaim (inline coefficients-of-patch coefficients-of-cell))
 (defun coefficients-of-patch (patch problem)
@@ -157,29 +142,65 @@ with dependencies of the coefficient functions on the solution."
   "An accessor for the coefficients."
   (coefficients-of-patch (patch-of-cell cell mesh) problem))
 
-(defparameter *general-problem-keywords* '(PERIODIC CONSTRAINT)
-  "This list contains keywords which make sense for several problems.
-PERIODIC: periodic boundary conditions for non-identified boundaries.  This
-is not yet implemented (not needed?).
-CONSTRAINT: essential boundary conditions.")
-
 (defgeneric interior-coefficients (problem)
-  (:documentation "Yields a list of possible interior coefficients for problem."))
+  (:documentation "Yields a list of possible interior coefficients for PROBLEM.")
+  (:method (problem) ()))
 
 (defgeneric boundary-coefficients (problem)
-  (:documentation "Yields a list of possible boundary coefficients for problem."))
+  (:documentation "Yields a list of possible boundary coefficients for PROBLEM.")
+  (:method (problem) "The following coefficients make sense for many pde
+problems.  PERIODIC: periodic boundary conditions for non-identified
+boundaries.  This is not yet implemented (not needed?).  CONSTRAINT:
+essential boundary conditions."  '(PERIODIC CONSTRAINT)))
 
-(defgeneric coefficients (problem)
-  (:documentation "Yields a list of possible coefficients for problem."))
+(defgeneric all-coefficients (problem)
+  (:documentation "Yields a list of possible coefficients for PROBLEM.")
+  (:method (problem)
+	   (append (interior-coefficients problem)
+		   (boundary-coefficients problem))))
 
 (defgeneric interior-coefficient-p (problem coeff)
-  (:documentation "Tests, if coeff is an interior coefficient of problem."))
+  (:documentation "Tests, if COEFF is an interior coefficient of PROBLEM.")
+  (:method (problem coeff) (member coeff (interior-coefficients problem))))
 
 (defgeneric boundary-coefficient-p (problem coeff)
-  (:documentation "Tests, if coeff is a boundary coefficient of problem."))
+  (:documentation "Tests, if COEFF is a boundary coefficient of PROBLEM.")
+  (:method (problem coeff) (member coeff (boundary-coefficients problem))))
 
 (defgeneric coefficient-p (problem coeff)
-  (:documentation "Tests, if coeff is a coefficient of problem."))
+  (:documentation "Test if COEFF is a coefficient of PROBLEM.")
+  (:method (problem coeff) (member coeff (coefficients problem))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; <interpolation-problem>
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <interpolation-problem> (<domain-problem>)
+  ()
+  (:documentation "Interpolation problem on a domain.  The function which
+is to be interpolated is given as a coefficient with key FUNCTION in the
+coefficient list."))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; <pde-problem>
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <pde-problem> (<domain-problem>)
+  ()
+  (:documentation "Base-class for a pde-problem."))
+
+(defmethod initialize-instance :after ((problem <pde-problem>)
+				       &key (linear-p t supplied-p) &allow-other-keys)
+  "Try to find out if PROBLEM is linear or nonlinear.  This will only work
+if the nonlinearity is introduced by the user with dependencies of the
+coefficient functions on the solution."
+  (unless supplied-p
+    (setq linear-p t)
+    (loop for coeffs being each hash-value of (coefficients problem) do
+	  (loop for (nil coeff) on coeffs by #'cddr
+		when (member :solution (demands coeff)) do
+		(setq linear-p nil))))
+  (setf (get-property problem 'linear-p) linear-p))
 
 (defgeneric dual-problem (problem functional)
   (:documentation "Returns the dual problem for problem with the right-hand
@@ -192,28 +213,9 @@ to errors in the solution."))
 self-adjoint, the second says if that value has really been checked."))
 
 (defmethod self-adjoint-p (problem)
-  "Default method says that problem is not self-adjoint and that no check has been performed."
+  "The default method says that PROBLEM is not self-adjoint and that no
+check has been performed."
   (values nil nil))
-
-(defmethod coefficients (problem)
-  "Standard method: tests if coeff is interior or boundary coefficient."
-  (append (interior-coefficients problem)
-	  (boundary-coefficients problem)))
-
-(defmethod interior-coefficients (problem) ())
-
-(defmethod boundary-coefficients (problem) ())
-
-(defmethod interior-coefficient-p (problem coeff)
-  (member coeff (interior-coefficients problem)))
-
-(defmethod boundary-coefficient-p (problem coeff)
-  (member coeff (boundary-coefficients problem)))
-
-(defmethod coefficient-p (problem coeff)
-  "Standard method: tests if coeff is interior or boundary coefficient."
-  (member coeff (coefficients problem)))
-
 
 ;;; Testing: (test-pde-problem)
 

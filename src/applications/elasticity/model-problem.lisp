@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defun test-elasticity-model-problem ()
 
@@ -76,5 +76,5 @@
 
 )
 
-;;; (application::test-elasticity-model-problem)
+;;; (fl.application::test-elasticity-model-problem)
 (fl.tests:adjoin-test 'test-elasticity-model-problem)

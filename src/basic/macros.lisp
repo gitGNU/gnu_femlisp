@@ -102,6 +102,8 @@ is for use in some macros."
             (,(car var) (,op ,access ,@args)))
        ,set)))
 
+(define-modify-macro ensure (&rest args) or "ANSI?")
+
 ;;; Others
 
 (defmacro short-remove-method (gf-name qualifiers specializers)
@@ -198,6 +200,8 @@ Example: (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))"
 ;;;; Testing:
 
 (defun test-macros ()
+  (let ((x 5))
+    (ensure x 1))
   )
 
 

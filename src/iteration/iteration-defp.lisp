@@ -32,11 +32,9 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
-(defpackage "ITERATION"
+(defpackage "FL.ITERATION"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.TESTS" "FL.DEBUG" "ALGEBRA" "FL.FUNCTION" "PROBLEM")
+	"FL.TESTS" "FL.DEBUG" "FL.ALGEBRA" "FL.FUNCTION" "FL.PROBLEM")
   (:export  ; function.lisp
    "<FUNCTION>" "EVALUATE" "FUNC-DOMAIN-DIMENSION" "FUNC-IMAGE-DIMENSION"
    "<DIFFERENTIABLE-FUNCTION>" "EVALUATE-GRADIENT" "INTERVAL-METHOD")
@@ -70,5 +68,10 @@
    "<BLOCK-SOR>" "<BLOCK-GAUSS-SEIDEL>" "<CUSTOM-BLOCK-GAUSS-SEIDEL>")
   (:export  ; newton.lisp
    "NEWTON")
-  )
+  (:documentation "The @code{FL.ITERATION} package includes the definition
+for the abstract classes @code{<solver>}, @code{<iteration>}, as well as
+the generic function @code{solve} which constitutes the interface for
+linear and non-linear solving.  Several instances of these classes are
+implemented, partially in other packages, e.g. @code{FL.MULTIGRID} and
+@code{FL.GEOMG}."))
 

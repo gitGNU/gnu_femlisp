@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :geomg)
+(in-package :fl.geomg)
 
 ;;; This file provides the geometric multigrid iteration which is a
 ;;; multigrid iteration working with hierarchical ansatz-space vectors
@@ -65,7 +65,7 @@ with either <correction-scheme> or <fas>."))
   "Extends initial-mat by several layers from surface-mat."
   (destructuring-bind (&key hanging-P hanging-Q hanging-r
 			    &allow-other-keys)
-      (structure-information (ansatz-space initial-mat))
+      (properties (ansatz-space initial-mat))
     (loop with mat = (eliminate-constraints
 		      initial-mat nil hanging-P hanging-Q hanging-r
 		      :assemble-locally t :include-constraints t)
@@ -85,15 +85,15 @@ already assembled.  Works only for uniformly refined meshes."
 	 (top-level (top-level h-mesh))
 	 (a-vec (make-array (nr-of-levels h-mesh)))
 	 (i-vec (make-array (nr-of-levels h-mesh)))
-	 (interior-mat (getf (discretization-info mat) :interior-matrix))
-	 (solution (getf (discretization-info mat) :solution)))
+	 (interior-mat (getf (properties mat) :interior-matrix))
+	 (solution (getf (properties mat) :solution)))
     
     ;; set the matrix vector
     (multiple-value-bind (essential-P essential-Q essential-r)
-	(discretization::compute-essential-boundary-constraints
+	(fl.discretization::compute-essential-boundary-constraints
 	 ansatz-space :where :all)
       (loop for level from 0 upto top-level
-	    for l-mat = (discretization::compute-interior-level-matrix
+	    for l-mat = (fl.discretization::compute-interior-level-matrix
 			 interior-mat solution level) do
 	    (let ((eliminated-mat
 		   (eliminate-constraints
@@ -131,7 +131,7 @@ already assembled.  Works only for uniformly refined meshes."
 	  (let ((l-mat (make-ansatz-space-automorphism ansatz-space)))
 	    (assemble-interior ansatz-space :matrix l-mat :level level :where :refined)
 	    (multiple-value-bind (constraints-P constraints-Q constraints-r)
-		(discretization::compute-essential-boundary-constraints
+		(fl.discretization::compute-essential-boundary-constraints
 		 ansatz-space :level level :where :refined)
 	      (let ((eliminated-mat (eliminate-constraints
 				     l-mat nil constraints-P constraints-Q constraints-r)))
@@ -223,10 +223,8 @@ treated by ordinary AMG steps.  Even if it has the structure of a
 of hanging degrees of freedom and does not interpolate from slaves."
   (declare (optimize (debug 3)))
   (let* ((ansatz-space (ansatz-space mat))
-	 (constraints-P (getf (discretization::structure-information ansatz-space)
-			      :ip-constraints-P))
-	 (constraints-Q (getf (discretization::structure-information ansatz-space)
-			      :ip-constraints-Q))
+	 (constraints-P (getf (properties ansatz-space) :ip-constraints-P))
+	 (constraints-Q (getf (properties ansatz-space) :ip-constraints-Q))
 	 (mesh (mesh ansatz-space))
 	 (lagrange-1 (lagrange-fe 1))
 	 ;;(domain-as (make-fe-ansatz-space lagrange-1 (problem mat) mesh))

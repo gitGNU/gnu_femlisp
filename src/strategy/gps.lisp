@@ -32,13 +32,13 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :strategy)
+(in-package :fl.strategy)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Choice of a problem-dependent linear solver
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod select-linear-solver ((problem cdr::<cdr-problem>) blackboard)
+(defmethod select-linear-solver ((problem fl.cdr::<cdr-problem>) blackboard)
   (let ((dim (dimension (domain problem))))
     (make-instance
      '<linear-solver>
@@ -49,11 +49,12 @@
 		      :post-steps 1 :post-smooth smoother
 		      :gamma 2 :coarse-grid-iteration
 		      (make-instance '<s1-coarse-grid-iterator>)))
-     :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
+     :success-if `(or (zerop :defnorm)
+		   (and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
      :failure-if `(and (> :step 2) (> :step-reduction 0.9))
      )))
 
-(defmethod select-linear-solver ((problem elasticity::<elasticity-problem>) blackboard)
+(defmethod select-linear-solver ((problem fl.elasticity::<elasticity-problem>) blackboard)
   (let ((dim (dimension (domain problem))))
     (make-instance
      '<linear-solver> :iteration
@@ -64,12 +65,12 @@
 	:pre-steps 1 :pre-smooth smoother
 	:post-steps 1 :post-smooth smoother
 	:gamma 2 :fmg t))
-     :success-if `(and (> :step 1)
-		   (or (zerop :defnorm) (and (< :defnorm 1.0e-8) (> :step-reduction 0.9))))
+     :success-if `(or (zerop :defnorm)
+		   (and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
      :failure-if `(and (> :step 1) (> :step-reduction 0.9))
      )))
 
-(defmethod select-linear-solver ((problem navier-stokes::<navier-stokes-problem>) blackboard)
+(defmethod select-linear-solver ((problem fl.navier-stokes::<navier-stokes-problem>) blackboard)
   (make-instance
    '<linear-solver> :iteration
    (let ((smoother (make-instance '<vanka>)))
@@ -79,7 +80,8 @@
       :pre-steps 1 :pre-smooth smoother
       :post-steps 1 :post-smooth smoother
       :gamma 2))
-   :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
+     :success-if `(or (zerop :defnorm)
+		   (and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
    :failure-if `(and (> :step 2) (> :step-reduction 0.9))
    ))
 

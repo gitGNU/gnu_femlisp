@@ -32,12 +32,10 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
-(defpackage "DISCRETIZATION"
+(defpackage "FL.DISCRETIZATION"
   (:nicknames "DISC")
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"MESH" "PROBLEM" "ALGEBRA" "FL.FUNCTION"
+	"FL.MESH" "FL.PROBLEM" "FL.ALGEBRA" "FL.FUNCTION"
 	"FL.DEBUG")
   
   (:export				; discretization.lisp
@@ -56,7 +54,7 @@
    "SUBCELL-NDOFS" "SUBCELL-INDICES" "INNER-DOF-INDICES"
    "INTERPOLATE-ON-REFCELL"
    "<VECTOR-FE>" "COMPONENTS" "NR-OF-COMPONENTS"
-   "PROPERTIES" "SUBCELL-OFFSETS" "LOCAL-OFFSET"
+   "SUBCELL-OFFSETS" "LOCAL-OFFSET"
    "<FE-DISCRETIZATION>" "<STANDARD-FE-DISCRETIZATION>"
    "<SCALAR-FE-DISCRETIZATION>" "<VECTOR-FE-DISCRETIZATION>"
    "GET-FE" "CELL->FE" "QUADRATURE-RULE" "IP-VALUES" "IP-GRADIENTS"
@@ -86,9 +84,8 @@
    "SET-GLOBAL-TO-LOCAL-MAT" "INCREMENT-GLOBAL-BY-LOCAL-MAT")
 
    (:export				; sparseas.lisp
-    "<ANSATZ-SPACE>" "MAKE-FE-ANSATZ-SPACE" "PROBLEM" "STRUCTURE-INFORMATION"
+    "<ANSATZ-SPACE>" "MAKE-FE-ANSATZ-SPACE" "PROBLEM"
     "CELL-KEY" "REPRESENTATIVE"
-    "DISCRETIZATION-INFO"
     "<ANSATZ-SPACE-VECTOR>" "MAKE-ANSATZ-SPACE-VECTOR"
     "<ANSATZ-SPACE-MORPHISM>" "MAKE-ANSATZ-SPACE-MORPHISM"
     "<ANSATZ-SPACE-AUTOMORPHISM>" "MAKE-ANSATZ-SPACE-AUTOMORPHISM"
@@ -96,5 +93,14 @@
     "SURFACE-CELLS" "EXTRACT-LEVEL"
     "INTERPOLATION-MATRIX" "CONSTRAINED-INTERPOLATION-MATRIX" "PROJECTION-MATRIX"
     "TRANSFER-MATRIX" "SORT-KEYS" "DECOMPOSE")
-   )
+   
+   (:documentation "The @code{FL.DISCRETIZATION} package defines
+@code{<discretization>} as an abstract class and @code{<fe-discretization>}
+as a concrete derived class.  A generic function @code{get-fe} is used for
+associating a cell with a finite element @code{<fe>}, which is a data
+structure containing information about base functions and dual functionals
+on the corresponding cell.  Lagrange finite elements of arbitrary order are
+implemented as a special instance of @code{<fe-discretization>}.  Note that
+other discretizations as finite differences or finite volumes could easily
+be incorporated as well."))
 

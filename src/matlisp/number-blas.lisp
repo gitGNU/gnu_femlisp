@@ -70,6 +70,8 @@
 
 (defmethod dot-abs ((x number) (y number)) (abs (* x y)))
 
+(defmethod mequalp ((x number) (y number)) (= x y))
+
 (defmethod mzerop ((x number) &optional (threshold 0.0))
   (<= (abs x) threshold))
 

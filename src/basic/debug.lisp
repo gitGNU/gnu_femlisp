@@ -35,8 +35,6 @@
 ;;; This utility is a modified version from code contained in
 ;;; http://www.norvig.com/paip/auxfns.lisp.
 
-(in-package "COMMON-LISP-USER")
-
 (defpackage "FL.DEBUG"
   (:use "COMMON-LISP")
   (:export "DBG-ON" "DBG-OFF" "DBG-P" "DBG-WHEN" "DBG" "DBG-INDENT"))

@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -49,7 +49,7 @@
 	 (fe-class (fe-class asv)))
     (doskel (cell mesh :dimension :highest :where :surface)
       (let* ((coeffs (coefficients-of-cell cell mesh problem))
-	     (diffusion-function (getf coeffs 'CDR::DIFFUSION))
+	     (diffusion-function (getf coeffs 'FL.CDR::DIFFUSION))
 	     (fe (get-fe fe-class cell))
 	     (qrule (quadrature-rule fe-class fe))
 	     (values (transpose (get-local-from-global-vec cell fe asv))))  ; (dim x n-basis)
@@ -115,10 +115,10 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
     (and solution rhs
 	 (typecase problem
 	   (<cdr-problem>
-	    (m- (average-coefficient ansatz-space :coefficient 'CDR::DIFFUSION)
+	    (m- (average-coefficient ansatz-space :coefficient 'FL.CDR::DIFFUSION)
 		(correction-tensor solution rhs)))
 	   (<elasticity-problem> 
-	    (m- (average-coefficient ansatz-space :coefficient 'ELASTICITY::ELASTICITY)
+	    (m- (average-coefficient ansatz-space :coefficient 'FL.ELASTICITY::ELASTICITY)
 		(convert-correction (correction-tensor solution rhs))))))))
 
 

@@ -33,13 +33,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-package :cl-user)
-(defpackage "CDR"
+(defpackage "FL.CDR"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"MESH" "PROBLEM")
+	"FL.MESH" "FL.PROBLEM")
   (:export "<CDR-PROBLEM>" "MAP-DOMAIN-TO-CDR-PROBLEM"
 	   "SCALAR-DIFFUSION" "IDENTITY-DIFFUSION-TENSOR"
-	   "CDR-MODEL-PROBLEM" "BRATU-PROBLEM"))
-(in-package :cdr)
+	   "CDR-MODEL-PROBLEM" "BRATU-PROBLEM")
+  (:documentation "Defines convection-diffusion-reaction problems"))
+(in-package "FL.CDR")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <cdr-problem>
@@ -50,17 +51,14 @@
   (:documentation "Convection-diffusion-reaction problem."))
 
 (defmethod interior-coefficients ((problem <cdr-problem>))
-  "Interior coefficients for a CDR problem."
-  '(DIFFUSION CONVECTION SOURCE REACTION GAMMA FE-RHS))
-
-(defmethod boundary-coefficients ((problem <cdr-problem>))
-  "Boundary coefficients for a CDR problem."
-  '(DIRICHLET))
+  "Interior coefficients for a convection-diffusion-reaction problem."
+  (list* 'DIFFUSION 'CONVECTION 'SOURCE 'REACTION 'GAMMA 'FE-RHS
+	 (call-next-method)))
 
 (defmethod self-adjoint-p ((problem <cdr-problem>))
   (doskel (patch (domain problem))
     (when (getf (coefficients-of-patch patch problem)
-		'CDR::CONVECTION)
+		'FL.CDR::CONVECTION)
       (return-from self-adjoint-p (values NIL T))))
   (values T T))
 
@@ -74,14 +72,14 @@ functional."
    #'(lambda (cell)
        ;; check that problem is self adjoint
        (let ((coeffs (copy-seq (coefficients-of-patch cell problem))))
-	 (when (getf coeffs 'CDR::DIRICHLET)
-	   (setf (getf coeffs 'CDR::DIRICHLET) *cf-constantly-0.0*))
-	 (assert (not (getf coeffs 'CDR::CONVECTION)))  ; better: change to negative
+	 (when (getf coeffs 'FL.PROBLEM::CONSTRAINT)
+	   (setf (getf coeffs 'FL.PROBLEM::CONSTRAINT) (constant-coefficient 0.0)))
+	 (assert (not (getf coeffs 'FL.CDR::CONVECTION)))  ; better: change to negative
 	 (unless (eq cell->rhs :load-functional)
 	   (let ((dual-rhs (funcall cell->rhs cell)))
-	     (setf (getf coeffs 'CDR::SOURCE) (getf dual-rhs 'CDR::SOURCE))
-	     (setf (getf coeffs 'CDR::GAMMA) (getf dual-rhs 'CDR::GAMMA))
-	     (setf (getf coeffs 'CDR::FE-RHS) (getf dual-rhs 'CDR::FE-RHS))))
+	     (setf (getf coeffs 'FL.CDR::SOURCE) (getf dual-rhs 'FL.CDR::SOURCE))
+	     (setf (getf coeffs 'FL.CDR::GAMMA) (getf dual-rhs 'FL.CDR::GAMMA))
+	     (setf (getf coeffs 'FL.CDR::FE-RHS) (getf dual-rhs 'FL.CDR::FE-RHS))))
 	 coeffs))
    :multiplicity (multiplicity problem)))
 
@@ -95,36 +93,49 @@ functional."
 (defun identity-diffusion-tensor (dim)
   (scalar-diffusion dim 1.0))
 
-(defun cdr-model-problem (dim/domain &key diffusion gamma convection reaction
-			  source dirichlet)
-  "Generates a cdr model problem.  Defaults are identity diffusion,
-right-hand-side equal 1, and Dirichlet zero boundary conditions.  Ordinary
-function are converted into coefficient functions depending on a global
-coordinate.  The first argument can be either a domain or an integer n
-which is interpreted as the n-dimensional unit cube."
+(defun cdr-model-problem (dim/domain &key (diffusion nil diffusion-p)
+			  (source nil source-p) (dirichlet nil dirichlet-p)
+			  gamma convection reaction initial)
+  "Generates a convection-diffusion-reaction model problem.  Defaults are
+identity diffusion, right-hand-side equal 1, and Dirichlet zero boundary
+conditions.  Ordinary function are converted into coefficient functions
+depending on a global coordinate.  The first argument can be either a
+domain or an integer n which is interpreted as the n-dimensional unit
+cube."
   (let* ((domain (if (numberp dim/domain)
 		     (n-cube-domain dim/domain)
 		     dim/domain))
 	 (dim (dimension domain))
 	 (bdry (skeleton-boundary domain)))
     ;; set default values
-    (setq diffusion (or diffusion (identity-diffusion-tensor dim)))
-    (setq source (or source *cf-constantly-1.0*))
-    (setq dirichlet (or dirichlet *cf-constantly-0.0*))
-    (make-instance
-     '<cdr-problem> :domain domain
+    (unless diffusion-p (setq diffusion (eye dim)))
+    (unless source-p (setq source 1.0))
+    (unless dirichlet-p (setq dirichlet 0.0))
+    (fl.amop:make-programmatic-instance
+     (if initial
+	 '(<time-dependent-problem> <cdr-problem>)
+	 '<cdr-problem>)
+     :domain domain
      :patch->coefficients
      #'(lambda (cell)
-	 (cond ((member-of-skeleton? cell bdry)
-		(list 'CDR::DIRICHLET (ensure-coefficient dirichlet)))
-	       ((= (dimension cell) dim)
-		(nconc
-		 (and diffusion (list 'CDR::DIFFUSION (ensure-coefficient diffusion)))
-		 (and convection (list 'CDR::CONVECTION (ensure-coefficient convection)))
-		 (and source (list 'CDR::SOURCE (ensure-coefficient source)))
-		 (and reaction (list 'CDR::REACTION (ensure-coefficient reaction)))
-		 (and gamma (list 'CDR::GAMMA (ensure-coefficient gamma)))))
-	       (t nil))))))
+	 (let ((coeffs ()))
+	   (when (member-of-skeleton? cell bdry)
+	     (when dirichlet
+	       (setf (getf coeffs 'FL.PROBLEM::CONSTRAINT) (ensure-coefficient dirichlet))))
+	   (when (= (dimension cell) dim)
+	     (when diffusion
+	       (setf (getf coeffs 'FL.CDR::DIFFUSION) (ensure-coefficient diffusion)))
+	     (when source
+	       (setf (getf coeffs 'FL.CDR::SOURCE) (ensure-coefficient source)))
+	     (when convection
+	       (setf (getf coeffs 'FL.CDR::CONVECTION) (ensure-coefficient convection)))
+	     (when reaction
+	       (setf (getf coeffs 'FL.CDR::REACTION) (ensure-coefficient reaction)))
+	     (when gamma
+	       (setf (getf coeffs 'FL.CDR::GAMMA) (ensure-coefficient gamma)))
+	   (when initial
+	     (setf (getf coeffs 'FL.PROBLEM::INITIAL) (ensure-coefficient initial))))
+	   coeffs)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Bratu problem
@@ -155,6 +166,7 @@ Bratu problem -Delta u +e^u =0."
   (let* ((domain (n-cell-domain 1))
 	 (problem (cdr-model-problem domain)))
     (describe problem))
+  (describe (cdr-model-problem 2 :initial (constantly 1.0)))
   )
 
 (fl.tests:adjoin-test 'test-cdr)

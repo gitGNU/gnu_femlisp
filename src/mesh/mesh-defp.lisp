@@ -32,11 +32,9 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
-
-(defpackage "MESH"
+(defpackage "FL.MESH"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
-	"FL.MATLISP" "ALGEBRA" "FL.FUNCTION")
+	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION")
   (:export
    ;; cell.lisp
    "<CELL>" "BOUNDARY"
@@ -82,7 +80,7 @@
    ;; skeleton-build.lisp
    "SKELETON-WITHOUT-CELL" "SKEL-ADD!" "COPY-SKELETON"
    "TRANSFORMED-SKELETON" "LINEARLY-TRANSFORMED-SKELETON" "SHIFT-SKELETON"
-   "TELESCOPE" "REFINED-SKELETON-COPY"
+   "TELESCOPE" "REFINED-SKELETON-COPY" "STRUCTURED-SKELETON"
    
    ;; refine.lisp
    "CHILDREN" "PARENT" "REFINED-P"
@@ -123,4 +121,7 @@
    
    ;; extend.lisp
    "EXTENSION" "EXTEND" "STANDARD-EXTENDER" "CUBE-EXTENDER"
-   ))
+   )
+  (:documentation "This package provides the definition of cells, clusters
+of cells called (<skeleton>), domains and meshes as well as routines for
+handling those objects."))

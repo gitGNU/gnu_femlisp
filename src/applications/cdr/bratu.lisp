@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 (defvar *u_1/2-observe*
   (list
@@ -74,5 +74,5 @@ midpoint of the domain."
 (defun bratu-tests ()
   (bratu-computation 1))
 
-;;; (application::bratu-tests)
+;;; (fl.application::bratu-tests)
 (fl.tests::adjoin-test 'bratu-tests)

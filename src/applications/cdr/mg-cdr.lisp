@@ -4,7 +4,7 @@
 ;;; mg-cdr.lisp - Solving CDR problems with multigrid
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003- Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -32,64 +32,37 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
-(time
- (let* ((dim 3) (level 2) (order 4)
-	(problem (cdr-model-problem dim))
-	(smoother #+(or)(geometric-ssc)
-		  #-(or)(make-instance '<gauss-seidel>))
-	(cs (geometric-cs
-	     :gamma 1 :pre-steps 1 :pre-smooth smoother :post-steps 0
-	     :base-level (1- level)))
-	(solver (make-instance '<linear-solver> :iteration cs
-			       :success-if '(or (< :defnorm 1.0e-12) (> :step 20))))
-	(mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
-	(fedisc (lagrange-fe order)))
-   (multiple-value-bind (A b)
-       (discretize-globally problem mesh fedisc)
-     (solve solver (blackboard :matrix A :rhs b)))))
-
-(time
- (let* ((dim 2) (level 4)
-	(problem
-	 (cdr-model-problem
-	  dim :source #'(lambda (x) (if (>= (aref x 0) 0.5) 1.0 -1.0))))
-	(v-cycle (geometric-cs :fmg t :base-level 1 :coarse-grid-iteration
-			       (make-instance '<multi-iteration>
-					      :base *gauss-seidel* :nr-steps 1))))
-   (multiple-value-bind (A b)
-      (problem-discretization problem :level level :order 1)
-    (let ((sol (linsolve A b :output t :iteration v-cycle :maxsteps 2)))
-      (plot sol)
-      ))))
-
-;;; geometric V-cycle for higher-order problems
-(let* ((dim 3) (level 4) (order 3)
-       (problem (cdr-model-problem (n-simplex-domain dim)))
-       (smoother (geometric-ssc))
-       (v-cycle (geometric-cs :base-level 1 :pre-steps 1 :pre-smooth smoother
-			      :post-steps 1 :post-smooth smoother)))
-  (multiple-value-bind (A b)
-      (problem-discretization problem :level level :order order)
-    (setq *result*
-	  (solve (make-instance '<linear-solver> :output t :iteration v-cycle
-				:success-if '(> :step 10))
-		 (blackboard :matrix A :rhs b)))))
-(plot (getbb *result* :solution))
+(defun test-v-cycle-convergence (dim order level &key smoother (output t) cr-max)
+  "Solves with a V-cycle and prints the average convergence rate.  If
+cr-max is provided, it is checked if the convergence rate is smaller than
+this value."
+  (let* ((problem (cdr-model-problem dim))
+	 (cs (geometric-cs
+	      :gamma 1 :pre-steps 1 :pre-smooth smoother :post-steps 0
+	      :base-level (1- level)))
+	 (solver (make-instance '<linear-solver> :iteration cs
+				:success-if '(or (< :defnorm 1.0e-12) (> :step 20))))
+	 (mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
+	 (fedisc (lagrange-fe order)))
+    (multiple-value-bind (A b)
+	(discretize-globally problem mesh fedisc)
+      (setq *result*
+	    (solve (blackboard :matrix A :rhs b :solver solver :output output)))))
+  (let ((cr (getbb (getbb *result* :report) :convergence-rate)))
+    (format t "CR(~D,~D,~D)=~F" dim order level cr)
+    (when cr-max (assert (< cr cr-max)))))
 
 (defun mg-cdr-tests ()
-;;; test if CR is small enough
-(let* ((dim 2) (level 3) (order 1)
-       (problem (cdr-model-problem dim)))
-  (multiple-value-bind (A b)
-      (problem-discretization problem :level level :order order)
-    (let ((geomg (geometric-cs :base-level 1)))
-      (let ((solver (make-instance '<linear-solver> :iteration geomg
-				   :success-if '(> :step 10))))
-	(setq *result* (solve solver (blackboard :matrix A :rhs b)))
-	(let ((cr (getf (getbb *result* :report) :convergence-rate)))
-	  (assert (< cr 0.08)))
-	  (plot (getbb *result* :solution))
-	  *result*))))
-)
+  (time (test-v-cycle-convergence
+	 3 1 2 :smoother (make-instance '<gauss-seidel>) :cr-max 0.15))
+  (time (test-v-cycle-convergence
+	 2 4 3 :smoother (make-instance '<gauss-seidel>) :cr-max 0.25))
+  (time (test-v-cycle-convergence
+	 2 4 3 :smoother (geometric-ssc) :cr-max 0.06))
+  (time (test-v-cycle-convergence
+	 2 1 3 :smoother (make-instance '<gauss-seidel>) :cr-max 0.15))
+  )
+
+(fl.tests:adjoin-test 'mg-cdr-tests)

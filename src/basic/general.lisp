@@ -40,4 +40,15 @@
 (defgeneric make-analog (obj)
   (:documentation "Generate an analogous but empty data structure."))
 
-  
+(defun file-documentation (docstring)
+  "If the manual is sorted by file, the string handed to this function
+describes the use of the respective file."
+  (declare (ignore docstring)))
+
+(defclass property-mixin ()
+  ((properties
+    :accessor properties :initform () :type list :documentation
+    "Contains a property list which is used to store unstructured
+information about this object."))
+  (:documentation "A mixin which adds a slot with a property list to the
+class."))

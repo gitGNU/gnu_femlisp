@@ -34,7 +34,7 @@
 
 ;;;; Purpose: provide nonlinear solvers
 
-(in-package :iteration)
+(in-package :fl.iteration)
 
 (defclass <nonlinear-solver> (<discrete-iterative-solver>)
   ()

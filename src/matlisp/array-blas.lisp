@@ -123,6 +123,11 @@ default."
 (defmethod for-each-entry (func (seq sequence))
   (map nil func seq))
 
+(defmethod for-each-entry (func (array array))
+  "Call @var{func} on each entry of @var{array}."
+  (dotimes (i (array-total-size array))
+    (funcall func (row-major-aref array i))))
+
 (defmethod for-each-key-and-entry (func (x vector))
   (dotimes (i (length x))
     (funcall func i (aref x i))))
@@ -173,20 +178,16 @@ default."
 (defmethod copy ((vec vector)) (map (type-of vec) #'copy vec))
 (defmethod copy ((vec list)) (mapcar #'copy vec))
 
-(defmethod copy ((mat array))
-  (unless (= (array-rank mat) 2)
-     (error "only rank2 operation implemented here"))
-  (let ((result (make-analog mat)))
-    (dotimes (i (array-dimension mat 0))
-      (dotimes (j (array-dimension mat 1))
-	(setf (aref result i j) (copy (aref mat i j)))))
-    result))
+(defmethod copy ((array array) &aux (result (make-analog array)))
+  (dotimes (i (array-total-size array) result)
+    (setf (row-major-aref result i)
+	  (copy (row-major-aref array i)))))
 
 ;;; BLAS level 1 for Lisp vectors
 
 (defmacro define-vector-blas-method (symbol args &body body)
-  (let ((vec-args (mapcar #'car (filter 'vector args :key #'second)))
-	(number-args (mapcar #'car (filter 'number args :key #'second))))
+  (let ((vec-args (loop for (name arg) in args when (eq arg 'vector) collect name))
+	(number-args (loop for (name arg) in args when (eq arg 'number) collect name)))
     (with-gensyms (types functions pos)
       `(let ((,types (vector))
 	     (,functions (vector)))
@@ -248,8 +249,13 @@ default."
     (setf (aref vec i) (* (aref vec i) val))))
 
 (defmethod scal! (val (lst list))
-  "On lists, scal! returns a freshly consed value."
+  "Call @func{scal!} on each entry of @var{lst}.  Note that the result has
+to be freshly consed, because @func{scal!} is a function, not a macro."
   (mapcar #'(lambda (entry) (scal! val entry)) lst))
+
+(defmethod scal! (val (array array))
+  "Call @func{scal!} on each entry of @var{array}."
+  (call-next-method))
 
 (define-vector-blas-method axpy! ((alpha number) (x vector) (y vector))
   (dotimes (i (length x) y)

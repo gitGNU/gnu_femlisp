@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :strategy)
+(in-package :fl.strategy)
 
 (defclass <error-estimator> ()
   ()
@@ -198,8 +198,7 @@ solution, matrix and rhs in an enriched ansatz space."))
 space."
   (with-items (&key enlarged-as-blackboard problem mesh refined-cells)
     blackboard
-    (unless enlarged-as-blackboard
-      (setf enlarged-as-blackboard (blackboard)))
+    (ensure enlarged-as-blackboard (blackboard))
     (let* ((as-low (getbb blackboard :ansatz-space))
 	   (order (discretization-order (fe-class as-low)))
 	   (as-high (or (getbb enlarged-as-blackboard :ansatz-space)
@@ -232,8 +231,7 @@ estimator is computationally more intensive than the original problem."
   (with-items (&key mesh problem strategy refined-cells
 		    dual-problem-blackboard enlarged-as-blackboard)
       blackboard
-    (unless dual-problem-blackboard
-      (setf dual-problem-blackboard (blackboard)))
+    (ensure dual-problem-blackboard (blackboard))
     (unless (getbb dual-problem-blackboard :ansatz-space)
       (let* ((dual-problem (dual-problem problem (functional errest)))
 	     (as-low (getbb blackboard :ansatz-space))

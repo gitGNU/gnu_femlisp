@@ -32,21 +32,52 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
+
+(defun problem-discretization (problem &key parametric (level 1) (order 1) &allow-other-keys)
+  "Returns stiffness matrix and rhs for a discretization of order
+@var{order} on a mesh with a mesh-size 2^@var{-level}."
+  (let ((mm (uniformly-refined-hierarchical-mesh (domain problem) level
+						  :parametric parametric))
+	(fedisc (lagrange-fe order)))
+    (discretize-globally problem mm fedisc)))
+
+(defun model-problem-discretization (&key (dim 1) (size 1) (level 1) (order 1) &allow-other-keys)
+  "Returns stiffness matrix and right-hand side for the discretization of
+the Laplace model problem on a cube of dimension @var{dim} using a mesh of
+meshwidth 1/@var{size} cells in each dimension with Lagrange finite
+elements of order @var{order}."
+  (let* ((problem (cdr-model-problem dim))
+	 (fedisc (lagrange-fe order))
+	 (domain (n-cube-domain dim))
+	 (mm (change-class (uniform-mesh-on-box-domain domain size) '<hierarchical-mesh>)))
+    (loop repeat level do (refine mm))
+    (discretize-globally problem mm fedisc)))
+
+(defun iteration-test (linit &rest args &key (maxsteps 200) output &allow-other-keys)
+  "Tests the linear iteration @var{linit} on a model problem specified via
+keyword parameters in @var{args}."
+  (multiple-value-bind (A b constraints-P constraints-Q constraints-r)
+      (apply #'model-problem-discretization args)
+    (declare (ignore constraints-Q))
+    (let ((x (copy b)))
+      (x<-0 b) (fill-random! x 1.0)
+      (fill-random! x 1.0)
+      (x<-Ay x constraints-P constraints-r)
+      (let ((ls (make-instance '<linear-solver> :iteration linit
+			       :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps))
+			       :output output)))
+	(setq *result* (solve ls (blackboard :problem (lse :matrix A :rhs b :solution x))))
+	(getbb *result* :report)))))
 
 (defun solve-laplace (problem level order &key parametric (solver *lu-solver*))
-  (let* ((mm (uniformly-refined-hierarchical-mesh (domain problem) level
-					   :parametric parametric))
-	 (fedisc (lagrange-fe order)))
-    (multiple-value-bind (matrix rhs)
-	(discretize-globally problem mm fedisc)
-      (getbb (solve solver (blackboard :problem (lse :matrix matrix :rhs rhs)))
-	     :solution))))
-
-#+(or) (getrs (sparse-ldu mat :ordering
-			  (loop for cell in (hierarchically-ordered-cells mm)
-				when (matrix-row mat cell) collect cell))
-	      rhs)
+  "An old routine for solving the Laplace problem.  You should use the
+interface provided by @code{solve} which provides automatic and more
+general solving together with a more flexible customization."
+  (multiple-value-bind (matrix rhs)
+      (problem-discretization problem :level level :order order :parametric parametric)
+    (getbb (solve solver (blackboard :problem (lse :matrix matrix :rhs rhs)))
+	   :solution)))
 
 (defun check-h-convergence (problem min-level max-level
 			    &key order position (solver *lu-solver*))
@@ -77,37 +108,5 @@
 	(format t "~5D :  ~12,6,2E" order new-approx)
 	(when old-approx (format t "   :  ~12,6,2E" (- new-approx old-approx)))
 	(terpri)))
-
-(defun problem-discretization (problem &key (level 1) (order 1) &allow-other-keys)
-  "Returns stiffness matrix and rhs for a discretization of order order on
-a mesh with 2^level cells."
-  (let ((mm (uniformly-refined-hierarchical-mesh (domain problem) level))
-	(fedisc (lagrange-fe order)))
-    (discretize-globally problem mm fedisc)))
-
-(defun model-problem-discretization (&key (dim 1) (size 1) (level 1) (order 1) &allow-other-keys)
-  "Returns problem data for model problem on a cube of dimension dim using
-a mesh of size cells in each dimension."
-  (let* ((problem (cdr-model-problem dim))
-	 (fedisc (lagrange-fe order))
-	 (domain (n-cube-domain dim))
-	 (mm (change-class (uniform-mesh-on-box-domain domain size) '<hierarchical-mesh>)))
-    (loop repeat level do (refine mm))
-    (discretize-globally problem mm fedisc)))
-
-(defun iteration-test (linit &rest args &key (maxsteps 200) output &allow-other-keys)
-  "Tests iteration on a model problem."
-  (multiple-value-bind (A b constraints-P constraints-Q constraints-r)
-      (apply #'model-problem-discretization args)
-    (declare (ignore constraints-Q))
-    (let ((x (copy b)))
-      (x<-0 b) (fill-random! x 1.0)
-      (fill-random! x 1.0)
-      (x<-Ay x constraints-P constraints-r)
-      (let ((ls (make-instance '<linear-solver> :iteration linit
-			       :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps))
-			       :output output)))
-	(setq *result* (solve ls (blackboard :problem (lse :matrix A :rhs b :solution x))))
-	(getbb *result* :report)))))
 
 

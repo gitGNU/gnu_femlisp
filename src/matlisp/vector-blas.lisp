@@ -247,23 +247,11 @@
 			,@body)))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun remove-subclass-methods (gf template-args)
-    "Removes all methods dispatching on subclasses of the template
-arguments."
-    (loop for method in (copy-seq (pcl:generic-function-methods gf))
-	  when (every #'subtypep
-		      (pcl::method-specializers method)
-		      (mapcar #'(lambda (arg)
-				  (if (consp arg)
-				      (second arg)
-				      T))
-			      template-args))
-	  do (remove-method gf method)))
 
   (defun dispatcher-code (name template-args body)
     "Generates a method which generates code for a type-specialized method."
     (whereas ((gf (and (fboundp name) (symbol-function name))))
-      (remove-subclass-methods gf template-args))
+      (fl.amop:remove-subclass-methods gf template-args))
     (let ((actual-args (gensym "ACTUAL-ARGS")))
       `(defmethod ,name ,template-args
 	,@(when (stringp (car body)) (list (car body)))

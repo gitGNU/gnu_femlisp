@@ -4,7 +4,7 @@
 ;;; fe-interpolation.lisp - FE interpolation strategy
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2004 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -32,42 +32,59 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :strategy)
+(in-package :fl.strategy)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Class definition
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <fe-interpolation> (<fe-approximation>)
-  ()
+  ((coefficient :initarg :coefficient :documentation
+	     "A coefficient determining the function to be interpolated."))
   (:documentation "This class implements adaptive finite element
-interpolation as a variant of finite element approximation."))
+interpolation of the given coefficient function as a variant of finite
+element approximation."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Adaption of the fe-approximation strategy
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod approximate ((fe-strategy <fe-interpolation>) blackboard)
-  "Interpolates a given function using the dof-functionals."
-  (with-items (&key mesh solution function) blackboard
+  "Interpolates a given function.  Does only Lagrange interpolation at the
+moment."
+  (with-items (&key mesh problem solution) blackboard
     (let ((fe-class (fe-class fe-strategy)))
       (doskel (cell mesh)
-	(setf (vref solution (cell-key cell mesh))
-	      (interpolate-on-refcell
-	       (get-fe fe-class cell)
-	       (compose function (curry #'local->global cell))))))))
+	(let ((fe (get-fe fe-class cell)))
+	  (unless (zerop (nr-of-inner-dofs fe))
+	    (let* ((patch (patch-of-cell cell mesh))
+		   (coeff (getf (coefficients-of-patch patch problem)
+				(slot-value fe-strategy 'coefficient))))
+	      (setf (vref solution (cell-key cell mesh))
+		    (interpolate-on-refcell
+		     fe #'(lambda (x)
+			    (evaluate coeff (list :global (local->global cell x)))))))))))))
 
 ;;;; Testing
 
+
 (defun test-fe-interpolation ()
   (let* ((dim 1) (order 4) (levels 3)
+	 (domain (n-cube-domain dim))
+	 (problem (make-instance
+		   '<interpolation-problem> :domain domain
+		   :patch->coefficients
+		   #'(lambda (patch)
+		       (princ patch) (terpri)
+			(list 'INITIAL
+			      (function->coefficient
+			       #'(lambda (x) (sin (* 2 pi (aref x 0)))))))))
 	 (fe-class (lagrange-fe order))
 	 (strategy (make-instance
-		    '<fe-interpolation> :fe-class fe-class
+		    '<fe-interpolation> :fe-class fe-class :coefficient 'INITIAL
 		    :indicator (make-instance '<uniform-refinement-indicator>)
 		    :success-if `(>= :nr-levels ,levels) :plot-mesh nil :output t))
-	 (bb (blackboard :domain (n-cube-domain dim)
-			 :function #'(lambda (x) (sin (* 2 pi (aref x 0)))))))
+	 (bb (blackboard :problem problem)))
     (solve strategy bb)
     (plot (getbb bb :solution)))
   )

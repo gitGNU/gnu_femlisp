@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :application)
+(in-package :fl.application)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -69,8 +69,8 @@ diffusion tensor."
    :multiplicity dim :patch->coefficients
    #'(lambda (patch)
        (when (= (dimension patch) dim)
-	 (list 'CDR::DIFFUSION (ensure-coefficient diffusion-function)
-	       'CDR::GAMMA (constant-coefficient (eye dim)))))))
+	 (list 'FL.CDR::DIFFUSION (ensure-coefficient diffusion-function)
+	       'FL.CDR::GAMMA (constant-coefficient (eye dim)))))))
 
 (defun simple-square-inlay-cell-problem (dim)
   (cell-problem
@@ -117,10 +117,10 @@ inlay and the component of the cell vector."
    :multiplicity dim :patch->coefficients
    #'(lambda (patch)
        (when (= (dimension patch) dim)
-	 (list 'CDR::DIFFUSION
+	 (list 'FL.CDR::DIFFUSION
 	       (constant-coefficient
 		(scal! (if (patch-in-inlay-p patch) eps 1.0) (eye dim)))
-	  'CDR::GAMMA (constant-coefficient (eye dim)))))))
+	  'FL.CDR::GAMMA (constant-coefficient (eye dim)))))))
 
 (defun porous-cell-problem (dim &key (radius 0.3) A)
   (make-instance
@@ -131,8 +131,8 @@ inlay and the component of the cell vector."
    :multiplicity dim :patch->coefficients
    #'(lambda (patch)
        (when (= (dimension patch) dim)
-	 (list 'CDR::DIFFUSION (constant-coefficient (eye dim))
-	       'CDR::GAMMA (constant-coefficient (eye dim)))))))
+	 (list 'FL.CDR::DIFFUSION (constant-coefficient (eye dim))
+	       'FL.CDR::GAMMA (constant-coefficient (eye dim)))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -187,7 +187,7 @@ must be a scalar multiple of the identity."
 #+(or)(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t :output :all)
 #+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 3)
 #+(or)
-(let ((A (algebra::ellipse-matrix 0.25 0.3 0.7854)))
+(let ((A (FL.algebra::ellipse-matrix 0.25 0.3 0.7854)))
   (cdr-interior-effective-coeff-demo (porous-cell-problem 2 :A A) 4 2 :plot t))
 
 ;;; Gauss-Lobatto points
@@ -265,7 +265,7 @@ must be a scalar multiple of the identity."
 
 ;;grid is not inlay-adapted
 (plot (simple-ball-inlay-cell-problem 1 0.1) :refinements 3
-	:coefficient 'CDR::DIFFUSION :key (rcurry #'mref 0 0))
+	:coefficient 'FL.CDR::DIFFUSION :key (rcurry #'mref 0 0))
 
 ;; solve cell problem and compute homogenized coefficient
 (defparameter *result*
@@ -279,7 +279,7 @@ must be a scalar multiple of the identity."
 
 ;; inlay adapted grid
 (plot (inlay-cell-problem 2 0.1) :refinements 0 :depth 2 :parametric (lagrange-mapping 3)
-	:coefficient 'CDR::DIFFUSION :key (rcurry #'mref 0 0))
+	:coefficient 'FL.CDR::DIFFUSION :key (rcurry #'mref 0 0))
 
 ;; first order with lu-solver
 (setq *result*

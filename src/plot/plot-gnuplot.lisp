@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :plot)
+(in-package :fl.plot)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Default graphic commands
@@ -129,7 +129,7 @@ graphs."
     (cons
      "{/Symbol \\266W^e}"
      (loop for phi from 0 upto (* 2 pi) by (* 0.005 pi)
-	   for r = #I"1.1 + 0.05*sin(phi)^^2*sin(40*phi)"
+	   for r = #I"1 + 0.1*sin(phi)^^2*sin(40*phi)"
 	   collect (vector (* r (cos phi)) (* r (sin phi))))))
    :border nil :tics nil
    :terminal #-(or)"postscript eps enhanced color" #+(or) "epslatex color"

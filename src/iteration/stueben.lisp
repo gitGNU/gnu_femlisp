@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :multigrid)
+(in-package :fl.multigrid)
 
 ;;;; This file contains coarsening and interpolation routines for an
 ;;;; algebraic multigrid of selection type.  Such AMG algorithms were first
@@ -47,7 +47,7 @@ selection amg.  The original Ruge-Stueben algorithm was developed further
 since 1987 by Klaus Stueben and collaborators.  These developments are
 published in ....  The algorithm implemented here uses their ideas, but
 does not claim to be equivalent to their code which can be bought at SCAI,
-St. Augustin, Germany.  At this point, I want to thank Tanja F{\"u}llenbach
+St. Augustin, Germany.  At this point, I want to thank Tanja Fuellenbach
 for several discussions on AMG."))
 
 (defparameter *standard-stueben* (make-instance '<stueben>)
@@ -256,5 +256,5 @@ corresponding index."))
 	     (blackboard :problem (lse :matrix A :rhs b)))))
   )
 
-;;; (multigrid::test-stueben)
+;;; (test-stueben)
 (fl.tests:adjoin-test 'test-stueben)

@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :algebra)
+(in-package :fl.algebra)
 
 (defclass <ldu-sparse> ()
   ((lower-left :reader lower-left :initarg :lower-left :type <sparse-matrix>)

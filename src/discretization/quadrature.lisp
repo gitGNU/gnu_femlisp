@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; integration points <ip>
@@ -62,7 +62,7 @@
   (declare (type list mono))
   (declare (type fixnum dim))
   (/ (factorial mono)
-     (factorial (+ dim (sum-over mono)))))
+     (factorial (+ dim (reduce #'+ mono)))))
 
 (defun integrate-over-reference-simplex (poly n)
   "Integrates a polynomial over the reference simplex.  This is done by

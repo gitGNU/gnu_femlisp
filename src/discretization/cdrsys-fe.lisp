@@ -33,21 +33,25 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-package "COMMON-LISP-USER")
-(defpackage "CDRSYS-FE"
+(defpackage "FL.CDRSYS-FE"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"MESH" "PROBLEM" "CDRSYS" "DISCRETIZATION")
-  (:export))
-(in-package :cdrsys-fe)
+	"FL.MESH" "FL.PROBLEM" "FL.CDRSYS" "FL.DISCRETIZATION")
+  (:export)
+  (:documentation "This package specializes the finite element
+discretization for systems of convection-diffusion-reaction type."))
 
+(in-package "FL.CDRSYS-FE")
+
+#+(or)
 (defmethod discretize-locally ((problem <cdrsys-problem>) coeffs vecfe qrule fe-geometry
 			       &key local-mat local-rhs local-sol local-u local-v
 			       coefficient-parameters &allow-other-keys)
   "Local discretization for a convection-diffusion-reaction system."
-  (let ((diffusion-function (getf coeffs 'CDRSYS::DIFFUSION))
-	(convection-function (getf coeffs 'CDRSYS::CONVECTION))
-	(gamma-function (getf coeffs 'CDRSYS::GAMMA))
-	(source-function (getf coeffs 'CDRSYS::SOURCE))
-	(reaction-function (getf coeffs 'CDRSYS::REACTION)))
+  (let ((diffusion-function (getf coeffs 'FL.CDRSYS::DIFFUSION))
+	(convection-function (getf coeffs 'FL.CDRSYS::CONVECTION))
+	(gamma-function (getf coeffs 'FL.CDRSYS::GAMMA))
+	(source-function (getf coeffs 'FL.CDRSYS::SOURCE))
+	(reaction-function (getf coeffs 'FL.CDRSYS::REACTION)))
     (error "NYI")))
 
 

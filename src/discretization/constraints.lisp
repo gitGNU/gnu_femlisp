@@ -32,7 +32,12 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :discretization)
+(in-package :fl.discretization)
+
+(file-documentation
+ "This file contains routines for handling constraints.  Constraints
+originate from geometry (identified boundaries), problem (essential
+boundary conditions), or discretization (hanging nodes).")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Essential constraints
@@ -49,6 +54,22 @@ delegate it to the specialized assembly."
   (essential-boundary-constraints
    (problem ansatz-space) ansatz-space
    :level level :where where :interface interface))
+
+(defun constrained-interpolation-matrix (ansatz-space &key level where imat)
+  "The multigrid algorithm needs an interpolation which satisfies the
+constraints like essential or periodic boundary conditions."
+  (let ((imat (interpolation-matrix ansatz-space :level level :imat imat)))
+    ;; Could this create problems for FAS and non-Dirichlet b.c.??  Should
+    ;; prolongation respect the constraints for level+1 and restriction for
+    ;; level?  Alternatively, this could be achieved by enforcing the
+    ;; constraints after the operation, as in UG.
+    (let ((constraints-P (compute-essential-boundary-constraints
+			  ansatz-space :level (1+ level) :where where)))
+      (remove-projection-range imat constraints-P :row-p t))
+    (let ((constraints-P (compute-essential-boundary-constraints
+			  ansatz-space :level level :where where)))
+      (remove-projection-range imat constraints-P :column-p t))
+    imat))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Hanging-node constraints
@@ -182,7 +203,7 @@ sets the constraint matrix to identity for the level-unknowns."
 
 (defun assemble-constraints (ansatz-space)
   (macrolet ((set-constraints (name P Q r)
-	       `(symbol-macrolet ((line (structure-information ansatz-space)))
+	       `(symbol-macrolet ((line (properties ansatz-space)))
 		 (setf (getf line ,(intern (concatenate 'string name "-P") :keyword)) ,P)
 		 (setf (getf line ,(intern (concatenate 'string name "-Q") :keyword)) ,Q)
 		 (setf (getf line ,(intern (concatenate 'string name "-R") :keyword)) ,R))))
@@ -275,8 +296,8 @@ constraints are included in matrix and rhs."
 		      (map-hash-table #'(lambda (key val) (values key (copy val)))
 				      column))))))
     (when rhs
-      (setf (slot-value result-rhs 'algebra::blocks)
-	    (copy-hash-table (slot-value rhs 'algebra::blocks)))
+      (setf (slot-value result-rhs 'fl.algebra::blocks)
+	    (copy-hash-table (slot-value rhs 'fl.algebra::blocks)))
       (dohash (key region)
 	(setf (vref result-rhs key) (copy (vref rhs key)))))
     

@@ -32,7 +32,7 @@
 
 ;;; -*- mode: Lisp; mode : outline-minor; -*-
 
-(in-package application)
+(in-package :fl.application)
 
 ;;; * Linear iterations
 
@@ -154,7 +154,7 @@
 (progn
   #+(or)
   (plot (inlay-cell-problem 2 0.1) :refinements 2
-	:coefficient 'CDR::DIFFUSION :key (rcurry #'mref 0 0))
+	:coefficient 'FL.CDR::DIFFUSION :key (rcurry #'mref 0 0))
   ;; first order approximation
   (homogenized-diffusion-tensor
    (cell-solve (inlay-cell-problem 2 0.1 0) :level 1

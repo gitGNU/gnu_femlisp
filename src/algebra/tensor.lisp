@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :algebra)
+(in-package :fl.algebra)
 
 ;;;; Provides an extension of vectors and (matlisp) matrices operations to
 ;;;; tensors of arbitrary dimension.

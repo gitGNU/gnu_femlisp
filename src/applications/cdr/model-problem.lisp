@@ -30,7 +30,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package application)
+(in-package :fl.application)
 
 ;;; exact values for u(1/2,...,1/2) for the solution of
 ;;;    - \delta u = 1
@@ -157,5 +157,5 @@ seconds have passed after a step."
     (check-p-convergence problem 1 4 :level 0 :position #d(0.5 0.5 0.5)))
   )
 
-;;; (application::test-laplace-model-problem)
+;;; (FL.application::test-laplace-model-problem)
 (fl.tests:adjoin-test 'test-laplace-model-problem)
