@@ -68,14 +68,26 @@
 ;;(mk:oos 'femlisp 'compile :force :all :verbose t :compile-during-load t)
 (mk:oos 'femlisp 'compile :minimal-load t :verbose t :compile-during-load t)
 
-(format
- t "~&~%*** Femlisp-0.8
+(eval-when (:load-toplevel :compile-toplevel :execute)
+(defparameter *femlisp-version* "0.8.2")
+(defun femlisp-version () *femlisp-version*)
+(defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
+#+cmu (setf (getf ext:*herald-items* :femlisp)
+	    (list (femlisp-herald))))
+
+(defun femlisp-banner ()
+  (format
+   t "~&~%*** Femlisp-0.8.2 ***
 
 Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
 
-Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the file LICENSE
-in the Femlisp main directory.  This is free software, and you are welcome
-to redistribute it under certain conditions.
+Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
+file LICENSE in the Femlisp main directory.  This is free
+software, and you are welcome to redistribute it under certain
+conditions.
 
-Type (femlisp-demo:demo) to get a guided tour through Femlisp.")
+Type (demo) or (femlisp-demo:demo) to get a guided tour through
+Femlisp.~%~%"))
+
+(femlisp-banner)
 
