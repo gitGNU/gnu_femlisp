@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :iterations)
+(in-package :iteration)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; General solver class
@@ -74,34 +74,24 @@ iterative solvers."))
 ;;; Testing success and failure
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-stop-condition (condition &key defnorm initial-defnorm previous-defnorm step)
-  "Condition should be an expression of the form cond where cond can be one
-of the forms '(:defnorm< val)' '(:reduction< val)' '(step-reduction> val)'
-'(step> val)'.  Furthermore, arbitrary logical expressions involving these
-forms are allowed.  This function is called within an interative solver to
-decide on success and failure of the scheme."
+(defun test-condition (condition &key defnorm initial-defnorm previous-defnorm step)
+  "Condition can be an expression involving the keywords :step, :defnorm,
+:reduction, :step-reduction which is evaluated."
   (let ((reduction (and initial-defnorm defnorm (not (zerop initial-defnorm))
 			(/ defnorm initial-defnorm)))
 	(step-reduction (and defnorm previous-defnorm (not (zerop previous-defnorm))
 			     (/ defnorm previous-defnorm))))
-    (eval (remove-from-tree
-	   nil
-	   (walk-tree
-	    #'(lambda (node)
-		(if (listp node)
-		    (case (car node)
-		      (:defnorm< (and defnorm (list* '< defnorm (cdr node))))
-		      (:reduction<
-		       (and (numberp reduction) (list* '< reduction (cdr node))))
-		      (:step-reduction>
-		       (and step-reduction (list* '> step-reduction (cdr node))))
-		      (:step> (and step (list* '> step (cdr node))))
-		      (t node))
-		    node))
-	    condition)))))
+    (let ((condition 
+	   (sublis `((:step . ,step) (:defnorm . ,defnorm) (:reduction . ,reduction)
+		     (:step-reduction . ,step-reduction))
+		   condition)))
+      (unless (rmember NIL condition)
+	;; the condition is valid and its value is returned
+	(eval condition)))))
 
 ;;;; Testing: (test-solve)
 (defun test-solve ()
-  (test-stop-condition '(or (:step> 5)) :step 10)
+  (test-condition '(and (> :step 5) (< :defnorm 1.0e-8))
+		  :defnorm 1.0e-9 :initial-defnorm 1 :previous-defnorm 0.5 :step 10)
   )
 (tests::adjoin-femlisp-test 'test-solve)

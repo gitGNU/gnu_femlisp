@@ -63,7 +63,8 @@ results.")
    (base-level :reader base-level :initform 0 :initarg :base-level)
    (coarse-grid-iteration :reader coarse-grid-iteration
 			  :initform *default-coarse-grid-iteration*
-			  :initarg :coarse-grid-iteration)
+			  :initarg :coarse-grid-iteration
+			  :initarg :coarse-grid-solver)
    (fmg :reader fmg :initform nil :initarg :fmg))
   (:documentation "The multigrid iteration is a linear iteration specially
 suited for the solution of systems of equations with elliptic terms.  In
@@ -248,7 +249,10 @@ level for computing the correction to be prolongated."
       (t
        (smooth mg-it mg-data :pre)
        (restrict mg-it mg-data)
-       (loop for i from (gamma mg-it) downto 1 do
+       (loop for i from (cond ((zerop (gamma mg-it)) 0)
+			      ((= current-level base-level) 1)
+			      (t (gamma mg-it)))
+	     downto 1 do
 	     (lmgc mg-it mg-data)
 	     (unless (= i 1)
 	       (ensure-residual mg-it mg-data)))
@@ -307,7 +311,12 @@ grid, or an algebraic multigrid iteration."
 			  post-steps))))
 	;; coarse-grid iterator
 	(when (or (= top-level base-level) (> gamma 0))
-	  (setq coarse-grid-it (make-iterator coarse-grid-iteration (aref a-vec base-level))))
+	  (setq coarse-grid-it
+		(make-iterator
+		 (etypecase coarse-grid-iteration
+		   (<iteration> coarse-grid-iteration)
+		   (<solver> (make-instance '<solver-iteration> :solver coarse-grid-iteration)))
+		  (aref a-vec base-level))))
 	
 	;; and return the multigrid iterator
 	(make-instance

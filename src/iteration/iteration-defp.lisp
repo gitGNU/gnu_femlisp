@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; iterations-defp.lisp
+;;; iteration-defp.lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -34,7 +34,7 @@
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "ITERATIONS"
+(defpackage "ITERATION"
   (:use "COMMON-LISP" "GENERAL" "MACROS" "UTILITIES" "ALGEBRA" "MATLISP"
 	"TESTS" "FEMLISP-DEBUG")
   (:import-from "MATLISP" "GETRF!")
@@ -48,7 +48,7 @@
    ;; newton.lisp
    "NEWTON"
    ;; linit.lisp
-   "<LINEAR-ITERATION>" "DAMPING-FACTOR" "<ITERATOR>" "MAKE-ITERATOR"
+   "<ITERATION>" "<LINEAR-ITERATION>" "DAMPING-FACTOR" "<ITERATOR>" "MAKE-ITERATOR"
    "LINSOLVE" "COMPUTE-RESIDUAL"
    "ITERATE" "RESIDUAL-BEFORE" "INITIALIZE" "ITERATE" "RESIDUAL-AFTER" "MATRIX"
    "<MULTI-ITERATION>" "PRODUCT-ITERATOR"

@@ -81,6 +81,27 @@ identification and hanging nodes."
     ;; return result
     block-keys))
 
+(defun find-connected-blocks-in-table (table asa)
+  (flet ((extend (keys)
+	   (let ((new ()))
+	     (dolist (rk keys (append new keys))
+	       (for-each-key-in-row
+		#'(lambda (ck)
+		    (when (gethash ck table)
+		      (unless (member ck keys)
+			(push ck new)
+			(remhash ck table))))
+		asa rk)))))
+    (loop until (zerop (hash-table-count table)) collecting
+	  (loop with key = (get-arbitrary-key-from-hash-table table)
+		with keys = (list key)
+		initially (remhash key table)
+		for extend = (extend keys)
+		until (eq extend keys) do
+		(setq keys extend)
+		finally (return (coerce keys 'vector))))))
+
+
 (defmethod setup-blocks ((bgs <local-bgs>) (asa <sparse-matrix>))
   "Collects blocks consisting either of all subcells of cells in the
 cell-centered case or all cells to which a vertex belongs in the
@@ -88,27 +109,40 @@ vertex-centered case."
   (dbg :iter "<local-bgs>-setup-blocks: starting")
   (let ((mesh-dim (dimension (mesh asa)))
 	(type (slot-value bgs 'type))
-	(blocks ()))
+	(blocks ())
+	(remaining (make-hash-table)))
     (for-each-row-key
      #'(lambda (key)
 	 (let ((block-keys ()))
 	   ;; enlarge support under some circumstances
-	   (if (slave-or-dirichlet-dof-p key asa)
-	       (setq block-keys (list key))
-	       (ecase type
+	   (cond
+	     ((slave-dof-p key asa)
+	      (setq block-keys (list key)))
+	     #+(or) ((dirichlet-dof-p key asa)  ; is treated as everything else
+		     (setq block-keys (list key)))
+	     ((= (dimension (representative key))
+		 (ecase type (:vertex-centered 0) (:cell-centered mesh-dim)))
+	      (ecase type 
 		 (:cell-centered
-		  (when (= (dimension (representative key)) mesh-dim)
-		    (for-each-key-in-row
-		     #'(lambda (col-key) (push col-key block-keys))
-		     asa key)))
+		  (for-each-key-in-row
+		   #'(lambda (col-key) (push col-key block-keys))
+		   asa key))
 		 (:vertex-centered
-		  (when (= (dimension (representative key)) 0)
-		    (setq block-keys (find-vertex-centered-block key asa))))))
+		  (setq block-keys (find-vertex-centered-block key asa)))))
+	     (t ;; may remain at the boundaries (e.g. on triangles)
+	      (setf (gethash key remaining) t)))
 	   (when block-keys
 	     (push (sort (coerce block-keys 'vector) #'>
 			 :key (compose #'dimension #'representative))
 		   blocks))))
      asa)
+    ;; remove all from remaining which are covered
+    (loop for block in blocks do
+	  (loop for key across block do
+		(remhash key remaining)))
+    (dohash (key remaining)
+      (assert (dirichlet-dof-p key asa)))
+    #+(or)(setq blocks (nconc blocks (find-connected-blocks-in-table remaining asa)))
     (dbg :iter "<local-bgs>-blocks: ~A" blocks)
     blocks))
 
@@ -164,16 +198,16 @@ degrees of freedom."
     (values result-blocks result-components)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; <heuveline-vanka>
+;;;; <john-heuveline-vanka>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <ns-vanka> (<local-bgs>)
+(defclass <john-heuveline-vanka> (<local-bgs>)
   ()
   (:documentation "Special Vanka smoother used by Volker John and Vincent
 Heuveline to solve Q^{k+1}/Q^k discretizations of Navier-Stokes."))
 
 
-(defmethod setup-blocks ((vanka <ns-vanka>) (asa <ansatz-space-automorphism>))
+(defmethod setup-blocks ((vanka <john-heuveline-vanka>) (asa <ansatz-space-automorphism>))
   "Sets the block slot by collecting blocks consisting either of all
 subcells in the cell-centered case or all cells to which a vertex belongs
 in the vertex-centered case."
@@ -199,6 +233,6 @@ in the vertex-centered case."
 		 (push (map 'vector #'car inner-block) blocks)
 		 (push (map 'vector #'cdr inner-block) components))))))
      asa)
-    (dbg :iter "Heuveline-Vanka blocks: ~D" (length blocks))
+    (dbg :iter "John-Vanka blocks: ~D" (length blocks))
     (values blocks components)))
 

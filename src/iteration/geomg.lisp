@@ -97,12 +97,12 @@ already assembled.  Works only for uniformly refined meshes."
 	    (let ((eliminated-mat
 		   (eliminate-constraints
 		    l-mat nil essential-P essential-Q essential-r
-		    :include-constraints t :assemble-locally t)))
+		    :include-constraints t)))
 	      (setf (aref a-vec level) eliminated-mat))))
     ;; set the interpolation vector
     (loop for level below top-level
 	  for imat = (constrained-interpolation-matrix
-		       ansatz-space :level level :where :refined)
+		      ansatz-space :level level :where :refined)
 	  do
 	  (extend-by-identity imat (row-table (aref a-vec level))
 			      :ignore (column-table imat))

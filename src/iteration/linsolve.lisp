@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :iterations)
+(in-package :iteration)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Linear solving
@@ -96,7 +96,7 @@ linear-iteration on the matrix mat."
 				     (/ defnorm defnorm0)))
 	    for success-p =
 	    (if success-if
-		(test-stop-condition
+		(test-condition
 		 success-if :defnorm defnorm :previous-defnorm previous-defnorm
 		 :initial-defnorm defnorm0 :step i)
 		(or (and threshold (< defnorm threshold))
@@ -111,7 +111,7 @@ linear-iteration on the matrix mat."
 	      (funcall it i defnorm previous-defnorm :indentation indentation))
 	    until (or success-p
 		      (if failure-if
-			  (test-stop-condition
+			  (test-condition
 			   failure-if :defnorm defnorm :previous-defnorm previous-defnorm
 			   :initial-defnorm defnorm0 :step i)
 			  (and maxsteps (>= i maxsteps))))

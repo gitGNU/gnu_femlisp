@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :iterations)
+(in-package :iteration)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; block iterations
@@ -73,7 +73,8 @@ the standard blocking introduced by the block sparse matrix."
   ((omega :initform 1.0d0 :initarg :omega)
    (store-p :reader store-p :initform t :initarg :store-p)))
 
-(defclass <block-gauss-seidel> (<block-sor>))
+(defclass <block-gauss-seidel> (<block-sor>)
+  ())
 
 (defmethod make-iterator ((bgs <block-sor>) (smat <sparse-matrix>))
   (multiple-value-bind (blocks ranges)
@@ -85,8 +86,16 @@ the standard blocking introduced by the block sparse matrix."
 		 and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
 		 collecting
 		 (and (store-p bgs)
+		      #-(or)
 		      (m/ (sparse-matrix->matlisp
-			   smat :keys keys :ranges (car ranges-tail)))))))
+				       smat :keys keys :ranges (car ranges-tail)))
+		      #+(or)
+		      (let* ((inv (m/ (sparse-matrix->matlisp
+				       smat :keys keys :ranges (car ranges-tail))))
+			     (eig (eig inv)))
+			(dotimes (i (ncols eig))
+			  (assert (> (abs (matrix-ref eig i)) 1.0e-6)))
+			inv)))))
       (make-instance
        '<iterator>
        :matrix smat

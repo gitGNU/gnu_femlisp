@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :iterations)
+(in-package :iteration)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Iteration interface
@@ -187,7 +187,8 @@ parameter, eta is the diagonal enhancement."))
 ;;; Jacobi iteration
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <jacobi> (<linear-iteration>))
+(defclass <jacobi> (<linear-iteration>)
+  ())
 
 (defmethod make-iterator ((jac <jacobi>) (mat standard-matrix))
   (let ((damp (damping-factor jac)))
@@ -283,7 +284,7 @@ parameter, eta is the diagonal enhancement."))
 		     (x-=Ay corr mblock (vec-ref x col-key)))
 		 mat row-key)
 		(gemm! omega (gethash row-key diagonal-inverse) corr
-		       1.0d0 (matrix-ref x row-key))
+		       1.0d0 (vec-ref x row-key))
 		))
 	  mat))
      :residual-after nil)))

@@ -1,3 +1,4 @@
+
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -36,10 +37,10 @@
 
 (defpackage "GEOMG"
   (:use "COMMON-LISP" "COMMON-LISP-USER" "GENERAL" "UTILITIES" "MACROS" "ALGEBRA"
-	"MATLISP" "ITERATIONS" "MULTIGRID" "MESH" "DISCRETIZATION" "FEMLISP-DEBUG")
+	"MATLISP" "ITERATION" "MULTIGRID" "MESH" "DISCRETIZATION" "FEMLISP-DEBUG")
   (:export
    ;; geomg.lisp
    "<GEOMETRIC-CS>" "GEOMETRIC-CS" "<GEOMETRIC-FAS>" "FAS"
    "<S1-REDUCTION>" "<S1-COARSE-GRID-ITERATOR>" "S1-REDUCTION-AMG-SOLVER"
    ;; vanka.lisp
-   "<LOCAL-BGS>" "<VANKA>" "<NS-VANKA>"))
+   "<LOCAL-BGS>" "<VANKA>" "<JOHN-HEUVELINE-VANKA>"))
