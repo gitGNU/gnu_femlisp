@@ -44,22 +44,23 @@
 (defgeneric graphic-stream (program)
   (:documentation "Return the stream for the program."))
 
-(defgeneric graphic-file-name (object program &rest parameters)
+(defgeneric graphic-file-name (object program &rest rest &key &allow-other-keys)
   (:documentation "Return a filename for the data of this plot."))
 
-(defgeneric graphic-write-data (stream object program &rest rest)
+(defgeneric graphic-write-data (stream object program &rest rest &key &allow-other-keys)
   (:documentation "Will usually be the default method depending on several
 data elements in the rest parameters."))
 
-(defgeneric graphic-commands (object program &rest parameters)
+(defgeneric graphic-commands (object program &rest rest &key &allow-other-keys)
   (:documentation "Returns commands for plotting to be sent to the graphics
 server."))
 
-(defgeneric send-graphic-commands (stream object program &rest parameters)
+(defgeneric send-graphic-commands (stream object program &rest rest &key &allow-other-keys)
   (:documentation "Routine for sending commands to the graphics server."))
 
 #+(or)  ; inactive
-(defgeneric graphic-end (object program &rest rest)
+
+(defgeneric graphic-end (object program &key &allow-other-keys)
   (:documentation "End a graphics output."))
 
 ;;; default methods

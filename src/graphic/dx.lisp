@@ -68,13 +68,14 @@ on/off.  This is a trick to make dx redraw the picture.")
 ;;;; Communication with graphic servers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod graphic-file-name (object (program (eql :dx)) &rest parameters)
-  (declare (ignore object parameters))
+(defmethod graphic-file-name (object (program (eql :dx)) &key &allow-other-keys)
+  (declare (ignore object))
   (format nil "output-~D.dx" *dx-toggle*))
 
 (defmethod send-graphic-commands (stream object (program (eql :dx)) &rest paras
-					 &key (plot t) dimension (background :black)
-					 format filename &allow-other-keys)
+				  &key (plot t) dimension (background :black)
+				  (resolution 480) (width 480) (height 480)
+				  format filename &allow-other-keys)
   (let* ((file-name (apply #'graphic-file-name object program paras))
 	 (long-file-name (concatenate 'string *images-directory* file-name)))
     (format stream "data = Import(~S);~%" long-file-name)
@@ -82,15 +83,16 @@ on/off.  This is a trick to make dx redraw the picture.")
     (loop for script-command in (apply #'graphic-commands object program paras)
 	  when script-command do
 	  (format stream "~A~%" script-command))
-    (format stream "camera = AutoCamera(image, direction=~S, background=~S, resolution=480, aspect=1.0);~%"
+    (format stream "camera = AutoCamera(image, direction=~S, background=~S, resolution=~D, aspect=1.0);~%"
 	    (if (= dimension 3) "off-diagonal" "front")
-	    (ecase background (:black "black") (:white "white")))
+	    (ecase background (:black "black") (:white "white"))
+	    resolution)
     (format stream "image = Render(image, camera);~%")
     (ecase plot
       ((t :plot)
-       (let ((control "where=SuperviseWindow(\"femlisp-image\",size=[480,480],visibility=~D);~%"))
-	 (format stream control 2)
-	 (format stream control 1))
+       (let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
+	 (format stream control width height 2)
+	 (format stream control width height 1))
        (format stream "Display (image, where=where);~%"))
       (:file
        (when format
