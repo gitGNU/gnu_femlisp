@@ -132,7 +132,7 @@ function @arg{patch->raster} mapping patches to complete rasters."
 		    (eps (* threshold h)))
 	       (when (block nil
 		       (when (< depth minimal-depth) (return t))
-		       (whereas ((result (and indicator (funcall indicator patch x h))))
+		       (whereas ((result (and indicator (funcall indicator patch z h))))
 			 (ecase result
 			   (:yes (return t))
 			   (:no (return nil))))

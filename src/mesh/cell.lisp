@@ -375,7 +375,7 @@ vertices, i.e. multiple values g, Dg, ..., D^k g."))
 value of a fe function can be obtained by interpolation.  This is done by a
 Newton iteration, which converges in one step for linear mappings."))
 
-(defvar *g2l-newton-steps* 5
+(defvar *g2l-newton-steps* 20
   "Limit for the number of Newton steps for global->local.  Small numbers
 should work for reasonable geometries and initial values.")
 
