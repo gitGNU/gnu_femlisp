@@ -39,7 +39,7 @@
 
 (defpackage "FL.PORT"
   (:use "COMMON-LISP")
-  (:export "FIND-EXECUTABLE" "GETENV"
+  (:export "FIND-EXECUTABLE" "GETENV" "UNIX-CHDIR"
 	   "RUN-PROGRAM" "PROCESS-INPUT"
 	   "MAKE-PROGRAMMATIC-INSTANCE"))
 
@@ -69,6 +69,13 @@
   (error "Unknown Lisp implementation.")
   )
   
+(defun unix-chdir (path)
+  "Change the directory to @arg{path}."
+  #+cmu (unix:unix-chdir path)
+  #+sbcl (sb-posix:chdir path)
+  #-(or cmu sbcl) nil
+  )
+
 (defun run-program (program args &rest opts)
   "Interface to run-program."
   #+clisp (apply #'ext:run-program program :arguments args opts)

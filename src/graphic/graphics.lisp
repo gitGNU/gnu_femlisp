@@ -72,8 +72,7 @@ server."))
 ;;;; General graphics output
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod graphic-output (object program &rest rest
-			   &key debug &allow-other-keys)
+(defmethod graphic-output (object program &rest rest &key &allow-other-keys)
   "Calls the generic graphic interface in appropriate order."
   (let* ((filename (apply #'graphic-file-name object program rest))
 	 (pathname (concatenate 'string "femlisp:images;" filename)))
@@ -82,7 +81,8 @@ server."))
       (apply #'graphic-write-data stream object program rest))
     ;; send script commands to plot program
     (whereas ((stream (graphic-stream program)))
-      (when debug (apply #'send-graphic-commands *trace-output* object program rest))
+      (dbg-when :graphic
+	(apply #'send-graphic-commands *trace-output* object program rest))
       (apply #'send-graphic-commands stream object program rest)
       (force-output stream))))
 

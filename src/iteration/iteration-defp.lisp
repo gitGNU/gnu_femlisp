@@ -68,10 +68,19 @@
    "<BLOCK-SOR>" "<BLOCK-GAUSS-SEIDEL>" "<CUSTOM-BLOCK-GAUSS-SEIDEL>")
   (:export  ; newton.lisp
    "NEWTON")
-  (:documentation "The @code{FL.ITERATION} package includes the definition
-for the abstract classes @code{<solver>}, @code{<iteration>}, as well as
-the generic function @code{solve} which constitutes the interface for
-linear and non-linear solving.  Several instances of these classes are
-implemented, partially in other packages, e.g. @code{FL.MULTIGRID} and
-@code{FL.GEOMG}."))
+  (:documentation "The @package{FL.ITERATION} package includes the
+definition for the abstract classes @class{<solver>},
+@class{<iterative-solver>}, as well as the generic functions
+@function{iterate} and @function{solve} which constitutes the interface for
+linear and non-linear solving.  Both functions work on a blackboard which
+is passed together with the iteration used as argument.
+
+Several instances of iterative solvers are implemented, e.g. Gauss-Seidel,
+SOR, ILU (in @file{linit.lisp}) and CG (in @file{krylow.lisp}).  A larger
+block of code is contained in a separate package @package{FL.MULTIGRID} and
+contains the multigrid iteration.  From this class, an algebraic multigrid
+iteration is derived in @file{amg.lisp} and a geometric multigrid iteration
+in a separate file @file{geomg.lisp} and package @package{FL.GEOMG}."))
+
+
 

@@ -43,7 +43,7 @@ discretization for convection-diffusion-reaction problems.
 
 It can handle the following equation (@math{D_i=\partial{x_i}}):
 
-@math{- D_i (K_ij (D_j u + g_j) + D_i (c u) + r u = f}
+@math{- D_i (K_{ij} (D_j u + g_j) + D_i (c u) + r u = f}
 
 Here, @math{K} is the diffusion tensor, @math{c} is convection, @math{r} is
 reaction and @math{f} is source."))

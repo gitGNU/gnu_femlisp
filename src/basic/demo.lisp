@@ -39,7 +39,14 @@
   (:export "FEMLISP-DEMO" "LEAVES" "MAKE-DEMO" "ADJOIN-DEMO"
 	   "REMOVE-DEMO" "FIND-DEMO"
 	   "*DEMO-ROOT*" "*DEMO-TIME*"
-	   "USER-INPUT" "EXTRACT-DEMO-STRINGS"))
+	   "USER-INPUT" "EXTRACT-DEMO-STRINGS")
+  (:documentation "This package provides routines for building a
+demo suite.  Wherever something interesting can be demonstrated,
+a small demo node should be generated with the
+@function{make-demo} and added to the tree of all demos with
+@function{adjoin-demo}.  After loading @femlisp{}, the whole
+demo suite is available and can be run with the command
+@function{femlisp-demo}."))
 
 (in-package :fl.demo)
 
@@ -167,7 +174,7 @@ for `homogenization-2d'."
   (values))
 
 (defun adjoin-demo (demo parent)
-  "Adjoins a demo leaf to the parent."
+  "Adjoins the demo @arg{demo} to @arg{parent}."
   (let ((tail (member (name demo) (leaves parent) :test #'string-equal
 		      :key #'name)))
     (if tail
@@ -176,7 +183,7 @@ for `homogenization-2d'."
     nil))
 
 (defun remove-demo (demo parent)
-  "Removes a demo leaf."
+  "Remove @arg{demo} from @arg{parent}."
   (setf (leaves parent)
 	(unless (eq demo :all)
 	  (if (stringp demo)
@@ -192,8 +199,8 @@ bound to *standard-input*.  During testing this can be bound to
 a string stream to provide sample input.")
 
 (defun user-input (prompt test-p)
-  "User input for demo functions.  Reads lines until test-p
-returns t on the item read."
+  "User input for demo functions.  Reads lines until
+@arg{test-p} returns t on the item read."
   (loop for line = (progn (format t "~&~A" prompt)
 			  (finish-output)
 			  (read-line *user-input-stream*))

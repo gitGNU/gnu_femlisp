@@ -33,12 +33,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;; The idea of the Femlisp test suite is that every package or file is
-;;;; able to add locally consistency checks.  Those tests should be
-;;;; performed before a CVS commit or a release.
+;;;; able to add locally consistency checks.
 
 (defpackage "FL.TESTS"
   (:use "COMMON-LISP")
-  (:export "ADJOIN-TEST" "REMOVE-TEST" "TEST-FEMLISP"))
+  (:export "ADJOIN-TEST" "REMOVE-TEST" "TEST-FEMLISP")
+  (:documentation "This package provides routines for building a simple
+regression test suite.  Most files in @femlisp{} contain a test function at
+the end which checks several critical features which the file or module
+provides.  By calling the function @function{adjoin-test} at load time,
+this function is added to a list of functions to be checked.  After loading
+@femlisp{}, all functions in this list can be executed one after the other
+by calling the function @function{test-femlisp}.  Errors and exceptions are
+registered and finally reported.  It is very much recommended to run this
+test suite before a release."))
 
 (in-package :fl.tests)
 

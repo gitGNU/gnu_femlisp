@@ -7,7 +7,7 @@ which some parts of Femlisp call.  This is the following:
   but not yet with CMUCL.  This software is part of the CCLAN project
   hosted at www.sourceforge.net.
 
-- Mark Kantrowitz' INFIX package from the CMU AI repository.
-
-- Edi Weitz' CL-PPCRE, if you install it by executing "make cl-ppcre" from
-  the Femlisp main directory.
+- Mark Kantrowitz' INFIX package from the CMU AI repository.  Because the
+  license is not free in its strict sense, it is not included
+  automatically, but can be fetched from the web by issuing the command
+  "make infix" from within the Femlisp main directory.

@@ -94,13 +94,48 @@
     "INTERPOLATION-MATRIX" "CONSTRAINED-INTERPOLATION-MATRIX" "PROJECTION-MATRIX"
     "TRANSFER-MATRIX" "SORT-KEYS" "DECOMPOSE")
    
-   (:documentation "The @code{FL.DISCRETIZATION} package defines
-@code{<discretization>} as an abstract class and @code{<fe-discretization>}
-as a concrete derived class.  A generic function @code{get-fe} is used for
-associating a cell with a finite element @code{<fe>}, which is a data
-structure containing information about base functions and dual functionals
-on the corresponding cell.  Lagrange finite elements of arbitrary order are
-implemented as a special instance of @code{<fe-discretization>}.  Note that
-other discretizations as finite differences or finite volumes could easily
-be incorporated as well."))
+   (:documentation "The @package{FL.DISCRETIZATION} package defines
+@class{<discretization>} as an abstract class and
+@class{<fe-discretization>} as a concrete derived class.
+
+The key for local assembly is given by the generic function
+@function{get-fe}, which yields a suitable finite element for a given cell.
+The value of @function{get-fe} is a class @class{<fe>} for scalar problems
+or @class{<vector-fe>} for vector-valued problems which contains
+information on base functions and node functionals.  Another generic
+function @function{quadrature-rule} computes memoized quadrature rules for
+those finite elements.
+
+Obviously, also non-standard finite element discretizations like hp-methods
+would fit into this scheme.  The key for local assembly is given by the
+generic function @function{get-fe}, which yields a suitable finite element
+for a given cell.  The value of @function{get-fe} is a class @class{<fe>}
+for scalar problems or @class{<vector-fe>} for vector-valued problems which
+contains information on base functions and node functionals.  Another
+generic function @function{quadrature-rule} computes memoized quadrature
+rules for those finite elements.
+
+The file @path{lagrange.lisp} provides Lagrange finite elements of
+arbitrary order.  The evaluation points for the node functionals may be
+chosen either uniformly distributed or at the Gauss-Lobatto points.  The
+latter choice of points yields better stability properties but is
+restricted to cube meshes.  Also functions for constructing cell mappings
+by pointwise evaluation of the domain boundary are provided here, which may
+be used to construct isoparametric domain approximations.
+
+In the file @path{fedisc.lisp}, the function @function{fe-discretize} is
+defined.  This function performs the standard steps for finite element
+discretization: interior assembly, assembly and elimination of hanging-node
+and essential-boundary constraints.  It works on a blackboard as explained
+in Section @ref{Blackboards} and can reuse already available matrix-vector
+structure.  There is a somewhat less flexible interface provided by the
+funtion @function{discretize-globally} which calls
+@function{fe-discretize}.
+
+In the files @path{cdr-fe.lisp}, @path{elasticity-fe.lisp} and
+@path{navier-stokes.lisp} one can find methods for local assembly for the
+different problems.  They are defined in own packages which use both the
+package @package{FL.DISCRETIZATION} and the package for the particular
+problem."))
+
 

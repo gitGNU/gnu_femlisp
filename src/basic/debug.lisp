@@ -37,14 +37,17 @@
 
 (defpackage "FL.DEBUG"
   (:use "COMMON-LISP")
-  (:export "DBG-ON" "DBG-OFF" "DBG-P" "DBG-WHEN" "DBG" "DBG-INDENT"))
+  (:export "DBG-ON" "DBG-OFF" "DBG-P" "DBG-WHEN" "DBG" "DBG-INDENT")
+  (:documentation "This package adds debugging tools to Femlisp.  This is a
+slightly modified version of the debugging suite proposed in @cite{(Norvig
+1992)}."))
 
 (in-package :fl.debug)
 
 (defvar *dbg-ids* () "Identifiers used by dbg.")
 
 (defun dbg-p (id)
-  "Returns T if ID is in the debug list, NIL otherwise."
+  "Returns T if @arg{id} is in the debug list, NIL otherwise."
   (member id *dbg-ids*))
 
 (defun dbg-on (&rest ids)
@@ -52,21 +55,24 @@
   (setf *dbg-ids* (union ids *dbg-ids*)))
 
 (defun dbg-off (&rest ids)
-  "Stop dbg on ids.  With no ids, stop dbg altogether."
+  "Stop debugging on the passed symbols.  With no arguments, stop debugging
+altogether."
   (setf *dbg-ids* (and ids (set-difference *dbg-ids* ids))))
 
 (defmacro dbg-when (id &body body)
-  "Perform a check only if debugging."
+  "Perform a check only if debugging @arg{id}."
   `(when (member ,id *dbg-ids*)
     ,@body))
 
 (defun dbg (id format-string &rest args)
-  "Output of status information."
+  "When debugging on @arg{id} print out the arguments @arg{args} using the
+format in @arg{format-string}."
   (dbg-when id (format *debug-io* "~&~?" format-string args)
 	    (force-output *debug-io*)))
 
 (defun dbg-indent (id indent format-string &rest args)
-  "Indented output of status information."
+  "When debugging @arg{id}, print out the arguments @arg{args} using the
+format in @arg{format-string} with indentation given by @arg{indent}."
   (dbg-when id (format *debug-io* "~&~VT~?" indent format-string args)
 	    (force-output *debug-io*)))
 

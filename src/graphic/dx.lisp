@@ -45,14 +45,15 @@
   "Pathname to DX.")
 
 (defvar *dx-stream* nil
-  "The current Data Explorer output stream.")
+  "The current input stream to @program{dx}.")
 
 (defparameter *dx-toggle* 0
   "First, the filename is toggled between outputs for making writing to
 files and reading from that file via dx simultaneously possible.  This
-works, but it is not really safe.  Better would be waiting for dx to finish
-output.  Furthermore, depending on *dx-toggle* the cache option is switched
-on/off.  This is a trick to make dx redraw the picture.")
+works, but it is not really safe.  Better would be waiting for @arg{dx} to
+finish output.  Furthermore, depending on @var{*dx-toggle*} the cache
+option is switched on/off.  This is a trick to make @arg{dx} redraw the
+picture.")
 
 (defun ensure-dx-stream ()
   (setq *dx-stream*
@@ -61,10 +62,8 @@ on/off.  This is a trick to make dx redraw the picture.")
 	    (when *dx-pathname*
 	      (whereas ((process
 			 (fl.port:run-program
-			  *dx-pathname*
-			  `("-script" "-cache off" "-log on"
-			    ,(concatenate 'string "-directory " *images-directory*))
-			  :input :stream :output nil :wait nil)))
+			  *dx-pathname* `("-script" "-cache" "off" "-log" "on") :wait nil
+			  :input :stream :output (dbg-when :graphic *trace-output*))))
 		(fl.port:process-input process)))))
   (unless *dx-stream*
     (format *error-output* "~&ENSURE-DX-STREAM: could not open stream.~%"))
@@ -118,6 +117,3 @@ on/off.  This is a trick to make dx redraw the picture.")
 
 (defmethod graphic-output :after (object (program (eql :dx)) &key &allow-other-keys)
   (setq *dx-toggle* (if (zerop *dx-toggle*) 1 0)))
-
-
-

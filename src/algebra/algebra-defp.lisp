@@ -75,20 +75,41 @@
    "COMBINED-PROJECTION" "REMOVE-PROJECTION-RANGE" "EXTEND-BY-IDENTITY"
    "LAPLACE-SPARSE-MATRIX"
 
-   ;; old sparse matrix representation
-   ;;"<CONTAINER>"
-   ;;"<VBLOCK>" "VBLOCK-TYPE" "CREATE-VBLOCK"
-   ;;"<EXTENSIBLE-CONTAINER>" "TYPE->KEY" "KEY->TYPE"
-   ;;"<CONTAINER-OBJECT>" "VBLOCK-SLICE" "DISPOSE" "KEYS->VBLOCKS"
-   ;;"WITH-COBJS"
-   ;;"<VSPACE>" "MAKE-EMPTY-VSPACE"
-   ;;"<SVEC>" "VSPACE" "ALLOCATE-SVEC" "ALLOCATE-COPY" "VEC-SCALAR" "VECTOR-BLOCK"
-   ;;"<GRAPH>" "MAKE-EMPTY-GRAPH" "ENSURE-MBLOCK"
-   ;;"<SMAT>" "GRAPH" "ALLOCATE-SMAT" "MATRIX-BLOCK"
-
    ;; sparselu.lisp
    "SPARSE-LDU" "SPARSE-M*" "SHIFT-DIAGONAL-INVERTER"
    )
   (:documentation "This package defines classes for sparse matrices and
 methods operating on them.  The interface is mostly the one used in the
-package @code{FL.MATLISP} extended suitably."))
+package @package{FL.MATLISP} extended suitably.
+
+This module contains definitions for doing linear algebra in @femlisp{} and
+consists of several files.  Besides others, these are @path{vector.lisp}
+and @path{matrix.lisp}, where an abstract interface for linear algebra on
+vectors and matrices is defined.  In @path{matlisp.lisp}, this interface is
+realised for Matlisp matrices, and in addition the Matlisp operations are
+partially extended to arrays.  In @path{crs.lisp}, the well-known compact
+row-ordered storage is defined for storing sparse matrices, and
+@path{tensor.lisp} and @path{sparse-tensor.lisp} contain class and method
+definitions for full and sparse tensors of arbitrary rank.
+
+The file @path{sparse.lisp} then introduces a sparse storage scheme for
+block vectors and block matrices over arbitrary index sets.  This is very
+convenient for functions and linear operators defined on unstructured grids
+because the geometric grid objects themselves can index their degrees of
+freedom.  It also allows for local updates when advanced adaptive schemes
+like the one proposed in @cite{URuede_1993b} are used.
+
+At the moment, the classes @class{<sparse-matrix>} and
+@class{<sparse-matrix>} which are defined in @file{sparse.lisp} are used
+almost exclusively.  Those classes are hash-table based, which implies that
+almost every index set can be used.  Basic methods for those classes are
+also defined in @path{sparse.lisp}.  An LU decomposition for
+@class{<sparse-matrix>} is implemented in @file{sparselu.lisp}.
+
+Unfortunately, the use of hash-tables instead of arrays is much slower than
+working with, for example, compact row-ordered storage.  Thus, good
+performance can only be expected if the inner blocks are relatively large.
+This is the case for systems of equations and/or approximations of higher
+order.  Future versions of @femlisp{} will probably improve on that by
+using an array-based scheme similar to the one in
+@path{sparse-tensor.lisp}."))

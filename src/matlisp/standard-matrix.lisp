@@ -45,7 +45,7 @@
    (store
     :reader store :initarg :store :type (simple-array * (*))
     :documentation "The actual storage for the matrix."))
-  (:documentation "Basic matrix class."))
+  (:documentation "Class for dense matrices."))
 
 ;;; if standard-matrix is considered as multiple vectors
 (defmethod vlength ((mat standard-matrix))
@@ -128,7 +128,11 @@ If content is a 2d array, the dimensions can be deduced."
 		  ',type))))))
 
 (defun make-real-matrix (&rest args)
-  "Generates a matrix with double-float entries."
+  "Generates a real matrix as specified by its arguments.  If two arguments
+are provided, they should be numbers which are interpreted as rows and
+columns.  If only one argument is provided, it should be either a number
+meaning the rows and columns of a square matrix or a nested list or vector
+structure defining the contents matrix."
   (let ((class (standard-matrix 'double-float)))
     (cond
       ((= (length args) 1)
@@ -150,7 +154,7 @@ If content is a 2d array, the dimensions can be deduced."
 	 `(make-real-matrix ',list)))))
 
 (defun make-real-vector (dim &optional (value 0.0))
-  "Generates a dimx1matrix with double-float entries."
+  "Generates a real matrix of dimension @arg{dim} x 1."
   (make-instance (standard-matrix 'double-float)
 		 :nrows dim :ncols 1
 		 :content (make-double-vec dim value)))

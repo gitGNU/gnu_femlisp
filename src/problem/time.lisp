@@ -59,7 +59,7 @@ given by stationary-problem."))
 (defun stationary-problem-class (tdp)
   "Finds the stationary pde problem for the time-dependent problem TDP."
   (find-if #'(lambda (class) (typep class '<pde-problem>))
-	   (mop:class-direct-superclasses (class-of tdp))))
+	   (fl.amop:class-direct-superclasses (class-of tdp))))
 
 (defun test-time ()
   (stationary-problem-class (make-instance '<time-dependent-problem>))

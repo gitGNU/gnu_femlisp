@@ -66,7 +66,6 @@ dropped.")
 			       &key local-mat local-rhs local-sol local-u local-v
 			       coefficient-parameters &allow-other-keys)
   "Local discretization for a Navier-Stokes problem."
-  (declare (optimize debug))
   (assert (and (null local-u) (null local-v)))
   
   (let* ((nr-comps (nr-of-components vecfe))

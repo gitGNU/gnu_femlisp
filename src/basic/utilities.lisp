@@ -39,12 +39,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun required-argument ()
-  "Calling this function results in an error.  @code{(required-argument)}
-may be used as default form when an argument has to be supplied."
+  "Calling this function results in an error.  Such a call may be used as
+default form when an argument should be supplied."
   (error "A required argument was not supplied."))
 
 (defun compose (&rest functions)
-  "Returns the composition of @var{functions}."
+  "Returns the composition of @arg{functions}."
   (destructuring-bind (func1 . rest) (reverse functions)
     #'(lambda (&rest args)
 	(reduce #'(lambda (v f) (funcall f v))
@@ -52,18 +52,18 @@ may be used as default form when an argument has to be supplied."
 		:initial-value (apply func1 args)))))
 
 (definline curry (func &rest args)
-  "Supplies @var{args} to @var{func} from the left."
+  "Supplies @arg{args} to @arg{func} from the left."
   #'(lambda (&rest after-args)
       (apply func (append args after-args))))
 
 (definline rcurry (func &rest args)
-  "Supplies @var{args} to @var{func} from the right."
+  "Supplies @arg{args} to @arg{func} from the right."
   #'(lambda (&rest before-args)
       (apply func (append before-args args))))
 
 (defun sans (plist &rest keys)
-  "Removes the items marked by @var{keys} from the property list
-@var{plist}.  This function was posted at 2.12.2002 to the
+  "Removes the items marked by @arg{keys} from the property list
+@arg{plist}.  This function was posted at 2.12.2002 to the
 @emph{comp.lang.lisp} newsgroup by Erik Naggum."
   (let ((sans ()))
     (loop
@@ -87,7 +87,7 @@ may be used as default form when an argument has to be supplied."
     (loop for i from 1 below nn do
 	  (setf (aref fac-vec i) (* i (aref fac-vec (1- i)))))
     (defun factorial (n)
-      "Compute the factorial of @var{n}.  @var{n} can also be a list of
+      "Compute the factorial of @arg{n}.  @arg{n} can also be a list of
 numbers in which case the product of the factorials of the components is
 computed."
       (declare (type (or fixnum list) n))
@@ -106,7 +106,7 @@ computed."
 		  finally (return f)))))))
 
 (definline square (x)
-  "Return the square of @var{x}."
+  "Return the square of @arg{x}."
   (* x x))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -114,7 +114,7 @@ computed."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (definline vector-map (func vec)
-  "Map @var{vec} with @var{func} to a vector of the same type."
+  "Map @arg{vec} with @arg{func} to a vector of the same type."
   (map (type-of vec) func vec))
 
 (deftype positive-fixnum ()
@@ -126,12 +126,12 @@ computed."
   '(simple-array fixnum (*)))
 
 (definline fixnum-vec (&rest elements)
-  "Returns a @code{fixnum-vec} constructed from the parameters."
+  "Returns a @symbol{FIXNUM-VEC} constructed from the parameters."
   (coerce elements 'fixnum-vec))
 
 (definline make-fixnum-vec (dim &optional (init 0))
-  "Consruct a @code{fixnum-vec} of size @var{dim} initialized by
-@var{init}."
+  "Construct a @symbol{FIXNUM-VEC} of size @arg{dim} initialized by
+@arg{init}."
   (make-array dim :element-type 'fixnum :initial-element init))
 
 (defun vector-cut (vec comp)
@@ -141,11 +141,11 @@ computed."
 	    (aref vec (if (< i comp) i (1+ i)))))))
 
 (defmethod for-each ((func function) (seq sequence))
-  "Applies @var{func} to each element of @var{seq}."
+  "Applies @arg{func} to each element of @arg{seq}."
   (map nil func seq))
 
 (definline vector-last (vec)
-  "Returns the last element of @var{vec}."
+  "Returns the last element of @arg{vec}."
   (aref vec (1- (length vec))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -153,7 +153,7 @@ computed."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun array-for-each (func &rest arrays)
-  "Calls @var{func} on all element tuples of the array arguments."
+  "Calls @arg{func} on all element tuples of the array arguments."
   (assert (same-p arrays :test #'equalp :key #'array-dimensions))
   (labels ((loop-index (current-indices further-dims)
 	   (if (null further-dims)
@@ -180,7 +180,7 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun same-p (sequence &key (test #'eql) (key #'identity))
-  "Returns t if @var{sequence} consists of equal elements."
+  "Returns t if @arg{sequence} consists of equal elements."
   (or (= 0 (length sequence))
       (let ((item (funcall key (elt sequence 0))))
 	(not (find-if-not #'(lambda (elem) (funcall test item (funcall key elem)))
@@ -221,25 +221,33 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 (definline thrice (x) (list x x x))
 (definline twice (x) (list x x))
 
-(defun splice (args nrins)
-  "Example: (splice '(1 2 3 4) '(1 3))  @result{}  ((1) (2 3 4))"
-  (loop for nrin in nrins
-	and tail = args then (nthcdr nrin tail)
-	collect (take nrin tail)))
+(defun splice (items lengths)
+  "Breaks the list @arg{items} in pieces of lengths determined by
+@arg{nrins}.  Example:
+@lisp
+  (splice '(1 2 3 4) '(1 3)) @result{} ((1) (2 3 4))
+@end lisp"
+  (loop for l in lengths
+	and tail = items then (nthcdr l tail)
+	collect (take l tail)))
 
 (definline mappend (func &rest lists)
+  "Map @function{func} over @arg{lists} while appending the results."
   (apply #'append (apply #'mapcar func lists)))
 
 (defun map-product (func list &rest rest-lists)
-  "Applies a function to a product of lists.
-Example: (map-product #'cons '(2 3) '(1 4))
-          @result{} ((2 . 1) (2 . 4) (3 . 1) (3 . 4))"
+  "Applies @arg{func} to a product of lists.  Example:
+@lisp
+  (map-product #'cons '(2 3) '(1 4))
+  @result{} ((2 . 1) (2 . 4) (3 . 1) (3 . 4))
+@end lisp"
   (if (null rest-lists)
       (mapcar func list)
       (mappend #'(lambda (x) (apply #'map-product (curry func x) rest-lists))
 	       list)))
 
 (defun mklist (obj)
+  "Wraps @arg{obj} in a list, if it is not already a list."
   (if (listp obj) obj (list obj)))
 
 (defun tree-uniform-number-of-branches (tree)
@@ -256,7 +264,7 @@ Example: (map-product #'cons '(2 3) '(1 4))
     (rec trees (tree-uniform-number-of-branches trees))))
 
 (defun on-leaves (func tree)
-  "Executes func on the leaves of a tree."
+  "Executes @arg{func} on the leaves of @arg{tree}."
   (labels ((rec (node)
 	     (if (listp node)
 		 (mapc #'rec node)
@@ -264,7 +272,10 @@ Example: (map-product #'cons '(2 3) '(1 4))
     (rec tree)))
 
 (defun map-tree (func tree)
-  "Maps a tree.  (map-tree #'1+ '((1 (2)))) => ((2 (3)))"
+  "Maps @arg{tree} using @arg{func}.  Example:
+@lisp
+  (map-tree #'1+ '((1 (2)))) @result{} ((2 (3)))
+@end lisp"
   (mapcar
    #'(lambda (item)
        (if (listp item)
@@ -272,63 +283,40 @@ Example: (map-product #'cons '(2 3) '(1 4))
 	   (funcall func item)))
    tree))
 
-(defun rfind-if (func tree)
-  "From Graham's book"
-  (if (atom tree)
-      (and (funcall func tree) tree)
-      (or (rfind-if func (car tree))
-          (if (cdr tree) (rfind-if func (cdr tree))))))
-
-(defun rfind (item tree &key (key #'identity) (test #'eql))
-  (rfind-if #'(lambda (item2) (funcall test item (funcall key item2)))
-	    tree))
-
-(defun rmember-if (func tree)
-  "From Graham's book"
-  (if (atom tree)
-      (funcall func tree)
-      (or (rmember-if func (car tree))
-          (if (cdr tree) (rmember-if func (cdr tree))))))
-
-(defun rmember (item tree &key (key #'identity) (test #'eql))
-  (rmember-if #'(lambda (item2) (funcall test item (funcall key item2)))
-	    tree))
-
 (defun check-properties (place properties)
-  "Checks if all of the properties are in place."
+  "Checks if all of the @arg{properties} are in the property list
+@arg{place}."
   (every (curry #'getf place) properties))
-
-(defun sort-lexicographically (list &key (key #'identity))
-  "Sorts a list of coordinate vectors lexicographically."
-  (flet ((my-< (pos1 pos2)
-	   (loop for x across pos1 and y across pos2
-		 when (< x y) do (return t)
-		 finally (return nil))))
-    (sort list #'my-< :key key)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queues (from Graham's book)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun make-queue ()
-  "Creates a queue."
+  "Creates and returns an empty queue."
   (cons nil nil))
 
 (defun enqueue (object queue)
-  "Puts `object' into the `queue'."
+  "Puts @arg{object} into the @arg{queue}."
   (if (null (car queue))
       (setf (cdr queue) (setf (car queue) (list object)))
     (setf (cdr (cdr queue)) (list object)
 	  (cdr queue) (cdr (cdr queue)))))
 
 (defun dequeue (queue)
-  "Pops an object from `queue'."
+  "Pops an object from @arg{queue}."
   (pop (car queue)))
 
-(defun queue->list (queue) (car queue))
+(defun queue->list (queue)
+  "Transforms @arg{queue} to a list."
+  (car queue))
 
-(defun peek-first (queue) (caar queue))
-(defun peek-last (queue) (cadr queue))
+(defun peek-first (queue)
+  "Returns the first item in @arg{queue} (without popping it)."
+  (caar queue))
+(defun peek-last (queue)
+  "Returns the last item in @arg{queue}."
+  (cadr queue))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Doubly linked lists
@@ -414,10 +402,10 @@ Example: (map-product #'cons '(2 3) '(1 4))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro dohash ((looping-var hash-table) &body body)
-  "Loops through @var{hash-table}.  If @var{looping-var} is an atom
-@code{key}, loop through the keys; if it is a list of the form
+  "Loops through @arg{hash-table}.  If @arg{looping-var} is an atom
+@emph{key}, loop through the keys; if it is a list of the form
 @emph{(value)} loop through the values; if it is a list of the form
-@emph{(code value)} loop through key and value."
+@emph{(key value)} loop through key and value."
   (flet ((single? (lst) (and (consp lst) (null (cdr lst)))))
     (let ((key (if (single? looping-var)
 		   (gensym)
@@ -433,8 +421,8 @@ Example: (map-product #'cons '(2 3) '(1 4))
 	,hash-table))))
 
 (defun map-hash-table (func hash-table)
-  "Call @var{func} given in the first argument on each key of
-@var{hash-table}.  @var{func} must return the new key and the new value as
+  "Call @arg{func} given in the first argument on each key of
+@arg{hash-table}.  @arg{func} must return the new key and the new value as
 two values.  Those pairs are stored in a new hash-table."
   (let ((new-ht (make-hash-table :test (hash-table-test hash-table))))
     (dohash ((key val) hash-table)
@@ -444,26 +432,26 @@ two values.  Those pairs are stored in a new hash-table."
     new-ht))
 
 (defun copy-hash-table (hash-table)
-  "Copy @var{hash-table}."
+  "Copy @arg{hash-table}."
   (map-hash-table #'(lambda (key value) (values key value)) hash-table))
 
 (defun get-arbitrary-key-from-hash-table (hash-table)
-  "Get an arbitrary key from @var{hash-table}."
+  "Get an arbitrary key from @arg{hash-table}."
   (dohash (key hash-table)
     (return-from get-arbitrary-key-from-hash-table key)))
 
 (defun display-ht (hash-table)
-  "Display @var{hash-table} in the form key1 -> value1 ..."
+  "Display @arg{hash-table} in the form key1 -> value1 ..."
   (dohash ((key val) hash-table)
     (format t "~A -> ~A~%" key val)))
 
 (defun hash-table-keys (hash-table)
-  "Collect the keys of @var{hash-table} into a list."
+  "Collect the keys of @arg{hash-table} into a list."
   (loop for key being the hash-keys of hash-table
 	collect key))
 
 (defun hash-table-values (hash-table)
-  "Collect the values of @var{hash-table} into a list."
+  "Collect the values of @arg{hash-table} into a list."
   (loop for val being the hash-values of hash-table
 	collect val))
 
@@ -570,14 +558,15 @@ non-recursive functions."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass blackboard ()
-  ((items :initform () :initarg :items))
+  ((items :initform () :initarg :items :documentation
+	  "A property list of items on the blackboard."))
   (:documentation
    "A blackboard where data items can be put and extracted using the
 function @code{GETBB}."))
 
 (defun blackboard (&rest items)
-  "Make the property list supplied in @var{items} into an blackboard.
-Copies @var{items} to make sure that no literal list is modified."
+  "Make the property list supplied in @arg{items} into an blackboard.
+Copies @arg{items} to make sure that no literal list is modified."
   (make-instance 'blackboard :items (copy-seq items)))
 
 (defmethod describe-object ((blackboard blackboard) stream)
@@ -585,8 +574,8 @@ Copies @var{items} to make sure that no literal list is modified."
 	  blackboard (slot-value blackboard 'items)))
 
 (defun getbb (blackboard key &optional default)
-  "Get the item for @var{key} from @var{blackboard}.  If there is no such
-@var{key} return @var{default}."
+  "Get the item for @arg{key} from @arg{blackboard}.  If there is no such
+@arg{key} return @arg{default}."
   (getf (slot-value blackboard 'items) key default))
 
 (defun (setf getbb) (value blackboard key)
@@ -608,8 +597,8 @@ Copies @var{items} to make sure that no literal list is modified."
 	  ,@body))))
 
 (defmacro with-items (properties blackboard-form &body body)
-  "Work with the items on @var{blackboard} corresponding to
-@var{properties}.  If some property is a list, the second element is the
+  "Work with the items on @arg{blackboard} corresponding to
+@arg{properties}.  If some property is a list, the second element is the
 default value and the third is an alias to be used to refer to this
 parameter.  Example:
 @lisp
@@ -640,8 +629,8 @@ parameter.  Example:
 			      `(slot-value ,blackboard 'items) body)))))
 
 (defun transfer-bb (from-bb to-bb items &key ensure)
-  "Transfer @var{items} between the blackboards @var{from-bb} and
-@var{to-bb}.  When @var{ensure} is set, an existing item is not modified."
+  "Transfer @arg{items} between the blackboards @arg{from-bb} and
+@arg{to-bb}.  When @arg{ensure} is set, an existing item is not modified."
   (dolist (item items)
     (destructuring-bind (from to)
 	(if (consp item) item (list item item))
@@ -654,7 +643,7 @@ parameter.  Example:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun set-p (list)
-  "Checks if @var{list} is a set, i.e. if no members occur twice."
+  "Checks if @arg{list} is a set, i.e. if no members occur twice."
   (or (null list)
       (and (not (member (car list) (cdr list)))
 	   (set-p (cdr list)))))
@@ -665,7 +654,8 @@ connected with the sets of disconnected-sets.  Returns the maximally
 connected sets and the remaining disconnected ones.  Example:
 
 @lisp
-  (maximally-connected '(1 2) '((3 4) (2 3) (5 6)) :test #'intersection :combine #'union)
+  (maximally-connected '(1 2) '((3 4) (2 3) (5 6))
+                       :test #'intersection :combine #'union)
   @result{} (1 2 3 4), ((5 6))
 @end lisp"
   (loop while
@@ -700,8 +690,11 @@ connected sets and the remaining disconnected ones.  Example:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun k-subsets (set k)
-  "Returns all subsets of @var{set} with length @var{k}.
-Example: @code{(k-subsets '(1 2 3) 2)  @result{} ((1 2) (1 3) (2 3))}"
+  "Returns all subsets of @arg{set} with length @arg{k}.  Example:
+@lisp
+  (k-subsets '(1 2 3) 2)
+  @result{} ((1 2) (1 3) (2 3))
+@end lisp"
   (cond ((minusp k) '())
 	((zerop k) (list '()))
 	((= k 1) (mapcar #'list set))
@@ -710,17 +703,21 @@ Example: @code{(k-subsets '(1 2 3) 2)  @result{} ((1 2) (1 3) (2 3))}"
 				 (k-subsets (cdr elems) (- k 1)))))))
 
 (defun k->l-subsets (set k l)
-  "Returns all subsets of SET with length between K and L.
-Example: @code{(k->l-subsets '(1 2 3) 1 2)} @result{} @code{((1) (2) (3) (1 2) (1 3) (2 3))}"
+  "Returns all subsets of @arg{set} with length between @arg{k} and
+@arg{l}.  Example:
+@lisp
+  (k->l-subsets '(1 2 3) 1 2) @result{}
+  ((1) (2) (3) (1 2) (1 3) (2 3))
+@end lisp"
   (loop for i from k to l
 	nconc (k-subsets set i)))
 
 (defun subsets (set)
-  "Returns a list of all subsets of @var{set}."
+  "Returns a list of all subsets of @arg{set}."
   (k->l-subsets set 0 (length set)))
 
 (defun nonempty-subsets (set)
-  "Returns a list of all nonempty subsets of @var{set}."
+  "Returns a list of all nonempty subsets of @arg{set}."
   (k->l-subsets set 1 (length set)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -728,8 +725,12 @@ Example: @code{(k->l-subsets '(1 2 3) 1 2)} @result{} @code{((1) (2) (3) (1 2) (
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun n-partitions-of-k (n k)
-  "Returns a list of all ordered partitions of k into n natural numbers.
-Example: (n-partitions-of-k 2 3) @result{} ((0 3) (1 2) (2 1) (3 0))"
+  "Returns a list of all ordered partitions of @arg{k} into @arg{n} natural
+numbers.  Example:
+@lisp
+  (n-partitions-of-k 2 3)
+   @result{} ((0 3) (1 2) (2 1) (3 0))
+@end lisp"
   (cond ((zerop n) (if (zerop k) (list ()) ()))
 	((= n 1) (list (list k)))
 	(t (loop for i upto k
@@ -737,8 +738,12 @@ Example: (n-partitions-of-k 2 3) @result{} ((0 3) (1 2) (2 1) (3 0))"
 			     collect (cons i partition))))))
 
 (defun positive-n-partitions-of-k (n k)
-  "Returns a list of all positive ordered partitions of k into n natural numbers.
-Example: (positive-n-partitions-of-k 2 3) @result{} ((1 2) (2 1))"
+  "Returns a list of all positive ordered partitions of @arg{k} into
+@arg{n} natural numbers.  Example:
+@lisp
+  (positive-n-partitions-of-k 2 3)
+  @result{} ((1 2) (2 1))
+@end lisp"
   (cond ((or (< n 1) (zerop k)) ())
 	((= n 1) (list (list k)))
 	(t (loop for i from 1 to k
@@ -746,8 +751,11 @@ Example: (positive-n-partitions-of-k 2 3) @result{} ((1 2) (2 1))"
 			     collect (cons i partition))))))
 
 (defun positive-partitions-of-k (k)
-  "Returns a list of all positive ordered partitions of k.
-Example: (positive-partitions-of-k 3) @result{} ((1 2) (2 1))"
+  "Returns a list of all positive ordered partitions of @arg{k}.
+Example:
+@lisp
+  (positive-partitions-of-k 3) @result{} ((1 2) (2 1))
+@end lisp"
   (loop for n from 1 upto k
 	nconc (positive-n-partitions-of-k n k)))
 
@@ -756,11 +764,10 @@ Example: (positive-partitions-of-k 3) @result{} ((1 2) (2 1))"
 ;;; Permutations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; We characterize a permutation pi by a vector consisting of indices from
-;;; 0,..., N-1.  
-
 (defun permutation-p (perm)
-  "Checks if the argument is a possible permutation vector."
+  "Checks if @arg{perm} is a possible permutation vector.  A permutation pi
+is characterized by a vector containing the indices from 0,...,
+@function{length}(@arg{perm})-1 in some order."
   (loop for i below (length perm)
 	unless (find i perm) do (return nil)
 	finally (return t)))
@@ -771,19 +778,18 @@ Example: (positive-partitions-of-k 3) @result{} ((1 2) (2 1))"
     (unless (= i (aref perm i))
       (return nil))))
 
-(defun permute-into (perm index new-index)
-  "A permutation acts on some vector v consisting of indices by permuting it
-according to result[i] = v[perm[i]]."
-  (dotimes (k (length index) new-index)
-    (setf (aref new-index k) (aref index (aref perm k)))))
+(defun permute-into (perm v result)
+  "A permutation @arg{perm} acts on the vector @arg{v} by permuting it
+according to @math{result[i] = v[perm[i]]}."
+  (dotimes (k (length v) result)
+    (setf (aref result k) (aref v (aref perm k)))))
 
 (defun permute (perm index)
-  "See permute-into."
+  "Functional version of @function{permute-into}."
   (map 'fixnum-vec (curry #'aref index) perm))
 
 (defun permutation-inverse (perm-vec)
-  "Returns the inverse of a permutation (which is a vector of numbers
-from 0,...,n-1)."
+  "Returns the inverse of the permutation given by @arg{perm-vec}."
   (loop with inv-vec = (make-fixnum-vec (length perm-vec) 0)
 	for i below (length perm-vec) do
 	(setf (aref inv-vec (aref perm-vec i)) i)

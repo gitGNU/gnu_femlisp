@@ -40,14 +40,18 @@
 
   
 (defclass <sparse-tensor> ()
-  ((rank :reader rank :initarg :rank :type fixnum)
-   (dimension :reader dimension :initarg :dimension :type (or null fixnum))
+  ((rank :reader rank :initarg :rank :type fixnum
+	 :documentation "Tensor rank.")
+   (dimension :reader dimension :initarg :dimension :type (or null fixnum)
+	      :documentation "Dimension of the first slot.")
    (indices :accessor indices :initarg :indices :type vector
-	    :initform (make-array 0 :element-type 'fixnum :adjustable t))
+	    :initform (make-array 0 :element-type 'fixnum :adjustable t)
+	    :documentation "The (nonzero) indices of the first slot.")
    (entries :accessor entries :initarg :entries :type vector
-	    :initform (make-array 0 :adjustable t)))
-  (:documentation "A general sparse tensor which is implemented as a sparse
-vector containing full-or sparse tensor entries."))
+	    :initform (make-array 0 :adjustable t)
+	    :documentation "The (nonzero) entries of the first slot."))
+  (:documentation "A general sparse tensor class which is implemented as a
+sparse vector containing full-or sparse tensor entries."))
 
 (defun find-first-position>= (indices index)
   "Finds the position for index, which is the first position which is >=

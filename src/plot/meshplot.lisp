@@ -94,19 +94,17 @@
 #| Test of 1d plotting with dx
 dx -script
 
-data = Import("image-mesh-1d.dx");
+data = Import("output-0.dx");
 data = Options(data, "mark", "circle");
 xyplot = Plot(data, corners={[0.0,-0.1],[1.0,0.1]});
 camera = AutoCamera(xyplot);
 image = Render (xyplot, camera);
 Display (image);
 
+data = Import("output-1.dx");
 connections = ShowConnections(data);
 positions = ShowPositions(data);
-colored = AutoColor(data);
-surface = Isosurface(data, number=20);
-surface = RubberSheet(surface);
-image = Collect(surface,colored);
+image = Collect(positions,connections);
 image = Options(image, "cache", 0);
 camera = AutoCamera(image,direction="front");
 image = Render(image, camera);

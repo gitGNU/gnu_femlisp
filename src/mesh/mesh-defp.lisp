@@ -122,6 +122,29 @@
    ;; extend.lisp
    "EXTENSION" "EXTEND" "STANDARD-EXTENDER" "CUBE-EXTENDER"
    )
-  (:documentation "This package provides the definition of cells, clusters
-of cells called (<skeleton>), domains and meshes as well as routines for
-handling those objects."))
+  (:documentation "This module contains the definitions of meshes and
+routines for mesh management.  The meshes allowed in @femlisp{} are more
+general than those of most other software for solving PDEs.  In @femlisp{},
+both mesh, domain and problem definitions are defined over an underlying
+abstraction, the so-called @class{<skeleton>}.  A @class{<skeleton>}
+captures the mathematical idea of a \"cell complex\" which builds a
+topological space by mapping from standard cells @class{<cell>}.  Now, a
+@class{<skeleton>} can be seen as mapping the cells of such a cell complex
+to arbitrary values.  Then, a @class{<domain>} is a @class{<skeleton>}
+where each cell (which we call \"patch\" in this case) is mapped to
+geometric properties, and a @class{<mesh>} is a @class{<skeleton>} where
+each cell is mapped to the patch to which it belongs.
+
+The basic entities are the class @class{<cell>}, the subclass
+@class{<simplex>} which in turn contains subclasses for arbitrarily
+dimensional simplices generated on demand, and the subclass
+@class{<tensorial>} containing arbitrary products of simplices, e.g. square
+or cube.
+
+Meshes can be refined either uniformly or locally using the Freudenthal
+algorithm as presented in @cite{JBey_2000a} and generalized to product
+elements.  When local refinement is used, hanging nodes may occur.  In
+contrast to most other finite element software, in @femlisp{} the
+difference of refinement levels of adjacent cells may be arbitrarily large.
+Up to now, anisotropic refinement of tensorial cells has not yet been
+implemented."))

@@ -33,7 +33,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.GRAPHIC"
-  (:use "COMMON-LISP" "FL.UTILITIES" "FL.MACROS")
+  (:use "COMMON-LISP" "FL.UTILITIES" "FL.MACROS" "FL.DEBUG")
   (:export
    "*DEFAULT-GRAPHIC-PROGRAM*"
    "GRAPHIC-FILE-NAME"
@@ -42,5 +42,3 @@
   (:documentation "This package provides a low-level interface to external
 graphic software; at the moment both IBM's @code{OpenDX} and @code{Gnuplot}
 are supported."))
-
-

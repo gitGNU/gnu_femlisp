@@ -33,9 +33,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.AMOP"
-  (:use "COMMON-LISP")
+  (:use "COMMON-LISP"
+	#+CMU "MOP" #+SBCL "SB-MOP")
   (:export "FIND-PROGRAMMATIC-CLASS" "MAKE-PROGRAMMATIC-INSTANCE"
-	   "REMOVE-SUBCLASS-METHODS"))
+	   "REMOVE-SUBCLASS-METHODS" "CLASS-DIRECT-SUPERCLASSES")
+  (:documentation
+   "This package provides some MOP functionality.  These functions are
+non-ANSI and may represent a problem when porting Femlisp."))
 
 (in-package :fl.amop)
 
@@ -47,8 +51,8 @@
     (t (let ((class (find-if
 		     #'(lambda (class)
 			 (equal superclasses
-				(mop:class-direct-superclasses class)))
-		     (mop:class-direct-subclasses (car superclasses)))))
+				(class-direct-superclasses class)))
+		     (class-direct-subclasses (car superclasses)))))
 	 (or class
 	     (make-instance 'standard-class
 			    :name (intern (format nil "~A" (mapcar #'class-name superclasses)))
@@ -67,9 +71,9 @@ superclasses.  This class is generated automatically, if necessary."
 (defun remove-subclass-methods (gf template-args)
   "Removes all methods dispatching on subclasses of the template
 arguments."
-  (loop for method in (copy-seq (mop:generic-function-methods gf))
+  (loop for method in (copy-seq (generic-function-methods gf))
 	when (every #'subtypep
-		    (mop:method-specializers method)
+		    (method-specializers method)
 		    (mapcar #'(lambda (arg)
 				(if (consp arg)
 				    (second arg)

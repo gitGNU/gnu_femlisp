@@ -46,11 +46,14 @@
   (map 'double-vec #'(lambda (x) (coerce x 'double-float)) lst))
 
 (definline double-vec (&rest comps)
+  "Returns a @class{double-vec} with the entries in @arg{comps}."
   (list->double-vec comps))
 
 (definline make-double-vec (dim &optional (init 0.0))
-  "make-double-vec: double-vec constructor"
-  (make-array dim :element-type 'double-float :initial-element (float init 0.0)))
+  "Returns a @class{double-vec} of length @arg{dim} and initial value
+@arg{init}."
+  (make-array dim :element-type 'double-float
+	      :initial-element (float init 0.0)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (set-dispatch-macro-character

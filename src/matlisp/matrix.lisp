@@ -235,9 +235,11 @@ calls the corresponding generic function, e.g. GEMM-NN!."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <submatrix> (<matrix>)
-  ((matrix :initarg :matrix)
-   (row-keys :reader row-keys :initarg :row-keys :type vector)
-   (col-keys :reader col-keys :initarg :col-keys :type vector))
+  ((matrix :initarg :matrix :documentation "The \"supermatrix\".")
+   (row-keys :reader row-keys :initarg :row-keys :type vector
+	     :documentation "The row indices of the submatrix.")
+   (col-keys :reader col-keys :initarg :col-keys :type vector
+	     :documentation "The column indices of the submatrix."))
   (:documentation "Describes an ordered submatrix of a matrix.  Only a
 restricted set of operations is allowed for these matrices and element
 access is slow.  They are indexed with ordinary integers."))

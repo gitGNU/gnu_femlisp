@@ -96,6 +96,6 @@ matrices with elements being numbers of a given type.  Those classes are
 automatically generated when needed.  It provides also part of the BLAS and
 LAPACK operations for those matrices.  The corresponding methods are
 automatically compiled for the given matrix classes.  The interface is very
-similar to the library @cite{Matlisp}, which provides an interface to the
-Fortran BLAS and LAPACK routines."))
+similar to the library Matlisp @cite{(Matlisp)}, which provides a CLOS
+interface to the Fortran BLAS and LAPACK routines."))
 

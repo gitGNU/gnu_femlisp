@@ -57,9 +57,15 @@
    (:export ; time.lisp
     "<TIME-DEPENDENT-PROBLEM>" "STATIONARY-PROBLEM-CLASS"
     "INITIAL" "ALPHA")
-   (:documentation " The @code{PROBLEM} package introduces the general
-class @code{<problem>} and some subclasses.  The most important subclass is
-@code{<pde-problem>}.  Several derived problems are defined in own
-packages, e.g. @code{FL.CDR}, @code{FL.ELASTICITY} and
-@code{FL.NAVIER-STOKES}.")  )
+   (:documentation " The @package{FL.PROBLEM} package introduces the
+general class @class{<problem>} and some subclasses.  The most interesting
+subclass is @class{<pde-problem>}.  A @class{<pde-problem>} is defined on a
+domain and provides a table mapping the domain patches to property lists
+containing the coefficient functions.
+
+Several subclasses of @class{<pde-problem>} are defined in own packages,
+e.g. @class{<cdr-problem>} in @package{FL.CDR},
+@class{<elasticity-problem>} in @package{FL.ELASTICITY} and
+@class{<navier-stokes-problem} in @package{FL.NAVIER-STOKES}.")  )
+
 

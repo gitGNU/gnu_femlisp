@@ -48,8 +48,8 @@
    "THRICE" "TWICE"
    "MAP-PRODUCT" "MAPPEND" "MKLIST"
    "TREE-UNIFORM-NUMBER-OF-BRANCHES" "TREE-UNIFORMP"
-   "MAP-TREE" "ON-LEAVES" "RFIND-IF" "RFIND" "RMEMBER-IF" "RMEMBER"
-   "CHECK-PROPERTIES" "SORT-LEXICOGRAPHICALLY"
+   "MAP-TREE" "ON-LEAVES"
+   "CHECK-PROPERTIES"
    "MAKE-QUEUE" "ENQUEUE" "DEQUEUE" "QUEUE->LIST" "PEEK-FIRST" "PEEK-LAST"
    "MAKE-DLL" "DLL" "DLL-ITEM" "DLI-OBJECT" "DLI-SUCC" "DLI-PRED"
    "DLL-FRONT-INSERT" "DLL-REAR-INSERT" "DLL-REMOVE-ITEM" "DLL-FIND"
@@ -70,6 +70,6 @@
    "MAKE-ANALOG" "FILE-DOCUMENTATION" "PROPERTY-MIXIN" "PROPERTIES")
   (:documentation
    "This package contains generally useful utility functions.  Several of
-those functions were taken from @cite{PGraham}, the SANS function was
+those functions were taken from @cite{(Graham 1996)}, the SANS function was
 contributed to the @cite{comp.lang.lisp} newsgroup by Erik Naggum."))
 

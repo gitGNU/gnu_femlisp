@@ -52,7 +52,7 @@
 	finally (return prod)))
 
 (defun det (mat)
-  "Example of use: (det #m((-1.0 2.0) (2.0 3.0)))  -> -7.0"
+  "Returns the determinant of the square matrix @arg{mat}."
   (declare (values double-float))
   (if (or (zerop (nrows mat)) (zerop (ncols mat)))
       1.0  ; yields correct value for volume in the vertex case
@@ -61,8 +61,7 @@
 	(det-from-lr lr pivot))))
 
 (defun area-of-span (mat)
-  "Computes the area/volume spanned by k vectors in R^n given as columns of
-the argument mat."
+  "Computes the volume spanned by the columns of @arg{mat}."
   (sqrt (abs (det (m*-tn mat mat)))))
 
 (defmethod mzerop ((x number) &optional (threshold 0.0))

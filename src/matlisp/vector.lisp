@@ -108,13 +108,13 @@ in parallel."))
   (:documentation "Returns the dot product of X and Y."))
 
 (defgeneric norm (x &optional p)
-  (:documentation "Returns the p-norm of X."))
+  (:documentation "Returns the @arg{p}-norm of @arg{x}."))
 (defgeneric l2-norm (x)
-  (:documentation "Returns the l_2-norm of X."))
+  (:documentation "Returns the 2-norm of @arg{x}."))
 (defgeneric lp-norm (x p)
-  (:documentation "Returns the l_p-norm of X."))
+  (:documentation "Returns the @arg{p}-norm of @arg{x}."))
 (defgeneric linf-norm (x)
-  (:documentation "Returns the l_infinty norm of X."))
+  (:documentation "Returns the maximum norm of @arg{x}."))
 
 ;;; Iteration
 
@@ -128,9 +128,12 @@ in parallel."))
 (defgeneric for-each-entry-of-vec2 (func vec1 vec2))
 
 (defmacro dovec ((loop-vars vec) &body body)
-  "Usage: (dovec ((key) vec) ...)
-          (dovec (entry vec) ...)
-          (dovec ((key entry) vec) ...)"
+  "Loops on indices and entries of a vector.  Examples:
+@lisp
+  (dovec ((key) vec) ...)
+  (dovec (entry vec) ...)
+  (dovec ((key entry) vec) ...)
+@end lisp"
   (let* ((loop-vars (if (consp loop-vars) loop-vars (list nil loop-vars)))
 	 (vec-for-each (if (null (car loop-vars))
 			   (if (null (cdr loop-vars))
@@ -166,7 +169,7 @@ in parallel."))
       (axpy! alpha x (copy y))))
 
 (defgeneric m+ (x y)
-  (:documentation "Returns X + Y."))
+  (:documentation "Returns @math{X} + @math{Y}."))
 (defmethod m+ (x y)
   "Default method uses M+! and COPY."
   (m+! x (copy y)))

@@ -48,7 +48,6 @@ describes the use of the respective file."
 (defclass property-mixin ()
   ((properties
     :accessor properties :initform () :type list :documentation
-    "Contains a property list which is used to store unstructured
-information about this object."))
-  (:documentation "A mixin which adds a slot with a property list to the
-class."))
+    "A property list which is used to store unstructured information about
+this object."))
+  (:documentation "A mixin which adds a slot of properties to the class."))

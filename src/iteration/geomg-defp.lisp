@@ -45,7 +45,7 @@
    ;; vanka.lisp
    "<VANKA>")
 
-  (:documentation "The @code{GEOMG} package contains iterations which
+  (:documentation "The @package{FL.GEOMG} package contains iterations which
 depend on geometric information, obtained for example from the
 discretization.  At the moment, these are the geometric multigrid
 iteration, an AMG-like scheme for preconditioning high-order

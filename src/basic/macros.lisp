@@ -35,10 +35,11 @@
 (in-package :fl.macros)
 
 (defmacro with-gensyms (syms &body body)
-  "From Graham's book."
+  "Standard macro providing the freshly generated symbols @arg{syms} to the
+code in @arg{body}."
   `(let ,(mapcar #'(lambda (s) `(,s (gensym ,(symbol-name s))))
 		 syms)
-     ,@body))
+    ,@body))
 
 (defun symconc (&rest args)
   "This function builds a symbol from its arguments and interns it.  This
@@ -59,7 +60,8 @@ is for use in some macros."
      (if it ,then-form ,else-form)))
 
 (defmacro whereas (clauses &rest body)
-  "Own implementation of Erik Naggum's whereas-macro (c.l.l., 4.12.2002)."
+  "Own implementation of the macro @function{whereas} suggested by Erik
+Naggum (c.l.l., 4.12.2002)."
   (if (null clauses)
       `(progn ,@body)
       (destructuring-bind ((var expr &optional type) . rest-clauses)
@@ -102,21 +104,48 @@ is for use in some macros."
             (,(car var) (,op ,access ,@args)))
        ,set)))
 
-(define-modify-macro ensure (&rest args) or "ANSI?")
+(define-modify-macro ensure (&rest args) or
+   "Ensures that some place is set.  It expands as follows:
+@lisp
+  (ensure place value) @expansion{} (or place (setf place value))
+@end lisp
+It is not clear if the implementation used here works everywhere.  If not,
+the workaround below the macro definition should be used.")
+
+#+(or)
+(defmacro ensure (place newval &environment env)
+  "Essentially (or place (setf place newval)).  Posted by Erling Alf to
+c.l.l. on 11.8.2004, implementing an idea of myself posted on c.l.l. on 30
+Jul 2004 in a probably more ANSI conforming way."
+  (multiple-value-bind (vars vals putvars putform getform) 
+      (get-setf-expansion place env)
+    `(let* ,(mapcar #'list vars vals)
+       (or ,getform
+	   (multiple-value-bind ,putvars
+	       ,newval
+	     ,putform)))))
 
 ;;; Others
 
 (defmacro short-remove-method (gf-name qualifiers specializers)
-  "Syntax: (short-remove-method m* (:before) (<sparse-matrix> <sparse-vector>))"
+  "Removes the method for the generic function @arg{gf-name} which is
+specified by @arg{qualifiers} and @arg{specializers}.  Example:
+@lisp
+  (short-remove-method m* (:before) (<sparse-matrix> <sparse-vector>))
+@end lisp"
   `(remove-method
     (function ,gf-name)
     (find-method (function ,gf-name) (quote ,qualifiers)
      (mapcar #'find-class (quote ,specializers)))))
 
 (defmacro remove-this-method (gf-name &rest rest)
-  "It should be possible to use this directly on a copied first line of a
-DEFMETHOD definition, e.g.:
-> (remove-this-method m* :before ((mat <matrix>) (x <vector>)))"
+  "Removes the method for the generic function @arg{gf-name} which is
+specified by @arg{qualifiers} and @arg{specializers}.  Example:
+@lisp
+  (remove-this-method m* :before ((mat <matrix>) (x <vector>)))
+@end lisp
+It should be possible to use this directly on a copied first line of a
+DEFMETHOD definition."
   (let ((next (first rest)))
     (multiple-value-bind (qualifiers args)
 	(if (member next '(:before :after :around))
@@ -133,8 +162,7 @@ DEFMETHOD definition, e.g.:
 	   (mapcar #'find-class (quote ,specializers))))))))
 
 (defmacro for ((var start end) &body body)
-  "Syntax: (for (i 1 10) (princ i)).
-Loops for i from 1 to 10."
+  "Loops for @arg{var} from @arg{start} upto @arg{end}."
   (let ((limit (gensym)))
     `(let ((,limit ,end))
        (do ((,var ,start (+ ,var 1)))
@@ -142,8 +170,7 @@ Loops for i from 1 to 10."
 	 ,@body))))
 
 (defmacro for< ((var start end) &body body)
-  "Syntax: (for< (i 1 10) (princ i)).
-Loops for i from 1 to 9."
+  "Loops for @arg{var} from @arg{start} below @arg{end}."
   (let ((limit (gensym)))
     `(let ((,limit ,end))
        (do ((,var ,start (+ ,var 1)))
@@ -151,9 +178,11 @@ Loops for i from 1 to 9."
 	 ,@body))))
 
 (defmacro multi-for ((var start stop) &body body)
-  "multi-for: This macro loops through vectors of (integer) values
-between the (integer) vectors start and stop.
-Example: (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))"
+  "Loops for @arg{var} being an integer vector starting from @arg{start}
+below @arg{end}.  Example:
+@lisp
+  (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))
+@end lisp"
   (let ((fixnum-vec '(simple-array fixnum (*))))
     (with-gensyms
 	(inc! begin end inside)
@@ -187,18 +216,25 @@ Example: (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))"
   `(funcall ,delayed))
 
 (defmacro definline (name &rest rest)
+  "Short form for defining an inlined function.  Should probably be
+deprecated."
   `(progn
     (declaim (inline ,name))
     (defun ,name ,@rest)
     ))
 
 ;;; some macros for choosing between possibilities
-(defmacro ?1 (&rest args) (first args))
-(defmacro ?2 (&rest args) (second args))
-(defmacro ?3 (&rest args) (third args))
+(defmacro ?1 (&rest args)
+  "A macro returning the first of its arguments."
+  (first args))
+(defmacro ?2 (&rest args)
+  "A macro returning the second of its arguments."
+  (second args))
+(defmacro ?3 (&rest args)
+  "A macro returning the third of its arguments."
+  (third args))
 
 ;;;; Testing:
-
 (defun test-macros ()
   (let ((x 5))
     (ensure x 1))

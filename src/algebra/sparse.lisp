@@ -48,14 +48,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <sparse-vector> ()
-  ((blocks :initform (make-hash-table :test #'eq) :type hash-table)
-   (key->size :reader key->size :initarg :key->size :type function)
-   (print-key :reader print-key :initarg :print-key :initform #'princ)
-   (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity :type fixnum))
-  (:documentation "The slot blocks contains a hash-table of vector blocks
-indexed by keys.  The function key->size determines the block size, the
-function print-key determines how each key is printed.  Multiplicity is
-used for handling multiple right-hand sides or solutions simultaneously."))
+  ((blocks :initform (make-hash-table :test #'eq) :type hash-table
+	   :documentation "Table of blocks.")
+   (key->size :reader key->size :initarg :key->size :type function
+	      :documentation "Function determining the dimension of a block.")
+   (print-key :reader print-key :initarg :print-key :initform #'princ
+	      :documentation "Print function for a key.")
+   (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity :type fixnum
+		 :documentation "Multiplicity of the sparse vector.  A
+multiplicity different from 1 is used when handling multiple right-hand
+sides and solutions simultaneously."))
+  (:documentation "Sparse block vector class indexed with general keys."))
 
 (defmethod element-type ((svec <sparse-vector>))
   (standard-matrix 'double-float))
@@ -215,20 +218,27 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 
 (defclass <sparse-matrix> ()
   ((row-table :accessor row-table :initarg :row-table
-	      :initform (make-hash-table :test #'eq) :type hash-table)
+	      :initform (make-hash-table :test #'eq) :type hash-table
+	      :documentation "Table of rows.")
    (column-table :accessor column-table :initarg :column-table
-		 :initform (make-hash-table :test #'eq) :type hash-table)
+		 :initform (make-hash-table :test #'eq) :type hash-table
+		 :documentation "Table of columns.")
    (print-row-key :reader print-row-key :initarg :print-row-key
-		  :initform #'princ :type function)
+		  :initform #'princ :type function
+		  :documentation "Print function for row keys.")
    (print-col-key :reader print-col-key :initarg :print-col-key
-		  :initform #'princ :type function)
+		  :initform #'princ :type function
+		  :documentation "Print function for column keys.")
    (row-key->size :reader row-key->size :initarg :row-key->size
-		  :type (function (t) positive-fixnum))
+		  :type (function (t) positive-fixnum) :documentation
+		  "Function determining the number of rows of a block.")
    (col-key->size :reader col-key->size :initarg :col-key->size
-		  :type (function (t) positive-fixnum))
-   (keys->pattern :reader keys->pattern :initarg :keys->pattern :type function))
-  (:documentation "The <sparse-matrix> represents an unordered matrix
-graph."))
+		  :type (function (t) positive-fixnum) :documentation
+		  "Function determining the number of columns of a block.")
+   (keys->pattern :reader keys->pattern :initarg :keys->pattern :type function :documentation
+		  "Function determining the pattern of a block."))
+  (:documentation "The <sparse-matrix> represents an unordered matrix graph
+indexed by general keys."))
 
 (defmethod element-type ((smat <sparse-matrix>))
   (standard-matrix 'double-float))

@@ -43,4 +43,4 @@
 	"FL.STRATEGY" "FL.PLOT")
   (:export )
   (:documentation "This package uses most other Femlisp packages.  It is
-meant to be package a Femlisp user works in."))
+meant to be the package a Femlisp user works in."))

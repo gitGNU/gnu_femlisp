@@ -38,18 +38,19 @@
 ;;; crs-pattern : sparse matrix pattern
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; We use a compact row-ordered scheme (CRS) with identification, see
-;;; [Neuss1998] for more details.
 (defclass crs-pattern ()
-  ((nrows :initarg :nrows :accessor nrows :type fixnum)
-   (ncols :initarg :ncols :accessor ncols :type fixnum)
+  ((nrows :initarg :nrows :accessor nrows :type fixnum
+	  :documentation "Number of rows in the pattern.")
+   (ncols :initarg :ncols :accessor ncols :type fixnum
+	  :documentation "Number of columns in the pattern.")
    (nr-of-entries :initarg :nr-of-entries :type fixnum)
    (store-size :initarg :store-size :type fixnum)
    (row-starts :initarg :row-starts :type fixnum-vec)
    (col-inds :initarg :col-inds :type fixnum-vec)
    (offsets :initarg :offsets :type fixnum-vec))
-  (:documentation "This class defines a sparse pattern for use within a
-crs-matrix."))
+  (:documentation "A CRS (compact row-ordered storage) pattern allowing for
+identification, see @cite{(Neuss 1998)}, for use within a
+@class{crs-matrix}."))
 
 (defmethod initialize-instance :after
     ((crs-pat crs-pattern) &key pattern &allow-other-keys)
@@ -125,9 +126,13 @@ its actual offsets in the sparse graph."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass crs-matrix (<store-vector> <matrix>)
-  ((pattern :reader pattern :initarg :pattern :type crs-pattern)
-   (store :reader store :initarg :store :type double-vec))
-  (:documentation "This class combines a crs-pattern and a value vector."))
+  ((pattern :reader pattern :initarg :pattern :type crs-pattern
+	    :documentation "The pattern of the CRS matrix.  This is kept
+separate such that the same pattern can be used for many matrices.")
+   (store :reader store :initarg :store :type double-vec
+	  :documentation "The entries of the CRS matrix."))
+  (:documentation "The class @class{crs-matrix} combines a crs-pattern and
+a value vector."))
 
 (defmethod scalar-type ((crs-mat crs-matrix))
   (array-element-type (store crs-mat)))
