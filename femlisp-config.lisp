@@ -33,7 +33,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :cl-user)
+(in-package :fl.start)
 
 ;;; Set the following variables only if DX or Gnuplot should not be found
 ;;; automatically or if you are not satisfied with the standard directory

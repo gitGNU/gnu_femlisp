@@ -5,7 +5,15 @@ Femlisp needs the following more or less urgently:
 
 * Removal of known bugs, see the file BUGS.
 
+* Discretization:
+ - keep only vector finite elements
+ - sparse interpolation/projection matrices
+
+* Mesh refinement:
+ - more refinement rules
+
 * Improved linear algebra for sparse matrices, see the FAQ.
+ - switch to CCS for speed?
 
 * More time-stepping schemes.
 

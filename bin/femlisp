@@ -1,18 +1,41 @@
 #!/bin/sh
 
-# set the following variables to values suitable for your setup
-FEMLISP_DIR=$HOME/CL-HOME/femlisp
-FEMLISP_CL=/usr/bin/lisp
-CL_TYPE=cmucl
+if test -z "$FEMLISP_CL"; then
+    FEMLISP_CL=/usr/bin/cmucl
+fi
 
-case $CL_TYPE in
+if test -z "$FEMLISP_CL_TYPE"; then
+    FEMLISP_CL_TYPE=cmucl
+fi
+
+if test -z "$FEMLISP_DIR"; then
+    FEMLISP_DIR=$HOME/CL-HOME/femlisp
+fi
+
+FEMLISP_CORE=$FEMLISP_DIR/bin/femlisp-$FEMLISP_CL_TYPE.core;
+
+case $FEMLISP_CL_TYPE in
     cmucl) core="-core"; load="-load"; eval="-eval"; noinit="-nositeinit -noinit";;
     sbcl) core="--core"; load="--load"; eval="--eval"; noinit="--sysinit /dev/null --userinit /dev/null";;
-    *) echo "Unknown CL type"; exit 1;;
+    *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
 esac
 
-if test -f $FEMLISP_DIR/bin/femlisp.core; then
-    exec $FEMLISP_CL $core $FEMLISP_DIR/bin/femlisp.core $eval "(progn (ext::print-herald) (cl-user::femlisp-banner))" $noinit "$@";
+if test "$1" = "--save-core-and-die"; then
+    cd $FEMLISP_DIR/bin
+    rm -f $FEMLISP_CORE
+    sh femlisp $eval "(fl.port:save-femlisp-core-and-die \"$FEMLISP_CORE\")"
+    if test -e $FEMLISP_CORE
+	then
+	echo "Built core in $FEMLISP_CORE"
+	exit 0
+	else
+	echo "Not succeeded building core file"
+	exit -1
+    fi
+fi
+
+if test -f $FEMLISP_CORE; then
+    exec $FEMLISP_CL $core $FEMLISP_CORE $noinit $eval "(fl.port:femlisp-restart)" "$@"
 else
-    $FEMLISP_CL $eval "(progn (load \"$FEMLISP_DIR/start.lisp\") (in-package :fl.application) (import #+cmu 'ext::quit #+sbcl 'sb-ext::quit))" "$@";
+    exec $FEMLISP_CL $eval "(progn (load \"$FEMLISP_DIR/start.lisp\") (in-package :fl.application))" "$@"
 fi

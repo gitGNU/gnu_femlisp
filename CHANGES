@@ -1,5 +1,26 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.4 to Femlisp-0.9.5:
+
+Several enhancements for the linear algebra.  The file @path{tensor.lisp}
+was moved from @package{FL.ALGEBRA} to @package{FL.MATLISP}.
+
+Introduced a new package @package{FL.DOMAINS} in
+@path{femlisp;src;applications;domains;domains-defp.lisp} for domain
+definitions.
+
+Checked the demos for reasonable results.
+
+Removed a bug in multigrid (lmgc) which made iterations certain iterations
+return wrong results (those iterations which needed the residual before,
+but did not recompute it afterwards (e.g. Jacobi)).
+
+Refinement rules have been reworked to allow for arbitrary refinements of
+reference cells.  This can be used for multiscale discretizations.
+
+Subcells are computed with automatically generated code which leads to an
+acceleration of about a factor 5 for this function.
+
 * From Femlisp-0.9.3 to Femlisp-0.9.4:
 
 Saving a Femlisp executable using the foreign code works along the lines

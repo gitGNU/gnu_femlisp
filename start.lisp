@@ -32,7 +32,36 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :cl-user)
+(in-package "COMMON-LISP-USER")
+
+(defpackage "FL.START"
+  (:use "COMMON-LISP")
+  (:export "*FEMLISP-VERSION*" "FEMLISP-HERALD" "FEMLISP-BANNER")
+  (:documentation "This package contains some routines called
+during initialization of Femlisp."))
+
+(in-package :fl.start)
+
+(defparameter *femlisp-version* "0.9.5")
+
+(defun femlisp-version () *femlisp-version*)
+(defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
+
+(defun femlisp-banner ()
+  (format
+   t "~&~%*** Femlisp-~A ***
+
+Copyright (C) 2003-2005
+Nicolas Neuss, University of Heidelberg.
+
+Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
+file LICENSE in the Femlisp main directory.  This is free
+software, and you are welcome to redistribute it under certain
+conditions.
+
+You can enter \"(femlisp-demo)\" to get a guided tour through
+Femlisp, and enter \"(quit)\" to leave the program.~%~%"
+*femlisp-version*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Setup the logical host "FEMLISP"
@@ -91,30 +120,5 @@ location of this file when it is loaded.")
 #-asdf (mk:oos 'femlisp 'compile)
 
 (pushnew :femlisp *features*)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Trailer
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defparameter *femlisp-version* "0.9.4")
-
-(defun femlisp-version () *femlisp-version*)
-(defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
-
-(defun femlisp-banner ()
-  (format
-   t "~&~%*** Femlisp-~A ***
-
-Copyright (C) 2003-2004
-Nicolas Neuss, University of Heidelberg.
-
-Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
-file LICENSE in the Femlisp main directory.  This is free
-software, and you are welcome to redistribute it under certain
-conditions.
-
-You can enter \"(femlisp-demo)\" to get a guided tour through
-Femlisp, and enter \"(quit)\" to leave the program.~%~%"
-*femlisp-version*))
 
 (femlisp-banner)

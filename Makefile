@@ -60,9 +60,20 @@ femlisp:
 	sed "/^FEMLISP_DIR=.*/c\FEMLISP_DIR=`pwd`" bin/femlisp >bin/femlisp2;\
 	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
 
+use_cmucl:
+	sed "/^FEMLISP_CL=.*/c\FEMLISP_CL=/usr/bin/lisp" bin/femlisp >bin/femlisp2;\
+	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
+	sed "/^FEMLISP_CL_TYPE=.*/c\FEMLISP_CL_TYPE=cmucl" bin/femlisp >bin/femlisp2;\
+	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
+
+use_sbcl:
+	sed "/^FEMLISP_CL=.*/c\FEMLISP_CL=/usr/bin/sbcl" bin/femlisp >bin/femlisp2;\
+	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
+	sed "/^FEMLISP_CL_TYPE=.*/c\FEMLISP_CL_TYPE=sbcl" bin/femlisp >bin/femlisp2;\
+	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
+
 femlisp-core:
-	cd bin; rm -f femlisp.core;\
-	sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :print-herald nil) (quit))"
+	cd bin; sh ./femlisp --save-core-and-die
 
 slime:
 	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -

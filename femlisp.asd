@@ -62,11 +62,10 @@
     (:file "tests")
     (:file "patches")
     (:file "port")
-    (:file "amop")
+    (:file "amop" :depends-on ("debug"))
     (:file "multi-processing")
-    (:file "macros-defp")
-    (:file "macros" :depends-on ("macros-defp"))
-    (:file "utilities-defp" :depends-on ("macros-defp"))
+    (:file "macros")
+    (:file "utilities-defp" :depends-on ("macros" "debug"))
     (:file "utilities" :depends-on ("utilities-defp" "macros" "tests"))
     (:file "general" :depends-on ("utilities"))
     (:file "mflop" :depends-on ("utilities"))
@@ -92,19 +91,19 @@
     (:file "number-blas" :depends-on ("vector" "blas-basic"))
     (:file "array-blas" :depends-on ("vector" "ctypes"))
     (:file "store-vector" :depends-on ("vector" "blas-basic"))
-    (:file "standard-matrix" :depends-on ("matrix" "ctypes"))
+    (:file "standard-matrix" :depends-on ("matrix" "ctypes" "store-vector"))
     (:file "standard-matrix-blas" :depends-on ("standard-matrix"))
     (:file "standard-matrix-lr" :depends-on ("standard-matrix-blas"))
-    (:file "compat" :depends-on ("matrix"))
+    (:file "compat" :depends-on ("standard-matrix"))
     (:file "ccs" :depends-on ("store-vector" "standard-matrix"))
+    (:file "tensor" :depends-on ("store-vector"))
     ))
   (:module
    "algebra"
    :depends-on ("basic" "matlisp")
    :components
    ((:file "algebra-defp")
-    (:file "tensor" :depends-on ("algebra-defp"))
-    (:file "sparse-tensor" :depends-on ("tensor"))
+    (:file "sparse-tensor" :depends-on ("algebra-defp"))
     (:file "crs" :depends-on ("algebra-defp"))
     (:file "sparse" :depends-on ("crs"))
     (:file "sparselu" :depends-on ("sparse"))))
@@ -173,7 +172,7 @@
     (:file "nlsolve" :depends-on ("solve"))
     (:file "evpsolve" :depends-on ("nlsolve"))
     (:file "multigrid-defp" :depends-on ("iteration-defp"))
-    (:file "multigrid" :depends-on ("linit" "multigrid-defp" "linit"))
+    (:file "multigrid" :depends-on ("linit" "linsolve" "multigrid-defp"))
     (:file "amg" :depends-on ("multigrid"))
     (:file "selection-amg" :depends-on ("amg"))
     (:file "aggregation-amg" :depends-on ("amg"))
@@ -269,18 +268,19 @@
    :depends-on ("basic" "algebra" "function" "iteration" "mesh"
 			"problem" "discretization" "strategy" "plot")
    :components
-   ((:file "application-defp")
+   ((:module
+     "domains"
+     :depends-on ()
+     :components
+     ((:file "domains-defp")
+      (:file "hole-domain" :depends-on ("domains-defp"))
+      (:file "inlay-domain" :depends-on ("hole-domain"))
+      (:file "bl-cell" :depends-on ("domains-defp"))))
+    (:file "application-defp" :depends-on ("domains"))
     (:file "app-utils" :depends-on ("application-defp"))
     (:module
-     "domains"
-     :depends-on ("app-utils")
-     :components
-     ((:file "hole-domain")
-      (:file "inlay-domain")
-      (:file "bl-cell")))
-    (:module
      "demos"
-     :depends-on ("app-utils")
+     :depends-on ("app-utils" "domains")
      :components
      ((:file "application-demos")
       (:file "discretization-demos" :depends-on ("application-demos"))
@@ -297,7 +297,8 @@
       (:file "locref" :depends-on ("tools"))
       (:file "hom-cdr" :depends-on ("tools"))
       (:file "bl-cdr")
-      (:file "amg-cdr")
+      (:file "mg-cdr")
+      (:file "amg-cdr" :depends-on ("tools"))
       (:file "bratu")
       (:file "evp-cdr")
       ))
