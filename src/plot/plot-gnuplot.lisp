@@ -107,7 +107,7 @@ graphs."
 	 (values (and cell->values
 		      (compute-all-position-values
 		       cells position-indices depth cell->values))))
-    (flet ((index->xpos (index) (vec-x (aref position-array index))))
+    (flet ((index->xpos (index) (aref (aref position-array index) 0)))
       (dolist (connection (sort (connections cells position-indices depth)
 				#'<= :key (compose #'index->xpos #'car)))
 	(dolist (index connection)

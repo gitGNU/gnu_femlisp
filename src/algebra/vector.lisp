@@ -57,11 +57,6 @@
     (setf (aref vec i) 1.0d0)
     vec))
 
-;;; accessors for 1-, 2-, and 3-dimensional vectors
-(definline vec-x (v) (aref v 0))
-(definline vec-y (v) (aref v 1))
-(definline vec-z (v) (aref v 1))
-
 (defgeneric multiplicity (vec)
   (:documentation "We allow multiple vectors, for solving linear problems
 in parallel."))
