@@ -7,9 +7,11 @@ Femlisp needs the following more or less urgently:
 
 * Improved linear algebra for sparse matrices, see the FAQ.
 
-* Time-stepping schemes.
+* More time-stepping schemes.
 
-* Parallelization
+* Improved solution of eigenvalue problems.
+
+* Parallelization.
 
 
 
