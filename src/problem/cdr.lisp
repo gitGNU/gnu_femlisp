@@ -100,14 +100,14 @@ coefficient functions treats them as x-dependent coefficients."
        :patch->coefficients
        #'(lambda (cell)
 	   (cond ((member-of-skeleton? cell bdry)
-		  (list 'DIRICHLET dirichlet))
+		  (list 'CDR::DIRICHLET dirichlet))
 		 ((= (dimension cell) dim)
 		  (nconc
-		   (and diffusion (list 'DIFFUSION (ensure-coefficient diffusion)))
-		   (and convection (list 'CONVECTION (ensure-coefficient convection)))
-		   (and source (list 'SOURCE (ensure-coefficient source)))
-		   (and reaction (list 'REACTION (ensure-coefficient reaction)))
-		   (and gamma (list 'GAMMA (ensure-coefficient gamma)))))
+		   (and diffusion (list 'CDR::DIFFUSION (ensure-coefficient diffusion)))
+		   (and convection (list 'CDR::CONVECTION (ensure-coefficient convection)))
+		   (and source (list 'CDR::SOURCE (ensure-coefficient source)))
+		   (and reaction (list 'CDR::REACTION (ensure-coefficient reaction)))
+		   (and gamma (list 'CDR::GAMMA (ensure-coefficient gamma)))))
 		 (t nil)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
