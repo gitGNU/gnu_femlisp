@@ -55,16 +55,12 @@ using it."
 	unzip triangle.zip; rm triangle.zip; make
 
 superlu:
-	cd interface;\
-	gcc -c -fPIC -I/usr/include/superlu superlu.c;\
-	ld -lsuperlu -shared superlu.o -o superlu.so
+	cd interface; make superlu
 
 umfpack:
-	cd interface;\
-	gcc -I/usr/include/umfpack/ -Wall -fPIC -c umfpack.c;\
-	ld -lumfpack -lamd -shared umfpack.o -o umfpack.so
+	cd interface; make umfpack
 
 clean:
-	cd src; make clean;
 	cd doc; make clean;
-
+	cd interface; make clean;
+	cd src; make clean;
