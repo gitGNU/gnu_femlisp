@@ -135,7 +135,8 @@ boundary."
   "Boundary which is interpolated from heights."
   (multiple-value-bind (f Df)
       (cubic-spline heights)
-    (boundary-layer-cell-domain 2 f :grad-f Df :extensible nil)))
+    (boundary-layer-cell-domain
+     2 f :grad-f (compose (rcurry #'coerce 'double-vec) Df) :extensible nil)))
 
 (defun bl-patch-on-lower-boundary (bl-domain patch)
   "Returns T if the patch is on the lower oscillating boundary."
@@ -167,6 +168,7 @@ acts."
 (defun test-bl-cell ()
   (cubic-spline #(1.0 0.8))
   (spline-interpolated-bl-cell #(1.0 0.8))
+  (check (spline-interpolated-bl-cell #(1.0 0.8)))
   (check (sinusoidal-bl-cell 2))
   (describe (sinusoidal-bl-cell 2))
   (let* ((domain (sinusoidal-bl-cell 2))

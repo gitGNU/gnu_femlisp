@@ -5,39 +5,31 @@ Femlisp FAQ
 
 * INSTALLATION AND GETTING STARTED
 
-1. Q: On which computers is Femlisp available?  Does Femlisp work
-   with other CL environments than CMUCL?
+1. Q: On which architectures is Femlisp available?
 
-   A: This depends mostly on Matlisp.  Matlisp works with CMUCL and ACL
-   under Linux and Solaris.  If Matlisp should work with other CL
-   environments, it should be easy to port Femlisp.  An alternative is to
-   write a Matlisp replacement which is possible because Femlisp uses only
-   a fraction of its functionality.
+   A: See the file INSTALL.
 
 2. Q: What manuals and other introductory material are available?
 
-   A: There is a short description of Femlisp in the doc-directory.
-   Additionally, you should know how to get documentation of functions and
-   variables out of your Lisp environment.  Hopefully, somewhat later a
-   better manual will be available.
+   A: There is a short description of Femlisp in the doc-directory,
+   unfortunately it is not really up-to-date anymore.  Additionally, you
+   should know how to get documentation of functions and variables out of
+   your Lisp environment.  Hopefully, somewhat later a better manual will
+   be available.
 
 3. Q: What is the best way to get started?
 
    A: Work through the demos to see what is possible.  The set up an own
-   directory for yourself and try something like (taken from
-   cdr/model-problem.lisp):
+   directory for yourself and try something like:
 
-  (let* ((dim 2) (order 1) (level 2)
-	 (problem (laplace-test-problem dim))
-	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
-	 (fedisc (lagrange-fe order)))
-    (multiple-value-bind (matrix rhs)
-	(discretize-globally problem h-mesh fedisc)
-      (m* (sparse-ldu matrix) rhs)))
+     (solve (cdr-problem dim) :success-if '(> :time 20.0))
 
-  Plot the result.  Then try to build your own problem and try again.  Try
-  switching to the multigrid solver.  Maybe look at the (somewhat old) file
-  cfd-seminar-2002.lisp.  Then look at how the demos are built.
+   Plot the result using 
+     (plot (getbb *result* :solution))
+
+  Try to modify the problem and try again.  Try switching to the multigrid
+  solver.  Maybe look at the (somewhat old) file cfd-seminar-2002.lisp.
+  Then look at how the demos are built.
 
 * MESH MANAGEMENT
 
@@ -47,7 +39,7 @@ Femlisp FAQ
    interval in 1D, triangle and square in 2D, tetrahedron, prism, and cube
    in 3D, and so on for higher dimensions.  It does not have pyramids.  It
    would be rather easy to incorporate also those in the mesh module, but
-   it is not clear how the construction does look like in higher
+   it is not clear to me how the construction does look like in higher
    dimensions.
 
 
@@ -59,9 +51,8 @@ Femlisp FAQ
    vertices, lines, ..., and each entry is again a block consisting of a
    Matlisp matrix object (or something else).  This means that generic
    functions have to be used for handling those entries.  Of course, the
-   overhead for generic functions and hash-table is large, especially
-   in the case of scalar equations with low-order discretizations.  Also
-   the FFI is slow.
+   overhead for generic functions and hash-table is large, especially in
+   the case of scalar equations with low-order discretizations.
 
 2. Q: Is it possible to improve the linear algebra?
 
@@ -89,8 +80,8 @@ Femlisp FAQ
 
    A: It is possible to assemble problems with coefficients depending on
    the current solution.  This could then be trivially used inside a
-   fixed-point iteration.  With the help of an iteration subclass, this can
-   be easily integrated with Femlisp.
+   fixed-point iteration.  Using the <iteration> class, this can be easily
+   integrated with Femlisp.
 
 2. Q: How can I solve time-dependent problems?
 
@@ -133,16 +124,16 @@ Femlisp FAQ
    A: This has not yet been started.  Probably, I will first parallelize
    computationally intensive parts like mesh management, assembly, and
    iterative solvers on MISD architectures.  Parallelization for MIMD
-   architectures is also possible using MPI, but would require a major
-   restructuring.
+   architectures is also possible using MPI or PVM, but would require a
+   major restructuring.
 
 * GENERAL
 
 1. Q: Why is Femlisp slow?
 
    A: There are several answers.  The most important is that it is working
-   with unstructured meshes.  Similar comparable Fortran/C/C++ are also
-   slow compared with programs written for structured meshes.  Second,
+   with unstructured meshes.  Comparable Fortran/C/C++ libraries are also
+   slow compared with libraries written for structured meshes.  Second,
    Femlisp still has to be optimized at several places, the most important
    being its linear algebra, see above.  This will change in the near
    future.

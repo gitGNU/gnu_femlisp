@@ -161,9 +161,17 @@ up to now."
 		(gemm! weight (aref shape-vals i) (aref force i)
 		       1.0 (aref local-rhs i))))))))
 
-	       
-
 ;;; Constraint assembly -> see system-fe.lisp
+	       
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; GPS interface
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod select-discretization ((problem <navier-stokes-problem>) blackboard)
+  (let* ((dim (dimension (domain problem)))
+	 (order (if (<= dim 2) 4 2)))
+    (navier-stokes-fe::navier-stokes-lagrange-fe order dim 1)))
+
 
 ;;; Testing
 (defun navier-stokes-fe-tests ()

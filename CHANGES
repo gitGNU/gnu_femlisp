@@ -1,5 +1,23 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.0 to Femlisp-0.9.1:
+
+Some corrections in the files FAQ, CHANGES, INSTALL, README, and TODO.
+
+Some extensions of general problem solving.  This is work in progress.
+
+Femlisp now works with SBCL on Mac OS X and with CMUCL on Sparc/Solaris.
+
+The whole installation process is specified in more detail in INSTALL.  The
+approach using the global installation script "femlisp-install" is
+abandoned, because it does not make much sense for more sophisticated
+users.
+
+For convenience, I have included the ASDF and Infix libraries with Femlisp
+in the directory "femlisp/external/".  CL-PPCRE is put there as well by
+executing using "make cl-ppcre" in the Femlisp main directory.
+
+
 * From Femlisp-0.8.5 to Femlisp-0.9.0:
 
 There are the beginnings of a GPS (general problem solver:-).  The generic
@@ -10,7 +28,8 @@ Femlisp is almost completely ANSI-compliant now.  At least, it works on
 both SBCL and CMUCL.  The platform/implementation dependent parts are
 concentrated in femlisp:src;basic;port.lisp.
 
-DOUBLE-FLOAT is the standard read format now.
+DOUBLE-FLOAT is the standard read format now.  Uniform DOUBLE-FLOAT vectors
+can be written as #d(...).
 
 Some packages have been renamed for avoiding name clashes with other CL
 libraries, e.g. MACROS became FL.MACROS, UTILITIES became FL.UTILITIES,
@@ -23,17 +42,18 @@ me with this change.
 Femlisp is somewhat faster now (by about 10%-30%).  The main reason is the
 caching of the last result of CORNERS (corners of a cell).
 
-A replacement for Matlisp was incorporated (package FL.MATLISP) which
-is sufficient for the restricted LAPACK functionality needed by Femlisp.
-The main advantages of this change are that Femlisp should be easily
-portable to other CL implementations now and that these routines work much
-faster on small matrices.
+A replacement for Matlisp was incorporated (package FL.MATLISP) which is
+sufficient for the restricted LAPACK functionality needed by Femlisp.  The
+main advantages of this change are that Femlisp should be easily portable
+to other CL implementations now and that these routines work much faster on
+small matrices.  FL.MATLISP matrices can be written with #m(...).
+
 
 * From Femlisp-0.8.4 to Femlisp-0.8.5:
 
 The mesh module was improved.  Especially, cells are now CLOS classes
-instead of structures (as it was already written down in my article on
-Femlisp).  The classes are automatically generated at runtime.
+instead of structures (as it was already described in my article on Femlisp
+in femlisp/doc).  The classes are automatically generated at runtime.
 
 A new package called FEMLISP.MATLISP was introduced which acts at the
 moment as an interface to MATLISP.  The next move will be to plug in my
@@ -43,6 +63,7 @@ The regression test suite was improved.  Especially, all demos are now
 tested as well.
 
 Some errors were removed.
+
 
 * From Femlisp-0.8.3 to Femlisp-0.8.4:
 
@@ -56,6 +77,7 @@ blackboard and the solution is written to this blackboard.  This is true
 for both linear solvers and problem solution strategies.
 
 Several smaller changes.
+
 
 * From Femlisp-0.8.2 to Femlisp-0.8.3:
 

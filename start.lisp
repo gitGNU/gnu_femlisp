@@ -34,21 +34,13 @@
 
 (in-package :cl-user)
 
-;;; Note: The code below expects that the logical host
-;;; "femlisp:" is correctly set to the femlisp directory and
-;;; that "femlisp:src;" is registered for ASDF.  CL-PPCRE and
-;;; infix should also be found.
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Initialization of external utilities
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Note: We expect that the logical host "femlisp:" is
+;;; correctly set to the femlisp directory and that
+;;; "femlisp:src;" is registered for ASDF.  CL-PPCRE and infix
+;;; should also be loaded.  This can be ensured by loading
+;;; "femlisp:femlisp-init.lisp" when starting up Lisp.
 
 (load "femlisp:femlisp-config.lisp")
-
-#-infix (load "cl:lisp;infix.cl")
-
-#-cl-ppcre (load "cl:cl-ppcre;load" :verbose nil)
-(pushnew :cl-ppcre *features*)
 
 ;;; we want to work generally with double float numbers
 (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)

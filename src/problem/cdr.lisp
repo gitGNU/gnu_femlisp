@@ -59,7 +59,7 @@
 
 (defmethod self-adjoint-p ((problem <cdr-problem>))
   (doskel (patch (domain problem))
-    (when (getf (funcall (patch->coefficients problem) patch)
+    (when (getf (coefficients-of-patch patch problem)
 		'CDR::CONVECTION)
       (return-from self-adjoint-p (values NIL T))))
   (values T T))
@@ -73,7 +73,7 @@ functional."
    :patch->coefficients
    #'(lambda (cell)
        ;; check that problem is self adjoint
-       (let ((coeffs (copy-seq (funcall (patch->coefficients problem) cell))))
+       (let ((coeffs (copy-seq (coefficients-of-patch cell problem))))
 	 (when (getf coeffs 'CDR::DIRICHLET)
 	   (setf (getf coeffs 'CDR::DIRICHLET) *cf-constantly-0.0*))
 	 (assert (not (getf coeffs 'CDR::CONVECTION)))  ; better: change to negative

@@ -106,6 +106,35 @@ a function, you may use this base class."))
 	      :solution))
    :residual-after nil))
 
+;;; Problem-dependent solving
+
+(defgeneric select-linear-solver (object blackboard)
+  (:documentation "Selects a linear solver for OBJECT.  OBJECT is usually a
+matrix or a linear problem with certain characteristics."))
+
+(defmethod select-linear-solver :around (object blackboard)
+  "If a solver is on the blackboard, use it."
+  (let ((solver (aif (getf blackboard :solver) it (call-next-method))))
+    (setf (slot-value solver 'output)
+	  (getbb blackboard :output))
+    solver))
+
+(defmethod select-linear-solver (object blackboard)
+  "Default method selects LU decomposition."
+  *lu-solver*)
+
+;;; Not yet used: a general linear solver
+(defclass <gps-linear-solver> (<linear-solver>)
+  ((subsolver :type <linear-solver>))
+  (:documentation "Problem-dependent linear solving."))
+
+(defmethod solve ((gps-ls <gps-linear-solver>) &optional blackboard)
+  (unless (slot-boundp gps-ls 'subsolver)
+    (setf (slot-value gps-ls 'subsolver)
+	  (select-linear-solver (getbb blackboard :matrix) blackboard)))
+  (solve (slot-value gps-ls 'subsolver) blackboard))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing: (iteration::test-linsolve)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

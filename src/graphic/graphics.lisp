@@ -43,6 +43,10 @@
       (translate-logical-pathname #p"femlisp:images;"))
   "Pathname of the images directory.")
 
+(defvar *images-directory*
+  (namestring *images-pathname*)
+  "Namestring of *IMAGES-PATHNAME*.")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Public interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

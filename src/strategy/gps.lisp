@@ -34,8 +34,82 @@
 
 (in-package :strategy)
 
-;;;; Problem analysis and solution with an automatic choice of solver.
-;;;; Very first version.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Choice of a problem-dependent linear solver
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod select-linear-solver ((problem cdr::<cdr-problem>) blackboard)
+  (let ((dim (dimension (domain problem))))
+    (make-instance
+     '<linear-solver>
+     :iteration
+     (let ((smoother (if (> dim 2) *gauss-seidel* (geometric-ssc))))
+       (make-instance '<s1-reduction> :max-depth 2
+		      :pre-steps 1 :pre-smooth smoother
+		      :post-steps 1 :post-smooth smoother
+		      :gamma 2 :coarse-grid-iteration
+		      (make-instance '<s1-coarse-grid-iterator>)))
+     :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
+     :failure-if `(and (> :step 2) (> :step-reduction 0.9)))))
+
+(defmethod select-linear-solver ((problem elasticity::<elasticity-problem>) blackboard)
+  (let ((dim (dimension (domain problem))))
+    (make-instance
+     '<linear-solver> :iteration
+     (let ((smoother (if (>= dim 3)
+			 *gauss-seidel*
+			 (geometric-ssc))))
+       (geometric-cs
+	:pre-steps 2 :pre-smooth smoother
+	:post-steps 2 :post-smooth smoother
+	:gamma 2 :fmg t))
+     :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
+     :failure-if `(and (> :step-reduction 0.9) (> :step 2)))))
+
+(defmethod select-linear-solver ((problem navier-stokes::<navier-stokes-problem>) blackboard)
+  (let ((smoother (make-instance '<vanka>)))
+    (geometric-cs
+     :coarse-grid-iteration
+     (make-instance '<multi-iteration> :nr-steps 1 :base smoother)
+     :pre-steps 1 :pre-smooth smoother
+     :post-steps 1 :post-smooth smoother
+     :gamma 2)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Choice of problem-dependent error estimator
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric select-estimator (problem blackboard)
+  (:documentation "Select an error estimator."))
+
+(defmethod select-estimator (problem blackboard)
+  (with-items (&key functional) blackboard
+    (when functional
+      (make-instance '<duality-error-estimator> :functional functional))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Choice of problem-dependent error estimator
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric select-indicator (problem blackboard)
+  (:documentation "Select a refinement indicator."))
+
+(defmethod select-indicator ((problem t) blackboard)
+  "For systems, there is still a problem with multigrid and local
+refinements.  Therefore, we do not allow local refinement here."
+  (make-instance '<uniform-refinement-indicator>))
+
+(defmethod select-indicator ((problem <cdr-problem>) blackboard)
+  "For CDR problems, solving with local refinement works.  If an error is
+estimated, we refine those cells within some factor of the maximum error."
+  (if (select-estimator problem blackboard)
+      (make-instance '<largest-eta-indicator> :pivot-factor 0.1
+		     :from-level 1 :block-p t)
+      (make-instance '<uniform-refinement-indicator>)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; GPS = "General problem solve"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod solve ((blackboard list) &optional dummy)
   "Implements the simplest interface for problem solving.  Only a
@@ -43,38 +117,28 @@ blackboard describing the problem is passed and the solution method is
 open."
   (when (or dummy (not (eq (car blackboard) :blackboard)))
     (error "Syntax: (SOLVE blackboard) or (SOLVE strategy blackboard)."))
-  (with-items (&key strategy problem matrix rhs fe-class solver
-		    success-if output plot-mesh)
+  (with-items (&key strategy problem matrix rhs
+		    fe-class solver estimator indicator output)
       blackboard
-      (cond
-	(strategy			; there is a strategy on the blackboard
-	 (solve strategy blackboard))
-	(problem			; there is a PDE problem on the blackboard
-	 (let* ((dim (dimension (domain problem)))
-		(nr-comps (typecase problem
-			    (cdr::<cdr-problem> 1)
-			    (elasticity::<elasticity-problem> dim)
-			    (navier-stokes::<navier-stokes-problem> (1+ dim))))
-		(order (if (= nr-comps 1)
-			   (if (<= dim 2) 6 4)
-			   (if (= nr-comps dim)
-			       (if (<= dim 2) 5 4)
-			       (if (<= dim 2) 4 3))))
-		(disc (typecase problem
-			(cdr::<cdr-problem> (lagrange-fe order))
-			(elasticity::<elasticity-problem> (lagrange-fe order :nr-comps dim))
-			(navier-stokes::<navier-stokes-problem>
-			 (navier-stokes-fe::navier-stokes-lagrange-fe order dim 1)))))
-	   (let ((strategy
-		  (make-instance
-		   '<stationary-fe-strategy>
-		   :fe-class (or fe-class disc) :solver (or solver *lu-solver*)
-		   :indicator (make-instance '<uniform-refinement-indicator>)
-		   :success-if success-if :output output
-		   :plot-mesh plot-mesh)))
-	     (solve strategy blackboard))))
-	((and matrix rhs)		; there is a linear problem on the blackboard
-	 (solve (or solver *lu-solver*) blackboard))
-	(t (error "SOLVE does not know about this problem.")))))
+    (cond
+      (strategy				; there is a strategy on the blackboard
+       (solve strategy blackboard))
+      (problem				; there is a PDE problem on the blackboard
+       (setq strategy
+	     (apply
+	      #'make-instance '<stationary-fe-strategy>
+	      :fe-class (or fe-class (select-discretization problem blackboard))
+	      :solver (or solver (select-linear-solver problem blackboard))
+	      :estimator (or estimator (select-estimator problem blackboard))
+	      :indicator (or indicator (select-indicator problem blackboard))
+	      (loop with flag = (cons nil nil)
+		    for item in '(:success-if :failure-if :output :observe :plot-mesh)
+		    for value = (getbb blackboard item flag)
+		    unless (eq value flag) collect item and collect value)))
+       (setq output (eq output :all))
+       (solve strategy blackboard))
+      ((and matrix rhs)			; there is a linear problem on the blackboard
+       (solve (select-linear-solver matrix blackboard)))
+      (t (error "SOLVE does not know this problem.")))))
 
 

@@ -21,30 +21,6 @@ Near future, relatively easy extensions
 * Plotting for prisms.  This is very easy by mapping prisms to cubes, but
   will probably only be done when someone needs it.
 
-* Port to SBCL.  This should be easy and would make Femlisp work on
-  Macintosh computers.
-
-* Port to CLISP.  This is interesting mainly because of testing ANSI
-  conformance.
-
-* Switch to asdf and asdf-install for installation.
-
-
-Intermediate future
--------------------
-
-* Improved polynomial manipulation by using Maxima.  Something like the
-  following should be accessible from Lisp:
-
-load ("specfun");
-FPPREC:30;
-bfloat(allroots (legendre_p(10,x)));
-
-... calculation of quadrature rules, shape functions, ...
-
-* Maybe: interface to a linear sparse solver like SuperLU.
-
-
 Distant future
 --------------
 

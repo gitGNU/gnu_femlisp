@@ -46,7 +46,7 @@
    ;; newton.lisp
    "NEWTON"
    ;; iterate.lisp
-   "<ITERATION>"
+   "<ITERATION>" "*TIME-OBSERVE*"
    "INITIALLY" "INTERMEDIATE" "TERMINATE-P" "FINALLY" "OBSERVE"
    "SUCCESS-IF" "FAILURE-IF"
    "NEXT-STEP" "ITERATE" "OUTPUT"
@@ -62,7 +62,7 @@
    "<SOR>" "<GAUSS-SEIDEL>" "*GAUSS-SEIDEL*"
    "<SOLVER-ITERATION>"
    ;; linsolve.lisp
-   "LINSOLVE"
+   "LINSOLVE" "<GPS-LINEAR-SOLVER>" "SELECT-LINEAR-SOLVER"
    ;; krylow.lisp
    "<GRADIENT-METHOD>" "<CG>" "<PCG>" "*STANDARD-CG*" "*STANDARD-PCG*"
    ;; blockit.lisp

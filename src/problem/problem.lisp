@@ -41,24 +41,26 @@
 (defclass <problem> ()
   ((domain :reader domain :initform (required-argument)
 	   :initarg :domain :type <domain>)
-   (p->c :reader patch->coefficients :initform (constantly nil)
-	 :initarg :patch->coefficients)
-   (memoize :initform t :initarg :memoize)
+   (coefficients :initform (make-hash-table))
    (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity))
   ;;
-  (:documentation "Base-class for a pde-problem.  The domain slot contains
-the domain on which the problem lives.  The p->c slot contains a map from
-the domain patches to problem coefficients.  Those are property lists of
-the form (SYM1 coefficient1 SYM2 coefficient2 ...).  The multiplicity slot
-can be chosen as n>1 if the problem is posed with n different right hand
-sides simultaneously."))
+  (:documentation "Base-class for a pde-problem.  The slot DOMAIN contains
+the domain on which the problem lives.  The slot COEFFICIENTS contains a
+table from domain patches to coefficients on this patch which are property
+lists of the form (SYM1 coefficient1 SYM2 coefficient2 ...).  When the
+problem instance is initialized this table is set up by calling the
+function PATCH->COEFFICIENTS which has to be provided as a key argument.
+The multiplicity slot can be chosen as n>1 if the problem is posed with n
+different right hand sides simultaneously."))
 
-(defmethod initialize-instance :after ((problem <problem>) &key &allow-other-keys)
-  "Memoize the coefficient definition.  This might create problems for
-strange applications with dynamically changing problems."
-  (when (slot-value problem 'memoize)
-    (setf (slot-value problem 'p->c)
-	  (memoize-1 (slot-value problem 'p->c)))))
+(defmethod initialize-instance :after ((problem <problem>)
+				       &key (patch->coefficients (constantly nil))
+				       &allow-other-keys)
+  "Setup the coefficients table."
+  (with-slots (domain coefficients) problem
+    (doskel (patch domain)
+      (setf (gethash patch coefficients)
+	    (funcall patch->coefficients patch)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Coefficient functions
@@ -66,7 +68,7 @@ strange applications with dynamically changing problems."
 
 (definline coefficients-of-patch (patch problem)
   "An accessor for the coefficients."
-  (the list (funcall (patch->coefficients problem) patch)))
+  (the list (gethash patch (slot-value problem 'coefficients))))
 
 (definline coefficients-of-cell (cell mesh problem)
   "An accessor for the coefficients."
@@ -187,15 +189,15 @@ coordinates."
 		(eq where (if (refined-p cell mesh) :refined :surface)))
 	(format t "~&Cell ~A  [Mapping ~A]~%Properties: ~A~%Coeffs: ~A~2%"
 		cell (mapping cell) properties
-		(funcall (patch->coefficients problem) patch))))))
+		(coefficients-of-patch patch problem))))))
+
 
 ;;; Testing: (test-problem)
 
 (defun test-problem ()
   (function->coefficient
    #'(lambda (&key global &allow-other-keys) (exp (aref global 0))))
-  (make-instance '<problem> :domain *unit-interval-domain*
-		 :patch->coefficients nil)
+  (make-instance '<problem> :domain *unit-interval-domain*)
   )
 
 (fl.tests:adjoin-test 'test-problem)

@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; plot-defp.lisp
+;;; strategy.lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -32,14 +32,18 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
+(in-package :strategy)
 
-(defpackage "PLOT"
-  (:use "COMMON-LISP"
-	"FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.DEMO"
-	"GRAPHICS" "ALGEBRA" "FL.FUNCTION"
-	"MESH" "PROBLEM" "DISCRETIZATION")
-  (:import-from "GRAPHICS" "*IMAGES-DIRECTORY*")
-  (:export "PLOT"))
+(defclass <strategy> (<iteration>)
+  ()
+  (:documentation "A strategy is an iteration for solving a problem defined
+on a blackboard."))
+  
+(defmethod solve ((strategy <strategy>) &optional blackboard)
+  "Solves the problem on the blackboard using the given strategy."
+  (setf (getbb blackboard :strategy) strategy)
+  (iterate strategy blackboard))
+
+
+
 

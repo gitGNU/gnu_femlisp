@@ -170,6 +170,16 @@ other problems or other finite element discretizations.  |#
 		  )))))
     (values constraints-P constraints-Q constraints-rhs)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; GPS interface
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod select-discretization ((problem <cdr-problem>) blackboard)
+  (let* ((dim (dimension (domain problem)))
+	 (order (if (<= dim 2) 4 3)))
+    (lagrange-fe order)))
+
+
 ;;; Testing
 (defun cdr-fe-tests ()
   (let* ((order 1) (level 1)

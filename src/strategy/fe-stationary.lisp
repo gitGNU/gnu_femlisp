@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; plot-defp.lisp
+;;; stationary.lisp - Solution strategy for stationary PDE problems
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -32,14 +32,37 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
+(in-package :strategy)
 
-(defpackage "PLOT"
-  (:use "COMMON-LISP"
-	"FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.DEMO"
-	"GRAPHICS" "ALGEBRA" "FL.FUNCTION"
-	"MESH" "PROBLEM" "DISCRETIZATION")
-  (:import-from "GRAPHICS" "*IMAGES-DIRECTORY*")
-  (:export "PLOT"))
+(defvar *stationary-fe-strategy-observe*
+  (append
+   (remove *time-observe* *fe-approximation-observe*)
+   (list
+    (list " MENTRIES" "~9D"
+	  #'(lambda (blackboard)
+	      (with-items (&key matrix) blackboard
+		(and matrix (total-entries matrix)))))
+    *time-observe*))
+   "Standard observe quantities for stationary fe-strategies.")
+
+(defclass <stationary-fe-strategy> (<fe-approximation>)
+  ((iteration::observe :initform *stationary-fe-strategy-observe*)
+   (solver :initarg :solver :documentation
+	   "The solver to be used for solving the discretized systems."))
+  (:documentation "This class describes some iterative finite element
+solution strategies for continuous, stationary PDE problems."))
+
+(defmethod approximate ((fe-strategy <stationary-fe-strategy>) blackboard)
+  "Ensures accuracy of the solution and the error estimate."
+  (with-items (&key interior-matrix interior-rhs
+		    solver-blackboard solution rhs matrix)
+      blackboard
+    ;; assemble (better would be a local assembly)
+    (setf interior-matrix nil interior-rhs nil)
+    (fe-discretize blackboard)
+    ;; improve approximation by solving
+    (setf solver-blackboard
+	  (solve (slot-value fe-strategy 'solver)
+		 (blackboard :matrix matrix :rhs rhs :solution solution)))
+    (setf solution (getbb solver-blackboard :solution))))
 

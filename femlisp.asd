@@ -194,12 +194,15 @@
 			  "special-iteration" "plot")
       :components
       ((:file "strategy-defp")
-       (:file "strategy-utilities" :depends-on ("strategy-defp"))
+       (:file "strategy" :depends-on ("strategy-defp"))
+       (:file "strategy-utilities" :depends-on ("strategy"))
        (:file "error-estimator" :depends-on ("strategy-utilities"))
        (:file "error-indicator" :depends-on ("strategy-utilities"))
-       (:file "stationary" :depends-on
-	      ("strategy-utilities" "error-estimator" "error-indicator"))
-       (:file "gps" :depends-on ("stationary"))
+       (:file "fe-approximation" :depends-on
+	      ("strategy" "strategy-utilities" "error-estimator" "error-indicator"))
+       (:file "fe-interpolation" :depends-on ("fe-approximation"))
+       (:file "fe-stationary" :depends-on ("fe-approximation"))
+       (:file "gps" :depends-on ("fe-stationary"))
        ))
      (:module
       "applications"

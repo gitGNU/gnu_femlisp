@@ -56,6 +56,12 @@ indicating if output is to be done.")
    )
   (:documentation "The iteration base class."))
 
+(defparameter *time-observe*
+  (list "  TIME" "~6,1F"
+	#'(lambda (blackboard) (getbb blackboard :time)))
+  "Observe time during an iteration.  This should be used as element in the
+observe list of an iteration.")
+
 (defun compile-termination-test (test)
   "Compiles a given list expression TEST into a test function acting on a
 blackboard.  Keywords are replaced by macros accessing the blackboard."

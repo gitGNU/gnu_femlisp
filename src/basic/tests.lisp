@@ -99,10 +99,7 @@
     (loop for sym in *bugs* do (format t "~A~%" sym)))
   )
 
-;;; (fl.tests:test-femlisp)
+;;; (time (fl.tests:test-femlisp))
 ;;;
 ;;; Test without plotting:
-;;; (let ((plot::*plot* nil)) (fl.tests:test-femlisp))
-;;;
-;;; Test with timing:
 ;;; (time (let ((plot::*plot* nil)) (fl.tests:test-femlisp)))

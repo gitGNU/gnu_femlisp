@@ -116,8 +116,7 @@ cells as keys."))
   (the list (getf (properties fe) 'INNER-DOF-INDICES)))
 
 (defmacro do-dofs ((dof fe) &body body)
-  `(dolist (,dof (fe-dofs ,fe))
-    (declare (type <dof> ,dof))
+  `(loop for ,dof of-type <dof> in (fe-dofs ,fe) do
     ,@body))
 
 (defmethod initialize-instance :after ((fe <fe>) &key &allow-other-keys)
@@ -142,6 +141,19 @@ cells as keys."))
 (defmethod make-local-mat ((fe <fe>))
   (make-real-matrix (nr-of-dofs fe)))
 
+(defmethod interpolate-on-refcell ((fe <fe>) function)
+  "Interpolates FUNC on the reference cell of FE using FE."
+  (let ((values (loop for dof in (subseq (fe-dofs fe) 0 (nr-of-inner-dofs fe))
+		      collecting (evaluate dof function))))
+    (when values
+      (assert (apply #'= (mapcar #'multiplicity values)))
+      (let ((vblock (make-real-matrix (nr-of-inner-dofs fe)
+				      (multiplicity (first values)))))
+	(loop for value in values and i from 0 do
+	      (if (numberp value)
+		  (setf (vref vblock i) value)
+		  (minject vblock value i 0)))
+	vblock))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <vector-fe>
@@ -234,6 +246,15 @@ in a sparse vector value block corresponding to the subcell."
 		(setf (aref result i j)
 		      (make-real-matrix (nr-of-dofs fe1) (nr-of-dofs fe2)))))
     result))
+
+(defmethod interpolate-on-refcell ((vecfe <vector-fe>) function)
+  "Interpolates FUNC on the reference cell of VECTOR-FE using VECTOR-FE."
+  (error "NYI.  Do you really need it?")
+  #+(or)(coerce
+   (loop for fe in (components vecfe) and comp from 0 collect
+	 (interpolate-on-refcell
+	  fe (sliced-function function comp)))
+   'vector))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <fe-discretization>

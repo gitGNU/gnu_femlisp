@@ -109,9 +109,7 @@ finest mesh and a projection to the next-coarser level."
     (when (and interpolation projection)
       (setq P*sol (m* projection solution))
       (setq I*P*sol (m* interpolation P*sol))
-      (setq solution-increment
-	    (sparse->ansatz-space-vector (m- solution I*P*sol)
-					 :ansatz-space ansatz-space)))))
+      (setq solution-increment (m- solution I*P*sol)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; compute-local-estimate

@@ -1,79 +1,130 @@
 # -*- mode: text; -*-
 
-* Femlisp installation in a Unix environment
+###########################################################################
+###########################################################################
 
-** Software needed
+Femlisp installation in a Unix environment
+
+###########################################################################
+###########################################################################
+
+* Software needed to run Femlisp
 
  Non-Lisp software:
-  - Gnuplot, 
-  - OpenDX, see http://www.opendx.org
+  - Gnuplot
+  - Data Explorer (OpenDX)
 
  Common Lisp software:
-  - CMUCL, see http://www.cons.org/cmucl/
-  - CL-PPCRE, see http://www.weitz.de/cl-ppcre/
-  - infix, see ftp://ftp.cs.cmu.edu/user/ai/lang/lisp/code/syntax/infix/infix.cl
-  - [maybe later: CLOCC, see http://clocc.sourceforge.net]
+  - CMUCL or SBCL
+  - CL-PPCRE
+  - Infix and ASDF (bundled with Femlisp for convenience)
 
  Lisp-Environment:
   - Emacs
 
-** Installation
+###########################################################################
 
-  0. Make sure that "dx" and "gnuplot" are found in your path and work.
-     Otherwise, you will have no graphics.
-  
-  1. Load the shell script "femlisp-install" by
-
-        wget http://www.femlisp.org/femlisp-install
-
-  2. Run it using
-
-        sh femlisp-install
-
-  3. Accept the license (it allows essentially everything except being
-     changed), enter the name of the installation directory (called
-     FEMLISP-DIRECTORY in the following which defaults to
-     YOUR-HOME-DIRECTORY/FEMLISP).  Installation will need about 120MB disk
-     space.
-
-  4. If the script runs successfully, a startup script for Femlisp can be
-     found at FEMLISP-DIRECTORY/bin/femlisp which can be executed.
-
-  5. However, it is most reasonable to use Femlisp from within a Lisp
-     environment because otherwise you have no command history, etc.  
-
-	 A freely available Lisp environment is Emacs where you can use Ilisp,
-     SLIME, or the built-in inferior-lisp-mode together with Femlisp.  For
-     inferior-lisp-mode, you should add the following lines to your
-     .emacs-file (replacing FEMLISP-DIRECTORY with the correct path):
-
-	 (defun femlisp ()
-       "Start femlisp in an inferior-lisp buffer."
-       (interactive)
-       (run-lisp "FEMLISP-DIRECTORY/bin/femlisp"))
-
-     (setq same-window-buffer-names  ; recommended
-        (delete "*inferior-lisp*" same-window-buffer-names))
-
-     Now the Emacs command 'M-x femlisp' should run Femlisp in an inferior
-     Lisp buffer.
-
-  6. Start Femlisp and look at the demos by typing in "(demo)" at the
-     prompt (do not forget the parentheses!).
-
-  7. If you want to start real work with Femlisp, you should get yourself
-     some literature on CL. An indispensable resource for Common Lisp is
-     the ANSI CL specification in the form of the Hyperspec, which is
-     available online.
+* Installation process
 
 
-** Notes:
+** (A) Installation of a Common Lisp implementation
 
-- Femlisp is known to work only with CMUCL and SBCL on Linux at the moment.
-  It should not be difficult to port it to other CL implementations and
-  other computer architectures.
+There are two free Common Lisp compilers with which Femlisp can be used in
+a reasonable way, namely CMUCL or SBCL.  I recommend to use CMUCL on
+X86/Linux or Sparc/Solaris and SBCL on MacOSX.
 
-- Without changes the installation script installs CMUCL for Linux on
-  x86-architectures.  It should be easy to adapt it to CMUCL on Solaris or
-  SBCL on MacOS.
+[Debian: "apt-get install cmucl"]
+
+Femlisp should also run with little changes within other ANSI Common Lisp
+envirorenments, especially the commercial ones Allegro CL, Lispworks,
+Corman CL and Scieneer CL.
+
+Note: It is not reasonable to use Femlisp with CLISP or GCL, because these
+are too slow with respect to floating point arithmetic.  The same seems to
+be true for OpenMCL.
+
+
+** (B) Graphics
+
+Femlisp uses two graphics packages, namely Gnuplot and Data Explorer.  Make
+sure that they can be found in your path and that they work.
+
+[Debian: "apt-get install gnuplot dx"]
+
+
+** (C) Femlisp installation
+
+Download the current Femlisp version.
+
+  # if "wget" is not available try "curl -O" instead
+  wget http://www.femlisp.org/femlisp-current.tar.gz
+  tar xzvf femlisp-current.tar.gz
+  cd femlisp
+
+  # if you do not install CL-PPCRE separately you should install the cl-ppcre
+  # package in femlisp/external/ using the following command
+  make cl-ppcre
+
+After these steps you should look at the script "femlisp/bin/femlisp" and
+set the variables $FEMLISP_DIR to the path of the Femlisp directory and
+$FEMLISP_CL to the path of the startup script of your CL implementation.
+Then you should be able to start Femlisp by executing the script
+"femlisp/bin/femlisp".
+
+
+** (D) [OPTIONAL] Saving a core
+
+If you use CMUCL you can save a core which avoids reloading CL-PPCRE and
+Femlisp during startup.  This is done by executing the command
+
+  make femlisp-core
+
+from inside the Femlisp main directory.  After this operation, Femlisp
+should start up much faster.
+
+
+** (E) Setup of a simple interactive Femlisp environment
+
+It is essential to use Femlisp from within a Lisp environment because
+otherwise you have not even a command history.
+
+A freely available Lisp environment is Emacs where you can use Ilisp,
+SLIME, or the built-in inferior-lisp-mode together with Femlisp.  For
+inferior-lisp-mode, you should add the following lines to your .emacs-file
+(replacing FEMLISP_DIRECTORY with the correct path):
+
+  (defun femlisp ()
+	"Start femlisp in an inferior-lisp buffer."
+	(interactive)
+	(run-lisp "/FEMLISP_DIRECTORY/bin/femlisp"))
+
+I recommend adding the following two lines as well:
+
+  (setq same-window-buffer-names
+	 (delete "*inferior-lisp*" same-window-buffer-names))
+
+Now the Emacs command 'M-x femlisp' should run Femlisp in an inferior
+Lisp buffer.
+
+###########################################################################
+
+* Use of Femlisp
+
+Start Femlisp and look at the demos by typing in "(demo)" at the CL prompt
+(do not forget the parentheses!).  You drop out of the demos by typing
+"quit" (without parentheses) at the demo prompt, and you can exit Femlisp
+by typing "(quit)" at the CL prompt.
+
+If you want to start real work with Femlisp, you should get yourself some
+literature on CL. An indispensable resource for Common Lisp is the ANSI CL
+specification in the form of the Hyperspec, which is available online.
+
+###########################################################################
+
+* Notes:
+
+Up to now, Femlisp has been tested with CMUCL and SBCL on X86/Linux, with
+CMUCL on Sparc/Solaris platforms and with SBCL on Mac OS X.  It should not
+be difficult to port it to other CL implementations running on other
+computer architectures.
 

@@ -112,6 +112,16 @@ scalar case we worked directly with standard-matrix."
 
 ;;; Assembly of boundary conditions -> system-fe.lisp
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; GPS interface
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod select-discretization ((problem <elasticity-problem>) blackboard)
+  (let* ((dim (dimension (domain problem)))
+	 (order (if (<= dim 2) 4 3)))
+    (lagrange-fe order :nr-comps dim)))
+
+
 ;;; Testing
 (defun elasticity-fe-tests ()
   (let* ((dim 1) (order 1) (level 1)

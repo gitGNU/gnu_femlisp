@@ -40,27 +40,40 @@
 
 (defclass <ansatz-space> ()
   ((fe-class :reader fe-class :initarg :fe-class :type <fe-discretization>)
-   (problem :reader problem :initarg :problem :type <problem>)
+   (problem :reader problem :initarg :problem)
+   (multiplicity :reader multiplicity :initarg :multiplicity
+		 :documentation "Should be a copy of problem multiplicity.")
    (mesh :reader mesh :initarg :mesh :type <mesh>)
    (structure-information :accessor structure-information :initform () :type list))
   (:documentation "An <ansatz-space> is determined by finite element
 discretization and problem.  The problem determines constraints like
-essential boundary conditions or hanging nodes.  Those constraints are
-determined during assembly and stored into the structure-information slot.
+essential boundary conditions.  These together with hanging-node
+constraints are determined during assembly and stored into the
+structure-information slot.
 
 This class is used as a mixin for deriving the classes
 <ansatz-space-vector> and <ansatz-space-matrix> from <sparse-vector> and
 <sparse-matrix>, respectively."))
+
+(defmethod initialize-instance :after ((as <ansatz-space>) &key &allow-other-keys)
+  (unless (slot-boundp as 'multiplicity)
+    (setf (slot-value as 'multiplicity)
+	  (if (slot-boundp as 'problem)
+	      (slot-value (problem as) 'multiplicity)
+	      1))))
 
 (defmethod hierarchical-mesh ((as <ansatz-space>))
   "h-mesh accessor for ansatz-space.  Use it for emphasizing that you work
 with a hierarchical mesh."
   (the <hierarchical-mesh> (mesh as)))
 
-(defun make-fe-ansatz-space (fe-class problem mesh)
-  "<ansatz-space> constructor."
+(defun make-fe-ansatz-space (fe-class problem mesh &optional multiplicity)
+  "<ansatz-space> constructor.  Somewhat shorter than with MAKE-INSTANCE."
   (make-instance '<ansatz-space> :fe-class fe-class
-		 :problem problem :mesh mesh))
+		 :problem problem :mesh mesh
+		 :multiplicity (or multiplicity
+				   (and problem (multiplicity problem))
+				   1)))
 
 (defgeneric set-constraints (ansatz-space)
   (:documentation "Computes the constraint matrices for this ansatz-space.
@@ -140,27 +153,19 @@ for a specific fe-class on a given mesh."))
   (let ((as (ansatz-space asv)))
     (setf (slot-value asv 'key->size) (key->size as))
     (setf (slot-value asv 'print-key) (print-key as))
-    (setf (slot-value asv 'multiplicity) (slot-value (problem as) 'multiplicity))))
+    (setf (slot-value asv 'multiplicity) (slot-value as 'multiplicity))))
 
 (defun make-ansatz-space-vector (as)
   "Deprecated."
   (make-instance '<ansatz-space-vector> :ansatz-space as))
 
-(defun sparse->ansatz-space-vector (svec &key ansatz-space)
-  (let ((asv (make-ansatz-space-vector ansatz-space)))
-    ;; One could do a check here, if all keys are present in the mesh.
-    ;; I'll do that when the first error occurs.
-    (setf (slot-value asv 'algebra::blocks)
-	  (slot-value svec 'algebra::blocks))
-    asv))
-
 (defmethod component ((asv <ansatz-space-vector>) i)
   "Returns an ansatz-space-vector which denotes a component of asv.  The
 vector shares part of the values."
   (let* ((comp-fedisc (component (fe-class asv) i))
-	 (comp-as (make-fe-ansatz-space comp-fedisc (problem asv) (mesh asv)))
-	 (comp-asv (make-instance '<ansatz-space-vector>
-				  :ansatz-space comp-as))
+	 (comp-as (make-instance '<ansatz-space> :fe-class comp-fedisc :problem (problem asv)
+				 :mesh (mesh asv) :multiplicity (multiplicity asv)))
+	 (comp-asv (make-ansatz-space-vector comp-as))
 	 (indices (coerce (range< 0 (multiplicity asv)) 'vector))
 	 (cell->fe (slot-value comp-fedisc 'cell->fe)))
     (for-each-key-and-entry
@@ -198,8 +203,8 @@ between two ansatz-spaces."))
      :keys->pattern #'keys->pattern)))
 
 (defmethod m* ((asm <ansatz-space-morphism>) (asv <ansatz-space-vector>))
-  (sparse->ansatz-space-vector (call-next-method)
-			       :ansatz-space (image-ansatz-space asm)))
+  (change-class (call-next-method) '<ansatz-space-vector>
+		:ansatz-space (image-ansatz-space asm)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <ansatz-space-automorphism>
@@ -279,12 +284,12 @@ accelerated by taking member-checks out of the loop."
 
 (defmethod make-domain-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
   (when multiplicity
-    (assert (= multiplicity (multiplicity (problem (ansatz-space A))))))
+    (assert (= multiplicity (multiplicity (ansatz-space A)))))
   (make-ansatz-space-vector (ansatz-space A)))
 
 (defmethod make-image-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
   (when multiplicity
-    (assert (= multiplicity (multiplicity (problem (ansatz-space A))))))
+    (assert (= multiplicity (multiplicity (ansatz-space A)))))
   (make-ansatz-space-vector (ansatz-space A)))
 
 
@@ -365,16 +370,18 @@ finite element is copied into the global projection matrix."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun c-dirichlet-dof-p (key constraints-P constraints-Q)
-  (and (matrix-row constraints-P key)
+  (and constraints-P
+       (matrix-row constraints-P key)
        (not (matrix-row constraints-Q key))))
 
 (defun c-slave-dof-p (key constraints-P constraints-Q)
-  (when (matrix-row constraints-P key)
-    (for-each-key-in-row
-     #'(lambda (row-key)
-	 (unless (eq key row-key)
-	   (return-from c-slave-dof-p t)))
-     constraints-Q key)))
+  (and constraints-P
+       (matrix-row constraints-P key)
+       (for-each-key-in-row
+	#'(lambda (row-key)
+	    (unless (eq key row-key)
+	      (return-from c-slave-dof-p t)))
+	constraints-Q key)))
 
 (defun c-find-master (key mesh constraints-P constraints-Q)
   "Does work only for Lagrange fe.  Otherwise there may be several
@@ -448,6 +455,14 @@ masters."
     ;; return the result
     prol))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; GPS choice of solver
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod select-linear-solver ((asa <ansatz-space-automorphism>) blackboard)
+  "Tries to select a suitable solver depending on the problem."
+  (select-linear-solver (problem asa) blackboard))
+
 
 ;;;; Testing
 (defun test-sparseas ()
@@ -455,8 +470,7 @@ masters."
   ;; yield identity on a quadratic polynomial
   (let* ((dim 1) (domain (n-cube-domain dim))
 	 (mesh (uniformly-refined-hierarchical-mesh domain 1))
-	 (dummy-problem (make-instance '<problem> :domain domain))
-	 (ansatz-space (make-fe-ansatz-space (lagrange-fe 3) dummy-problem mesh))
+	 (ansatz-space (make-instance '<ansatz-space> :fe-class (lagrange-fe 3) :mesh mesh))
 	 (x (make-ansatz-space-vector ansatz-space))
 	 (I (interpolation-matrix ansatz-space))
 	 (P (projection-matrix ansatz-space)))
@@ -470,27 +484,22 @@ masters."
 	)))
   (let* ((dim 1) (domain (n-cell-domain dim))
 	 (mesh (uniformly-refined-hierarchical-mesh domain 1))
-	 (dummy-problem (make-instance '<problem> :domain domain))
-	 (ansatz-space (make-fe-ansatz-space (lagrange-fe 2 :nr-comps 2)
-					     dummy-problem mesh))
+	 (ansatz-space (make-instance
+			'<ansatz-space> :fe-class (lagrange-fe 2 :nr-comps 2) :mesh mesh))
 	 (I (interpolation-matrix ansatz-space))
 	 (P (projection-matrix ansatz-space)))
     (assert (midentity-p (sparse-m* P I) 1.0e-10)))
   (let* ((dim 1) (domain (n-cell-domain dim))
 	 (mesh (uniformly-refined-hierarchical-mesh domain 1))
-	 (dummy-problem (make-instance '<problem> :domain domain))
-	 (ansatz-space (make-fe-ansatz-space (lagrange-fe 2) dummy-problem mesh))
+	 (ansatz-space (make-instance '<ansatz-space> :fe-class (lagrange-fe 2) :mesh mesh))
 	 (I (interpolation-matrix ansatz-space))
 	 (P (projection-matrix ansatz-space)))
     (assert (midentity-p (sparse-m* P I) 1.0e-10)))
   (let* ((dim 1) (domain (n-cell-domain dim))
 	 (mesh (uniformly-refined-hierarchical-mesh domain 1))
-	 (dummy-problem (make-instance '<problem> :domain domain))
-	 (as1 (make-fe-ansatz-space (lagrange-fe 2) dummy-problem mesh))
-	 (as2 (make-fe-ansatz-space (lagrange-fe 3) dummy-problem mesh)))
+	 (as1 (make-instance '<ansatz-space> :fe-class (lagrange-fe 2) :mesh mesh))
+	 (as2 (make-instance '<ansatz-space> :fe-class (lagrange-fe 3) :mesh mesh)))
     (loop repeat 1 do (refine mesh :test (rcurry #'inside-cell? (make-double-vec dim 0.25))))
-    (assemble-constraints as1)
-    (assemble-constraints as2)
     (let ((tm1->2 (transfer-matrix as1 as2 :no-slaves t))
 	  (tm2->1 (transfer-matrix as2 as1 :no-slaves t)))
       (assert (midentity-p (sparse-m* tm2->1 tm1->2) 1.0e-10))))

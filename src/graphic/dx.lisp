@@ -58,17 +58,14 @@ on/off.  This is a trick to make dx redraw the picture.")
   (setq *dx-stream*
 	(if (and *dx-stream* (open-stream-p *dx-stream*))
 	    *dx-stream*
-	    (whereas ((process
-		       (fl.port:run-program
-			*dx-pathname* '("-script" "-cache off" "-log on")
-			:input :stream :output nil :wait nil)))
-	      (fl.port:process-input process))))
+	    (when *dx-pathname*
+	      (whereas ((process
+			 (fl.port:run-program
+			  *dx-pathname* '("-script" "-cache off" "-log on")
+			  :input :stream :output nil :wait nil)))
+		(fl.port:process-input process)))))
   (unless *dx-stream*
-    (format
-     *error-output*
-     "Could not open stream to DX.  Please ensure that the DX executable is
-in your path or set the special variable CL-USER::*DX-PATH* to its
-pathname.  Usually, this is set in femlisp:src;femlisp-config.lisp."))
+    (format *error-output* "~&ENSURE-DX-STREAM: could not open stream.~%"))
   *dx-stream*)
 
 (defmethod graphic-stream ((program (eql :dx)))

@@ -79,35 +79,14 @@ oscillating domain."
   "Computes a boundary layer and a boundary law coefficient
 constant for a given boundary layer cell domain."
   (defparameter *result*
-    (let* ((dim (dimension domain))
-	   (problem (boundary-layer-cell-problem domain))
-	   (solver
-	    (?2 *lu-solver*
-		(make-instance
-		 '<linear-solver>
-		 :iteration
-		 (let ((smoother (if (> dim 2) *gauss-seidel* (geometric-ssc))))
-		   (make-instance '<s1-reduction> :max-depth 2 :pre-steps 1 :pre-smooth smoother
-				  :post-steps 1 :post-smooth smoother
-				  :gamma 2 :coarse-grid-iteration
-				  (?2 *lu-iteration*
-				      (make-instance '<s1-coarse-grid-iterator>))))
-		 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
-		 :failure-if `(and (> :step 2) (> :step-reduction 0.9))
-		 :output (eq output :all)))))
-      (solve
-       (make-instance
-	'<stationary-fe-strategy>
-	:fe-class (lagrange-fe order) :solver solver
-	:estimator (make-instance '<duality-error-estimator> :functional :load-functional)
-	:indicator
-	(make-instance '<largest-eta-indicator> :pivot-factor 0.01
-		       :from-level 1 :block-p t)
-	:success-if `(= :max-level ,(1- max-levels))
-	:output output :plot-mesh plot :observe
-	(append *stationary-fe-strategy-observe*
-		(list *cbl-observe* *eta-observe*)))
-       (blackboard :problem problem))))
+    (solve (blackboard
+	    :problem (boundary-layer-cell-problem domain)
+	    :fe-class (lagrange-fe order)
+	    :functional :load-functional
+	    :output output :plot-mesh t
+	    :observe (append *stationary-fe-strategy-observe*
+			     (list *cbl-observe* *eta-observe*))
+	    :success-if `(= :max-level ,(1- max-levels)))))
   (when plot
     (plot (getf *result* :solution))))
 
@@ -232,27 +211,6 @@ the load functional."
   (destructuring-bind (&key matrix solution rhs &allow-other-keys)
       *result*
     (plot (m- rhs (m* matrix solution))))
-
-;O=1
-;1.0
-;0.9994139684729783
-;0.9478047281289215  2.34
-;0.9427405097092483 10.9
-;0.9412018564593625 56
-;0.940791738100939 650 (cells 11300)
-
-;O=4:
-;0.9341601270140.
-;0.940503094101
-;0.940644213164
-
-;O=5
-;0.9414553049022709 2.45
-;0.9406756579556297 8.96
-;0.9406523275905488 27.3
-;0.9406521294202064 87
-;0.9406521488254819 550
-
+  
   (problem-info (sinusoidal-boundary-layer-cell-problem 2))
-
   )

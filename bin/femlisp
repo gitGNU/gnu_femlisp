@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# set the following variables to the correct values
+export FEMLISP_DIR=/home/neuss/CL-HOME/femlisp
+export FEMLISP_CL=/home/neuss/CL-HOME/bin/cmucl
+CL_TYPE=cmucl
+
+case $CL_TYPE in
+    cmucl) core="-core"; load="-load"; eval="-eval";;
+    sbcl) core="--core"; load="--load"; eval="--eval";;
+    *) echo "Unknown CL type"; exit 1;;
+esac
+
+if test -x $FEMLISP_CL/bin/femlisp.core; then
+    exec $FEMLISP_CL $core $FEMLISP_DIR/bin/femlisp.core $eval "(progn (ext::print-herald) (cl-user::femlisp-banner))";
+else
+    $FEMLISP_CL $load "$FEMLISP_DIR/femlisp-init.lisp" $eval "(progn (load #p\"femlisp:start.lisp\") (in-package :application) (import #+cmu 'ext::quit #+sbcl 'sb-ext::quit))" "$@";
+fi

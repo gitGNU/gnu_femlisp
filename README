@@ -1,20 +1,11 @@
+# -*- mode: text; -*-
 
 Femlisp - a Common Lisp FEM framework
 
 Femlisp is a FEM (finite element method) framework for the solution of
 partial differential equations.  It is written entirely in Common Lisp and
 runs in a Linux environment using the Common Lisp implementation CMUCL, see
-http://www.cons.org/cmucl.  It also uses the following CL extensions:
-
-- Matlisp: a CL interface to LAPACK (<http://matlisp.sourceforge.net>)
-- CL-PPCRE: regular expressions for CL (<http://www.weitz.de/cl-ppcre>)
-- infix: C-style infix syntax for CL
-  (<ftp://ftp.cs.cmu.edu/user/ai/lang/lisp/code/syntax/infix/infix.cl>)
-
-Additionally, Femlisp plots using the programs:
-
-- OpenDX (IBM's Data Explorer)
-- Gnuplot
+http://www.cons.org/cmucl.
 
 Femlisp is licensed under a FreeBSD style license, see the file 'LICENSE'
 in the Femlisp main directory.
@@ -26,7 +17,7 @@ Femlisp's homepage is <http://www.femlisp.org>.
 Some documentation can be found in the subdirectory 'doc'.  Please remember
 also the functions DOCUMENTATION and APROPOS of your CL environment.
 
-Have much fun using Femlisp!
+Enjoy using Femlisp!
 
    Nicolas Neuss.
 

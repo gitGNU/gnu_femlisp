@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; plot-defp.lisp
+;;; fe-interpolation.lisp - FE interpolation strategy
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -32,14 +32,45 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
+(in-package :strategy)
 
-(defpackage "PLOT"
-  (:use "COMMON-LISP"
-	"FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.DEMO"
-	"GRAPHICS" "ALGEBRA" "FL.FUNCTION"
-	"MESH" "PROBLEM" "DISCRETIZATION")
-  (:import-from "GRAPHICS" "*IMAGES-DIRECTORY*")
-  (:export "PLOT"))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Class definition
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defclass <fe-interpolation> (<fe-approximation>)
+  ()
+  (:documentation "This class implements adaptive finite element
+interpolation as a variant of finite element approximation."))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Adaption of the fe-approximation strategy
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod approximate ((fe-strategy <fe-interpolation>) blackboard)
+  "Interpolates a given function using the dof-functionals."
+  (with-items (&key mesh solution function) blackboard
+    (let ((fe-class (fe-class fe-strategy)))
+      (doskel (cell mesh)
+	(setf (vref solution (cell-key cell mesh))
+	      (interpolate-on-refcell
+	       (get-fe fe-class cell)
+	       (compose function (curry #'local->global cell))))))))
+
+;;;; Testing
+
+(defun test-fe-interpolation ()
+  (let* ((dim 1) (order 4) (levels 3)
+	 (fe-class (lagrange-fe order))
+	 (strategy (make-instance
+		    '<fe-interpolation> :fe-class fe-class
+		    :indicator (make-instance '<uniform-refinement-indicator>)
+		    :success-if `(>= :nr-levels ,levels) :plot-mesh nil :output t))
+	 (bb (blackboard :domain (n-cube-domain dim)
+			 :function #'(lambda (x) (sin (* 2 pi (aref x 0)))))))
+    (solve strategy bb)
+    (plot (getbb bb :solution)))
+  )
+
+;;; (test-fe-interpolation)
+(fl.tests:adjoin-test 'test-fe-interpolation)

@@ -192,8 +192,6 @@ generating function.  Uses Edi Weitz' Regex package."
 			       "(.*) - (.*)\\s*((?s).*)" string))))
     (values-list (map 'list (rcurry #'translate translations) results))))
 
- 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Usage
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
