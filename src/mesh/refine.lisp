@@ -187,7 +187,7 @@ reference cells."
   "Generates the transformation mappings."
   ;; we have to ensure that the refined skeleton exists.  This refinement
   ;; of the standard cells needs the incomplete refine-info.
-  (refcell-refinement-skeleton refcell 1)
+  (check (refcell-refinement-skeleton refcell 1))
   (loop for child-info across (refcell-refine-info refcell)
 	and child across (inner-refcell-children refcell) do
 	(let ((corner (car (corners child))))

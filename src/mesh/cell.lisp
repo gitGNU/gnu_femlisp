@@ -93,6 +93,11 @@ interpolation between the corners is used for constructing the mapping."))
   "Copy constructor for cells."
   (copy-structure cell))
 
+(defmethod check ((cell <cell>))
+  (loop with side-dim = (1- (dimension cell))
+	for side across (boundary cell)	do
+	(assert (= side-dim (dimension side)))))
+
 ;;; accessors
 (declaim (ftype (function (*) positive-fixnum) dimension))
 (defmethod dimension ((cell <cell>))

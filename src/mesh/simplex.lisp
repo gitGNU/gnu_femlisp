@@ -121,6 +121,7 @@
 	 (origin (car corners))
 	 (mdim (length origin))
 	 (mat (make-float-matrix mdim dim)))
+    (assert (= (length corners) (1+ dim)))
     (loop for corner in (cdr corners)
 	  for col from 0 do
 	  (dotimes (row mdim)
@@ -207,7 +208,7 @@ Example: (freudenthal-refinement 1) -> ((#(2 0) #(1 1)) (#(1 1) #(0 2)))"
 ;;;; Generation of corresponding refinement rules
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       
-(defun get-path-create (simplex corners-of-sub-simplex path)
+(defun get-path-create (simplex corners-of-sub-simplex path &optional create)
   "Returns the path (see the description in the definition of <child-info>) to
 the sub-simplex given by its corners in barycentric coordinates.  Additionally,
 if the sub-simplex cannot be found, it generates a new entry in the refine-info
@@ -221,7 +222,7 @@ vector and fills the barycentric-corners field."
 		side
 		(mapcar #'(lambda (vec) (vector-cut vec comp))
 			corners-of-sub-simplex)
-		(cons comp path))
+		(cons comp path) create)
 	finally  ; otherwise, search in the refine-info field
 	(return
 	  (loop for corners across (refine-info simplex)
@@ -230,6 +231,7 @@ vector and fills the barycentric-corners field."
 			     corners-of-sub-simplex)
 		return (nreverse (cons i path))
 		finally  ; the child was not found: create an appropriate entry
+		(assert create)
 		(return
 		  (let ((refine-info (refine-info simplex)))
 		    (adjust-array refine-info (1+ (length refine-info))
@@ -254,7 +256,7 @@ the ordering of the corners."
 		    '()
 		    (mapcar #'(lambda (corner)
 				(get-path-create
-				 simplex (remove corner child-corners :test #'equalp) '()))
+				 simplex (remove corner child-corners :test #'equalp) '() t))
 			    child-corners))))))
 
 (defmethod primary-refine-info ((refcell <simplex>))
@@ -265,7 +267,7 @@ the ordering of the corners."
   ;; fill refine-info with barycentric corners
   (loop for subcells-of-dim in (sub-cells-of-children (dimension refcell)) do
 	(loop for corners-of-sub-simplex in subcells-of-dim do
-	      (get-path-create refcell corners-of-sub-simplex '())))
+	      (get-path-create refcell corners-of-sub-simplex '() t)))
   ;; ...and from there the boundary paths
   (create-boundary-paths refcell))
 

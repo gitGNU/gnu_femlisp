@@ -289,12 +289,10 @@ derivative."))
 (defun create-boundary-paths-of-tensorial (cell)
   "Create the boundary-paths for the <child-info> entry in the
 refine-info vector."
-  (declare (optimize (debug 3)))
   (loop
    for child across (refine-info cell) do
    (setf (child-boundary-paths child)
 	 (loop
-	  with bdry = (boundary cell)
 	  for cell-factor in (factor-simplices cell)
 	  for bc-factors on (child-barycentric-corners child)
 	  for bc-factor = (car bc-factors)
@@ -302,33 +300,38 @@ refine-info vector."
 	  nconcing
 	  (loop
 	   for corner in bc-factor collect
-	   (let* ((factor-side-corners (remove corner bc-factor :test #'equalp))
-		  (path-to-bdry (get-path-create cell-factor factor-side-corners '())))
-	     (if (single? path-to-bdry)
-		 (list			; in the interior
-		  (position (append before-factors (list factor-side-corners) (cdr bc-factors))
-			    (refine-info cell) :key #'child-barycentric-corners :test #'equalp))
-		 (let* ((factor-side-id (car path-to-bdry))
-			(side-id (+ bdry-pos factor-side-id)))
-		   (list		; in the interior of a boundary face
-		    side-id
-		    (or (position
-			 (append before-factors
-				 (if (= (dimension cell-factor) 1)
-				     ()
-				     (list (mapcar #'(lambda (vec) (vector-cut vec factor-side-id))
-						   factor-side-corners)))
-				 (cdr bc-factors))
-			 (if (< side-id (length bdry))
-			     (refine-info (aref bdry side-id))
-			     (error "A: side-id=~A  bdry-pos=~A path-to-bdry=~A."
-				    side-id bdry-pos path-to-bdry))
-			 :key #'child-barycentric-corners :test #'equalp)
-			(error "B: side-id=~A  bdry-pos=~A path-to-bdry=~A."
-			       side-id bdry-pos path-to-bdry)))))))
+	   (labels
+	       ((find-path (cell cell-factor factor-side-corners)
+		  (dbg :mesh "~&cell=~A~%  cell-factor=~A~%  factor-side-corners=~A~%"
+		       cell cell-factor factor-side-corners)
+		  (let ((path-to-bdry (and factor-side-corners
+					   (get-path-create cell-factor factor-side-corners '()))))
+		    (if (<= (length path-to-bdry) 1)
+			;; in the interior
+			(let ((pos (position
+				    (append before-factors
+					    (and factor-side-corners (list factor-side-corners))
+					    (cdr bc-factors))
+				    (refine-info cell) :key #'child-barycentric-corners :test #'equalp)))
+			  (list pos))
+			;; in the interior of a boundary face (bug: apparently not all covered!)
+			(let* ((factor-side-id (car path-to-bdry))
+			       (side-id (+ bdry-pos factor-side-id)))
+			  (assert (< side-id (length (boundary cell))))
+			  (cons
+			   side-id
+			   (let* ((factor-bcs-in-face
+				   (unless (= (dimension cell-factor) 1)
+				     (mapcar #'(lambda (vec) (vector-cut vec factor-side-id))
+					     factor-side-corners)))
+				  (factor-side-rc (reference-cell
+						   (aref (boundary cell-factor) factor-side-id))))
+			     (find-path (aref (boundary cell) side-id)
+					factor-side-rc
+					factor-bcs-in-face))))))))
+	     (find-path cell cell-factor (remove corner bc-factor :test #'equalp))))
 	  summing (nr-of-sides cell-factor) into bdry-pos
 	  collecting bc-factor into before-factors))))
-
 
 (defmethod primary-refine-info ((refcell <tensorial>))
   "Allocates refine-info vector with barycentric-corners."
@@ -366,8 +369,12 @@ refine-info vector."
   "This function creates the tensorial class, generates a reference cell,
 and initializes all its parameters.  Lower-dimensional tensorials are also
 generated if necessary."
-  ;; ensure lower-dimensional tensorials
-  (ensure-tensorials-upto-dim (1- (reduce #'+ factor-dims)))
+  ;; ensure tensorials for boundary
+  (loop for fdims on factor-dims
+	for fdim = (car fdims) do
+	(ensure-tensorial
+	 (remove 0 (append before-fdims (list (1- fdim)) (cdr fdims))))
+	collect fdim into before-fdims)
   ;; generate reference cell and class
   (let* ((refcell (reduce #'tensor-product
 			  (mapcar #'reference-simplex factor-dims)))
@@ -385,9 +392,6 @@ reference cell."
       (ensure-simplex (car factor-dims))
       (or (find-reference-cell-from-factor-dimensions factor-dims)
 	  (make-tensorial-class-and-refcell factor-dims))))
-
-(defun ensure-tensorials-upto-dim (dim)
-  (mapcar #'ensure-tensorial (positive-partitions-of-k dim)))
 
 ;;; immediate generation of commonly used tensorials, check for consistency
 (defparameter *unit-quadrangle* (ensure-tensorial '(1 1)))
@@ -435,6 +439,11 @@ reference cell."
 ;;;; Testing
 
 (defun test-tensorial ()
+  (n-cube 4)
+  (ensure-tensorial '(3 1))
+  (ensure-tensorial '(2 2))
+  (ensure-tensorial '(1 3))
+  (make-tensorial-class-and-refcell '(1 3))
   (= 0.5 (aref (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #(0.5 0.5)) 0))
   (describe (refcell-skeleton *unit-quadrangle*))
   (describe (refcell-refinement-skeleton *unit-quadrangle* 1))
@@ -455,10 +464,6 @@ reference cell."
   (describe (make-cube (boundary *unit-interval*)))
   (describe (make-cube (boundary *unit-quadrangle*)))
   )
-
-(defun bug-tensorial ()
-  (n-cube 5))
-(tests::adjoin-femlisp-bug-test 'bug-tensorial)
 
 ;;; (test-tensorial)
 (tests::adjoin-femlisp-test 'test-tensorial)

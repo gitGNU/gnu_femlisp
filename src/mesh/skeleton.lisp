@@ -252,6 +252,7 @@ all cells, otherwise it loops through cells and properties."
   (loop with mfd-dim = (manifold-dimension skel)
 	for dim from 0 to (dimension skel) do
 	(loop for cell being the hash-keys of (etable skel dim) do
+	      (check cell)
 	      (cond
 	       ((not (= (dimension cell) dim))
 		(error "cell dimension does not fit"))

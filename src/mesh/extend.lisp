@@ -48,14 +48,22 @@ yields T."
 		   (and (get-patch-property cell mesh 'EXTENSION)
 			(funcall test cell)))
 	       level-0))
-	     (new-cells
+	     (changed-cells
 	      (loop for cell in extensible-cells nconcing
-		    (funcall (get-patch-property cell mesh 'EXTENSION)
-			     cell mesh))))
+		    (multiple-value-call #'nconc
+		      (funcall (get-patch-property cell mesh 'EXTENSION)
+			       cell mesh)))))
 	(when (hierarchical-mesh-p mesh)
 	  ;; insert an entry also in level-0 skeleton
-	  (dolist (new-cell new-cells)
-	    (setf (skel-ref level-0 new-cell) T)))))))
+	  (dolist (cell changed-cells)
+	    (setf (skel-ref level-0 cell)
+		  (skel-ref mesh cell))
+	    ;; ensure that patch still agrees
+	    (awhen (children cell mesh)
+	      (loop for child across it do
+		    (setf (patch-of-cell child mesh)
+			  (patch-of-cell cell mesh))))
+	    ))))))
 
 
 (defun standard-extender (original-cell replacement)
@@ -71,8 +79,10 @@ yields T."
 		       :active-skel-1
 		       (if (hierarchical-mesh-p mesh) (cells-on-level mesh 0) mesh))
 	  (declare (ignore skel-1))
-	  (find-cells #'(lambda (cell) (not (gethash cell overlap)))
-		      skel-2)))))
+	  (values
+	   (find-cells #'(lambda (cell) (not (gethash cell overlap)))
+		       skel-2)
+	   (hash-table-values overlap))))))
 
 (defun cube-extender (domain-cube direction)
   "Makes domain-cube ---which should be a cube in a domain--- extensible in
@@ -87,7 +97,8 @@ the given direction."
 	  and subcell-2 across (subcells domain-cube) do
 	  (setf (get-cell-property subcell-1 replacement 'PATCH) subcell-2))
     ;; correct patch for old boundary to be in the interior
-    (setf (get-cell-property old-ext replacement 'PATCH) domain-cube)
+    (setf (get-cell-property old-ext replacement 'PATCH)
+	  domain-cube)
     ;; setup extensions
     (setf (get-cell-property old-ext replacement 'EXTENSION) nil)
     (setf (get-cell-property new-ext replacement 'EXTENSION) extension)

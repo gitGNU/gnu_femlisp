@@ -153,6 +153,9 @@ should be done within hierarchical-mesh structures."
     ;; return it
     (values refined-mesh refinement)))
 
+(defmethod check :after ((mesh <mesh>))
+  "Performs some additional checks for mesh."
+  nil)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; h-mesh class
@@ -186,7 +189,10 @@ mesh.  This method definition fills the level slot appropriately."
   (declare (ignore initargs))
   (setf (slot-value h-mesh 'levels)
 	(make-array 1 :element-type '<mesh>
-		    :initial-element (skel-map (constantly t) mesh)
+		    :initial-element (skel-map #'(lambda (cell value)
+						   (declare (ignore cell))
+						   value)
+					       mesh)
 		    :adjustable t)))
 
 (defmethod refine ((h-mesh <hierarchical-mesh>) &key (test (constantly t)))
@@ -295,6 +301,27 @@ cells of a locally refined hierarchical-mesh structure."
 		      (return nil))) ; position not covered on higher level
 		finally (return cell)))))
 
+(defmethod check :after ((h-mesh <hierarchical-mesh>))
+  "Performs some additional checks for hierarchical meshes."
+  (loop for level-mesh across (levels h-mesh) do
+	(doskel (cell level-mesh)
+	  ;; check properties
+	  (let ((props-1 (skel-ref level-mesh cell))
+		(props-2 (skel-ref h-mesh cell)))
+	    (unless (eq props-1 props-2)
+	      (error "~&~A: Level-Properties do not agree:~%~A~%~A~%"
+		     cell props-1 props-2)))
+	  ;; check refinements
+	  (whereas ((children (children cell h-mesh)))
+	    (loop for child across children do
+		  (assert (eq (parent child h-mesh) cell))
+		  (let ((patch-1 (patch-of-cell child h-mesh))
+			(patch-2 (patch-of-cell cell h-mesh)))
+		    (unless (eq patch-1 patch-2)
+		      (error "~&~A: Patch of parent ~A different:~%~A~%~A~%"
+			     child cell patch-1 patch-2)))))
+	  ;; check patches
+	  )))
 
 ;;;; Testing
 (defun test-mesh ()
