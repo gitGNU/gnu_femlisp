@@ -812,7 +812,8 @@ Runs the Femlisp test suite.  The result is printed to
 @node Package FL.PORT, Package FL.ALIEN, Package FL.TESTS, Reference manual
 @section Package FL.PORT
 
-NIL
+This package should contain the implementation-dependent
+parts of Femlisp with the exception of the MOP.
 
 @anchor{fun-fl.port-getenv}
 @deffn Function GETENV @var{VAR}
@@ -865,7 +866,8 @@ Executes the forms in the body without doing a garbage collection.
 @node Package FL.ALIEN, Package FL.MATLISP, Package FL.PORT, Reference manual
 @section Package FL.ALIEN
 
-NIL
+This package loads some foreign libraries and does set
+up a Lisp interface for it.
 
 @node Package FL.MATLISP, Package FL.ALGEBRA, Package FL.ALIEN, Reference manual
 @section Package FL.MATLISP
@@ -982,7 +984,7 @@ Returns a deep copy of X.
 @end deffn
 
 @anchor{fun-fl.matlisp-copy!}
-@deffn Function COPY! @var{A} @var{B}
+@deffn Function COPY! @var{X} @var{Y}
 @findex COPY!
 Y <- X
 @end deffn
@@ -1029,7 +1031,7 @@ Loops on indices and entries of a vector.  Examples:
 @end deffn
 
 @anchor{fun-fl.matlisp-element-type}
-@deffn Function ELEMENT-TYPE @var{MATRIX}
+@deffn Function ELEMENT-TYPE @var{VECTOR}
 @findex ELEMENT-TYPE
 Type of the elements of the vector/matrix.
 @end deffn
@@ -1115,14 +1117,14 @@ General matrix-matrix multiplication: Z <- alpha * X * Y
 @end deffn
 
 @anchor{fun-fl.matlisp-gemm-nt!}
-@deffn Function GEMM-NT! @var{ALPHA} @var{A} @var{Y} @var{BETA} @var{X}
+@deffn Function GEMM-NT! @var{ALPHA} @var{X} @var{Y} @var{BETA} @var{Z}
 @findex GEMM-NT!
 General matrix-matrix multiplication: Z <- alpha * X * Y'
 + beta * Z
 @end deffn
 
 @anchor{fun-fl.matlisp-gemm-tn!}
-@deffn Function GEMM-TN! @var{ALPHA} @var{A} @var{Y} @var{BETA} @var{X}
+@deffn Function GEMM-TN! @var{ALPHA} @var{X} @var{Y} @var{BETA} @var{Z}
 @findex GEMM-TN!
 General matrix-matrix multiplication: Z <- alpha * X' * Y
 + beta * Z
@@ -1148,7 +1150,7 @@ Rewriting for GETRF  in terms of GETRF!.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrf!}
-@deffn Function GETRF! @var{A} &OPTIONAL @var{IPIV}
+@deffn Function GETRF! @var{MAT} &OPTIONAL @var{IPIV}
 @findex GETRF!
 Computes the PLU decomposition of X (overwriting X).
 Returns X and as a second value the permuations vector.
@@ -1161,7 +1163,7 @@ Rewriting for GETRS in terms of GETRS!.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrs!}
-@deffn Function GETRS! @var{LDU} @var{RESULT} &OPTIONAL @var{IPIV}
+@deffn Function GETRS! @var{LR} @var{B} &OPTIONAL @var{IPIV}
 @findex GETRS!
 Solves the given PLU decomposition for the rhs b while
 overwriting b.
@@ -1359,13 +1361,13 @@ Returns alpha * X.  Uses SCAL! and COPY.
 @end deffn
 
 @anchor{fun-fl.matlisp-scal!}
-@deffn Function SCAL! @var{VAL} @var{POLY}
+@deffn Function SCAL! @var{ALPHA} @var{X}
 @findex SCAL!
 X -> alpha X
 @end deffn
 
 @anchor{fun-fl.matlisp-scalar-type}
-@deffn Function SCALAR-TYPE @var{MATRIX}
+@deffn Function SCALAR-TYPE @var{VECTOR}
 @findex SCALAR-TYPE
 Type of the scalars for the vector class.
 @end deffn
@@ -4280,7 +4282,7 @@ Write the data file for @arg{program} to
 @end deffn
 
 @anchor{fun-fl.graphic-send-graphic-commands}
-@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{PARAS} &KEY (@var{OUTPUT} "gnuplot.out") (@var{TERMINAL} "x11") (@var{TICS} @var{T}) (@var{BORDER} @var{T}) @var{BOTTOM} @var{TOP} @var{RIGHT} @var{LEFT} &ALLOW-OTHER-KEYS
+@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{PARAS} &KEY @var{FILENAME} @var{FORMAT} (@var{HEIGHT} 480) (@var{WIDTH} 480) (@var{RESOLUTION} 480) (@var{BACKGROUND} @var{BLACK}) @var{DIMENSION} (@var{PLOT} @var{T}) &ALLOW-OTHER-KEYS
 @findex SEND-GRAPHIC-COMMANDS
 Routine for sending commands to the graphics server.
 @end deffn
