@@ -8,3 +8,6 @@ which some parts of Femlisp call.  This is the following:
   hosted at www.sourceforge.net.
 
 - Mark Kantrowitz' INFIX package from the CMU AI repository.
+
+- Edi Weitz' CL-PPCRE, if you install it by executing "make cl-ppcre" from
+  the Femlisp main directory.

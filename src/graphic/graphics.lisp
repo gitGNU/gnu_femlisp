@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :graphics)
+(in-package :fl.graphic)
 
 (defparameter *default-graphic-program* :dx
   "Default graphics program.")

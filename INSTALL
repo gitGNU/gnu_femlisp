@@ -52,27 +52,41 @@ sure that they can be found in your path and that they work.
 [Debian: "apt-get install gnuplot dx"]
 
 
-** (C) Femlisp installation
+** (C) Femlisp download
 
-Download the current Femlisp version.
+*** Alternative 1: Download the current Femlisp version
+(if "wget" should not be available try "curl" instead)
 
-  # if "wget" is not available try "curl -O" instead
-  wget http://www.femlisp.org/femlisp-current.tar.gz
-  tar xzvf femlisp-current.tar.gz
+  wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
+
+*** Alternative 2: Checkout a CVS version
+
+  cvs -z3 -d:ext:anoncvs@savannah.nongnu.org:/cvsroot/femlisp co femlisp
+
+** (D) CL-PPCRE
+
+Femlisp works with CL-PPCRE.  If you do not have installed the CL-PPCRE
+library separately you can download and install it locally in
+femlisp/externals as follows:
+
   cd femlisp
-
-  # if you do not install CL-PPCRE separately you should install the cl-ppcre
-  # package in femlisp/external/ using the following command
   make cl-ppcre
 
+** (E) Configuration of the startup script
+
 After these steps you should look at the script "femlisp/bin/femlisp" and
-set the variables $FEMLISP_DIR to the path of the Femlisp directory and
-$FEMLISP_CL to the path of the startup script of your CL implementation.
-Then you should be able to start Femlisp by executing the script
-"femlisp/bin/femlisp".
+set the variables FEMLISP_DIR to the path of the Femlisp directory,
+FEMLISP_CL to the path of the startup script of your CL implementation, and
+CL_TYPE to either "sbcl" or "cmucl".
 
+** (F) Compiling Femlisp
 
-** (D) [OPTIONAL] Saving a core
+You should now be able to start Femlisp by executing the startup script.
+The first time you use this script, your Lisp implementation has to compile
+both CL-PPCRE and Femlisp.  This will take a while.  The next time, startup
+will be faster.  You can exit Femlisp by typing "(quit)".
+
+** (G) [OPTIONAL] Saving a core
 
 If you use CMUCL you can save a core which avoids reloading CL-PPCRE and
 Femlisp during startup.  This is done by executing the command
@@ -82,16 +96,15 @@ Femlisp during startup.  This is done by executing the command
 from inside the Femlisp main directory.  After this operation, Femlisp
 should start up much faster.
 
-
-** (E) Setup of a simple interactive Femlisp environment
+** (H) Setup of a simple interactive Femlisp environment
 
 It is essential to use Femlisp from within a Lisp environment because
-otherwise you have not even a command history.
+otherwise you do not even have a command history.
 
-A freely available Lisp environment is Emacs where you can use Ilisp,
-SLIME, or the built-in inferior-lisp-mode together with Femlisp.  For
-inferior-lisp-mode, you should add the following lines to your .emacs-file
-(replacing FEMLISP_DIRECTORY with the correct path):
+A freely available Lisp environment is Emacs where you can use SLIME or
+ILISP.  Built-in in Emacs is inferior-lisp-mode which is not really
+satisfactory but easiest to install: simply add the following lines to your
+.emacs-file (replacing FEMLISP_DIRECTORY with the correct path):
 
   (defun femlisp ()
 	"Start femlisp in an inferior-lisp buffer."
@@ -108,7 +121,7 @@ Lisp buffer.
 
 ###########################################################################
 
-* Use of Femlisp
+* Using Femlisp
 
 Start Femlisp and look at the demos by typing in "(demo)" at the CL prompt
 (do not forget the parentheses!).  You drop out of the demos by typing
@@ -127,4 +140,3 @@ Up to now, Femlisp has been tested with CMUCL and SBCL on X86/Linux, with
 CMUCL on Sparc/Solaris platforms and with SBCL on Mac OS X.  It should not
 be difficult to port it to other CL implementations running on other
 computer architectures.
-

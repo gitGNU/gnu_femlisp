@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :graphics)
+(in-package :fl.graphic)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Routines for establishing the communication line
@@ -61,7 +61,9 @@ on/off.  This is a trick to make dx redraw the picture.")
 	    (when *dx-pathname*
 	      (whereas ((process
 			 (fl.port:run-program
-			  *dx-pathname* '("-script" "-cache off" "-log on")
+			  *dx-pathname*
+			  `("-script" "-cache off" "-log on"
+			    ,(concatenate 'string "-directory " *images-directory*))
 			  :input :stream :output nil :wait nil)))
 		(fl.port:process-input process)))))
   (unless *dx-stream*
@@ -113,7 +115,6 @@ on/off.  This is a trick to make dx redraw the picture.")
 			      (or filename file-name))
 		 format))))
     ))
-
 
 (defmethod graphic-output :after (object (program (eql :dx)) &key &allow-other-keys)
   (setq *dx-toggle* (if (zerop *dx-toggle*) 1 0)))

@@ -34,7 +34,7 @@
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "GRAPHICS"
+(defpackage "FL.GRAPHIC"
   (:use "COMMON-LISP" "FL.UTILITIES" "FL.MACROS")
   (:export
    "*DEFAULT-GRAPHIC-PROGRAM*"

@@ -2,11 +2,15 @@
 
 * From Femlisp-0.9.0 to Femlisp-0.9.1:
 
-Some corrections in the files FAQ, CHANGES, INSTALL, README, and TODO.
+The DX logfile is now written to #p"femlisp:images;"
+
+Corrections in the files FAQ, CHANGES, INSTALL, README, and TODO.
 
 Some extensions of general problem solving.  This is work in progress.
 
 Femlisp now works with SBCL on Mac OS X and with CMUCL on Sparc/Solaris.
+Unfortunately, the communication with Data Explorer on Mac OS X is not yet
+working.
 
 The whole installation process is specified in more detail in INSTALL.  The
 approach using the global installation script "femlisp-install" is

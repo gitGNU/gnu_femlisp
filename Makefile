@@ -33,8 +33,9 @@ help:
 	echo "Options: femlisp, femlisp-doc, cl-ppcre, clean."
 
 cl-ppcre:
-	cd external; wget http://weitz.de/files/cl-ppcre.tgz;\
-	tar -xzvf cl-ppcre.tgz; ln -s cl-ppcre-* cl-ppcre
+	cd external;\
+	wget -O - http://weitz.de/files/cl-ppcre.tgz |tar -xzvf -;\
+	ln -s cl-ppcre-* cl-ppcre
 
 femlisp:
 

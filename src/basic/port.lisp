@@ -34,7 +34,7 @@
 
 ;;; This file serves the same purpose as the PORT module in CLOCC and is
 ;;; inspired by this module.  It will be dropped when CLOCC/port is easily
-;;; installable in all CL implementations interested in or if the
+;;; installable in all CL implementations we are interested in or if the
 ;;; maintenance of this file should become too difficult.
 
 (in-package "COMMON-LISP-USER")

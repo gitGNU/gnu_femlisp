@@ -3,7 +3,7 @@
 Femlisp FAQ
 -----------
 
-* INSTALLATION AND GETTING STARTED
+* A: INSTALLATION AND GETTING STARTED
 
 1. Q: On which architectures is Femlisp available?
 
@@ -14,8 +14,7 @@ Femlisp FAQ
    A: There is a short description of Femlisp in the doc-directory,
    unfortunately it is not really up-to-date anymore.  Additionally, you
    should know how to get documentation of functions and variables out of
-   your Lisp environment.  Hopefully, somewhat later a better manual will
-   be available.
+   your Lisp environment.  I plan to have a real manual in summer 2004.
 
 3. Q: What is the best way to get started?
 
@@ -27,11 +26,11 @@ Femlisp FAQ
    Plot the result using 
      (plot (getbb *result* :solution))
 
-  Try to modify the problem and try again.  Try switching to the multigrid
-  solver.  Maybe look at the (somewhat old) file cfd-seminar-2002.lisp.
-  Then look at how the demos are built.
+  Try to find out what SOLVE is doing here, then look at how the demos are
+  done.  Try to modify the above problem by giving it a different
+  right-hand side.
 
-* MESH MANAGEMENT
+* B: MESH MANAGEMENT
 
 1. Q: Which types of cells are available?
 
@@ -43,13 +42,13 @@ Femlisp FAQ
    dimensions.
 
 
-* LINEAR ALGEBRA
+* C: LINEAR ALGEBRA
 
 1. Q: Why is Femlisp's linear algebra so slow?  Is this necessary?
 
-   A: Because it is based on hash-tables indexed by mesh-entities like
-   vertices, lines, ..., and each entry is again a block consisting of a
-   Matlisp matrix object (or something else).  This means that generic
+   A: Because the sparse-matrix implementation is based on hash-tables
+   indexed by mesh-entities like vertices, lines, ..., and each entry is
+   again a block consisting of a matrix object.  This means that generic
    functions have to be used for handling those entries.  Of course, the
    overhead for generic functions and hash-table is large, especially in
    the case of scalar equations with low-order discretizations.
@@ -69,12 +68,11 @@ Femlisp FAQ
    development.  The speed of program development in Common Lisp cannot be
    beaten by statically typed languages like C++ or Fortran and differs
    often by an order of magnitude.  Concerning execution speed, I admit
-   that Femlisp is too slow at the moment, but I think that this situation
-   will soon improve such that it will be in the same speed range for most
-   problems.
+   that Femlisp is still rather slow at the moment, but I hope that this
+   situation will soon improve.
 
 
-* PROBLEMS
+* D: PROBLEMS
 
 1. Q: How can I solve nonlinear problems?
 
@@ -90,7 +88,7 @@ Femlisp FAQ
    side.  In this way, simple time-stepping schemes are possible.  More
    elaborate choices and adaptivity require more work, of course.
 
-* DISCRETIZATION
+* E: DISCRETIZATION
 
 1. Q: Is it possible to handle problems with more than one right-hand side
    with different choice of essential boundary?
@@ -100,12 +98,12 @@ Femlisp FAQ
    in the location of essential boundary would require slightly different
    matrices which does not fit into this pattern.
 
-* SOLVERS
+* F: SOLVERS
 
 1. Q: Is there a BiCGStab or GMRES iteration available?
 
-   A: No, not yet.  It would be really useful and not too difficult, if
-   someone would extend the file iterations/krylow.lisp in this direction.
+   A: No, not yet.  It would be really useful and not difficult, if someone
+   would extend the file iterations/krylow.lisp in this direction.
 
 2. Q: Wouldn't it be useful to include also an interface to sparse direct
    solvers like SuperLU?
@@ -117,7 +115,7 @@ Femlisp FAQ
    A: Rather soon.  Almost everything necessary is available, but at the
    moment I do not have time to put it together.
 
-* PARALLELIZATION
+* G: PARALLELIZATION
 
 1. Q: What about parallelization?
 
@@ -127,7 +125,7 @@ Femlisp FAQ
    architectures is also possible using MPI or PVM, but would require a
    major restructuring.
 
-* GENERAL
+* H: GENERAL
 
 1. Q: Why is Femlisp slow?
 
