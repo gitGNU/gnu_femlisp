@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; tensor.lisp - sparse tensors of arbitrary rank
+;;; sparse-tensor.lisp - sparse tensors of arbitrary rank
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.

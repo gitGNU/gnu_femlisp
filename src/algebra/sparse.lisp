@@ -102,12 +102,13 @@ used for handling multiple right-hand sides or solutions simultaneously."))
   (maphash #'(lambda (key val) (funcall fn (vec-ref svec1 key) val))
 	   (slot-value svec2 'blocks)))
 
-(defmethod show ((svec <sparse-vector>) &key keys &allow-other-keys)
+(defmethod show ((svec <sparse-vector>) &key keys (zeros t) &allow-other-keys)
   (format t "Sparse vector with ~D allocated components:~%"
 	  (nr-of-entries svec))
   (flet ((keyout (key vblock)
-	   (funcall (print-key svec) key)
-	   (format t " --> ~A~%" vblock)))
+	   (when (or zeros (not (mzerop vblock)))
+	     (funcall (print-key svec) key)
+	     (format t " --> ~A~%" vblock))))
     (dolist (key (or keys (keys svec)))
       (keyout key (vec-ref svec key))))
   svec)
@@ -580,7 +581,7 @@ means a lot of consing."
      smat)
     result))
 
-(defmethod show ((smat <sparse-matrix>) &key keys &allow-other-keys)
+(defmethod show ((smat <sparse-matrix>) &key keys (zeros t) &allow-other-keys)
   (assert (null keys))
   (format t "Sparse matrix:~%")
   (for-each-row-key
@@ -590,8 +591,9 @@ means a lot of consing."
        (format t " ***~%")
        (maphash
 	#'(lambda (col-key vblock)
-	    (funcall (print-col-key smat) col-key)
-	    (format t " -> ~A~%" vblock))
+	    (when (or zeros (not (mzerop vblock)))
+	      (funcall (print-col-key smat) col-key)
+	      (format t " -> ~A~%" vblock)))
 	(matrix-row smat row-key)))
    smat)
   smat)
