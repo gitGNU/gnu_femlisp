@@ -191,25 +191,29 @@ in the local projection matrix."
   "Computes a local projection matrix for vector-fe."
   (declare (optimize (debug 3)))
   (with-slots (refcell discretization components properties)
-    vecfe
+      vecfe
     (let ((nr-parent-inner-dofs (nr-of-inner-dofs vecfe)))
       (when (plusp nr-parent-inner-dofs)
 	(let* ((all-children (refcell-children refcell))
 	       (children-offsets (children-offsets vecfe :all))
+	       (subcell-offsets (subcell-offsets vecfe))
 	       (fe-pmats (vector-map #'compute-local-pmatrix components))
 	       (vecfe-pmat (make-instance '<sparse-tensor> :rank 1)))
 	  (loop for child across all-children and i from 0
-		for child-fe = (get-fe discretization child)
-		when (some #'(lambda (pmat) (and pmat (in-pattern-p pmat i))) fe-pmats) do
-		(loop with mblock = (make-real-matrix nr-parent-inner-dofs
-						      (nr-of-inner-dofs child-fe))
-		      for pmat across fe-pmats and comp from 0
-		      for off = (aref (aref children-offsets comp) i)
-		      when (and pmat (in-pattern-p pmat i)) do
-		      (for-each-key-and-entry
-		       #'(lambda (m n value) (setf (mref mblock (+ m off) (+ n off)) value))
-		       (tensor-ref pmat i))
-		      finally (setf (tensor-ref vecfe-pmat i) mblock)))
+	     for child-fe = (get-fe discretization child)
+	     when (some #'(lambda (pmat) (and pmat (in-pattern-p pmat i))) fe-pmats) do
+	     (loop with mblock = (make-real-matrix nr-parent-inner-dofs
+						   (nr-of-inner-dofs child-fe))
+		for pmat across fe-pmats and comp from 0
+		for child-off = (aref (aref children-offsets comp) i)
+		for parent-off = (aref (aref subcell-offsets comp) 0)
+		when (and pmat (in-pattern-p pmat i)) do
+		(for-each-key-and-entry
+		 #'(lambda (m n value)
+		     (setf (mref mblock (+ m parent-off) (+ n child-off))
+			   value))
+		 (tensor-ref pmat i))
+		finally (setf (tensor-ref vecfe-pmat i) mblock)))
 	  vecfe-pmat)))))
 
 (defmemo local-pmatrix (fe-disc refcell)
@@ -240,7 +244,8 @@ in the local projection matrix."
   (let ((local-imat (compute-local-imatrix (get-fe (lagrange-fe 1) *unit-interval*))))
     (show local-imat)
     (tensor-ref local-imat 0 1))
-  (show (compute-local-imatrix (get-fe (lagrange-fe 2) *unit-interval*)))
+  (show (compute-local-imatrix (get-fe (lagrange-fe 3) *unit-interval*)))
+  (show (compute-local-pmatrix (get-fe (lagrange-fe 3) *unit-interval*)))
   (show (compute-local-imatrix (get-fe (lagrange-fe 2 :nr-comps 2) *unit-interval*)))
   (assert
    (= 28 (total-entries (compute-local-imatrix

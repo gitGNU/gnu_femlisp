@@ -324,6 +324,8 @@ cell->fe mapping given as a class slot."))
   (loop for disc across (components vecfe-disc)
 	maximize (discretization-order disc)))
 
+(defmethod nr-of-components ((fe-disc <scalar-fe-discretization>)) 1)
+
 (defmethod nr-of-components ((vecfe-disc <vector-fe-discretization>))
   (length (components vecfe-disc)))
 
