@@ -2,9 +2,15 @@
 
 * From Femlisp-0.9.2 to Femlisp-0.9.3:
 
-All docstrings should be written in Texinfo format.  A reference manual is
-automatically built from them (similarly to what Rudi Schlatte did for
-SBCL).
+The passing of arguments for DX was corrected.  The old version did not
+work with more recent versions of CMUCL and SBCL, because I did not
+understand the argument passing good enough (thanks to Christophe Rhodes
+for help on this topic).
+
+Femlisp has now a user manual!  An important part of it is the reference
+manual which is automatically built from docstrings.  This is similar to
+what Rudi Schlatte did for SBCL. One difference to the SBCL approach is
+that I want my docstrings to be in Texinfo format.
 
 The slots STRUCTURE-INFORMATION and DISCRETIZATION-INFO were replaced by a
 general PROPERTIES slot which is to be added by adding a PROPERTY-MIXIN to

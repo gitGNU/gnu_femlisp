@@ -146,7 +146,7 @@
   ;;
   (:module
    "iteration"
-   :depends-on ("basic" "algebra" "function")
+   :depends-on ("basic" "algebra" "function" "problem")
    :components
    ((:file "iteration-defp")
     (:file "iterate" :depends-on ("iteration-defp"))
@@ -181,8 +181,8 @@
     (:file "constraints" :depends-on ("fe" "sparseif"))
     (:file "fedisc" :depends-on ("constraints"))
     ;;
-    (:file "cdr-fe" :depends-on ("fe" "sparseas"))
-    (:file "system-fe" :depends-on ("fe" "sparseas"))
+    (:file "cdr-fe" :depends-on ("fedisc"))
+    (:file "system-fe" :depends-on ("fedisc"))
     (:file "elasticity-fe" :depends-on ("system-fe"))
     (:file "navier-stokes-fe" :depends-on ("system-fe"))
     (:file "cdrsys-fe" :depends-on ("system-fe"))

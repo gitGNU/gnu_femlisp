@@ -1,3 +1,4 @@
-@node Concept Index, , Reference manual, Top
+@node Concept Index, , Bibliography, Top
 @unnumbered Concept Index
 
+@printindex cp

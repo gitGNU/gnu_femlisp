@@ -2,19 +2,37 @@
 @c %**start of header
 @setfilename femlisp.info
 @settitle Femlisp User Manual
+@afourpaper
 @setchapternewpage odd
+@c only one concept index
+@syncodeindex vr cp
+@syncodeindex fn cp
+@syncodeindex tp cp
 @c %**end of header
 
-@macro femlisp {}
+@macro femlisp{}
 @sc{Femlisp}
 @end macro
 
+@macro CL{}
+Common Lisp
+@end macro
+
+@alias module = code
+@alias package = code
+@alias arg = var
+@alias function = code
+@alias symbol = code
+@alias class = symbol
+@alias path = file
+@alias program = file
+
 @set EDITION 0.1
 @set VERSION 0.9.3
-@set UPDATED 22 August 2004
+@set UPDATED 22 September 2004
 
 @c for install-info
-@dircategory Mathematical Software
+@dircategory Math
 @direntry
 * femlisp: (femlisp).           Femlisp
 @end direntry
@@ -26,49 +44,64 @@
 Copyright @copyright{} 2004 Nicolas Neuss, University of Heidelberg.
 @end ifinfo
 
+@copying
+This is Version @value{EDITION} of the @femlisp{} manual, last updated
+@value{UPDATED}, for @femlisp{} @value{VERSION}.
+
+Copyright @copyright{} 2004 Nicolas Neuss.
+
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+@end quotation
+@end copying
+
 @titlepage
 @sp 10
 @title @femlisp{} User Manual @value{EDITION}
 @subtitle @femlisp{} Version @value{VERSION}
 @subtitle @value{UPDATED}
+@author Nicolas Neuss
 
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 2004 Nicolas Neuss, University of Heidelberg.
+@insertcopying
 @end titlepage
 
 @ifnottex
 @node Top, Introduction, (dir), (dir)
-@end ifnottex
-
 @top Femlisp
 
 @femlisp{} is a Common Lisp toolbox for solving partial differential
 equations.
 
-This is Version @value{EDITION} of the @femlisp{} manual, last updated
-@value{UPDATED}, for @femlisp{} @value{VERSION}.
+@insertcopying
+@end ifnottex
 
-
-@contents
 @menu
 * Introduction::                
 * Installation::                
 * First steps::                 
+* Programming techniques::      
 * Overview::                    
 * Reference manual::            
+* Bibliography::                
 * Concept Index::               
 @end menu
 
-@include intro.texinfo
-@include install.texinfo
+@include introduction.texinfo
+@include installation.texinfo
 @include starter.texinfo
+@include programming-techniques.texinfo
 @include overview.texinfo
 @include reference-manual.texinfo
+@include bibliography.texinfo
 @include concepts.texinfo
-@c @include functions.texinfo
-@c @include variables.texinfo
 
-@printindex cp
+@c Does not work at the beginning?!
+@contents
+
 
 @bye

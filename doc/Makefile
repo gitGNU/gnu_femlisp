@@ -30,7 +30,7 @@
 ###########################################################################
 
 FEMLISPTEXI:=femlisp.texinfo
-TMPTYPES:=aux cps fns ky log pg toc tps vrs
+TMPTYPES:=aux cps fns ky log pg toc tps vrs 
 TMPFILES:=$(foreach type,$(TMPTYPES),femlisp.$(type))
 DVIFILE=femlisp.dvi
 PSFILE=femlisp.ps
@@ -41,7 +41,7 @@ info:
 	makeinfo $(FEMLISPTEXI)
 
 html:
-	makeinfo --html --no-split $(FEMLISPTEXI)
+	makeinfo --html $(FEMLISPTEXI) --output femlisp-html
 
 dvi:
 	tex $(FEMLISPTEXI)
@@ -50,4 +50,4 @@ ps:
 	dvips -o $(PSFILE) $(DVIFILE)
 
 clean:
-	rm -f femlisp*.info $(DVIFILE) $(PSFILE) femlisp.html  $(TMPFILES)
+	rm -f femlisp.info* $(DVIFILE) $(PSFILE) femlisp-html/* $(TMPFILES)

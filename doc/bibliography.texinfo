@@ -1,0 +1,73 @@
+@node Bibliography, Concept Index, Reference manual, Top
+@unnumbered Bibliography
+
+@table @samp
+@item (Bey 2000)
+J. Bey: @emph{Simplicial grid refinement: On Freudenthal's algorithm and
+the optimal number of congruence classes}. Numer. Math. 85, 2000,
+pp. 1-29.
+
+@item (CMUCL) CMUCL Homepage.  @url{http://www.cons.org/cmucl}.
+
+@item (Dongarra 1998)
+J. J. Dongarra: @emph{Performance of various computers using standard
+linear equations software}. Technical report, Computer Science
+Department, University of Tennessee, 1998.
+
+@item (Data Explorer)
+Data Explorer Homepage.  @url{http://www.ibm.com/opendx}.
+
+@item (Fateman)
+R. Fateman: @emph{Software fault prevention by language choice: why C is
+not my favorite language}.
+@url{http://www.cs.berkeley.edu/fateman/software.pdf}.
+
+@item (Fateman et al, 1995)
+R. Fateman, K. A. Broughan, D. K. Willcock, and D. Rettig: @emph{Fast
+floating-point processing with Common Lisp}. ACM Trans. on
+Math. Software, 21:26--62, 1995.
+
+@item (Femlisp)
+Femlisp Homepage. @url{http://www.femlisp.org}.
+
+@item (Graham 1996)
+P. Graham: @emph{ANSI Common Lisp}.  Prentice Hall, 1996.
+
+@item (Keene 1989)
+S. E. Keene: @emph{Object-Oriented Programming in Common Lisp: A
+Programmer's Guide to CLOS}. Addison-Wesley, 1989.
+
+@item (Kiczales et al, 1991)
+G. Kiczales, J. Des Rivieres, and D. Bobrow: @emph{The Art of the
+Metaobject Protocol}.  MIT Press, 1991.
+
+@item (Matlisp)
+Matlisp Homepage. @url{http://matlisp.sourceforge.net}.
+
+@item (Neuss 2002)
+N. Neuss: @emph{On using Common Lisp in scientific computing}. In
+Proceedings of the CISC 2002. Springer-Verlag, 2002.
+
+@item (Norvig 1992)
+P. Norvig @emph{Principles of Artificial Intelligence Programming}.
+Morgan Kaufmann Publishers, Inc., San Francisco, USA, 1992.
+
+@item (Ruede 1993)
+U. Ruede @emph{Mathematical and Computational Techniques for Multilevel
+Adaptive Methods}.  @emph{Frontiers in Applied Mathematics} 13, SIAM,
+Philadelphia, 1993.
+
+@item (Ruge and Stueben, 1987)
+J. W. Ruge and K. Stueben: @emph{Algebraic multigrid (AMG)}.  In
+S. F. McCormick, editor, @emph{Multigrid Methods}, volume 3 of
+@emph{Frontiers in Applied Mathematics}, pages 73--130. SIAM,
+Philadelphia, PA, 1987.
+
+@item (Stueben 2001)
+K. Stueben: @emph{A review of algebraic multigrid}.
+J. Comput. Appl. Math., 128:281--309, 2001.
+
+@end table
+
+
+

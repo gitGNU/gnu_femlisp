@@ -4,27 +4,23 @@
 ;;; femlisp-init.lisp - Initialization file for Femlisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;; GCL specialities
-
 (in-package :cl-user)
 
-(defparameter *femlisp-directory*
-  (concatenate 'string
-	       #+cmu (cdr (assoc :FEMLISP_DIR ext:*environment-list*))
-	       #+sbcl (posix-getenv "FEMLISP_DIR")
-	       #+gcl "/home/neuss/CL-HOME/femlisp"
-	       "/"))
+(defparameter *femlisp-pathname*
+  (make-pathname :directory (pathname-directory *load-pathname*))
+  "The pathname for the Femlisp main directory.  This should be the
+location of this file when it is loaded.")
 
-(defparameter *femlisp-pathname* (pathname *femlisp-directory*))
+(defparameter *femlisp-directory* (namestring *femlisp-pathname)
+  "The namestring for @var{*femlisp-pathname*}.")
 
-#-gcl
 (let ((directory (pathname-directory *femlisp-pathname*)))
   (setf (logical-pathname-translations "FEMLISP")
 	`(("**;*.*.*" 
 	   ,(make-pathname :directory `(,@directory :wild-inferiors)
 			   :name :wild :type :wild :version :wild)))))
 
-;;; Ensure the presence of other libraries
+;;; Ensure the presence of external libraries
 
 #+cmu
 (progn

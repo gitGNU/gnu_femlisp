@@ -34,21 +34,65 @@
 
 (in-package :cl-user)
 
-;;; Note: We expect that the logical host "femlisp:" is
-;;; correctly set to the femlisp directory and that
-;;; "femlisp:src;" is registered for ASDF.  CL-PPCRE and infix
-;;; should also be loaded.  This can be ensured by loading
-;;; "femlisp:femlisp-init.lisp" when starting up Lisp.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Setup the logical host "FEMLISP"
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defparameter *femlisp-pathname*
+  (make-pathname :directory (pathname-directory *load-truename*))
+  "The pathname for the Femlisp main directory.  This should be the
+location of this file when it is loaded.")
+
+(defparameter *femlisp-directory* (namestring *femlisp-pathname*)
+  "The namestring for @var{*femlisp-pathname*}.")
+
+(let ((directory (pathname-directory *femlisp-pathname*)))
+  (setf (logical-pathname-translations "FEMLISP")
+	`(("**;*.*.*" 
+	   ,(make-pathname :directory `(,@directory :wild-inferiors)
+			   :name :wild :type :wild :version :wild)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Ensure the presence of libraries
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; ASDF
+#+cmu
+(progn
+  (setq extensions:*gc-verbose* nil)
+  #-asdf (load #p"femlisp:external;asdf"))
+#+sbcl (require 'asdf)
+
+;;; INFIX
+#-infix (load "femlisp:external;infix.cl")
+#-(or asdf mk-defsystem) (load "femlisp:external;defsystem.lisp")
+
+#+asdf
+(push *femlisp-pathname* asdf::*central-registry*)
+#+mk-defsystem
+(push *femlisp-pathname* mk::*central-registry*)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Configuration
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (load "femlisp:femlisp-config.lisp")
 
 ;;; we want to work generally with double float numbers
 (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Compiling and loading
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 #+asdf (asdf:operate 'asdf::load-op 'femlisp)
 #-asdf (mk:oos 'femlisp 'compile)
 
 (pushnew :femlisp *features*)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Trailer
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defparameter *femlisp-version* "0.9.3")
 

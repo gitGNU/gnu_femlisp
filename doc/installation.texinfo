@@ -1,0 +1,201 @@
+@node Installation, First steps, Introduction, Top
+@chapter Installation
+
+@menu
+* Software needed::             
+* Quick installation ::         
+* Detailed installation::       
+@end menu
+
+@node Software needed, Quick installation , Installation, Installation
+@section Software needed
+
+@itemize
+@item A Common Lisp implementation which conforms to the ANSI standard.
+@femlisp{} is known to work with CMU CL and SBCL.  However, it should be
+easy to port it to other ANSI Common Lisp implementations as well.
+
+@item Some Common Lisp software, namely:
+@itemize
+@item MK-DEFSYSTEM or ASDF.  Your CL implementation will probably
+support one of those already.
+@item Mark Kantrowitz' INFIX library.
+@end itemize
+
+@item A Common Lisp environment.  For CMUCL and SBCL I recommend Emacs
+and SLIME.  Emacs/Ilisp or CMUCL/Hemlock would be alternatives, however
+both Ilisp and Hemlock seem to be not actively maintained anymore.
+
+@item Graphics software.  If you want to have graphics available, you
+should have installed the following packages in such a way that they are
+found in your current path.
+@itemize
+@item Data Explorer (OpenDX)
+@item Gnuplot
+@end itemize
+
+@item Documentation
+@itemize
+@item The ANSI Common Lisp Hyperspec.  This is freely available from Xanalys.
+@end itemize
+@end itemize
+
+@c ----------------------------------------------------------------
+
+@node Quick installation , Detailed installation, Software needed, Installation
+@section Quick installation
+
+For certain operating systems, there is a short way of installing a
+Common Lisp environment and Femlisp.
+
+@menu
+* Debian GNU/Linux::            
+@end menu
+
+@node Debian GNU/Linux,  , Quick installation , Quick installation
+@subsection Debian GNU/Linux
+
+You can use the following commands:
+@example
+apt-get install gnuplot dx hyperspec wget
+apt-get -t testing install cmucl sbcl cl-infix
+cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
+wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
+cd femlisp
+@end example
+
+Now you should be in the @femlisp{} directory and you can continue
+as described in @ref{Setup of an interactive environment}.
+
+@c ----------------------------------------------------------------
+
+@node Detailed installation,  , Quick installation , Installation
+@section Detailed installation
+
+@menu
+* Installation of a CL implementation::  
+* Graphics::                    
+* Obtaining Femlisp::           
+* Configuration of the startup script::  
+* Compiling Femlisp::           
+* Setup of an interactive environment::  
+@end menu
+
+@node Installation of a CL implementation, Graphics, Detailed installation, Detailed installation
+@subsection Installation of a CL implementation
+
+There are two Common Lisp implementations with which @femlisp{} has been
+tested to work, namely CMUCL or SBCL.  I recommend using CMUCL on
+X86/Linux or Sparc/Solaris, mainly because it behaves more gracefully
+with respect to heap overflow, and SBCL on MacOSX.
+
+@femlisp{} should also run with little changes within other ANSI Common
+Lisp environments, especially the commercial implementations Allegro CL,
+Scieneer CL, Lispworks, Corman CL, and OpenMCL.  It might also be
+possible to use @femlisp{} with GCL, after some changes due to the lack
+of ANSI compliance of GCL.  On the other hand, using @femlisp{} with
+interpreters or bytecode compilers like CLISP does not make much sense,
+because such implementations are probably much too slow.
+
+@node Graphics, Obtaining Femlisp, Installation of a CL implementation, Detailed installation
+@subsection Graphics
+
+@femlisp{} uses two graphics packages, namely Gnuplot and Data Explorer.
+Make sure that they can be found in your path and that they
+work.@footnote{On MacOSX, I had difficulties with DX.  Everything
+worked, when I switched to the DX which is provided by Fink/unstable.}
+
+@node Obtaining Femlisp, Configuration of the startup script, Graphics, Detailed installation
+@subsection Obtaining Femlisp
+
+@enumerate
+@item Alternative 1: Download the current @femlisp{} version as follows
+(if @command{wget} should not be available try @command{curl} instead)
+@example
+wget -O - http://www.femlisp.org/femlisp-current.tar.gz| tar xzvf -
+@end example
+
+You can check the correctness of the download against the binary GPG
+signature in @url{http://www.femlisp.org/femlisp-current.tar.gz.sig}.
+My public PGP key can be found at
+@url{http://www.iwr.uni-heidelberg.de/~Nicolas.Neuss/nicolas_neuss.pgp}.
+
+@item Alternative 2: Checkout a CVS version using the command
+@example
+cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
+@end example
+@end enumerate
+
+@subsection Installation of MK-DEFSYSTEM/ASDF and Infix
+
+First, you need a defsystem facility for using Femlisp.  For
+convenience, ASDF is bundled with Femlisp.  This version is used if
+nothing else is available.
+
+Second, Femlisp needs the Infix library by Mark Kantrowitz.  If you
+are not sure that it is available when your Common Lisp implementation
+has started, please issue the command
+
+@example
+make infix
+@end example
+
+from within the Femlisp directory (usually @path{femlisp}).  This should
+fetch the Infix library from the web and put it in
+@path{femlisp/external} where it should be found if necessary.
+
+@node Configuration of the startup script, Compiling Femlisp, Obtaining Femlisp, Detailed installation
+@subsection Configuration of the startup script
+
+After these steps you should look at the script
+@file{femlisp/bin/femlisp} and set the environment variables
+@env{FEMLISP_DIR} to the @femlisp{} directory, @env{FEMLISP_CL} to the
+path of your @CL{} implementation, and @env{CL_TYPE} to either "sbcl" or
+"cmucl".
+
+@node Compiling Femlisp, Setup of an interactive environment, Configuration of the startup script, Detailed installation
+@subsection Compiling Femlisp
+
+You should now be able to start @femlisp{} by executing the script
+"femlisp/bin/femlisp.  The first time you use this script, your Lisp
+implementation will have to compile @femlisp{} which may take a while.
+The next time, startup will be much faster.  You can exit
+Lisp/@femlisp{} by typing "(quit)".@footnote{If you are using CMUCL you
+can save a core which avoids reloading @femlisp{} during startup.  This
+is done by executing the command @code{make femlisp-core} from inside
+the @femlisp{} directory.  After this operation, @femlisp{} should start
+up very fast.  But I recommend that you do this optimization only if
+necessary and only when everything works.}
+
+@node Setup of an interactive environment,  , Compiling Femlisp, Detailed installation
+@subsection Setup of an interactive environment
+
+It is essential to use @femlisp{} from within a Lisp environment because
+otherwise you do not even have a command history.  A freely available
+Lisp environment is Emacs where you can use the built-in
+inferior-lisp-mode, ILISP, or SLIME.  Since inferior-lisp-mode is not
+very good and ILISP does not seem to be actively developed anymore, I
+recommend using SLIME.  If you do not have it installed on your system,
+you may try the command
+
+@example
+make slime
+@end example
+
+from within the @femlisp{} directory @path{femlisp}.  This will try to
+download a CVS version of SLIME in @path{femlisp/external}.
+
+Finally, put the following lines in the file @file{.emacs} in your home
+directory.
+
+@lisp
+(setq inferior-lisp-program "/usr/bin/lisp")  ; path to CMUCL or SBCL
+(setq *femlisp-root* "ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE/femlisp/")
+(push *femlisp-root* load-path)
+(require 'femlisp)
+@end lisp
+
+Now the Emacs command @kbd{M-x femlisp} should fire up SLIME and load
+@femlisp{}.
+
+

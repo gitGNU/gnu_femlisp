@@ -1,4 +1,4 @@
-@node First steps, Overview, Installation, Top
+@node First steps, Programming techniques, Installation, Top
 @chapter First steps
 
 @menu
@@ -12,15 +12,15 @@
 @section Demos
 
 Start @femlisp{} and look at the demos by typing @kbd{(femlisp-demo)}
-(followed by return) at the CL prompt (do not forget the parentheses!).
-You drop out of the demos by typing @kbd{quit} (without parentheses) at
-the demo prompt, and you can exit @femlisp{} by typing @kbd{(quit)} at
-the CL prompt.
+(followed by @kbd{RETURN}) at the CL prompt (do not forget the
+parentheses!).  You drop out of the demos by typing @kbd{quit} (without
+parentheses) at the demo prompt, and you can exit @femlisp{} by typing
+@kbd{(quit)} at the CL prompt.
 
 @node Solving problems, Plotting, Demos, First steps
 @section Solving problems
 
-This section discusses how to solve several standard probblems with
+This section discusses how to solve several standard problems with
 @femlisp{}.  It might be useful to read the following section on how to
 use your Common Lisp environment before trying these examples.
 
@@ -34,11 +34,13 @@ use your Common Lisp environment before trying these examples.
 @node Stationary diffusion problem, Elasticity problem, Solving problems, Solving problems
 @subsection Stationary diffusion problem
 
-Assume that we want to solve the Poisson equation on the unit square
-with right-hand side @math{f(x,y)=e^{x+y}} and Dirichlet boundary
-conditions.  The following command solves this equation approximately on
-a uniformly refined mesh using as termination criterion that the time
-for approximating the solution has increased beyond 20 seconds.
+Assume that we want to solve the Poisson equation @math{\Delta u(x,y)
+= f(x,y)} on the unit square @math{\Omega=(0,1)^2} with right-hand
+side @math{f(x,y)=e^{x+y}} and Dirichlet boundary conditions
+@math{u(x,y)=0} for @math{(x,y) \in \partial \Omega}.  The following
+command solves this equation approximately on a uniformly refined mesh
+using as termination criterion that the time for approximating the
+solution has increased beyond 20 seconds.
 
 @lisp
 (defparameter *result*
@@ -50,9 +52,10 @@ for approximating the solution has increased beyond 20 seconds.
        :success-if '(> :time 20))))
 @end lisp
 
-The result is a blackboard which we saved in the global variable
-@var{*result*} for later reference.  We can extract items from there
-using the function @code{getbb}, e.g. for plotting the solution:
+The result of the call to @function{solve} is a blackboard which we
+saved in the global variable @var{*result*} for later reference.  We
+can extract items from there using the function @code{getbb}, e.g. for
+plotting the solution:
 @lisp
 (plot (getbb *result* :solution))
 @end lisp
@@ -60,11 +63,58 @@ using the function @code{getbb}, e.g. for plotting the solution:
 @node Elasticity problem, Navier-Stokes problem, Stationary diffusion problem, Solving problems
 @subsection Elasticity problem
 
+Assume that we want to solve an elasticity problem with an isotropic
+elasticity tensor determined by the Lame parameters
+@math{\lambda=\mu=1} on the unit square @math{\Omega=(0,1)^2} with
+right-hand side @math{\vec{f}(x,y)\equiv (1,0)^t} and Dirichlet
+boundary conditions @math{\vec{u}(x,y)=0} for @math{(x,y) \in \partial
+\Omega}.  The following command solves this equation approximately on
+a uniformly refined mesh using as termination criterion that the time
+for approximating the solution has increased beyond 20 seconds.
+
+@lisp
+(let* ((problem
+        (standard-elasticity-problem
+         (n-cube-domain 2) :lambda 1.0 :mu 1.0
+         :force (constant-coefficient (vector #m(1.0) #m(0.0)))))
+       (blackboard
+        (blackboard :problem problem :output t :success-if '(> :time 20.0))))
+  (solve blackboard)
+  (plot (getbb blackboard :solution) :component 0)
+  (plot (getbb blackboard :solution) :component 1))
+@end lisp
+
 @node Navier-Stokes problem, Heat equation, Elasticity problem, Solving problems
 @subsection Navier-Stokes problem
 
+The following sequence is a short excerpt from the Driven cavity demo
+in @file{femlisp/src/applications/navier-stokes/driven-cavity.lisp}.
+It solves the two-dimensional Driven cavity problem with Reynolds
+number 10.  During the approximation the approximation of the velocity
+components at the midpoint @math{(0.5,0.5)} is printed.
+
+@verbatim
+  (let ((dim 2) (reynolds 0.0))
+    (solve 
+     (blackboard
+      :problem (driven-cavity 2 :reynolds reynolds) :base-level 0
+      :success-if '(> :time 20.0) :output t :observe
+      (append *stationary-fe-strategy-observe*
+              (list
+               (list (format nil "~{                 u~1D~}" '(1 2))
+                     "~{~19,10,2E~}"
+                     #'(lambda (blackboard)
+                         (let ((val (fe-value (getbb blackboard :solution)
+                                              (make-double-vec 2 0.5))))
+                           (loop for i below dim collect (vref (aref val i) 0))))))))))
+@end verbatim
+
 @node Heat equation,  , Navier-Stokes problem, Solving problems
 @subsection Heat equation
+
+The solution of time-dependent problem is working, but it has not yet
+been included into this version of @femlisp{}, because it does still
+need some polishing.
 
 @node Plotting, Common Lisp environment, Solving problems, First steps
 @section Plotting
@@ -79,6 +129,14 @@ Plotting solution, mesh, source, and matrix can then be done with
 (plot (getbb *result* :mesh))
 (plot (getbb *result* :problem) :coefficient 'CDR::SOURCE)
 (plot (getbb *result* :matrix))
+@end lisp
+
+You can also plot the result to several graphic formats.  For example,
+
+@lisp
+(plot (getbb *result* :mesh) :background :white :tubes nil :glyphs nil
+      :plot :file :format "tiff"
+      :filename "mesh.tiff")
 @end lisp
 
 @node Common Lisp environment,  , Plotting, First steps

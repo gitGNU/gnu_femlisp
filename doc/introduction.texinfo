@@ -44,10 +44,10 @@ support native code compilation.
 
 Consequently, using Lisp for problems outside its original realm of
 artificial intelligence is a very natural choice today, see
-@cite{RFateman_KABroughan_DKWillcock_DRettig_1995},
-@cite{RFateman_2001a}, @cite{NNeuss_2002b}.  Comparing @femlisp{} with
-other PDE toolboxes, we observe the following advantages which cannot be
-easily obtained using conventional languages like Fortran, C, or C++:
+@cite{(Fateman et al,_1995)}, @cite{(Fateman 2001)}, @cite{(Neuss
+2002)}.  Comparing @femlisp{} with other PDE toolboxes, we observe the
+following advantages which cannot be easily obtained using
+conventional languages like Fortran, C, or C++:
 
 @enumerate
 

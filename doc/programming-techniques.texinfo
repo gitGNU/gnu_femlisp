@@ -1,0 +1,183 @@
+@node Programming techniques, Overview, First steps, Top
+@chapter Programming techniques
+
+In @femlisp{}, some programming techniques are used which may seem
+unusual, especially to programmers not knowing Common Lisp.  This
+chapter, we briefly explain some of them.
+
+@menu
+* Object-oriented programming::  
+* Dynamic class generation::    
+* Memoization::                 
+* Blackboards::                 
+* Documentation::               
+@end menu
+
+@node Object-oriented programming, Dynamic class generation, Programming techniques, Programming techniques
+@section Object-oriented programming
+
+@femlisp{} is implemented largely in an object-oriented manner using
+CLOS (@emph{Common Lisp Object System}).  CLOS is very powerful,
+featuring, for example, multiple inheritance, multi-argument dispatch,
+and class-redefinition at runtime.  We do not want to go into detail
+here, but refer to the books @cite{(Keene 1989)} and
+@cite{(Kiczales et al, 1991)}.  Nevertheless, we want to
+discuss briefly some specialities of object-oriented programming in
+Common Lisp which are not common in other programming languages.
+
+Dispatch of a generic function on more than one argument is often
+useful.  One example is the following code for a matrix-vector
+multiplication, where the method cannot be assigned clearly to either
+the class @class{<matrix>} or the class @class{<vector>}.
+
+@lisp
+(defmethod m* ((A <matrix>) (y <vector>))
+  (let ((x (make-row-vector-for A)))
+    (x+=Ay x A y)
+    x))
+@end lisp
+
+Method combination opens up a nice way for enhanced code re-use by
+allowing also @code{:before}- and @code{:after}-methods which are
+called before and after the execution of the primary method.  For
+example, the following modifying method adds a compatibility check to
+the above matrix-vector multiplication which is used for every
+application of @function{m*} (and regardless of the type of the
+arguments):
+
+@lisp
+(defmethod m* :before (A y)
+  (assert (= (ncols A) (nrows y))))
+@end lisp
+
+Multiple inheritance is usually not used as much as single
+inheritance, so that some object-oriented programming languages, for
+example Java, do not provide it at all.  Nevertheless, it can be quite
+useful.  In @femlisp{}, it is used, for example, to define so-called
+@emph{mixin classes} which are used to dispatch the behaviour of a
+multigrid scheme between the standard "Correction Scheme" (CS) and
+Brandt's "Full Approximation Storage" (FAS).
+
+@node Dynamic class generation, Memoization, Object-oriented programming, Programming techniques
+@section Dynamic class generation
+
+Class and method redefinition at runtime is very useful, especially in
+the development phase of a program, since the same Lisp session is often
+used during several days or even weeks.  But an even more interesting
+application is the automatic generation of classes and methods at
+run-time.  This may even lead to @CL{} programs which surpass the
+efficiency of C code, see e.g. @cite{(Neuss 2002)}.
+
+In @femlisp{}, this feature is used at several places.  In the package
+@package{FL.MESH}, it is used when dynamically generating cell classes
+of arbitrary dimension and type.  In the package @package{FL.MATLISP},
+it is used for generating matrices with entries of a given type as
+well as the corresponding methods which.  This is somewhat similar to
+C++ templates which are applied at runtime whenever needed.
+
+@node Memoization, Blackboards, Dynamic class generation, Programming techniques
+@section Memoization
+
+Quite often some time-intensive function is called very frequently on
+only few values.  Easy examples of this are simple recursive processes
+as the computation of binomial or Fibonacci numbers.  In @femlisp{},
+this occurs at several places, e.g. when computing arbitrary
+dimensional reference elements and the corresponding refinement rules,
+when computing finite element data for those reference elements, and
+so on.  A useful technique for accelerating programs in this case is
+so-called "memoization", which means storing already computed values
+in a table and retrieving them from there if possible.
+
+Now, in Common Lisp, it is easy to construct a language extension
+which turns an existing function into a memoized one, see
+e.g. @cite{(Norvig 1992)}.  The code is simply the following:
+
+@lisp
+(defun memoize-symbol (funsym)
+  "Memoizes the function named by the given symbol."
+  (let ((unmemoized (symbol-function funsym))
+        (table (make-hash-table :test #'equalp)))
+    (setf (symbol-function funsym)
+          #'(lambda (&rest args)
+              (multiple-value-bind (value found)
+                  (gethash args table)
+                (if found
+                    value
+                    (setf (gethash args table)
+                          (apply unmemoized args))))))))
+@end lisp
+
+An application of this technique to the recursive computation of Fibonacci
+numbers then yields something like the following:
+
+@verbatim
+* (declaim (notinline fib))
+* (defun fib (n)                           * (memoize-symbol 'fib)
+    (case n                                * (time (fib 35))                  
+      (0 0) (1 1)                          ; Evaluation took:                  
+      (t (+ (fib (- n 1))                  ;   0.0 seconds of real time       
+            (fib (- n 2))))))              ;   0.0 seconds of user run time   
+FIB                                        ;   8 bytes consed.              
+* (compile 'fib)                           9227465                            
+* (time (fib 35))                          * (time (fib 100))                 
+; Evaluation took:                         ; Evaluation took:                 
+;   1.31 seconds of real time              ;   0.0 seconds of real time       
+;   1.3 seconds of user run time           ;   0.0 seconds of user run time   
+;   0 bytes consed.                        ;   8 bytes consed.
+9227465                                    354224848179261915075
+@end verbatim
+
+@node Blackboards, Documentation, Memoization, Programming techniques
+@section Blackboards
+
+In machine-oriented languages, it is usually required that both the
+number of function arguments and their types are known and, as soon as
+functions need a larger number of parameters, these are collected in
+some structure or class.  Because this is quite inflexible, functions
+in Common Lisp are allowed to have a variable number of parameters of
+arbitrary type.  Additionally, the arguments can be named with certain
+keywords.  This means that the keyword part of the argument list has
+an even number of elements which appear in pairs of the form
+symbol/value (such a list is called a @emph{property list}).  This
+allows for a very flexible parametrization of a lot of operations.
+
+Another possibility of flexible passing of unstructured data is provided
+by the class @class{blackboard} which is defined in the package
+@package{FL.UTILITIES}.  Such blackboards are also modifiable allowing
+functions to write return results via the blackboard.  Sometimes
+(e.g. within the generic function @function{iterate}) several functions
+operate one after the other on the same blackboard which resembles very
+much an assembly line.
+
+@node Documentation,  , Blackboards, Programming techniques
+@section Documentation, testing, and demos
+
+Common Lisp offers several interesting possibilities for integrating the
+documentation and testing phase with programming in a way which cannot
+easily be done in languages that are not interactive or do not have
+sufficient introspection features.  @femlisp{} uses such features as
+follows:
+
+First, function and variable declarations may contain docstrings
+documenting their use.  These strings can be asked for in the
+interactive environment.  In @femlisp{}, those strings are also used to
+extract a reference manual in Texinfo format (Texinfo is the
+documentation language of the GNU project), see @ref{Reference manual}.
+Therefore, Texinfo formatting commands are allowed in Femlisp
+docstrings.
+
+Second, regression test suites can be constructed easily.  For example,
+most files in @femlisp{} contain a test function at the end which checks
+several critical features which the file or module provides.  By calling
+the function @function{adjoin-test} at load time, this function is added
+to a list of functions to be checked.  After loading @femlisp{}, all
+functions in this list can be executed one after the other by calling
+the function @function{test-femlisp}.  Errors and exceptions are
+registered and finally reported.
+
+Third, a demo suite is also built @femlisp{} in a similarly distributed
+manner.  Wherever something interesting can be demonstrated, a small
+demo node is generated with @function{make-demo} and added to the tree
+of all demos with @function{adjoin-demo}.  After loading @femlisp{}, the
+whole demo suite is available and can be run with the command
+@function{femlisp-demo}.

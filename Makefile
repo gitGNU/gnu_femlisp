@@ -32,10 +32,12 @@
 help:
 	echo "Options: cl-ppcre, femlisp-doc, femlisp-core, clean."
 
-cl-ppcre:
+infix:
 	cd external;\
-	wget -O - http://weitz.de/files/cl-ppcre.tgz |tar -xzvf -;\
-	ln -s cl-ppcre-* cl-ppcre
+	wget http://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/lang/lisp/code/syntax/infix/infix.cl
+
+slime:
+	http://common-lisp.net/cgi-bin/viewcvs.cgi/cvs_root.tar.gz?tarball=1&cvsroot=slime
 
 femlisp-core:
 	cd bin; sh ./femlisp -eval "(progn (ext:save-lisp \"femlisp.core\" :site-init NIL :print-herald nil) (quit))"
@@ -45,4 +47,5 @@ femlisp-doc:
 
 clean:
 	cd src; make clean;
+	cd doc; make clean;
 
