@@ -50,5 +50,5 @@ and the problem.  Further parameters are provided inside a blackboard."))
 
 (defmethod select-discretization :around (problem blackboard)
   "If a discretization is on the blackboard, use it."
-  (aif (getf blackboard :fe-class) it (call-next-method)))
+  (aif (getbb blackboard :fe-class) it (call-next-method)))
 

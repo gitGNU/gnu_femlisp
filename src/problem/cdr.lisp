@@ -38,14 +38,14 @@
 	"MESH" "PROBLEM")
   (:export "<CDR-PROBLEM>" "MAP-DOMAIN-TO-CDR-PROBLEM"
 	   "SCALAR-DIFFUSION" "IDENTITY-DIFFUSION-TENSOR"
-	   "CDR-MODEL-PROBLEM"))
+	   "CDR-MODEL-PROBLEM" "BRATU-PROBLEM"))
 (in-package :cdr)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <cdr-problem>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <cdr-problem> (<problem>)
+(defclass <cdr-problem> (<pde-problem>)
   ()
   (:documentation "Convection-diffusion-reaction problem."))
 
@@ -131,29 +131,30 @@ which is interpreted as the n-dimensional unit cube."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun bratu-problem (dim)
-  "Returns a problem for -Delta v + e^u v = e^u for the correction v to the
-solution u of the problem -Delta u +e^u = 0"
+  "Returns the Newton linearization (-Delta + e^u) u = e^u (u-1) for the
+Bratu problem -Delta u +e^u =0."
   (cdr-model-problem
    (n-cube-domain dim)
    :diffusion (identity-diffusion-tensor dim)
    :reaction
    (make-instance '<coefficient> :demands '(:solution) :residual nil
 		  :eval #'(lambda (&key solution &allow-other-keys)
-			    (exp solution)))
+			    (exp (vref solution 0))))
    :source
    (make-instance '<coefficient> :demands '(:solution)
 		  :eval #'(lambda (&key solution &allow-other-keys)
-			    (exp solution)))))
-
+			    (let ((u (vref solution 0)))
+			      (* (exp u) (- u 1.0)))))))
 
 ;;; Testing: (test-cdr)
 
 (defun test-cdr ()
-  (check (domain (cdr-model-problem 2)))
+  (describe (bratu-problem 2))
+  (describe (cdr-model-problem 1))
   (check (domain (cdr-model-problem 2)))
   (let* ((domain (n-cell-domain 1))
 	 (problem (cdr-model-problem domain)))
-    (problem-info problem))
+    (describe problem))
   )
 
 (fl.tests:adjoin-test 'test-cdr)

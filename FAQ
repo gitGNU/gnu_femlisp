@@ -14,7 +14,8 @@ Femlisp FAQ
    A: There is a short description of Femlisp in the doc-directory,
    unfortunately it is not really up-to-date anymore.  Additionally, you
    should know how to get documentation of functions and variables out of
-   your Lisp environment.  I plan to have a real manual in summer 2004.
+   your Lisp environment.  I plan to have a real manual for Femlisp-1.0 in
+   summer 2004.
 
 3. Q: What is the best way to get started?
 
@@ -30,6 +31,7 @@ Femlisp FAQ
   done.  Try to modify the above problem by giving it a different
   right-hand side.
 
+
 * B: MESH MANAGEMENT
 
 1. Q: Which types of cells are available?
@@ -38,7 +40,7 @@ Femlisp FAQ
    interval in 1D, triangle and square in 2D, tetrahedron, prism, and cube
    in 3D, and so on for higher dimensions.  It does not have pyramids.  It
    would be rather easy to incorporate also those in the mesh module, but
-   it is not clear to me how the construction does look like in higher
+   it is not clear to me how the construction should look like in higher
    dimensions.
 
 
@@ -49,8 +51,8 @@ Femlisp FAQ
    A: Because the sparse-matrix implementation is based on hash-tables
    indexed by mesh-entities like vertices, lines, ..., and each entry is
    again a block consisting of a matrix object.  This means that generic
-   functions have to be used for handling those entries.  Of course, the
-   overhead for generic functions and hash-table is large, especially in
+   functions have to be used for handling those entries.  Unfortunately,
+   the overhead for hash-table and method lookup is large, especially in
    the case of scalar equations with low-order discretizations.
 
 2. Q: Is it possible to improve the linear algebra?
@@ -62,76 +64,72 @@ Femlisp FAQ
    matrix-vector data structure having most of the flexibility of the
    current approach while being as efficient as the usual CRS scheme.
 
-3. Q: How does Femlisp's compare with other programs wrt speed?
-
-   A: You have to distinguish between speed of execution and speed of
-   development.  The speed of program development in Common Lisp cannot be
-   beaten by statically typed languages like C++ or Fortran and differs
-   often by an order of magnitude.  Concerning execution speed, I admit
-   that Femlisp is still rather slow at the moment, but I hope that this
-   situation will soon improve.
-
 
 * D: PROBLEMS
 
 1. Q: How can I solve nonlinear problems?
 
-   A: It is possible to assemble problems with coefficients depending on
-   the current solution.  This could then be trivially used inside a
-   fixed-point iteration.  Using the <iteration> class, this can be easily
-   integrated with Femlisp.
+   A: See the files src/applications/cdr/bratu.lisp and
+   src/applications/navier-stokes/driven-cavity.lisp for examples how to
+   solve nonlinear pdes by a Newton iteration and multigrid.
 
 2. Q: How can I solve time-dependent problems?
 
-   A: At the moment, the easiest way is to set up your time-stepping scheme
-   yourself by assembling a delta-t dependent term in matrix and right-hand
-   side.  In this way, simple time-stepping schemes are possible.  More
-   elaborate choices and adaptivity require more work, of course.
+   A: This is work in progress.  At the moment, you have still to set up
+   your time-stepping scheme yourself by assembling a delta-t dependent
+   term in matrix and right-hand side.
+
 
 * E: DISCRETIZATION
 
 1. Q: Is it possible to handle problems with more than one right-hand side
    with different choice of essential boundary?
    
-   A: For the moment, no.  This feature uses that within the right-hand
-   side and solution vectors every data block is a Matlisp matrix.  Changes
-   in the location of essential boundary would require slightly different
-   matrices which does not fit into this pattern.
+   A: For the moment, no.  This feature needs that the system matrix is the
+   same for every such right-hand-side.  Changes in the location of
+   essential boundary require slightly different matrices which does not
+   fit into this pattern.
+
 
 * F: SOLVERS
 
 1. Q: Is there a BiCGStab or GMRES iteration available?
 
-   A: No, not yet.  It would be really useful and not difficult, if someone
-   would extend the file iterations/krylow.lisp in this direction.
+   A: No, not yet.  For the problems I considered up to now, pure multigrid
+   was sufficient.
 
-2. Q: Wouldn't it be useful to include also an interface to sparse direct
-   solvers like SuperLU?
+2. Q: Wouldn't it be useful to include also an interface to Fortran/C++
+   sparse matrix packages or sparse direct solvers like SuperLU?
 
-   A: Yes, but I do not have the time to do it now.
+   A: Up to now, I did not need it, but it would surely be a useful
+   feature.
 
-3. Q: When will local multigrid work for systems?
-
-   A: Rather soon.  Almost everything necessary is available, but at the
-   moment I do not have time to put it together.
 
 * G: PARALLELIZATION
 
 1. Q: What about parallelization?
 
-   A: This has not yet been started.  Probably, I will first parallelize
+   A: This has not yet been started.  The first step will be to parallelize
    computationally intensive parts like mesh management, assembly, and
    iterative solvers on MISD architectures.  Parallelization for MIMD
    architectures is also possible using MPI or PVM, but would require a
    major restructuring.
 
+
 * H: GENERAL
 
-1. Q: Why is Femlisp slow?
+1. Q: How does Femlisp's compare with other programs wrt speed?
 
-   A: There are several answers.  The most important is that it is working
-   with unstructured meshes.  Comparable Fortran/C/C++ libraries are also
-   slow compared with libraries written for structured meshes.  Second,
-   Femlisp still has to be optimized at several places, the most important
-   being its linear algebra, see above.  This will change in the near
-   future.
+   A: This depends very much on the problem at hand.  Femlisp is still very
+   slow for several standard problems.  On the other hand, it does also
+   perform astonishingly well for other benchmark problems (compared with
+   other unstructured-mesh FEM toolboxes).  Furthermore, most often the
+   speed of program development is the decisive factor.  Here, Common Lisp
+   cannot be beaten by statically typed languages like C++ or Fortran and
+   differs often by an order of magnitude.
+
+2. Q: Why is Femlisp slow for my problem?
+
+   A: Please ask on the femlisp-user mailing list for optimization help.
+
+

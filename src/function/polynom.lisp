@@ -77,7 +77,7 @@ represented as nested lists."))
 			    (make-set 0 (length coeff-lst))))))
     (tensorial-degree (coefficients poly))))
 
-(defmethod partial-degree ((lst list) (index fixnum))
+(defmethod partial-degree ((lst list) (index integer))
   (if (zerop index)
       (- (length lst) 1)
       (apply #'max -1
@@ -85,7 +85,7 @@ represented as nested lists."))
 		    (partial-degree term (- index 1)))
 		  lst))))
 
-(defmethod partial-degree ((poly polynomial) (index fixnum))
+(defmethod partial-degree ((poly polynomial) (index integer))
   (partial-degree (coefficients poly) index))
 
 ;;; Returns number of variables on which the polynomial depends.  Does
@@ -290,14 +290,14 @@ represented as nested lists."))
 (defmethod poly* ((g polynomial) (f number)) (scal f g))
 
 ;;; exponentiation
-(defmethod poly-expt ((lst list) (n fixnum))
+(defmethod poly-expt ((lst list) (n integer))
   (cond ((< n 0) (error "not implemented"))
 	((= n 0) (list 1))
 	((= n 1) lst)
 	((evenp n) (poly-expt (poly* lst lst) (/ n 2)))
 	(t (poly* lst (poly-expt lst (1- n))))))
 
-(defmethod poly-expt ((poly polynomial) (n fixnum))
+(defmethod poly-expt ((poly polynomial) (n integer))
   (make-polynomial (poly-expt (coefficients poly) n)))
 
 ;;; matlisp methods
@@ -330,7 +330,7 @@ represented as nested lists."))
 
 ;;; differentiates an n-variate polynomial wrt the variable given by
 ;;; index=0,1,...
-(defmethod differentiate ((lst list) (index fixnum))
+(defmethod differentiate ((lst list) index)
   (cond ((null lst) ())
 	((zerop index)
 	 (loop for coeff in (cdr lst)
@@ -340,9 +340,9 @@ represented as nested lists."))
 		       (differentiate coeff (- index 1)))
 		   lst))))
 
-(defmethod differentiate ((poly number) (index fixnum)) 0)
+(defmethod differentiate ((poly number) index) 0)
 
-(defmethod differentiate ((poly polynomial) (index fixnum))
+(defmethod differentiate ((poly polynomial) index)
   (make-polynomial (differentiate (coefficients poly) index)))
 
 ;;; warning: does not work for multidimensional polynomials (e.g. p(x1,x2)=x1)

@@ -85,7 +85,6 @@ non-structured meshes and/or on domains with curved boundary."
 	   (n-cube-domain dim)
 	   :source #'(lambda (x) #I"-2.0*exp(x[0]+x[1])")
 	   :dirichlet #'(lambda (x) #I"exp(x[0]+x[1])"))))
-    ;;(plot (solve-laplace problem 2 1)))
     (check-h-convergence
      problem 1 3 :order 1 :position #d(0.25 0.25)
      :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)
@@ -118,7 +117,6 @@ non-structured meshes and/or on domains with curved boundary."
 
   (format t "~%3d Laplace test on the unit ball, exact solution u(0,0,0)=1/6=0.1666...~%")
   (let ((problem (cdr-model-problem (n-ball-domain 3))))
-    ;;(plot (solve-laplace problem 1 3 :parametric (lagrange-mapping 3)))
     (time (check-h-convergence
 	   problem 0 3 :order 1 :position #d(0.0 0.0 0.0)
 	   :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)

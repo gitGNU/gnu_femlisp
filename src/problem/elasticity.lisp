@@ -49,7 +49,7 @@
 ;;;; <elasticity-problem>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <elasticity-problem> (<problem>)
+(defclass <elasticity-problem> (<pde-problem>)
   ()
   (:documentation "Elasticity problems."))
 
@@ -116,7 +116,7 @@ $\mu$, i.e.: $$A_{ij}^{kl} = \lambda \delta_{ik} \delta_{jl} + \mu
 		   (constant-coefficient
 		    (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu))
 		   'FORCE
-		   (function->coefficient force)))))))
+		   (ensure-coefficient force)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Systems of diffusion equations (mainly for testing purposes)
@@ -146,7 +146,7 @@ $\mu$, i.e.: $$A_{ij}^{kl} = \lambda \delta_{ik} \delta_{jl} + \mu
 		   (constant-coefficient
 		    (system-diffusion-tensor :dim dim :nr-comps nr-comps :D D))
 		   'FORCE
-		   (function->coefficient force)))))))
+		   (ensure-coefficient force)))))))
 
 
 ;;; Testing: (test-elasticity)
@@ -158,7 +158,7 @@ $\mu$, i.e.: $$A_{ij}^{kl} = \lambda \delta_{ik} \delta_{jl} + \mu
   (let ((dim 1))
     (standard-elasticity-problem
      (n-cube-domain dim) :lambda 1.0 :mu 1.0
-     :force (constantly (unit-vector dim 0))))
+     :force (constant-coefficient (make-array dim :initial-element (zeros 1)))))
   )
 
 (fl.tests:adjoin-test 'test-elasticity)

@@ -50,7 +50,8 @@
 		      :gamma 2 :coarse-grid-iteration
 		      (make-instance '<s1-coarse-grid-iterator>)))
      :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
-     :failure-if `(and (> :step 2) (> :step-reduction 0.9)))))
+     :failure-if `(and (> :step 2) (> :step-reduction 0.9))
+     )))
 
 (defmethod select-linear-solver ((problem elasticity::<elasticity-problem>) blackboard)
   (let ((dim (dimension (domain problem))))
@@ -60,20 +61,27 @@
 			 *gauss-seidel*
 			 (geometric-ssc))))
        (geometric-cs
-	:pre-steps 2 :pre-smooth smoother
-	:post-steps 2 :post-smooth smoother
+	:pre-steps 1 :pre-smooth smoother
+	:post-steps 1 :post-smooth smoother
 	:gamma 2 :fmg t))
-     :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
-     :failure-if `(and (> :step-reduction 0.9) (> :step 2)))))
+     :success-if `(and (> :step 1)
+		   (or (zerop :defnorm) (and (< :defnorm 1.0e-8) (> :step-reduction 0.9))))
+     :failure-if `(and (> :step 1) (> :step-reduction 0.9))
+     )))
 
 (defmethod select-linear-solver ((problem navier-stokes::<navier-stokes-problem>) blackboard)
-  (let ((smoother (make-instance '<vanka>)))
-    (geometric-cs
-     :coarse-grid-iteration
-     (make-instance '<multi-iteration> :nr-steps 1 :base smoother)
-     :pre-steps 1 :pre-smooth smoother
-     :post-steps 1 :post-smooth smoother
-     :gamma 2)))
+  (make-instance
+   '<linear-solver> :iteration
+   (let ((smoother (make-instance '<vanka>)))
+     (geometric-cs
+      :coarse-grid-iteration
+      (make-instance '<multi-iteration> :nr-steps 1 :base smoother)
+      :pre-steps 1 :pre-smooth smoother
+      :post-steps 1 :post-smooth smoother
+      :gamma 2))
+   :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
+   :failure-if `(and (> :step 2) (> :step-reduction 0.9))
+   ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Choice of problem-dependent error estimator
@@ -108,15 +116,14 @@ estimated, we refine those cells within some factor of the maximum error."
       (make-instance '<uniform-refinement-indicator>)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; GPS = "General problem solve"
+;;;; GPS = "General problem solver"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod solve ((blackboard list) &optional dummy)
+(defmethod solve ((blackboard blackboard) &optional dummy)
   "Implements the simplest interface for problem solving.  Only a
 blackboard describing the problem is passed and the solution method is
 open."
-  (when (or dummy (not (eq (car blackboard) :blackboard)))
-    (error "Syntax: (SOLVE blackboard) or (SOLVE strategy blackboard)."))
+  (assert (null dummy))
   (with-items (&key strategy problem matrix rhs
 		    fe-class solver estimator indicator output)
       blackboard
@@ -124,21 +131,24 @@ open."
       (strategy				; there is a strategy on the blackboard
        (solve strategy blackboard))
       (problem				; there is a PDE problem on the blackboard
-       (setq strategy
-	     (apply
-	      #'make-instance '<stationary-fe-strategy>
-	      :fe-class (or fe-class (select-discretization problem blackboard))
-	      :solver (or solver (select-linear-solver problem blackboard))
-	      :estimator (or estimator (select-estimator problem blackboard))
-	      :indicator (or indicator (select-indicator problem blackboard))
-	      (loop with flag = (cons nil nil)
-		    for item in '(:success-if :failure-if :output :observe :plot-mesh)
-		    for value = (getbb blackboard item flag)
-		    unless (eq value flag) collect item and collect value)))
-       (setq output (eq output :all))
+       (setq
+	strategy
+	(typecase problem
+	  (<lse> (select-linear-solver problem blackboard))
+	  (<nlse> (select-solver problem blackboard))
+	  (<pde-problem>
+	   (apply #'make-instance '<stationary-fe-strategy>
+		  (loop with flag = (cons nil nil)
+			for item in '(:fe-class :solver :estimator :indicator
+				      :success-if :failure-if :output :observe :plot-mesh
+				      :base-level)
+			for value = (getbb blackboard item flag)
+			unless (eq value flag) collect item and collect value)))
+	  (t (error "SOLVE does not know this problem."))))
        (solve strategy blackboard))
-      ((and matrix rhs)			; there is a linear problem on the blackboard
-       (solve (select-linear-solver matrix blackboard)))
-      (t (error "SOLVE does not know this problem.")))))
+      ((and matrix rhs)			; there seems to be a linear problem on the blackboard
+       (setq problem (lse :matrix matrix :rhs rhs))
+       (solve blackboard))
+      (t (error "SOLVE does not find a problem on the blackboard.")))))
 
 

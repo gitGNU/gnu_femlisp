@@ -36,41 +36,39 @@
 
 (defpackage "ITERATION"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.TESTS" "FL.DEBUG"
-	"ALGEBRA" "FL.FUNCTION")
-  (:export
-   ;; function.lisp
+	"FL.TESTS" "FL.DEBUG" "ALGEBRA" "FL.FUNCTION" "PROBLEM")
+  (:export  ; function.lisp
    "<FUNCTION>" "EVALUATE" "FUNC-DOMAIN-DIMENSION" "FUNC-IMAGE-DIMENSION"
-   "<DIFFERENTIABLE-FUNCTION>" "EVALUATE-GRADIENT" "INTERVAL-METHOD"
-   ;; solve.lisp
-   ;; newton.lisp
-   "NEWTON"
-   ;; iterate.lisp
+   "<DIFFERENTIABLE-FUNCTION>" "EVALUATE-GRADIENT" "INTERVAL-METHOD")
+  (:export  ; iterate.lisp
    "<ITERATION>" "*TIME-OBSERVE*"
    "INITIALLY" "INTERMEDIATE" "TERMINATE-P" "FINALLY" "OBSERVE"
    "SUCCESS-IF" "FAILURE-IF"
-   "NEXT-STEP" "ITERATE" "OUTPUT"
-   ;; solve.lisp
-   "SOLVE" "<SOLVER>" "*ITERATIVE-SOLVER-OBSERVE*" "<ITERATIVE-SOLVER>"
-   "INITIAL-GUESS" "ENSURE-RESIDUAL" "<SPECIAL-SOLVER>"
-   ;; linit.lisp
-   "<ITERATION>" "<LINEAR-ITERATION>" "DAMPING-FACTOR" "COMPUTE-RESIDUAL"
+   "NEXT-STEP" "ITERATE" "OUTPUT")
+  (:export  ; solve.lisp
+   "*ITERATIVE-SOLVER-OBSERVE*" "<ITERATIVE-SOLVER>"
+   "<SPECIAL-SOLVER>")
+  (:export  ; linit.lisp
+   "<LINEAR-ITERATION>" "DAMPING-FACTOR" "COMPUTE-RESIDUAL"
    "<ITERATOR>" "MAKE-ITERATOR"
    "<MULTI-ITERATION>" "PRODUCT-ITERATOR"
    "<LU>" "*LU-ITERATION*" "<ILU>" "*STANDARD-ILU*"
    "<JACOBI>" "<BLOCK-JACOBI>" "*UNDAMPED-JACOBI*"
    "<SOR>" "<GAUSS-SEIDEL>" "*GAUSS-SEIDEL*"
-   "<SOLVER-ITERATION>"
-   ;; linsolve.lisp
-   "LINSOLVE" "<GPS-LINEAR-SOLVER>" "SELECT-LINEAR-SOLVER"
-   ;; krylow.lisp
-   "<GRADIENT-METHOD>" "<CG>" "<PCG>" "*STANDARD-CG*" "*STANDARD-PCG*"
-   ;; blockit.lisp
+   "<SOLVER-ITERATION>")
+  (:export  ; linsolve.lisp
+   "<LINEAR-SOLVER>" "*LU-SOLVER*"
+   "LINSOLVE")
+  (:export  ; nlsolve.lisp
+   "<NEWTON>")
+  (:export  ; krylow.lisp
+   "<GRADIENT-METHOD>" "<CG>" "<PCG>" "*STANDARD-CG*" "*STANDARD-PCG*")
+  (:export  ; blockit.lisp
    "<BLOCK-ITERATION>" "SETUP-BLOCKS" "MAKE-BLOCK" "BLOCKS"
    "<PSC>" "<SSC>" "<CUSTOM-PSC>" "<CUSTOM-SSC>"
    "<BLOCK-JACOBI>"
-   "<BLOCK-SOR>" "<BLOCK-GAUSS-SEIDEL>" "<CUSTOM-BLOCK-GAUSS-SEIDEL>"
-   ;; linsolve.lisp
-   "<LINEAR-SOLVER>" "*LU-SOLVER*"
-   ))
+   "<BLOCK-SOR>" "<BLOCK-GAUSS-SEIDEL>" "<CUSTOM-BLOCK-GAUSS-SEIDEL>")
+  (:export  ; newton.lisp
+   "NEWTON")
+  )
 

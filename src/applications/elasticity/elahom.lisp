@@ -160,7 +160,7 @@ with dim^3 components which are plotted one after the other."
       (dotimes (i dim)
 	(dotimes (j dim)
 	  (dotimes (k dim)
-	    (plot (getf *result* :solution) :component i :index (+ (* j dim) k))
+	    (plot (getbb *result* :solution) :component i :index (+ (* j dim) k))
 	    (sleep 1.0)))))
     ;; compute the homogenized coefficient
     (format t "The effective elasticity tensor is:~%~A~%"
@@ -177,7 +177,7 @@ with dim^3 components which are plotted one after the other."
   (dotimes (i dim)
     (dotimes (j dim)
       (dotimes (k dim)
-	(plot (getf *result* :solution) :component i :index (+ (* j dim) k)
+	(plot (getbb *result* :solution) :component i :index (+ (* j dim) k)
 	      :plot :file :format "tiff" :background :white
 	      :filename (format nil "ela-cell-sol-x~D" (incf counter)))))))
 ;; montage -geometry 480x480 -tile 2x4 ela-cell-*.tiff ela-cell-sols.eps
@@ -241,16 +241,16 @@ Parameters: order=~D, levels=~D~%~%"
 
 (time (elasticity-interior-effective-coeff-demo
        (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2)) :order 4 :levels 2))
-(show (getf *result* :rhs))
+(show (getbb *result* :rhs))
 ;; we should have N^{lr}_q = N^{lq}_r
 
 (let ((average-tensor
-       (average-coefficient (getf *result* :ansatz-space)
+       (average-coefficient (getbb *result* :ansatz-space)
 			    :coefficient 'ELASTICITY::ELASTICITY))
       (correction-tensor
        (convert-correction
-	(correction-tensor (getf *result* :solution)
-			   (getf *result* :rhs)))))
+	(correction-tensor (getbb *result* :solution)
+			   (getbb *result* :rhs)))))
   (check-elasticity-tensor average-tensor 0.0)
   (check-elasticity-tensor correction-tensor 1.0e-4)
   (check-elasticity-tensor (m- average-tensor correction-tensor)))

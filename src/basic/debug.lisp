@@ -39,11 +39,15 @@
 
 (defpackage "FL.DEBUG"
   (:use "COMMON-LISP")
-  (:export "DBG-ON" "DBG-OFF" "DBG-WHEN" "DBG" "DBG-INDENT"))
+  (:export "DBG-ON" "DBG-OFF" "DBG-P" "DBG-WHEN" "DBG" "DBG-INDENT"))
 
 (in-package :fl.debug)
 
 (defvar *dbg-ids* () "Identifiers used by dbg.")
+
+(defun dbg-p (id)
+  "Returns T if ID is in the debug list, NIL otherwise."
+  (member id *dbg-ids*))
 
 (defun dbg-on (&rest ids)
   "Register ids for dbg."

@@ -46,10 +46,11 @@ refinement depth."
     result))
 
 (defmethod graphic-commands ((asv <ansatz-space-vector>) (program (eql :dx))
-			     &key (foreground :white) &allow-other-keys)
+			     &key tubes (foreground :white) &allow-other-keys)
   (let ((axis-color (ecase foreground (:black "black")(:white "white")))
-	(graph-color (ecase foreground (:black "black")(:white "yellow"))))
-    (case (dimension (mesh asv))
+	(graph-color (ecase foreground (:black "black")(:white "yellow")))
+	(dim (dimension (mesh asv))))
+    (case dim
       (1 (list
 	  "data = Options(data, \"mark\", \"circle\");"
 	  (format nil "data = Color(data,~S);" graph-color)
@@ -63,22 +64,28 @@ refinement depth."
 	  ;;(format nil "camera = AutoCamera(image, background=~S);" background-string)
 	  ;;"image = Render(image, camera);"
 	  ))
-      (3 (list
+      (t (list
 	  "connections = ShowConnections(data);"
-	  "tubes = Tube(connections, 0.01);"
+	  (if tubes
+	      (format nil "tubes = Tube(connections,~F);"
+		      (if (numberp tubes)
+			  tubes
+			  (case dim ((1 2) 0.01) (t 0.01))))
+	      "tubes = connections;")
 	  "image = AutoColor(tubes);"
 	  ;;(format nil "camera = AutoCamera(image, \"off diagonal\", background=~S);" background-string)
 	  ;;"image = Render(image, camera);"
 	  )))))
 
 (defmethod plot ((asv <ansatz-space-vector>) &rest rest
-		 &key depth component (index 0) (key #'identity)
+		 &key depth component index key transformation
 		 &allow-other-keys)
   "Plots a certain component of asv.  Index is useful when asv consists of
 several vectors."
   (let* ((fe-class (fe-class (ansatz-space asv)))
 	 (order (discretization-order fe-class))
-	 (mesh (mesh asv)))
+	 (mesh (mesh asv))
+	 (dim (manifold-dimension mesh)))
     (when (and (arrayp order) component)
       (setq order (aref order component)))
     (unless depth
@@ -89,18 +96,35 @@ several vectors."
 		    ((3 4) 2)
 		    (t 3))))
     (apply #'graphic-output asv :dx
-	   :dimension (dimension mesh)
-	   :cells (surface-cells-of-highest-dim mesh)
 	   :depth depth
+	   :cells (plot-cells mesh)
+	   :dimension (plot-dimension dim)
+	   :transformation (or transformation (plot-transformation dim))
 	   :cell->values
 	   #'(lambda (cell)
 	       (let* ((fe (get-fe fe-class (reference-cell cell)))
-		      (local-vec (get-local-from-global-vec cell fe asv)))
-		 (when (typep fe '<vector-fe>)
-		   (setq fe (aref (components fe) component))
-		   (setq local-vec (aref local-vec component)))
-		 (map-matrix key (m* (local-evaluation-matrix fe depth)
-				     (matrix-slice local-vec :from-col index :ncols 1)))))
+		      (local-vec (get-local-from-global-vec cell fe asv))
+		      (m (nr-of-refinement-vertices cell depth))
+		      (components (etypecase fe
+				    (<fe> (vector fe))
+				    (<vector-fe> (components fe)))))
+		 (unless (typep fe '<vector-fe>)
+		   (setq component 0)
+		   (setq local-vec (vector local-vec)))
+		 (when (= (multiplicity asv) 1)
+		   (setq index 0))
+		 (assert (or (and key (not component))
+			     (and component (not key))))
+		 (let ((all (loop for k below (length components) collect
+				  (m* (local-evaluation-matrix (aref components k) depth)
+				      (aref local-vec k)))))
+		   ;; we have to extract a one component value array
+		   (if key
+		       (let ((result (make-real-matrix m 1)))
+			 (dotimes (i m result)
+			   (setf (vref result i)
+				 (funcall key (map 'vector (rcurry #'mref i index) all)))))
+		       (matrix-slice (elt all component) :from-col index :ncols 1)))))
 	   (sans rest :depth))))
 
 #| Test of 1d plotting with dx

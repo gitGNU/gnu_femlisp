@@ -34,25 +34,31 @@
 
 (in-package :application)
 
-(defun regular-refinement-demo (refcell)
-  "Returns a thunk for plotting two steps of regular refinement for
-refcell."
-  #'(lambda ()
-      (dotimes (i 3)
-	(plot (refcell-refinement-skeleton refcell i))
-	(sleep 1.0))))
-
-(defun create-refinement-demo (name object)
+(defun create-refinement-demo (name object &key transformation)
   (adjoin-demo
    (make-demo :name name
 	      :short (format nil "Shows the regular refinement of a ~A." name)
-	      :execute (regular-refinement-demo object))
+	      :execute
+	      #'(lambda ()
+		  (dotimes (i 3)
+		    (plot (refcell-refinement-skeleton object i)
+			  :transformation transformation)
+		    (sleep 1.0))))
    *refinement-demos*))
 
 (create-refinement-demo "triangle" (n-simplex 2))
 (create-refinement-demo "quadrangle" (n-cube 2))
 (create-refinement-demo "tetrahedron" (n-simplex 3))
+(create-refinement-demo "1-2-wedge" (ensure-tensorial '(1 2)))
+(create-refinement-demo "2-1-wedge" (ensure-tensorial '(2 1)))
 (create-refinement-demo "cube" (n-cube 3))
+(create-refinement-demo
+ "4-cube" (n-cube 4)
+  :transformation
+  (make-instance '<linear-function>
+		 :A #m((1.0 0.0   0.0  0.0)
+		       (0.0 0.8  -0.6  0.0)
+		       (0.0 0.56  0.57 0.6))))
 
 
 

@@ -34,170 +34,135 @@
 
 (in-package :problem)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <problem>
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defclass <problem> ()
-  ((domain :reader domain :initform (required-argument)
-	   :initarg :domain :type <domain>)
-   (coefficients :initform (make-hash-table))
-   (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity))
-  ;;
-  (:documentation "Base-class for a pde-problem.  The slot DOMAIN contains
-the domain on which the problem lives.  The slot COEFFICIENTS contains a
-table from domain patches to coefficients on this patch which are property
-lists of the form (SYM1 coefficient1 SYM2 coefficient2 ...).  When the
-problem instance is initialized this table is set up by calling the
-function PATCH->COEFFICIENTS which has to be provided as a key argument.
-The multiplicity slot can be chosen as n>1 if the problem is posed with n
-different right hand sides simultaneously."))
+  ()
+  (:documentation "Base class for all problems."))
 
-(defmethod initialize-instance :after ((problem <problem>)
-				       &key (patch->coefficients (constantly nil))
-				       &allow-other-keys)
-  "Setup the coefficients table."
-  (with-slots (domain coefficients) problem
-    (doskel (patch domain)
-      (setf (gethash patch coefficients)
-	    (funcall patch->coefficients patch)))))
+(defgeneric linear-p (problem)
+  (:documentation "Predicate determining if a problem is linear or nonlinear."))
+
+(defgeneric ensure-residual (problem blackboard)
+  (:documentation "Ensures that the field :RESIDUAL is computed and that
+the flag :RESIDUAL-P is set on the blackboard."))
+
+(defgeneric ensure-solution (problem blackboard)
+  (:documentation "Ensures that the field :SOLUTION is set on the
+blackboard."))
+
+(defmethod ensure-solution :around (problem blackboard)
+  "This :around method takes the field :SOLUTION from the blackboard."
+  (or (getbb blackboard :solution)
+      (call-next-method)))
+
+(defmethod ensure-solution (problem blackboard)
+  (error "No initial guess for SOLUTION."))
+
+(defmethod ensure-residual (problem blackboard)
+  "This default method handles nonlinear problems by linearizing them and
+computing the residual for it.  The resulting problem is additionally
+stored in a field :LINEAR-PROBLEM."
+  (when (linear-p problem)
+    (error "No method ENSURE-RESIDUAL provided for this linear problem."))
+  ;; linearize and compute residual
+  (with-items (&key linearization solution) blackboard
+    (setq linearization (linearize problem solution))
+    (ensure-residual linearization blackboard)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Coefficient functions
+;;; General problem solving
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(definline coefficients-of-patch (patch problem)
-  "An accessor for the coefficients."
-  (the list (gethash patch (slot-value problem 'coefficients))))
+(defclass <solver> ()
+  ((output :reader output :initform nil :initarg :output))
+  (:documentation "The base class of linear, nonlinear and whatever
+iterative solvers."))
 
-(definline coefficients-of-cell (cell mesh problem)
-  "An accessor for the coefficients."
-  (coefficients-of-patch (patch-of-cell cell mesh) problem))
+(defgeneric solve (solver &optional blackboard)
+  (:documentation "Solve a problem specified on the blackboard.  Returns a
+modified blackboard.  The returned blackboard is guaranteed to contain at
+least the fields :solution and :status.  :status is one of the values
+:success or :failure.
 
-(defparameter *general-problem-keywords* '(PERIODIC CONSTRAINT)
-  "This list contains keywords which make sense for several problems.
-PERIODIC: periodic boundary conditions for non-identified boundaries.  This
-is not yet implemented (not needed?).
-CONSTRAINT: essential boundary conditions.")
+SOLVE can also be called as (SOLVE blackboard) and will then try to figure
+out a suitable solver itself."))
 
-(defgeneric interior-coefficients (problem)
-  (:documentation "Yields a list of possible interior coefficients for problem."))
+(defgeneric select-solver (problem blackboard)
+  (:documentation "Choose a solver for PROBLEM.  The choice can also be
+influenced by other data on the BLACKBOARD."))
 
-(defgeneric boundary-coefficients (problem)
-  (:documentation "Yields a list of possible boundary coefficients for problem."))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Linear and nonlinear problems
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric coefficients (problem)
-  (:documentation "Yields a list of possible coefficients for problem."))
+;;; Linear problems
 
-(defgeneric interior-coefficient-p (problem coeff)
-  (:documentation "Tests, if coeff is an interior coefficient of problem."))
+(defclass <lse> (<problem>)
+  ((matrix :reader matrix :initarg :matrix :initform nil)
+   (rhs :reader rhs :initarg :rhs :initform nil))
+  (:documentation "Standard form of a linear system of equations."))
 
-(defgeneric boundary-coefficient-p (problem coeff)
-  (:documentation "Tests, if coeff is a boundary coefficient of problem."))
+(defun lse (&rest args)
+  "Constructs a standard LSE."
+  (apply #'make-instance '<lse> args))
 
-(defgeneric coefficient-p (problem coeff)
-  (:documentation "Tests, if coeff is a coefficient of problem."))
+(defmethod linear-p ((lse <lse>)) t)
 
-(defgeneric dual-problem (problem functional)
-  (:documentation "Returns the dual problem for problem with the right-hand
-side given by functional.  The solution of this problem measures the
-sensitivity of functional applied to the solution of problem with respect
-to errors in the solution."))
+(defgeneric linearize (problem solution)
+  (:documentation "Linearize the nonlinear problem PROBLEM at the point
+SOLUTION.  The result should be a linear problem."))
 
-(defgeneric self-adjoint-p (problem)
-  (:documentation "Returns two values.  The first says if the problem is
-self-adjoint, the second says if that value has really been checked."))
+(defmethod linearize (problem solution)
+  "This default method throws an error for nonlinear problems and is the
+identity on linear problems."
+  (if (linear-p problem)
+      problem
+      (error "No method LINEARIZE provided for this problem.")))
 
-(defmethod self-adjoint-p (problem)
-  "Default method says that problem is not self-adjoint and that no check has been performed."
-  (values nil nil))
+(defmethod ensure-solution ((lse <lse>) blackboard)
+  (setf (getbb blackboard :solution)
+	(make-domain-vector-for
+	 (matrix lse) (multiplicity (rhs lse)))))
 
-(defmethod coefficients (problem)
-  "Standard method: tests if coeff is interior or boundary coefficient."
-  (append (interior-coefficients problem)
-	  (boundary-coefficients problem)))
+(defmethod ensure-residual ((lse <lse>) blackboard)
+  (with-items (&key solution residual residual-p) blackboard
+    (unless residual
+      (setq residual (make-image-vector-for
+		      (matrix lse) (multiplicity (rhs lse)))))
+    (unless residual-p
+      (copy! (rhs lse) residual)
+      (gemm! -1.0 (matrix lse) solution 1.0 residual)
+      (setq residual-p t))))
 
-(defmethod interior-coefficients (problem) ())
+;;; Nonlinear problems
 
-(defmethod boundary-coefficients (problem) ())
+(defclass <nlse> (<problem>)
+  ((linearization :initarg :linearization
+    :documentation "A function linearizing the problem."))
+  (:documentation "Class for nonlinear system of equations.  The
+linearization contains a function returning a linear problem."))
 
-(defmethod interior-coefficient-p (problem coeff)
-  (member coeff (interior-coefficients problem)))
+(defmethod linear-p ((nlse <nlse>)) nil)
 
-(defmethod boundary-coefficient-p (problem coeff)
-  (member coeff (boundary-coefficients problem)))
+(defmethod linearize ((problem <nlse>) solution)
+  (funcall (slot-value problem 'linearization) solution))
 
-(defmethod coefficient-p (problem coeff)
-  "Standard method: tests if coeff is interior or boundary coefficient."
-  (member coeff (coefficients problem)))
+(defun nlse (&rest args)
+  "Constructs a standard NLSE."
+  (apply #'make-instance '<nlse> args))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; coefficient
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <coefficient> ()
-  ((demands :reader demands :initform () :initarg :demands
-	    :documentation "A list of keywords indicating which information
-the evaluation function needs.  Possible choices depend on problem and
-discretization, e.g. :local, :global, :solution are choices which will
-probably be understood.")
-   (eval :accessor coeff-eval :initarg :eval :type function
-	 :documentation "The evaluation funtion.  It accepts a list of
-keyword parameters which should correspond to the list in @code{needed}.")
-   (residual :initform t :initarg :residual)
-   (jacobian :initform t :initarg :jacobian))
-  (:documentation "The coefficient class."))
-
-(defmethod evaluate ((coeff <coefficient>) (input list))
-  "The pairing between coefficient and input."
-  (apply (slot-value coeff 'eval) input))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; some trivial coefficient functions
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(declaim (inline constant-coefficient))
-(defun constant-coefficient (value &rest other-values)
-  (make-instance
-   '<coefficient> :demands () :eval
-   (if other-values
-       #'(lambda (&rest args)
-	   (declare (ignore args))
-	   (apply #'values value other-values))
-       (constantly value))))
-
-(defparameter *cf-constantly-0.0* (constant-coefficient 0.0))
-(defparameter *cf-constantly-1.0* (constant-coefficient 1.0))
-
-(defun function->coefficient (func)
-  "Returns a coefficient for the given function depending on global
-coordinates."
-  (make-instance '<coefficient> :demands '(:global)
-		 :eval #'(lambda (&key global &allow-other-keys)
-			   (funcall func global))))
-
-(defun ensure-coefficient (obj)
-  "Filter ensuring that the result is a coefficient function."
-  (if (functionp obj) (function->coefficient obj) obj))
-
-(defun problem-info (problem &optional mesh &key (where :all))
-  "Displays information about the given problem."
-  (doskel ((cell properties) (or mesh (domain problem)))
-    (let ((patch (if mesh (patch-of-cell cell mesh) cell)))
-      (when (or (eq where :all)
-		(null mesh)
-		(eq where (if (refined-p cell mesh) :refined :surface)))
-	(format t "~&Cell ~A  [Mapping ~A]~%Properties: ~A~%Coeffs: ~A~2%"
-		cell (mapping cell) properties
-		(coefficients-of-patch patch problem))))))
-
-
-;;; Testing: (test-problem)
+;;; Testing: (problem::test-problem)
 
 (defun test-problem ()
-  (function->coefficient
-   #'(lambda (&key global &allow-other-keys) (exp (aref global 0))))
-  (make-instance '<problem> :domain *unit-interval-domain*)
+  (describe (lse :matrix #m(1.0) :rhs #m(1.0)))
+  ;; problem for solving x^2=2 by Newton's method
+  (let ((nlse
+	 (nlse :linearization
+	       #'(lambda (solution)
+		   (let ((x (mref solution 0 0)))
+		     (lse :matrix (make-real-matrix (vector (* 2.0 x)))
+			  :rhs (make-real-matrix (vector (+ 2.0 (* x x)))))))))
+	(bb (blackboard :solution #m(1.4))))
+    (ensure-residual nlse bb)
+    bb)
   )
-
 (fl.tests:adjoin-test 'test-problem)

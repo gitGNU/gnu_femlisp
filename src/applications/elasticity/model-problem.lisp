@@ -34,56 +34,47 @@
 
 (in-package :application)
 
-(defun test-elasticity-model-problems ()
+(defun test-elasticity-model-problem ()
 
 ;;; Linear elasticity problem
 (defparameter *result*
   (time
-   (let* ((dim 2) (level 2) (order 3)
-	  (problem
-	   (standard-elasticity-problem
-	    (n-cube-domain dim) :lambda 1.0 :mu 1.0
-	    :force (constantly (unit-vector dim 0))))
-	  (mm (uniformly-refined-hierarchical-mesh (domain problem) level))
-	  (fe-class (lagrange-fe order :nr-comps dim)))
-     (multiple-value-bind (mat rhs)
-	 (discretize-globally problem mm fe-class)
-       #+(or)(show mat)
-       #+(or)(show rhs)
-       #+(or)(getrs (sparse-ldu mat) rhs)
-       #-(or)(linsolve mat rhs :output t :iteration (geometric-cs :fmg t) :maxsteps 10)
-       ))))
-(plot *result* :component 1)
-;;; Test for diffusion problem
+   (let ((dim 2))
+     (solve
+      (blackboard
+       :problem
+       (standard-elasticity-problem
+	(n-cube-domain dim) :lambda 1.0 :mu 1.0
+	:force (constant-coefficient (make-array dim :initial-element (ones 1))))
+       :output t :success-if '(> :nr-levels 2))))))
+(plot (getbb *result* :solution) :component 1)
 
+;;; Test for diffusion problem
 (defparameter *result*
   (time
-   (let* ((dim 2) (nr-comps 1) (level 2) (order 1)
-	  (problem
-	   (system-diffusion-problem
-	    (n-cube-domain dim) :D 1.0 :nr-comps nr-comps
-	    :force (constantly (make-array nr-comps :initial-element (eye 1)))))
-	  (mm (uniformly-refined-hierarchical-mesh (domain problem) level))
-	  (fe-class (lagrange-fe order :nr-comps nr-comps)))
-     (multiple-value-bind (mat rhs)
-	 (discretize-globally problem mm fe-class)
-       ;;(show mat)
-       #+(or)(getrs (sparse-ldu mat) rhs)
-       (linsolve mat rhs :output t :iteration (geometric-cs :fmg t) :maxsteps 2)
-       ))))
-(plot *result* :component 0)
+   (let ((dim 2) (nr-comps 1))
+     (solve
+      (blackboard
+       :problem
+       (system-diffusion-problem
+	(n-cube-domain dim) :D 1.0 :nr-comps nr-comps
+	:force (constant-coefficient
+		(make-array nr-comps :initial-element (eye 1))))
+       :fe-class (lagrange-fe 3 :nr-comps 1)
+       :output t :success-if '(> :nr-levels 2))))))
+(plot (getbb *result* :solution) :component 0)
 
 ;;; comparison with scalar case
 (defparameter *result*
   (time
-   (let* ((dim 2) (level 2) (order 1)
-	  (problem (cdr-model-problem dim))
-	  (mm (uniformly-refined-hierarchical-mesh (domain problem) level))
-	  (fe-class (lagrange-fe order)))
-     (multiple-value-bind (mat rhs)
-	 (discretize-globally problem mm fe-class)
-       #+(or)(getrs (sparse-ldu mat) rhs)
-       (linsolve mat rhs :output t :iteration (geometric-cs :fmg t) :maxsteps 2)
-       ))))
+   (let* ((dim 2))
+     (solve
+      (blackboard
+       :problem (cdr-model-problem dim)
+       :output t :success-if '(> :nr-levels 2))))))
+(plot (getbb *result* :solution) :component 0)
 
 )
+
+;;; (application::test-elasticity-model-problem)
+(fl.tests:adjoin-test 'test-elasticity-model-problem)

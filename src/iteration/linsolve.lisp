@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; linsolve.lisp
+;;; linsolve.lisp - Provide linear solvers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
@@ -37,49 +37,36 @@
 ;;; This file customizes the iterative solving strategy defined in
 ;;; iterate.lisp and solve.lisp to the solving of linear systems.
 
-(defclass <linear-solver> (<iterative-solver>)
-  ()
+(defclass <linear-solver> (<discrete-iterative-solver>)
+  ((iteration :reader iteration :reader inner-iteration :initarg :iteration
+	      :documentation "The inner iteration."))
   (:documentation "Class for linear iterative solvers."))
 
-(defmethod initial-guess ((linsolve <linear-solver>) blackboard)
-  "Ensure an initial guess and its residual."
-  (with-items (&key solution matrix rhs residual residual-p) blackboard
-    (unless solution
-      (setq solution (make-domain-vector-for matrix (multiplicity rhs))))))
-
-(defmethod ensure-residual ((linsolve <linear-solver>) blackboard)
-  "Ensure the residual for a linear problem."
-  (with-items (&key solution matrix rhs residual residual-p) blackboard
-    (unless residual-p  ; ensure residual
-      (unless residual
-	(setq residual (make-image-vector-for matrix (multiplicity rhs))))
-      (setq residual (compute-residual matrix solution rhs residual))
-      (setq residual-p t))))
-
-(defun linsolve (mat rhs &key sol res output iteration (residual-norm #'norm)
-		 (threshold 1.0d-12) reduction (maxsteps 100)
-		 success-if failure-if &allow-other-keys)
-  "In easy situations, this function provides a simpler interface for
-solving a linear system."
-  (let ((result
-	 (solve (make-instance
-		 '<linear-solver> :iteration iteration :output output
-		 :residual-norm residual-norm :success-if
-		 (or success-if
-		     (cons 'or
-			   (remove nil
-				   (list 
-				    (and threshold `(< :defnorm ,threshold))
-				    (and reduction `(< :reduction ,reduction))))))
-		 :failure-if (or failure-if (and maxsteps `(> :step ,maxsteps))))
-		(blackboard :matrix mat :rhs rhs :solution sol :residual res))))
-    (values (getbb result :solution) result)))
+(defmethod next-step ((itsolve <linear-solver>) blackboard)
+  "Stepping for a linear solver."
+  (with-items (&key problem solution residual residual-p step iterator)
+      blackboard
+    (unless iterator ; initialize the inner iteration if necessary
+      (dbg :iter "Linear solving: making iterator")
+      (setq iterator (make-iterator (iteration itsolve) (matrix problem)))
+      (awhen (slot-value iterator 'initialize)
+	(funcall it solution (rhs problem) residual)))
+    (funcall (slot-value iterator 'iterate)
+	     solution (rhs problem) residual)
+    (setq residual-p (slot-value iterator 'residual-after))))
 
 (defparameter *lu-solver*
-  (make-instance
-   '<linear-solver> :iteration *lu-iteration*
-   :success-if '(>= :step 1) :output nil)
+  (make-instance '<linear-solver> :iteration *lu-iteration*
+		 :success-if '(>= :step 1) :output nil)
   "LU decomposition without pivoting.")
+
+(defmethod select-linear-solver (object blackboard)
+  "Default method selects LU decomposition."
+  *lu-solver*)
+
+(defmethod select-linear-solver ((lse <lse>) blackboard)
+  "Select linear solver based on the matrix."
+  (select-linear-solver (matrix lse) blackboard))
 
 (defclass <special-solver> (<iterative-solver>)
   ((solver-function :reader solver-function :initarg :solver-function :type function))
@@ -102,38 +89,29 @@ a function, you may use this base class."))
    :iterate
    #'(lambda (x b r)
        (getbb (solve (slot-value solve-it 'solver)
-		     (blackboard :matrix mat :rhs b :solution x :residual r))
+		     (blackboard :problem (lse :matrix mat :rhs b)
+				 :solution x :residual r))
 	      :solution))
    :residual-after nil))
 
-;;; Problem-dependent solving
-
-(defgeneric select-linear-solver (object blackboard)
-  (:documentation "Selects a linear solver for OBJECT.  OBJECT is usually a
-matrix or a linear problem with certain characteristics."))
-
-(defmethod select-linear-solver :around (object blackboard)
-  "If a solver is on the blackboard, use it."
-  (let ((solver (aif (getf blackboard :solver) it (call-next-method))))
-    (setf (slot-value solver 'output)
-	  (getbb blackboard :output))
-    solver))
-
-(defmethod select-linear-solver (object blackboard)
-  "Default method selects LU decomposition."
-  *lu-solver*)
-
-;;; Not yet used: a general linear solver
-(defclass <gps-linear-solver> (<linear-solver>)
-  ((subsolver :type <linear-solver>))
-  (:documentation "Problem-dependent linear solving."))
-
-(defmethod solve ((gps-ls <gps-linear-solver>) &optional blackboard)
-  (unless (slot-boundp gps-ls 'subsolver)
-    (setf (slot-value gps-ls 'subsolver)
-	  (select-linear-solver (getbb blackboard :matrix) blackboard)))
-  (solve (slot-value gps-ls 'subsolver) blackboard))
-
+(defun linsolve (mat rhs &key sol res output iteration (residual-norm #'norm)
+		 (threshold 1.0d-12) reduction (maxsteps 100)
+		 success-if failure-if &allow-other-keys)
+  "Old and deprecated interface for solving linear problems."
+  (let ((result
+	 (solve (make-instance
+		 '<linear-solver> :iteration iteration :output output
+		 :residual-norm residual-norm :success-if
+		 (or success-if
+		     (cons 'or
+			   (remove nil
+				   (list 
+				    (and threshold `(< :defnorm ,threshold))
+				    (and reduction `(< :reduction ,reduction))))))
+		 :failure-if (or failure-if (and maxsteps `(> :step ,maxsteps))))
+		(blackboard :problem (lse :matrix mat :rhs rhs)
+			    :solution sol :residual res))))
+    (values (getbb result :solution) result)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing: (iteration::test-linsolve)
@@ -155,10 +133,10 @@ matrix or a linear problem with certain characteristics."))
       (linsolve A b :output t :iteration gs)
       (linsolve A b :output t :iteration (make-instance '<sor> :omega 1.18))
       ;; new interface
-      (solve *lu-solver* (blackboard :matrix A :rhs b))
+      (solve *lu-solver* (blackboard :problem (lse :matrix A :rhs b)))
       (solve (make-instance '<linear-solver> :iteration jac :output t
 			    :success-if '(> :step 10))
-	     (blackboard :matrix A :rhs b)))
+	     (blackboard :problem (lse :matrix A :rhs b))))
     
     ;; application to sparse matrices
     (let* ((constantly-1 (constantly 1))
@@ -182,9 +160,11 @@ matrix or a linear problem with certain characteristics."))
       (assert (eql (mref (mref A 3 2) 0 0) -1.0))
       (show (linsolve A b :output t :iteration lu))
       (show (linsolve A b :output t :iteration gs))
-      (solve *lu-solver* (blackboard :matrix A :rhs b :solution sol)))
+      (solve *lu-solver* (blackboard :problem (lse :matrix A :rhs b)
+				     :solution sol)))
     )
   )
 
+;;; (test-linsolve)
 (fl.tests:adjoin-test 'test-linsolve)
 

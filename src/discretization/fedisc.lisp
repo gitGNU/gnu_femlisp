@@ -47,7 +47,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defgeneric discretize-locally (problem coeffs fe qrule fe-geometry
-				&key local-mat local-rhs local-sol local-u local-v)
+				&key local-mat local-rhs local-sol local-u local-v
+				coefficient-parameters)
   (:documentation "Computes a local stiffness matrix and right-hand side.
 The algorithm will usually work as follows:
 
@@ -77,13 +78,13 @@ Specialities (not used yet):
 ;;;; Interior assembly
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun assemble-interior (ansatz-space &key level sol mat rhs (where :surface)
-			  &allow-other-keys)
+(defun assemble-interior (ansatz-space &key level (where :surface)
+			  matrix rhs solution &allow-other-keys)
   "Assemble the interior, i.e. ignore constraints arising from boundaries
-and hanging nodes.  Parameters are: the ansatz space.  Key parameters are
-level, solution, matrix, rhs, and a flag indicating where assembly is to be
-done.  This function is used for assembling on each level matrix and rhs,
-which are later modified by incorporating boundary conditions and then
+and hanging nodes.  Parameters are: the ansatz space.  Keyword parameters
+are level, solution, matrix, rhs, and a flag indicating where assembly is
+to be done.  This function is used for assembling on each level matrix and
+rhs, which are later modified by incorporating boundary conditions and then
 combined to yield either a global matrix for use in a direct (sparse)
 solver or, alternatively, to assemble levelwise matrices for use within the
 multigrid method.
@@ -109,27 +110,26 @@ further steps are trickier, but usually of minor complexity."
 		(let* ((fe (get-fe fe-class cell))
 		       (qrule (quadrature-rule fe-class fe))
 		       (geometry (fe-cell-geometry cell qrule))
-		       (local-mat (and mat (make-local-mat fe)))
-		       (local-rhs (and rhs (make-local-vec fe (multiplicity problem))))
-		       (local-sol (and sol (get-local-from-global-vec cell fe sol))))
+		       (local-mat (and matrix (make-local-mat fe)))
+		       (local-rhs (and rhs (make-local-vec fe (multiplicity ansatz-space))))
+		       (local-sol (and solution (get-local-from-global-vec cell fe solution))))
 		  (discretize-locally
 		   problem coeffs fe qrule geometry
 		   :local-mat local-mat :local-rhs local-rhs :local-sol local-sol)
 		  ;; accumulate to global matrix and rhs (if not nil)
 		  (when rhs (increment-global-by-local-vec cell fe rhs local-rhs))
-		  (when mat (increment-global-by-local-mat cell fe mat local-mat)))))))))))
-
+		  (when matrix (increment-global-by-local-mat cell fe matrix local-mat)))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Assembly of full problem
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-(defun fe-discretize (blackboard)
-  "Finite element discretization for an ansatz space provided on the
-blackboard."
+(defun fe-discretize-linear-problem (blackboard)
+  "Finite element discretization for a linear problem or the linearization
+of a nonlinear problem."
   (with-items (&key ansatz-space cells (assemble-constraints-p t)
-		    matrix rhs solution interior-matrix interior-rhs)
+		    matrix rhs solution interior-matrix interior-rhs
+		    discretized-problem)
       blackboard
     (setq interior-matrix (or interior-matrix
 			      (make-ansatz-space-automorphism ansatz-space)))
@@ -138,8 +138,8 @@ blackboard."
     (assert (every #'(lambda (obj) (or (not obj) (eq ansatz-space (ansatz-space obj))))
 		   (list interior-matrix interior-rhs solution)))
     ;; interior assembly
-    (apply #'assemble-interior ansatz-space :sol solution
-	   :mat interior-matrix :rhs interior-rhs
+    (apply #'assemble-interior ansatz-space :solution solution
+	   :matrix interior-matrix :rhs interior-rhs
 	   (if cells
 	       (list :cells cells)
 	       '(:where :surface)))
@@ -161,7 +161,9 @@ blackboard."
 	(m-! constraints-Q result-mat)
 	(m+! constraints-r result-rhs)
 	
-	#+(or)(break)
+	;; for nonlinear problem the solution vector is important
+	(setf (getf (discretization-info result-mat) :solution) solution)
+	(setf (getf (discretization-info result-rhs) :solution) solution)
 	;; we keep also interior-matrix and interior-rhs which may be of
 	;; use when assembling for local multigrid.  Note that they will
 	;; usually share most of their data with result-mat/result-rhs.
@@ -169,22 +171,40 @@ blackboard."
 	      interior-matrix)
 	(setf (getf (discretization-info result-rhs) :interior-rhs)
 	      interior-rhs)
-	(setf matrix result-mat
-	      rhs result-rhs))))
+	(setf matrix result-mat  ; might be dropped later on
+	      rhs result-rhs)
+	(setf discretized-problem (lse :matrix result-mat :rhs result-rhs)))))
   ;; return blackboard
   blackboard)
+
+(defun fe-discretize (blackboard)
+  "Finite element discretization for an ansatz space provided on the
+blackboard."
+  (with-items (&key ansatz-space solution) blackboard
+    (let ((problem (problem ansatz-space)))
+      (if (linear-p problem)
+	  (fe-discretize-linear-problem blackboard)
+	  (setf (getbb blackboard :discretized-problem)
+		(nlse :linearization
+		      #'(lambda (sol)
+			  (getbb
+			   (fe-discretize-linear-problem
+			    (blackboard :problem problem :ansatz-space ansatz-space
+					:solution sol))
+			   :discretized-problem))))))
+    blackboard))
 
 (defun discretize-globally (problem h-mesh fe-class)
   "Old, but effective discretization interface."
   (let ((ansatz-space (make-fe-ansatz-space fe-class problem h-mesh)))
-    (destructuring-bind (&key matrix rhs &allow-other-keys)
-	(fe-discretize (blackboard :ansatz-space ansatz-space))
+    (with-items (&key matrix rhs &allow-other-keys)
+      (fe-discretize (blackboard :ansatz-space ansatz-space))
       (destructuring-bind (&key ip-constraints-P ip-constraints-Q
 				ip-constraints-r &allow-other-keys)
 	  (structure-information ansatz-space)
 	(values matrix rhs ip-constraints-P ip-constraints-Q ip-constraints-r)))))
 
-(defmethod discretize ((fedisc <fe-discretization>) (problem <problem>) blackboard)
+(defmethod discretize ((fedisc <fe-discretization>) (problem <pde-problem>) blackboard)
   "General discretization interface for FE."
   (whereas ((as (getbb blackboard :ansatz-space)))
     (assert (and (eq (fe-class as) fedisc)

@@ -69,13 +69,13 @@
   ((iteration::observe :initform *fe-approximation-observe* :initarg :observe
     :documentation "Providing initform for <iteration> slot.")
    (plot-mesh :initform t :initarg :plot-mesh
-    :documentation "Plot mesh at the beginning and after changes.  Can be a
-function in which case it is called on the mesh to do the plotting.")
-   (fe-class :reader fe-class :initform (required-argument) :initarg :fe-class
-    :documentation "The class of fe.  Later on, this should be
-automatically determined inside an hp-method.")
-   (estimator :initform nil :initarg :estimator :documentation
-	      "The error estimator, which computes information on the error
+    :documentation "Plot the mesh at the beginning and after changes.  Can
+be a function in which case it is called on the mesh to do the plotting.")
+   (fe-class :reader fe-class :initarg :fe-class
+    :documentation "The class of finite element.  If it is not set, it is
+automatically chosen.")
+   (estimator :initform nil :initarg :estimator
+    :documentation "The error estimator, which computes information on the error
 distribution in a hash-table in the :ETA-field on the blackboard, as well
 as a global estimate in :GLOBAL-ETA which can be used to terminate the
 iteration.")
@@ -95,7 +95,7 @@ setting given on the blackboard."))
 ;;;; Iteration methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod initially ((fe-strategy <fe-approximation>) blackboard)
+(defmethod initially :after ((fe-strategy <fe-approximation>) blackboard)
   "Constructs a finite element ansatz space and a first approximation to
 the solution.  If a mesh is not provided on the blackboard and if the
 domain is curved, we use precise cell mappings if these are available.
@@ -106,6 +106,11 @@ near the boundary works significantly better with p>=2."
   (with-items (&key domain problem mesh multiplicity
 		    ansatz-space solution base-level)
       blackboard
+    ;; ensure slot fe-class
+    (unless (slot-boundp fe-strategy 'fe-class)
+      (setf (slot-value fe-strategy 'fe-class)
+	    (or (getbb blackboard :fe-class)
+		(select-discretization problem blackboard))))
     ;; ensure maximal information directly on the blackboard
     (when ansatz-space
       (unless mesh (setf mesh (mesh ansatz-space)))
@@ -141,9 +146,14 @@ near the boundary works significantly better with p>=2."
       (assert (eq domain (domain problem))))
     (assert (eq domain (domain mesh)))
     ;;
+    (with-slots (estimator indicator) fe-strategy
+      (unless (slot-boundp fe-strategy 'estimator)
+	(setq estimator (select-estimator problem blackboard)))
+      (unless (slot-boundp fe-strategy 'indicator)
+	(setq indicator (select-indicator problem blackboard))))
+    ;;
     (whereas ((mesh-plotter (slot-value fe-strategy 'plot-mesh)))
-      (if (functionp mesh-plotter) (funcall mesh-plotter mesh) (plot mesh)))
-    (call-next-method)))
+      (if (functionp mesh-plotter) (funcall mesh-plotter mesh) (plot mesh)))))
 
 (defmethod intermediate ((fe-strategy <fe-approximation>) blackboard)
   "Approximates and estimates the error for the current ansatz-space."

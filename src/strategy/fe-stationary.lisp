@@ -34,15 +34,17 @@
 
 (in-package :strategy)
 
+(defvar *mentries-observe*
+  (list " MENTRIES" "~9D"
+	#'(lambda (blackboard)
+	    (acond
+	     ((getbb blackboard :discretized-problem)
+	      (total-entries (matrix it)))
+	     (t nil))))
+  "Observe entries for the size of the matrix.")
+
 (defvar *stationary-fe-strategy-observe*
-  (append
-   (remove *time-observe* *fe-approximation-observe*)
-   (list
-    (list " MENTRIES" "~9D"
-	  #'(lambda (blackboard)
-	      (with-items (&key matrix) blackboard
-		(and matrix (total-entries matrix)))))
-    *time-observe*))
+  *fe-approximation-observe*
    "Standard observe quantities for stationary fe-strategies.")
 
 (defclass <stationary-fe-strategy> (<fe-approximation>)
@@ -52,17 +54,23 @@
   (:documentation "This class describes some iterative finite element
 solution strategies for continuous, stationary PDE problems."))
 
+(defmethod initially :after ((strategy <stationary-fe-strategy>) blackboard)
+  (unless (slot-boundp strategy 'solver)
+    (setf (slot-value strategy 'solver)
+	  (select-solver (getbb blackboard :problem) blackboard))))
+
 (defmethod approximate ((fe-strategy <stationary-fe-strategy>) blackboard)
   "Ensures accuracy of the solution and the error estimate."
-  (with-items (&key interior-matrix interior-rhs
-		    solver-blackboard solution rhs matrix)
+  (with-items (&key interior-matrix interior-rhs discretized-problem
+		    solver-blackboard solution residual output)
       blackboard
     ;; assemble (better would be a local assembly)
     (setf interior-matrix nil interior-rhs nil)
     (fe-discretize blackboard)
     ;; improve approximation by solving
-    (setf solver-blackboard
-	  (solve (slot-value fe-strategy 'solver)
-		 (blackboard :matrix matrix :rhs rhs :solution solution)))
+    (setf solver-blackboard (blackboard :problem discretized-problem
+					:solution solution :residual residual
+					:output output))
+    (solve (slot-value fe-strategy 'solver) solver-blackboard)
     (setf solution (getbb solver-blackboard :solution))))
 

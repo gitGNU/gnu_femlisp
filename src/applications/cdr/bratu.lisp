@@ -1,10 +1,10 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; general.lisp - globally useful definitions
+;;; bratu.lisp - Solve the Bratu problem
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2004 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -32,12 +32,47 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :fl.utilities)
+(in-package :application)
 
-;;;; This files provides definitions which have influence across several
-;;;; other packages.
+(defvar *u_1/2-observe*
+  (list
+   (list (format nil "~19@A" "u(midpoint)") "~19,10,2E"
+	 #'(lambda (blackboard)
+	     (let* ((sol (getbb blackboard :solution))
+		    (dim (dimension (mesh (ansatz-space sol))))
+		    (val (fe-value sol (make-double-vec dim 0.5))))
+	       (vref (aref val 0) 0))))))
 
-(defgeneric make-analog (obj)
-  (:documentation "Generate an analogous but empty data structure."))
+(defun bratu-computation (dim &key (plot t) (time 5.0) (output 1))
+  "bratu-~Dd - Solve the Bratu problem in ~DD
 
-  
+Solves the Bratu problem -Delta u +e^u =0.  It reports the value in the
+midpoint of the domain."
+  (defparameter *result*
+    (solve (blackboard
+	    :problem (bratu-problem dim)
+	    :success-if `(> :time ,time) :output output
+	    :observe (append *stationary-fe-strategy-observe* *u_1/2-observe*))))
+  (when plot (plot (getbb *result* :solution))))
+
+(defun make-bratu-demo (dim)
+  (multiple-value-bind (title short long)
+      (extract-demo-strings (documentation 'bratu-computation 'function))
+    (let ((demo
+	   (make-demo
+	    :name (format nil title dim)
+	    :short (format nil short dim)
+	    :long long
+	    :execute (lambda () (bratu-computation dim :plot t :output 1)))))
+      (adjoin-demo demo *cdr-demo*))))
+
+;;; 2D and 3D Bratu problem
+(make-bratu-demo 1)
+(make-bratu-demo 2)
+(make-bratu-demo 3)
+
+(defun bratu-tests ()
+  (bratu-computation 1))
+
+;;; (application::bratu-tests)
+(fl.tests::adjoin-test 'bratu-tests)

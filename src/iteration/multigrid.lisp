@@ -54,10 +54,10 @@ results.")
 
 (defclass <mg-iteration> (<linear-iteration>)
   ((pre-smooth :reader pre-smooth :initform *default-smoother*
-	       :initarg :pre-smooth)
+	       :initarg :pre-smooth :initarg :smooth)
    (pre-steps :reader pre-steps :initform 1 :initarg :pre-steps)
    (post-smooth :reader post-smooth :initform *default-smoother*
-		:initarg :post-smooth)
+		:initarg :post-smooth :initarg :smooth)
    (post-steps :reader post-steps :initform 1 :initarg :post-steps)
    (gamma :reader gamma :initform 1 :initarg :gamma)
    (base-level :reader base-level :initform 0 :initarg :base-level)
@@ -137,7 +137,7 @@ class precedence."))
   (:documentation "The central generic function constructing the multilevel
 hierarchy."))
 
-(defgeneric ensure-residual (mg-it mg-data)
+(defgeneric ensure-mg-residual (mg-it mg-data)
   (:documentation "Ensure residual on current-level."))
 
 (defgeneric ensure-sol-rhs-res (mg-it mg-data level)
@@ -167,7 +167,7 @@ to be performed."))
 ;;;; <correction-scheme>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod ensure-residual ((mg-it <mg-iteration>) mg-data)
+(defmethod ensure-mg-residual ((mg-it <mg-iteration>) mg-data)
   (unless residual-p
     (compute-residual A_l sol_l rhs_l res_l)
     (setq residual-p t)))
@@ -178,7 +178,7 @@ to be performed."))
 		    (:post post-smoother_l))))
     (when smoother
       (when (slot-value smoother 'iteration::residual-before)
-	(ensure-residual mg-it mg-data))
+	(ensure-mg-residual mg-it mg-data))
       (funcall (slot-value smoother 'iteration::iterate) sol_l rhs_l res_l)
       (setq residual-p (slot-value smoother 'iteration::residual-before)))))
 
@@ -197,7 +197,7 @@ to be performed."))
   "The basic method for restriction restricts the residual, decrements the
 level and clears the residual-p flag."
   (let ((l-1 (1- current-level)))
-    (ensure-residual mg-it mg-data)
+    (ensure-mg-residual mg-it mg-data)
     (ensure-sol-rhs-res mg-it mg-data l-1)
     (if (getbb mg-data :r-vec)
 	(gemm! 1.0 (R_ l-1) res_l 0.0 (res_ l-1))
@@ -255,7 +255,7 @@ level for computing the correction to be prolongated."
 	     downto 1 do
 	     (lmgc mg-it mg-data)
 	     (unless (= i 1)
-	       (ensure-residual mg-it mg-data)))
+	       (ensure-mg-residual mg-it mg-data)))
        (prolongate mg-it mg-data)
        (smooth mg-it mg-data :post)
        ))))
@@ -307,7 +307,7 @@ grid, or an algebraic multigrid iteration."
 				       (make-iterator pre-smooth-l (aref a-vec level)))
 	      for post-smooth-it = (and (plusp post-steps)
 					(or (and (eq pre-smooth-l post-smooth-l) pre-smooth-it)
-					    (make-iterator post-smooth-it (aref a-vec level))))
+					    (make-iterator post-smooth-l (aref a-vec level))))
 	      do
 	      (setf (aref pre-smooth-vec level)
 		    (and pre-smooth-it (product-iterator pre-smooth-it pre-steps)))

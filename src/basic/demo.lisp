@@ -38,7 +38,7 @@
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES")
   (:export "DEMO" "LEAVES" "MAKE-DEMO" "ADJOIN-DEMO"
 	   "REMOVE-DEMO" "FIND-DEMO"
-	   "*DEMO-ROOT*"
+	   "*DEMO-ROOT*" "*DEMO-TIME*"
 	   "USER-INPUT" "EXTRACT-DEMO-STRINGS"))
 
 (in-package :fl.demo)
@@ -61,6 +61,15 @@
 (defun make-demo (&rest initargs)
   (apply #'make-instance '<demo> initargs))
 
+(defvar *demo-help*
+  "?, help    Displays this help.
+up, back   Goes up in the demo hierarchy.
+quit       Leave the demo program.
+
+Other words you enter are matched with leave names.
+Abbreviations are possible, e.g. 'hom-2' for
+'homogenization-2d'.  Note that case is ignored.")
+
 (defvar *demo-root*
   (make-demo
    :name "demo"
@@ -69,11 +78,17 @@
    "This is the root of the standard Femlisp demos.  Choose the
 demo you want to see by typing its name or an abbreviation.
 Such abbreviations can be of the form `h-2' for
-`homogenization-2D'.  Type `up' or `back' to go up, `quit' to
-quit."))
+`homogenization-2D'.
+
+Type `up' or `back' to go up in the demo hierarchy, `quit' to
+quit, and '?' or 'help' for help."))
 
 (defvar *visited-demos* (make-hash-table :test 'equal)
   "Table of demos already visited during this Lisp session.")
+
+(defvar *demo-time* 10.0
+  "Suggested time for a demo which should be used as a
+termination criterion in demo iterations.")
 
 (defun update-demo-status (demo)
   "Checks if all leaves have been visited.  If yes, the demo is
@@ -124,17 +139,24 @@ for `homogenization-2d'."
 	     (format t "~&~C ~A - ~A~%"
 		     (if (gethash name *visited-demos*) #\+ #\*)
 		     name (slot-value leaf 'short)))
-       (format t "~&~%Your choice: ")
+       (format t "~&~%Your choice (? for help): ")
+       (finish-output)
        (let ((input (read-line)))
-	 (when (string-equal input "quit")
-	   (update-demo-status demo)
-	   (throw 'quit nil))
-	 (when (member input '("back" "up") :test #'equalp)
-	   (update-demo-status demo)
-	   (return))
-	 (aif (match-input input leaves)
-	      (show-demo it)
-	      (format t "~&There is no demo with this name here.  Try again.~%~%")))
+	 (cond
+	   ((string-equal input "quit")
+	    (update-demo-status demo)
+	    (throw 'quit nil))
+	   ((member input '("back" "up") :test #'equalp)
+	    (update-demo-status demo)
+	    (return))
+	   ((member input '("help" "?") :test #'equalp)
+	    (format t "~&~A~%~%" *demo-help*)
+	    (format t "Type ENTER to continue.~%")
+	    (finish-output)
+	    (read-line))
+	   ((match-input input leaves)
+	    (show-demo (match-input input leaves)))
+	   (t (format t "~&There is no demo with this name here.  Try again.~%~%"))))
        (format t "~&~64,,,'*<~>~%~%")
        (when short (format t "~A~%~%" short))))
     (update-demo-status demo)))
@@ -173,6 +195,7 @@ a string stream to provide sample input.")
   "User input for demo functions.  Reads lines until test-p
 returns t on the item read."
   (loop for line = (progn (format t "~&~A" prompt)
+			  (finish-output)
 			  (read-line *user-input-stream*))
 	for item = (read-from-string line) do
 	(cond ((string-equal line "quit") (throw 'quit nil))
@@ -238,6 +261,7 @@ generating function.  Uses Edi Weitz' Regex package."
     (adjoin-demo demo *laplace-demo*)
     (adjoin-demo demo *adaptivity-demo*)
     (adjoin-demo demo *boundary-coeffs-demo*)))
+
 
   
 ;;;; Testing: 

@@ -35,7 +35,7 @@
 (in-package :plot)
 
 (defmethod graphic-write-data (stream object (program (eql :dx))
-				      &key cells cell->values (depth 0))
+			       &key cells cell->values (depth 0) transformation)
   "Rather general plotting procedure writing data to a file.  Plots in
 Gnuplot format in 1D, to DX format in 2D and 3D.  Can plot data either
 discontinuous or continuous at the cell boundaries when coefficient
@@ -45,12 +45,12 @@ data-- or some function mapping cells to a list of corner values."
   (unless cells (return-from graphic-write-data))
   (let* ((dim (dimension (car cells)))
 	 (position-indices (compute-position-indices cells depth))
-	 (position-array (position-array cells position-indices depth))
+	 (position-array (position-array cells position-indices depth transformation))
 	 (values (and cell->values
 			    (compute-all-position-values
 			     cells position-indices depth cell->values)))
 	 (simplices (remove-if-not #'simplex-p cells))
-	 (cubes (remove-if #'simplex-p cells)))
+	 (other-cells (remove-if #'simplex-p cells)))
 	 
     ;; write positions
     (format stream "object 1 class array type float rank 1 shape ~D items ~D data follows~%"
@@ -68,12 +68,12 @@ data-- or some function mapping cells to a list of corner values."
 	(loop for connection in connections do
 	      (format stream "~{~D~^ ~}~%" connection))
 	(format stream "attribute \"element type\" string \"~A\"~%"
-		(ecase dim (1 "lines") (2 "triangles") (3 "tetrahedra")))
+		(case dim (1 "lines") (2 "triangles") (3 "tetrahedra")))
 	(format stream "attribute \"ref\" string \"positions\"~%")))
        
-    ;; write cubes
-    (when cubes
-      (let ((connections (connections cubes position-indices depth)))
+    ;; write other-cells (these are written as cubes)
+    (when other-cells
+      (let ((connections (connections other-cells position-indices depth)))
 	(format stream "object 3 class array type int rank 1 shape ~D items ~D data follows~%"
 		(expt 2 dim) (length connections))
 	(loop for connection in connections do
@@ -96,13 +96,13 @@ data-- or some function mapping cells to a list of corner values."
       (format stream "component \"connections\" value 2~%")
       (when values
 	(format stream "component \"data\" value 4~%")))
-    (when cubes
+    (when other-cells
       (format stream "object \"quad-part\" class field~%")
       (format stream "component \"positions\" value 1~%")
       (format stream "component \"connections\" value 3~%")
       (when values
 	(format stream "component \"data\" value 4~%")))
-    (when (and simplices cubes)
+    (when (and simplices other-cells)
       (format stream "object \"both-grids\" class group~%")
       (format stream "member \"simplex-part\" value \"simplex-part\"~%")
       (format stream "member \"quad-part\" value \"quad-part\"~%"))

@@ -56,7 +56,7 @@ projection between subsequent levels."
 	:output t)
        (blackboard :problem problem))))
   (sleep 1.0)
-  (plot (getf *result* :solution)))
+  (plot (getbb *result* :solution)))
 
 ;;; (laplace-1d-demo-a)
 
@@ -114,7 +114,7 @@ error estimator is asymptotically exact."
       :problem (cdr-model-problem (l-domain dim)
 				  :source (constant-coefficient 1.0))
       :output t)))
-  (plot (getf *result* :solution)))
+  (plot (getbb *result* :solution)))
 ;;; (laplace-l-domain-demo)
 
 (defun create-l-domain-demo (dim order threshold)

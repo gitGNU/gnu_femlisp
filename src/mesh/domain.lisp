@@ -118,8 +118,12 @@ assumed to be provided in an exact form."
 (defparameter *unit-tetrahedron-domain* (n-simplex-domain 3))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; n-cube
+;;; tensorials, n-cube
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun tensorial-domain (dims)
+  "Generates a tensorial domain for the given factor dimensions."
+  (change-class (skeleton (ensure-tensorial dims)) '<domain>))
 
 (defun n-cube-domain (dim)
   (change-class (skeleton (n-cube dim)) '<domain>))

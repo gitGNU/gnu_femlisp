@@ -71,9 +71,6 @@ used for handling multiple right-hand sides or solutions simultaneously."))
    '<sparse-vector> :key->size (key->size svec) :print-key (print-key svec)
    :multiplicity (multiplicity svec)))
 
-(defmethod vector-block ((svec <sparse-vector>) key)
-  (values (gethash key (slot-value svec 'blocks))))
-
 (defmethod vref ((svec <sparse-vector>) key)
   "Random access to vector components.  Fast version."
   ;;(declare (values real-matrix))
@@ -145,7 +142,7 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 	  for end-comp of-type fixnum = (if ranges
 					    (cdr (aref ranges k))
 					    (funcall (key->size svec) key))
-	  for entry = (vector-block svec key) do
+	  for entry = (vref svec key) do
 	  (loop for i of-type fixnum from start-comp below end-comp do
 		(dotimes (j multiplicity)
 		  (setf (mref mm (+ offset i) j)
@@ -164,8 +161,6 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 					    (cdr (aref ranges k))
 					    (funcall (key->size svec) key))
 	  for entry = (vref svec key) do
-	  ;; for entry = (vector-block svec key)
-	  ;; when entry do
 	  (loop for i of-type fixnum from start-comp below end-comp do
 		(dotimes (j multiplicity)
 		  (let ((local-entry (mref local-vec (+ offset i) j)))
@@ -653,12 +648,16 @@ means a lot of consing."
 
 
 (defmethod make-image-vector-for ((A <sparse-matrix>) &optional (multiplicity 1))
-  (make-instance '<sparse-vector> :key->size (row-key->size A)
-		 :print-key (print-row-key A) :multiplicity multiplicity))
+  (let ((result (make-instance '<sparse-vector> :key->size (row-key->size A)
+			       :print-key (print-row-key A) :multiplicity multiplicity)))
+    (for-each-row-key (curry #'vref result) A)
+    result))
 
 (defmethod make-domain-vector-for ((A <sparse-matrix>) &optional (multiplicity 1))
-  (make-instance '<sparse-vector> :key->size (col-key->size A)
-		 :print-key (print-col-key A) :multiplicity multiplicity))
+  (let ((result (make-instance '<sparse-vector> :key->size (col-key->size A)
+			       :print-key (print-col-key A) :multiplicity multiplicity)))
+    (for-each-col-key (curry #'vref result) A)
+    result))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -953,6 +952,21 @@ mapped to identity."
 	(row<-id mat key)
 	finally (return mat)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Special matrices
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun laplace-sparse-matrix (n)
+  "Generates a sparse matrix for a 1-dimensional Laplace problem
+discretized with the 3-point stencil on a structured mesh."
+  (let* ((A (make-sparse-automorphism
+	     :key->size (constantly 1)
+	     :keys->pattern (constantly (full-crs-pattern 1 1)))))
+    (dotimes (i n)
+      (setf (mref A i i) #m(2.0))
+      (when (> i 0) (setf (mref A i (1- i)) #m(-1.0)))
+      (when (< i (1- n)) (setf (mref A i (1+ i)) #m(-1.0))))
+    A))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Tests

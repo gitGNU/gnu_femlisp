@@ -89,7 +89,7 @@
 	 (x-values (get-local-from-global-vec cell fe x))
 	 (result initial-value))
     (loop for ip in (integration-points qrule)
-	  for shape-vals in (ip-values fe qrule) ; (n-basis x 1)-matrix
+	  for shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
 	  for shape-vals-transposed =  (if (typep fe '<vector-fe>)
 					   (vector-map #'transpose shape-vals)
 					   (transpose shape-vals))
@@ -133,11 +133,12 @@ transformer function, as always (e.g. #'abs if you want the L1-norm)."
 			    (max_kj (mref maximum k j)))
 	    (dotimes (i (nrows comp-values))
 	      (let ((entry (mref comp-values i j)))
-		(if initialized-p
-		    (progn 
-		      (setf min_kj (min min_kj entry))
-		      (setf max_kj (max max_kj entry)))
-		    (setf max_kj (setf min_kj entry)))))))))))
+		(cond
+		  (initialized-p
+		   (setf min_kj (min min_kj entry))
+		   (setf max_kj (max max_kj entry)))
+		  (t (setf max_kj (setf min_kj entry))
+		     (setf initialized-p t)))))))))))
 
 (defmethod fe-extreme-values ((asv <ansatz-space-vector>) &key cells skeleton)
   "Computes the extreme values of a finite element function over the domain

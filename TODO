@@ -5,15 +5,7 @@ Femlisp needs the following more or less urgently:
 
 * Removal of known bugs, see the file BUGS.
 
-* Local multigrid for systems.  Up to now, this works only for scalar
-  equations and with AMG as coarse-mesh solver.
-
-* Plotting for prisms.  This should be easy by mapping prisms to cubes, but
-  will probably only be done when someone needs it.
-
 * Improved linear algebra for sparse matrices, see the FAQ.
-
-* Nonlinear solvers.
 
 * Time-stepping schemes.
 

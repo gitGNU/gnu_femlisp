@@ -53,7 +53,7 @@
 	     (fe (get-fe fe-class cell))
 	     (qrule (quadrature-rule fe-class fe))
 	     (values (transpose (get-local-from-global-vec cell fe asv))))  ; (dim x n-basis)
-	(loop for shape-grads in (ip-gradients fe qrule) ; (n-basis x dim)-matrix
+	(loop for shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
 	      and ip in (integration-points qrule) do
 	      (let* ((gradN-hat (m* values shape-grads)) ; (dim x dim)
 		     (lcoords (ip-coords ip))

@@ -1,5 +1,41 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.1 to Femlisp-0.9.2:
+
+A Newton iteration was introduced for solving nonlinear problems, see the
+file ITERATION:NLSOLVE.LISP.  Examples for solving nonlinear problems can
+be found in the files APPLICATIONS;CDR;BRATU.LISP and
+APPLICATIONS;NAVIER-STOKES;DRIVEN-CAVITY.LISP.
+
+Levels for iteration output were introduced.  The keyword parameter OUTPUT
+can be a number telling up to which depth the nested iterations print out
+their status information (for example, showing convergence of the adaptive
+mesh refinement, nonlinear and linear solving would need OUTPUT to be at
+least 3).
+
+The respresentation of blackboards was changed from property lists to
+classes.
+
+The class name <PROBLEM> was changed to <PDE-PROBLEM>.  <PROBLEM> is a more
+general class (which contains, for example, also discrete linear or
+nonlinear problems).
+
+Femlisp now works on Mac OS X with an OpenDX from Fink/unstable. Thanks to
+Ingo Heppner for testing this out and thanks to Volker Reichenberger who
+gave us the hint with Fink.
+
+I removed all method specializations on the fixnum type (because it is not
+ANSI-CL compatible).
+
+Plotting for general n-dimensional meshes now works by plotting only the
+3-dimensional skeleton transformed by a linear mapping.  By default, this
+transformation skips all coordinates but the first three, so (PLOT (N-CUBE
+4)) will yield the same as (PLOT (N-CUBE 3)).  See the refinement demos for
+the effect of the transformation mapping.
+
+Plotting of meshes containing prism/wedge cells works.  Also demos for
+refinement of wedges and computations on a wedge are now available.
+
 * From Femlisp-0.9.0 to Femlisp-0.9.1:
 
 The DX logfile is now written to #p"femlisp:images;"
@@ -26,7 +62,7 @@ executing using "make cl-ppcre" in the Femlisp main directory.
 
 There are the beginnings of a GPS (general problem solver:-).  The generic
 function SOLVE can be called on a blackboard containing a problem.  It then
-tries to find a solution itself.
+tries to find a solution strategy itself.
 
 Femlisp is almost completely ANSI-compliant now.  At least, it works on
 both SBCL and CMUCL.  The platform/implementation dependent parts are

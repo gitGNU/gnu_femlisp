@@ -48,7 +48,7 @@
 (asdf:operate 'asdf::load-op 'femlisp)
 (pushnew :femlisp *features*)
 
-(defparameter *femlisp-version* "0.9.1")
+(defparameter *femlisp-version* "0.9.2")
 
 (defun femlisp-version () *femlisp-version*)
 (defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))

@@ -60,7 +60,7 @@ constructor by giving a cell-list."
   (make-instance '<skeleton> :dimension (dimension skel)))
 
 ;;; an extended access
-(defmethod etable ((skel <skeleton>) (dim fixnum))
+(defmethod etable ((skel <skeleton>) dim)
   (aref (etables skel) dim))
 
 (definline etable-of-highest-dim (skel)
@@ -75,8 +75,11 @@ constructor by giving a cell-list."
     (t (loop for etable across (etables skel)
 	     summing (hash-table-count etable)))))
 
+(defun cells-of-dim (skel dim)
+  (hash-table-keys (etable skel dim)))
+
 (defun cells-of-highest-dim (skel)
-  (hash-table-keys (etable-of-highest-dim skel)))
+  (cells-of-dim skel (dimension skel)))
 
 (defun member-of-skeleton? (cell skel)
   (and (<= (dimension cell) (dimension skel))

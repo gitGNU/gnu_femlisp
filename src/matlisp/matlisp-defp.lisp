@@ -34,23 +34,20 @@
 
 (defpackage "FL.MATLISP"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG")
-  ;; we do not use matlisp anymore...
-  #+cmu(:import-from "PCL" "GENERIC-FUNCTION-METHODS" "METHOD-SPECIALIZERS")
-  #+sbcl(:import-from "SB-PCL" "GENERIC-FUNCTION-METHODS" "METHOD-SPECIALIZERS")
   (:export
    ;; Matlisp symbols
    "VLENGTH" "NROWS" "NCOLS"
    "STANDARD-MATRIX" "MAKE-REAL-MATRIX" "MAKE-REAL-VECTOR"
    "STORE"
    "*PRINT-MATRIX*"
-   "EYE" "ZEROS" "ONES" "DIAG"
+   "EYE" "ZEROS" "ONES" "DIAG" "LAPLACE-FULL-MATRIX"
    "MREF"
    "FILL!" "FILL-RANDOM!"
    "JOIN" "TRANSPOSE" "TRANSPOSE!"
    "COPY" "COPY!"
    "SCAL" "SCAL!" "M+" "M+!" "M-" "M-!" "AXPY" "AXPY!"
    "GEMM!" "GEMM-NN!" "GEMM-NT!" "GEMM-TN!" "GEMM-TT!"
-   "GEMM" "M*" "M*-PRODUCT-INSTANCE"
+   "GEMM" "M*" "M*-TN" "M*-PRODUCT-INSTANCE"
    "GETRF!" "GETRF" "GETRS!" "GETRS"
    "GESV!" "GESV" "M/" "M/!"
    "M./" "M./!" "MAP-MATRIX"

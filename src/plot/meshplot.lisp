@@ -34,8 +34,27 @@
 
 (in-package :plot)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Helper routines
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun plot-dimension (dim)
+  (min dim 3))
+
+(defun plot-cells (skel)
+  (let ((dim (dimension skel)))
+    (if (typep skel '<hierarchical-mesh>)
+	(surface-cells-of-dim skel (min 3 dim))
+	(cells-of-dim skel (min 3 dim)))))
+
+(defun plot-transformation (dim)
+  "The default plot transformation is simply a projection on R^3."
+  (when (> dim 3)
+    (make-instance
+     '<linear-function> :A (eye 3 dim))))
+
 (defmethod graphic-commands ((skel <skeleton>) (program (eql :dx))
-			     &key (tubes t) (glyphs t) background
+			     &key tubes (glyphs t) background
 			     &allow-other-keys)
   (let ((dim (dimension skel)))
     (list
@@ -44,7 +63,7 @@
 	 (format nil "tubes = Tube(connections,~F);"
 		 (if (numberp tubes)
 		     tubes
-		     (ecase dim ((1 2) 0.01) (3 0.01))))
+		     (case dim ((1 2) 0.01) (t 0.01))))
 	 "tubes = connections;")
      (when (eq background :white)
 	 "tubes = Color(tubes, \"black\");")
@@ -56,21 +75,22 @@
 	 "image = tubes;")
      #+(or)
      (format nil "camera = AutoCamera(all~A);"
-	     (ecase dim ((1 2) "") (3 ", \"off diagonal\"")))
+	     (case dim ((1 2) "") (t ", \"off diagonal\"")))
      )))
 
-(defmethod plot ((skel <skeleton>) &rest rest &key depth &allow-other-keys)
+(defmethod plot ((skel <skeleton>) &rest rest &key transformation depth &allow-other-keys)
   (when depth
     (error "The depth option is not yet allowed for mesh plotting."))
-  (apply #'graphic-output skel :dx
-	 :cells (if (typep skel '<hierarchical-mesh>)
-		    (surface-cells-of-highest-dim skel)
-		    (cells-of-highest-dim skel))
-	 :dimension (manifold-dimension skel)
-	 rest))
+  (let ((dim (manifold-dimension skel)))
+    (apply #'graphic-output skel :dx
+	   :cells (plot-cells skel)
+	   :dimension (plot-dimension dim)
+	   :transformation (or transformation (plot-transformation dim))
+	   rest)))
 
-(defmethod plot ((cell <cell>) &key &allow-other-keys)
-  (plot (skeleton cell)))
+(defmethod plot ((cell <cell>) &rest rest)
+  (apply #'plot (skeleton cell) rest))
+
 #| Test of 1d plotting with dx
 dx -script
 
@@ -92,3 +112,13 @@ camera = AutoCamera(image,direction="front");
 image = Render(image, camera);
 Display (image);
 |#
+
+(defun test-meshplot ()
+  (plot (n-cube 4) :transformation
+	(make-instance '<linear-function>
+		       :A #m((1.0 0.0   0.0  0.0)
+			     (0.0 0.8  -0.6  0.0)
+			     (0.0 0.56  0.57 0.6))))
+  )
+
+(fl.tests::adjoin-test 'test-meshplot)

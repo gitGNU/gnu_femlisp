@@ -87,6 +87,41 @@ for the value u(1/2,1/2,1/2).
 				 (* k1 k2 k3 (+ (* k1 k1) (* k2 k2) (* k3 k3)))))))))))
 
 
+(defun model-problem-computation (domain &key output plot)
+  "~A - Solve the Laplace equation on a ~A.
+
+Solves the Laplace problem with rhs identical 1 on the given domain.  The
+solution strategy does uniform refinement and terminates if more than 20
+seconds have passed after a step."
+  (defparameter *result*
+    (solve (blackboard
+	    :problem (cdr-model-problem domain)
+	    :output output :plot-mesh t
+	    :success-if `(> :time 5.0))))
+  (when plot
+    (plot (getbb *result* :solution))))
+
+(defun make-model-problem-demo (domain domain-name)
+  (multiple-value-bind (title short long)
+      (extract-demo-strings (documentation 'model-problem-computation 'function))
+    (let ((demo
+	   (make-demo
+	    :name (format nil title domain-name)
+	    :short (format nil short domain-name)
+	    :long long
+	    :execute (lambda ()
+		       (model-problem-computation
+			domain :plot t :output t)))))
+      (adjoin-demo demo *laplace-demo*))))
+
+(make-model-problem-demo (n-simplex-domain 1) "unit-interval")
+(make-model-problem-demo (n-simplex-domain 2) "unit-triangle")
+(make-model-problem-demo (n-cube-domain 2) "unit-quadrangle")
+(make-model-problem-demo (n-simplex-domain 2) "unit-tetrahedron")
+(make-model-problem-demo (tensorial-domain '(1 2)) "unit-wedge-1-2")
+(make-model-problem-demo (tensorial-domain '(2 1)) "unit-wedge-2-1")
+(make-model-problem-demo (n-cube-domain 3) "unit-cube")
+
 (defun test-laplace-model-problem ()
   ;;; Elementary testing
   (let* ((dim 2) (order 1) (level 2)

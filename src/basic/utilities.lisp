@@ -562,7 +562,6 @@ non-recursive functions."
 ;;; Association lists
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declaim (inline geta))
 (defun geta (alist key)
   "An analog to GETF for association lists."
   (cdr (assoc key alist)))
@@ -592,23 +591,68 @@ non-recursive functions."
 ;;; Blackboards
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declaim (inline make-blackboard getbb))
+(defclass blackboard ()
+  ((items :initform () :initarg :items))
+  (:documentation "A blackboard from where you can put and extract data."))
 
 (defun blackboard (&rest items)
   "Makes items into an blackboard.  Copies if necessary to ensure that no
 literal list is modified."
-  (if (eq (car items) :blackboard)
-      items
-      (list* :blackboard t (copy-seq items))))
+  (make-instance 'blackboard :items (copy-seq items)))
+
+(defmethod describe-object ((blackboard blackboard) stream)
+  (format stream "~&~A is a blackboard containing the following items:~%~{~S -> ~S~%~}"
+	  blackboard (slot-value blackboard 'items)))
 
 (defun getbb (blackboard key &optional default)
   "Gets an item from the blackboard.  If there is no such item it returns
 the default value."
-  (getf (cddr blackboard) key default))
+  (getf (slot-value blackboard 'items) key default))
 
 (defun (setf getbb) (value blackboard key)
   "Setter for an blackboard."
-  (setf (getf (cddr blackboard) key) value))
+  (setf (getf (slot-value blackboard 'items) key) value))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun with-items-expander (prop-vars prop-names prop-defaults plist body)
+    "Expander for with-items."
+    `(progn
+      #+(or)
+      ,@(mapcar #'(lambda (prop default)
+		    `(setf (getf ,plist ',prop) (getf ,plist ',prop ,default)))
+		prop-names prop-defaults)
+      (symbol-macrolet
+	    ,(mapcar #'(lambda (var prop default)
+			 `(,var (getf ,plist ',prop ,default)))
+		     prop-vars prop-names prop-defaults)
+	  ,@body))))
+
+(defmacro with-items (props blackboard &body body)
+  "Work with blackboard items.  If a parameter is a list, the second one is
+the default value and the third is an alias to be used to refer to this
+parameter.  Example:
+>  (with-items (&key sol (rhs nil rhs-high)) blackboard
+>     (setq sol rhs-high))"
+  (let (key-p prop-vars prop-defaults prop-names)
+    (dolist (prop props)
+      (cond
+	((eq prop '&key) (assert (not key-p))
+	 (setq key-p t))
+	(t (let ((prop-var
+		  (if (atom prop)
+		      prop
+		      (or (nth 2 prop) (nth 0 prop))))
+		 (prop-default (and (listp prop) (nth 1 prop)))
+		 (prop-name (if (atom prop) prop (nth 0 prop))))
+	     ;;(format t "~A ~A ~A" prop-var prop-default prop-name)
+	     (push prop-var prop-vars)
+	     (push prop-default prop-defaults)
+	     (push (if key-p
+		       (intern (symbol-name prop-name) :keyword)
+		       prop-name)
+		   prop-names)))))
+    (with-items-expander prop-vars prop-names prop-defaults
+			 `(slot-value ,blackboard 'items) body)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sets
@@ -784,8 +828,16 @@ from 0,...,n-1)."
     (setf (geta alist :hello) 2)
     (setf (geta alist :test) 3)
     (geta alist :test))
+  (let ((blackboard (blackboard)))
+    (with-items (&key test hello) blackboard
+      (describe blackboard)
+      (setf test 2)
+      (describe blackboard)
+      (setf test 3)
+      (describe blackboard))
+      (getbb blackboard :test))
   )
 
-;; (test-utilities)
+;; (fl.utilities::test-utilities)
 (fl.tests:adjoin-test 'test-utilities)
 

@@ -1,5 +1,5 @@
 //
-// time: Thu May  9 22:42:18 2002
+// time: Mon May 17 14:00:05 2004
 //
 // version: 3.1.2 (format), 4.1.3 (DX)
 //
@@ -13,13 +13,13 @@
 // comment: In either case, a colored cutting plane has been drawn through the data. You can use the interactor in the control panel to change the normal, or orientation, of the cutting plane.
 // comment: 
 // comment: If you would like to modify or use this visual program in the future, choose Open Visual Program Editor from the Windows menu, and then choose Save As from the File menu of the VPE.
-// page assignment: connections	order=4, windowed=0, showing=0
-// page assignment: image	order=6, windowed=0, showing=1
-// page assignment: import	order=1, windowed=0, showing=0
-// page assignment: iso_or_glyph	order=2, windowed=0, showing=0
-// page assignment: maptoplane	order=3, windowed=0, showing=0
-// page assignment: positions	order=5, windowed=0, showing=0
-// workspace: width = 836, height = 577
+// page assignment: connections	order=5, windowed=0, showing=0
+// page assignment: image	order=7, windowed=0, showing=0
+// page assignment: import	order=2, windowed=0, showing=0
+// page assignment: iso_or_glyph	order=3, windowed=0, showing=1
+// page assignment: maptoplane	order=4, windowed=0, showing=0
+// page assignment: positions	order=6, windowed=0, showing=0
+// workspace: width = 645, height = 621
 // layout: snap = 0, width = 50, height = 50, align = NN
 //
 macro main(
@@ -27,8 +27,8 @@ macro main(
 ) {
     // 
     // node FileSelector[1]: x = 62, y = 110, inputs = 0, label = FileSelector
-    // output[1]: visible = 1, type = 32, value = "image-3d.dx"
-    // output[2]: visible = 1, type = 32, value = "image-3d.dx"
+    // output[1]: visible = 1, type = 32, value = "output-0.dx"
+    // output[2]: visible = 1, type = 32, value = "output-0.dx"
     // page group: import
     //
     // 
@@ -111,13 +111,13 @@ main_Compute_1_out_1 =
     // 
     // node Scalar[3]: x = 294, y = 240, inputs = 11, label = Scalar
     // input[1]: defaulting = 0, visible = 0, type = 32, value = "Scalar_3"
-    // input[3]: defaulting = 0, visible = 0, type = 5, value = 0.0
+    // input[3]: defaulting = 0, visible = 0, type = 5, value = 0.25536227
     // input[4]: defaulting = 1, visible = 1, type = 3, value = 0
-    // input[5]: defaulting = 1, visible = 0, type = 5, value = 0.0
-    // input[6]: defaulting = 1, visible = 0, type = 5, value = 0.0093750013
+    // input[5]: defaulting = 1, visible = 0, type = 5, value = 0.010724533
+    // input[6]: defaulting = 1, visible = 0, type = 5, value = 0.5
     // input[7]: defaulting = 1, visible = 0, type = 5, value = 1.0
-    // input[9]: defaulting = 1, visible = 0, type = 1, value = 4
-    // output[1]: visible = 1, type = 5, value = 0.0
+    // input[9]: defaulting = 1, visible = 0, type = 1, value = 3
+    // output[1]: visible = 1, type = 5, value = 0.25536227
     // page group: iso_or_glyph
     //
 main_Scalar_3_out_1[cache: 2] = 
@@ -238,14 +238,14 @@ main_MapToPlane_2_out_1 =
     // input[3]: defaulting = 0, visible = 0, type = 16777224, value = { [0.0 1.0] [1.0 1.0] }
     // input[4]: defaulting = 0, visible = 0, type = 16777224, value = { [0.0 1.0] [1.0 1.0] }
     // input[5]: defaulting = 0, visible = 0, type = 32, value = "Colormap_4"
-    // input[7]: defaulting = 1, visible = 0, type = 5, value = 0.0
-    // input[8]: defaulting = 1, visible = 0, type = 5, value = 0.0093750013
+    // input[7]: defaulting = 1, visible = 0, type = 5, value = 0.010724533
+    // input[8]: defaulting = 1, visible = 0, type = 5, value = 0.5
     // input[9]: defaulting = 1, visible = 0, type = 1, value = 20
-    // input[12]: defaulting = 0, visible = 0, type = 16777221, value = { 0.0 0.0093750013 }
-    // input[17]: defaulting = 0, visible = 0, type = 5, value = 0.0
-    // input[18]: defaulting = 0, visible = 0, type = 5, value = 0.0093750013
+    // input[12]: defaulting = 0, visible = 0, type = 16777221, value = { 0.010724533 0.5 }
+    // input[17]: defaulting = 0, visible = 0, type = 5, value = 0.010724533
+    // input[18]: defaulting = 0, visible = 0, type = 5, value = 0.5
     // page group: maptoplane
-    // window: position = (0.5137,0.0000), size = 0.4688x0.2930
+    // window: position = (0.5141,0.0000), size = 0.4688x0.2930
     //
 main_Colormap_4_out_1[cache: 2],
 main_Colormap_4_out_2[cache: 2] = 
@@ -437,13 +437,13 @@ main_Collect_3_out_1 =
     // node Image[5]: x = 134, y = 515, inputs = 49, label = Image
     // input[1]: defaulting = 0, visible = 0, type = 67108863, value = "Image_5"
     // input[4]: defaulting = 0, visible = 0, type = 1, value = 1
-    // input[5]: defaulting = 0, visible = 0, type = 8, value = [0.5 0.5 0.5]
-    // input[6]: defaulting = 0, visible = 0, type = 8, value = [2.01373 1.84856 4.3515]
-    // input[7]: defaulting = 1, visible = 0, type = 5, value = 2.33248
-    // input[8]: defaulting = 0, visible = 0, type = 1, value = 1002
-    // input[9]: defaulting = 0, visible = 0, type = 5, value = 0.691
-    // input[10]: defaulting = 0, visible = 0, type = 8, value = [-0.284593 0.934173 -0.215239]
-    // input[11]: defaulting = 0, visible = 0, type = 5, value = 30.0
+    // input[5]: defaulting = 0, visible = 0, type = 8, value = [0.883763 0.748464 -0.119891]
+    // input[6]: defaulting = 0, visible = 0, type = 8, value = [-2.46081 -3.90022 1.47805]
+    // input[7]: defaulting = 1, visible = 0, type = 5, value = 4.21585
+    // input[8]: defaulting = 0, visible = 0, type = 1, value = 1157
+    // input[9]: defaulting = 0, visible = 0, type = 5, value = 0.758
+    // input[10]: defaulting = 0, visible = 0, type = 8, value = [-0.0818503 0.324374 0.942381]
+    // input[11]: defaulting = 0, visible = 0, type = 5, value = 39.0426
     // input[12]: defaulting = 0, visible = 0, type = 1, value = 1
     // input[14]: defaulting = 0, visible = 0, type = 1, value = 1
     // input[15]: defaulting = 1, visible = 0, type = 32, value = "none"
@@ -453,13 +453,15 @@ main_Collect_3_out_1 =
     // input[19]: defaulting = 0, visible = 0, type = 1, value = 0
     // input[20]: visible = 1
     // input[21]: visible = 1
+    // input[25]: defaulting = 0, visible = 0, type = 32, value = "torsten-3d-1.tiff"
+    // input[26]: defaulting = 0, visible = 0, type = 32, value = "tiff"
     // input[29]: defaulting = 1, visible = 0, type = 3, value = 0
-    // input[41]: defaulting = 0, visible = 0, type = 32, value = "none"
+    // input[41]: defaulting = 0, visible = 0, type = 32, value = "rotate"
     // input[42]: defaulting = 0, visible = 0, type = 32, value = "Gridded_3D_1var_notseries"
     // page group: image
     // title: value = Gridded_3D_1var_notseries
-    // depth: value = 16
-    // window: position = (0.0000,0.0052), size = 0.9922x0.9583
+    // depth: value = 24
+    // window: position = (0.0000,0.0723), size = 0.9148x0.8994
     // internal caching: 1
     //
 main_Image_5_out_1,
@@ -517,7 +519,7 @@ main_Image_5_out_3 =
     main_Image_5_in_49
     ) [instance: 5, cache: 1];
     //
-    // decorator Annotate	pos=(79,21) size=509x76 style(Label), font=bold, value = <NULL>
+    // decorator Annotate	pos=(79,21) size=504x76 style(Label), font=bold, value = <NULL>
     // annotation user_begin: 134
     // annotation user: This visual program is intended for use with three-dimensional, gridded
     // annotation user: data, with one variable.
@@ -527,7 +529,7 @@ main_Image_5_out_3 =
     // resource *decorator.alignment:XmALIGNMENT_BEGINNING
     // page group: import
     //
-    // decorator Annotate	pos=(240,54) size=409x108 style(Label), font=bold, value = <NULL>
+    // decorator Annotate	pos=(240,54) size=404x108 style(Label), font=bold, value = <NULL>
     // annotation user_begin: 267
     // annotation user: This page first checks whether the imported 
     // annotation user: data are scalar or not. If non-scalar (or cell-
@@ -539,7 +541,7 @@ main_Image_5_out_3 =
     // resource *decorator.alignment:XmALIGNMENT_BEGINNING
     // page group: iso_or_glyph
     //
-    // decorator Annotate	pos=(310,67) size=334x92 style(Label), font=bold, value = <NULL>
+    // decorator Annotate	pos=(310,67) size=329x92 style(Label), font=bold, value = <NULL>
     // annotation user_begin: 172
     // annotation user: this page creates a "maptoplane" (two-d slice)
     // annotation user: of the data.  At the same time, the
@@ -560,7 +562,7 @@ main_Image_5_out_3 =
 // network: end of macro body
 CacheScene(main_Image_5_in_1, main_Image_5_out_1, main_Image_5_out_2);
 }
-main_FileSelector_1_out_1 = "image-3d.dx";
+main_FileSelector_1_out_1 = "output-0.dx";
 main_String_1_out_1 = "dx";
 main_Import_1_in_2 = NULL;
 main_Import_1_in_4 = NULL;
@@ -585,7 +587,7 @@ main_Reset_1_in_5 = NULL;
 main_Reset_1_in_6 = NULL;
 main_Reset_1_out_1 = 0;
 main_Scalar_3_in_1 = "Scalar_3";
-main_Scalar_3_in_3 = 0.0;
+main_Scalar_3_in_3 = 0.25536227;
 main_Scalar_3_in_5 = NULL;
 main_Scalar_3_in_6 = NULL;
 main_Scalar_3_in_7 = NULL;
@@ -593,7 +595,7 @@ main_Scalar_3_in_8 = NULL;
 main_Scalar_3_in_9 = NULL;
 main_Scalar_3_in_10 = NULL;
 main_Scalar_3_in_11 = NULL;
-main_Scalar_3_out_1 = 0.0;
+main_Scalar_3_out_1 = 0.25536227;
 main_Isosurface_2_in_3 = NULL;
 main_Isosurface_2_in_4 = NULL;
 main_Isosurface_2_in_5 = NULL;
@@ -641,13 +643,13 @@ main_Colormap_4_in_8 = NULL;
 main_Colormap_4_in_9 = NULL;
 main_Colormap_4_in_10 = NULL;
 main_Colormap_4_in_11 = NULL;
-main_Colormap_4_in_12 = { 0.0 0.0093750013 };
+main_Colormap_4_in_12 = { 0.010724533 0.5 };
 main_Colormap_4_in_13 = NULL;
 main_Colormap_4_in_14 = NULL;
 main_Colormap_4_in_15 = NULL;
 main_Colormap_4_in_16 = NULL;
-main_Colormap_4_in_17 = 0.0;
-main_Colormap_4_in_18 = 0.0093750013;
+main_Colormap_4_in_17 = 0.010724533;
+main_Colormap_4_in_18 = 0.5;
 main_Colormap_4_in_19 = NULL;
 main_Colormap_4_out_1 = NULL;
 main_Color_4_in_3 = NULL;
@@ -1020,15 +1022,15 @@ macro Image(
         RECformat) [instance: 2, cache: 1];
 }
 main_Image_5_in_1 = "Image_5";
-main_Image_5_in_3 = "X16,,Gridded_3D_1var_notseries";
+main_Image_5_in_3 = "X24,,Gridded_3D_1var_notseries";
 main_Image_5_in_4 = 1;
-main_Image_5_in_5 = [0.5 0.5 0.5];
-main_Image_5_in_6 = [2.01373 1.84856 4.3515];
+main_Image_5_in_5 = [0.883763 0.748464 -0.119891];
+main_Image_5_in_6 = [-2.46081 -3.90022 1.47805];
 main_Image_5_in_7 = NULL;
-main_Image_5_in_8 = 1002;
-main_Image_5_in_9 = 0.691;
-main_Image_5_in_10 = [-0.284593 0.934173 -0.215239];
-main_Image_5_in_11 = 30.0;
+main_Image_5_in_8 = 1157;
+main_Image_5_in_9 = 0.758;
+main_Image_5_in_10 = [-0.0818503 0.324374 0.942381];
+main_Image_5_in_11 = 39.0426;
 main_Image_5_in_12 = 1;
 main_Image_5_in_13 = NULL;
 main_Image_5_in_14 = 1;
@@ -1039,8 +1041,8 @@ main_Image_5_in_18 = NULL;
 main_Image_5_in_19 = 0;
 main_Image_5_in_22 = NULL;
 main_Image_5_in_23 = NULL;
-main_Image_5_in_25 = NULL;
-main_Image_5_in_26 = NULL;
+main_Image_5_in_25 = "torsten-3d-1.tiff";
+main_Image_5_in_26 = "tiff";
 main_Image_5_in_27 = NULL;
 main_Image_5_in_28 = NULL;
 main_Image_5_in_29 = NULL;
@@ -1055,7 +1057,7 @@ main_Image_5_in_37 = NULL;
 main_Image_5_in_38 = NULL;
 main_Image_5_in_39 = NULL;
 main_Image_5_in_40 = NULL;
-main_Image_5_in_41 = "none";
+main_Image_5_in_41 = "rotate";
 main_Image_5_in_42 = "Gridded_3D_1var_notseries";
 main_Image_5_in_43 = NULL;
 main_Image_5_in_44 = NULL;

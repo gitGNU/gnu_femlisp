@@ -131,15 +131,17 @@ double-float array."
   (make-instance (standard-matrix (element-type mat))
 		 :nrows (ncols mat) :ncols multiplicity))
 
-(defmethod clear-row ((mat standard-matrix) (row fixnum)
+(defmethod clear-row ((mat standard-matrix) (row integer)
 		      &optional row2)
-  (declare (ignore row2))
+  (declare (type fixnum row)
+	   (ignore row2))
   (dotimes (k (ncols mat))
     (setf (mref mat row k) 0.0)))
 
-(defmethod clear-column ((mat standard-matrix) (col fixnum)
+(defmethod clear-column ((mat standard-matrix) (col integer)
 			 &optional col2)
-  (declare (ignore col2))
+  (declare (type fixnum col)
+	   (ignore col2))
   (dotimes (k (ncols mat))
     (setf (mref mat k col) 0.0)))
 
@@ -155,6 +157,7 @@ double-float array."
     (clear-column B 1)
     (clear-row B 0)
     (axpy 0.5 B A)
+    (mzerop #(0.0))
     (mzerop #m((0.0)))
   ))
 

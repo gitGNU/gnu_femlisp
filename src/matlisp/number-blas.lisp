@@ -77,12 +77,11 @@
   (assert (null ipiv))
   (if (zerop x)
       (values 0 nil 0)
-      (values (/ x) nil t)))
+      (values x nil t)))
 
 (defmethod getrs! ((x number) (b number) &optional ipiv)
   (assert (null ipiv))
   (/ b x))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Testing

@@ -305,8 +305,9 @@ the zero-vector.  The others are equal to (unit-vector dim 1-i)."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun make-simplex (boundary &key (check t) mapping)
-  "This function is probably not too helpful.  For building a mesh the
-functions from skeleton-build should be prefered."
+  "Short form of creating a simplex given its boundary.  An alternative is
+creating it from its vertices, see the functions MAKE-CELL-FROM-VERTICES
+and INSERT-CELL-FROM-CORNERS."
   (let ((dim (1- (length boundary))))
     (when check
       (unless (apply #'= (1- dim) (map 'list #'dimension boundary))
@@ -321,6 +322,7 @@ functions from skeleton-build should be prefered."
 		       :boundary (coerce boundary 'cell-vec)))))
 
 (defun make-line (from-vtx to-vtx &key (check t) mapping)
+  "Creates a line given its endpoints."
   (make-simplex (vector to-vtx from-vtx) :check check :mapping mapping))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

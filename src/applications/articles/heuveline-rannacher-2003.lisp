@@ -55,14 +55,14 @@
 #+(or)
 (check (uniform-mesh-on-box-domain (heuveline-rannacher-domain) #(1 2)))
 
-(defparameter *HR-delta* 1.0d-12
+(defparameter *HR-delta* 1.0e-12
   "Small positive value which is used for ``smoothing'' the distributional
 rhs.")
 
-(defun heuveline-rannacher-dual-problem-rhs (cell fe)
-  "Distributional rhs for the dual problem of the
-Heuveline-Rannacher article.  We distribute it to several points
-to ensure that all surrounding cells contribute.  Warning: This
+(defun heuveline-rannacher-dual-problem-rhs (&key cell fe &allow-other-keys)
+  "Distributional rhs for the dual problem of the article by
+Heuveline&Rannacher.  We distribute it to several points to
+ensure that all surrounding cells contribute.  Warning: This
 function assumes that a structured cube mesh is used!"
   (let ((rhs (make-local-vec fe))
 	(local (global->local cell *HR-evaluation-point*))
@@ -89,13 +89,14 @@ function assumes that a structured cube mesh is used!"
 (defun heuveline-rannacher-dual-problem-fe-rhs ()
   #'(lambda (cell)
       (when (= (dimension cell) 2)
-	(list 'CDR::FE-RHS #'heuveline-rannacher-dual-problem-rhs))))
-  
+	(list 'CDR::FE-RHS
+	      (make-instance
+	       '<coefficient> :demands '(:cell :fe) :eval
+	       #'heuveline-rannacher-dual-problem-rhs)))))
+
 (defun heuveline-rannacher-dual-problem ()
   (dual-problem (heuveline-rannacher-problem)
 		(heuveline-rannacher-dual-problem-fe-rhs)))
-
-(defparameter *result* nil)
 
 (defun heuveline-rannacher-computation (order levels &key output plot)
   "HR2003-1 - Solves problem 1 in [Heuveline-Rannacher 2003]
@@ -109,48 +110,33 @@ $$  u(x,y) = sin(pi/2*(x+1))*sin(3/4*pi*(y+1))  $$
 Thus, the precise value is 1.026172152977031.
 Parameters of the computation: order=~order~, levels=~levels~."
   (defparameter *result*
-    (let ((problem (heuveline-rannacher-problem))
-	  (solver
-	   (?2 *lu-solver*
-	       (make-instance
-		'<linear-solver>
-		:iteration
-		(let ((smoother (geometric-ssc)))
-		  (make-instance '<s1-reduction> :max-depth 2 :pre-steps 1 :pre-smooth smoother
-				 :post-steps 1 :post-smooth smoother
-				 :gamma 1 :coarse-grid-iteration
-				 (?2 *lu-iteration*
-				     (make-instance '<s1-coarse-grid-iterator>))))
-		:success-if `(and (< :defnorm 1.0e-10) (> :step-reduction 0.9))
-		:failure-if `(and (> :step 2) (> :step-reduction 0.9))
-		:output (eq output :all)))))
-      (solve
-       (make-instance
-	'<stationary-fe-strategy>
-	:fe-class (lagrange-fe order) :solver solver
-	:estimator (make-instance '<duality-error-estimator> :functional
-				  (heuveline-rannacher-dual-problem-fe-rhs))
-	:indicator (make-instance '<largest-eta-indicator>
-				  :pivot-factor 0.2 :from-level 1)
-	:success-if `(or (<= :global-eta 1.0e-10) (= :max-level ,(1- levels)))
-	:plot-mesh plot	:output output :observe
-	(append *stationary-fe-strategy-observe*
-		(list
-		 (list " grad-x (0.5,2.5)" "~17,10,2E"
-		       #'(lambda (blackboard)
-			   (with-items (&key solution) blackboard
-			     (vref (aref (fe-gradient solution *HR-evaluation-point*) 0) 0))))
-		 *eta-observe*)))
-       (blackboard :problem problem
-		   :mesh (change-class (uniform-mesh-on-box-domain (domain problem) #(1 2))
-				       '<hierarchical-mesh>)
-		   :output t))))
+    (solve
+     (make-instance
+      '<stationary-fe-strategy>
+      :fe-class (lagrange-fe order)
+      :estimator (make-instance '<duality-error-estimator> :functional
+				(heuveline-rannacher-dual-problem-fe-rhs))
+      :indicator (make-instance '<largest-eta-indicator>
+				:pivot-factor 0.2 :from-level 1)
+      :success-if `(or (<= :global-eta 1.0e-10) (= :max-level ,(1- levels)))
+      :plot-mesh plot :output output :observe
+      (append *stationary-fe-strategy-observe*
+	      (list
+	       (list " grad-x (0.5,2.5)" "~17,10,2E"
+		     #'(lambda (blackboard)
+			 (with-items (&key solution) blackboard
+			   (vref (aref (fe-gradient solution *HR-evaluation-point*) 0) 0))))
+	       *eta-observe*)))
+     (let ((problem (heuveline-rannacher-problem)))
+       (blackboard :problem problem :mesh
+		   (change-class (uniform-mesh-on-box-domain (domain problem) #(1 2))
+				 '<hierarchical-mesh>)))))
     (when plot
-      (plot (getf *result* :solution) :depth 3)))
+      (plot (getbb *result* :solution) :depth 3)))
 
 
 
-#+(or) (heuveline-rannacher-computation 4 6 :output t :plot t)
+#+(or) (heuveline-rannacher-computation 4 6 :output :all :plot t)
 
 (defun make-heuveline-rannacher-demo (order levels)
   (multiple-value-bind (title short long)

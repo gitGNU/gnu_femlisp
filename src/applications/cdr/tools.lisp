@@ -40,7 +40,8 @@
 	 (fedisc (lagrange-fe order)))
     (multiple-value-bind (matrix rhs)
 	(discretize-globally problem mm fedisc)
-      (getbb (solve solver (blackboard :matrix matrix :rhs rhs)) :solution))))
+      (getbb (solve solver (blackboard :problem (lse :matrix matrix :rhs rhs)))
+	     :solution))))
 
 #+(or) (getrs (sparse-ldu mat :ordering
 			  (loop for cell in (hierarchically-ordered-cells mm)
@@ -106,7 +107,7 @@ a mesh of size cells in each dimension."
       (let ((ls (make-instance '<linear-solver> :iteration linit
 			       :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps))
 			       :output output)))
-	(setq *result* (solve ls (blackboard :matrix A :rhs b :solution x)))
+	(setq *result* (solve ls (blackboard :problem (lse :matrix A :rhs b :solution x))))
 	(getbb *result* :report)))))
 
 

@@ -256,7 +256,7 @@ elements.")
 
 (defmethod eye (n &optional m (type 'double-float))
   "Returns the nxn identity matrix.  The value is freshly allocated."
-  (let ((result (make-instance (standard-matrix type) :nrows n :ncols n))
+  (let ((result (make-instance (standard-matrix type) :nrows n :ncols (or m n)))
 	(one (coerce 1 type)))
     (dotimes (i (if m (min n m) n) result)
       (setf (mref result i i) one))))
@@ -281,6 +281,16 @@ allocated."
 				:nrows n :ncols n)))
     (dotimes (i n result)
       (setf (mref result i i) (vref vec i)))))
+
+(defun laplace-full-matrix (n)
+  "Generates the matrix for a 1-dimensional Laplace problem discretized
+with the 3-point stencil on a structured mesh."
+  (let ((result (make-instance (standard-matrix 'double-float) :nrows n :ncols n)))
+    (dotimes (i n)
+      (setf (mref result i i) 2.0)
+      (when (> i 0) (setf (mref result i (1- i)) -1.0))
+      (when (< i (1- n)) (setf (mref result i (1+ i)) -1.0)))
+    result))
 
 (defmethod make-analog ((x standard-matrix))
   "Constructs a zero matrix with the same size as X."

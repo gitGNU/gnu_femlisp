@@ -45,7 +45,7 @@
 ;;;; <cdrsys-problem>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <cdrsys-problem> (<problem>)
+(defclass <cdrsys-problem> (<pde-problem>)
   ((n :reader nr-of-components :initarg :nr-of-components))
   (:documentation "Systems of convection-diffusion-reaction equations."))
 

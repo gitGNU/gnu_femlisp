@@ -34,14 +34,16 @@
 
 (in-package :cl-user)
 (defpackage "NAVIER-STOKES-FE"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP" "ALGEBRA" "FL.FUNCTION"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES"
+	"FL.MATLISP" "ALGEBRA" "FL.FUNCTION"
 	"MESH" "PROBLEM" "NAVIER-STOKES" "DISCRETIZATION" "NAVIER-STOKES")
-  (:export "NAVIER-STOKES-LAGRANGE-FE" "BOUNDARY-LAST-ORDER"))
+  (:export "NAVIER-STOKES-LAGRANGE-FE"))
 (in-package :navier-stokes-fe)
 
 (defclass <navier-stokes-lagrange-fe> (<vector-fe-discretization>)
   ()
-  (:documentation "Up to now (Q_{k+1})^dim/Q_k finite elements."))
+  (:documentation "Up to now these are the generalized Taylor-Hood elements
+(Q_{k+1})^dim/Q_k."))
 
 (defun navier-stokes-lagrange-fe (order dim delta)
   "Returns (Q_{k+delta})^dim/Q_k finite elements."
@@ -52,48 +54,14 @@
     (make-list dim :initial-element (lagrange-fe (+ order delta)))
     (list (lagrange-fe order :integration-order (+ order delta))))))
 
-(defmethod boundary-last-order ((asa <ansatz-space-automorphism>))
-  "To solve the arising singular system with a direct decomposition we
-reorder the equations such that the problem appears only at the end.  Then
-rounding errors make it solvable.  Of course, an iterative solution should
-be preferred."
-  (let* ((mesh (mesh asa))
-	 (boundary (domain-boundary (domain mesh)))
-	 (bdry-keys ())
-	 (inner-keys ()))
-    (for-each-row-key
-     #'(lambda (key)
-	 (let ((cell (representative key)))
-	   (if (member-of-skeleton? (patch-of-cell cell mesh) boundary)
-	       (push cell bdry-keys)
-	       (push cell inner-keys))))
-     asa)
-    (append inner-keys bdry-keys)))
+(defvar *full-newton* t
+  "If T, a full Newton linearization is used.  If NIL, the reaction term is
+dropped.")
 
-(defun pressure-diagonal-inverter (mat)
-  "For use in a direct decomposition or ILU smoother.  Does not really work
-up to now."
-  (let ((copy-mat (copy mat))
-	(dim-1 (1- (nrows mat))))
-    (multiple-value-bind (lr pivot info)
-	(getrf! copy-mat)
-      (when (or (not (eq info t))
-		(> (norm copy-mat) (* 1e10 (algebra::det-from-lr lr pivot))))
-	(copy! mat copy-mat)
-	(setf (mref copy-mat dim-1 dim-1) 1.0)
-	(multiple-value-setq (lr pivot) (getrf! copy-mat)))
-      (getrs! lr (eye (nrows mat)) pivot))))
-
-
-(defmethod discretize-locally ((problem <navier-stokes-problem>)
-			       coeffs vecfe qrule fe-geometry
-			       &key local-mat local-rhs local-sol local-u local-v)
+(defmethod discretize-locally ((problem <navier-stokes-problem>) coeffs vecfe qrule fe-geometry
+			       &key local-mat local-rhs local-sol local-u local-v
+			       coefficient-parameters &allow-other-keys)
   "Local discretization for a Navier-Stokes problem."
-  #+(or)
-  (declare (type (array real-matrix (* *)) local-mat)
-	   (type (or null (array real-matrix (*)))
-		 local-sol local-rhs local-u local-v))
-
   (assert (and (null local-u) (null local-v)))
   
   (let* ((nr-comps (nr-of-components vecfe))
@@ -103,23 +71,26 @@ up to now."
 	 (reynolds (getf coeffs 'NAVIER-STOKES::REYNOLDS))
 	 (force (getf coeffs 'NAVIER-STOKES::FORCE)))
     ;; loop over quadrature points
-    (loop for shape-vals in (ip-values vecfe qrule) ; nr-comps x (n-basis x 1)
-	  and shape-grads in (ip-gradients vecfe qrule) ; nr-comps x (n-basis x dim)
-	  and global in (getf fe-geometry :global-coords)
-	  and Dphi^-1 in (getf fe-geometry :gradient-inverses)
-	  and weight in (getf fe-geometry :weights)
+    (loop
+     for k from 0
+     for shape-vals across (ip-values vecfe qrule) ; nr-comps x (n-basis x 1)
+     and shape-grads across (ip-gradients vecfe qrule) ; nr-comps x (n-basis x dim)
+     and global in (getf fe-geometry :global-coords)
+     and Dphi^-1 in (getf fe-geometry :gradient-inverses)
+     and weight in (getf fe-geometry :weights)
 	  do
-	  (let* ((sol-ip (and local-sol
-			      (map 'vector #'(lambda (sv ls) (m* (transpose sv) ls))
-				   local-sol shape-vals)))
-		 (coeff-input (list :global global :solution sol-ip)))
+	  (let* ((sol-ip (and local-sol (map 'vector #'m*-tn local-sol shape-vals)))
+		 (coeff-input
+		  (list* :global global :solution sol-ip
+			 (loop for (key data) on coefficient-parameters by #'cddr
+			       collect key collect (aref data k)))))
 	    (when viscosity (setq viscosity (evaluate viscosity coeff-input)))
 	    (when reynolds (setq reynolds (evaluate reynolds coeff-input)))
 	    (when force (setq force (evaluate force coeff-input)))
 	    (when (= cell-dim dim)
 	      (let* ((gradients (map 'vector (rcurry #'m* Dphi^-1) shape-grads)) ; nr-comps x (n-basis x dim)
 		     (grad-p (vector-last gradients)))
-		;; *** matrix ***
+		;; Stokes part: matrix 
 		(dotimes (i nr-comps)
 		  (dotimes (j nr-comps)
 		    ;; matrix
@@ -131,35 +102,46 @@ up to now."
 			  (unless (zerop viscosity)
 			    (gemm! (* weight viscosity) (aref gradients i) (aref gradients j)
 				   1.0 (aref local-mat i j) :NT)))
-			;; (u \cdot \nabla) u
-			(when (< j dim)
-			  (unless (zerop reynolds)
-			    (let* ((u-ip (reduce #'join (loop for u-comp across sol-ip
-							      and i below dim collect u-comp)))
-				   (u.grad_ui (m* (aref gradients i) u-ip)))
-			      (gemm! (* weight reynolds)
-				     u.grad_ui (aref shape-vals j)
-				     1.0 (aref local-mat i j) :NT))))
-			;; + \nabla p \vphi = - (\Div \phi) p
+			;; + \phi \nabla p = - (\Div \phi) p
 			(when (= j dim)
 			  (gemm! weight (aref shape-vals i) (matrix-slice grad-p :from-col i :ncols 1)
-				 1.0 (aref local-mat i j) :NT)
-			  #+(or)
-			  (gemm! (- weight) (matrix-slice (aref gradients i) :from-col i :ncols 1)
-				 (aref shape-vals j) 1.0 (aref local-mat i j) :NT)
-			  ))
+				 1.0 (aref local-mat i j) :NT)))
 		      ;; continuity part: tested with pressure
 		      (when (= i dim)
-			;; \Div u
+			;; p \Div u
 			(when (< j dim)
 			  (gemm! weight (aref shape-vals i)
 				 (matrix-slice (aref gradients j) :from-col j :ncols 1)
-				 1.0 (aref local-mat i j) :NT))))))))
-	    ;; *** rhs ***
-	    (dotimes (i nr-comps)
-	      (when (and force local-rhs)
-		(gemm! weight (aref shape-vals i) (aref force i)
-		       1.0 (aref local-rhs i))))))))
+				 1.0 (aref local-mat i j) :NT))))))
+		;; Stokes part: rhs
+		(dotimes (i nr-comps)
+		  (when (and force local-rhs)
+		    (gemm! weight (aref shape-vals i) (aref force i)
+			   1.0 (aref local-rhs i))))
+		;; Convection part
+		(unless (zerop reynolds)
+		  (let ((u-ip (make-real-matrix
+			       (loop for k below dim
+				     collecting (vref (aref sol-ip k) 0)))))
+		    (dotimes (i dim)
+		      ;; (usol \cdot \nabla) u
+		      (let ((u.grad_ui (m* (aref gradients i) u-ip)))
+			(gemm! (* weight reynolds)
+			       (aref shape-vals i) u.grad_ui
+			       1.0 (aref local-mat i i) :NT))
+		      ;; Full Newton linearization includes the term u (\nabla usol)
+		      (when *full-newton*
+			(let ((grad-i (m*-tn (aref local-sol i) (aref gradients i))))
+			  (dotimes (j dim)
+			    (let ((factor (* weight reynolds (vref grad-i j))))
+			      ;; put this term into the matrix
+			      (gemm! factor (aref shape-vals i) (aref shape-vals j)
+				     1.0 (aref local-mat i j) :NT)
+			      ;; and correct also the rhs
+			      (when local-rhs
+				(axpy! (* factor (vref u-ip j)) (aref shape-vals i)
+				       (aref local-rhs i))))))))))
+		))))))
 
 ;;; Constraint assembly -> see system-fe.lisp
 	       
@@ -169,13 +151,12 @@ up to now."
 
 (defmethod select-discretization ((problem <navier-stokes-problem>) blackboard)
   (let* ((dim (dimension (domain problem)))
-	 (order (if (<= dim 2) 4 2)))
+	 (order (if (<= dim 2) 2 1)))
     (navier-stokes-fe::navier-stokes-lagrange-fe order dim 1)))
 
 
 ;;; Testing
 (defun navier-stokes-fe-tests ()
-
   (let* ((level 1)
 	 (problem (driven-cavity 2))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
@@ -184,7 +165,6 @@ up to now."
 	(discretize-globally problem h-mesh fedisc)
       (show rhs)
       (display matrix)))
-  
   )
 
 (fl.tests:adjoin-test 'navier-stokes-fe-tests)

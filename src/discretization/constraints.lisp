@@ -133,14 +133,14 @@ sets the constraint matrix to identity for the level-unknowns."
        constraints-Q))
     (values constraints-P constraints-Q constraints-r)))
 
-(defun compute-interior-level-matrix (interior-mat level)
+(defun compute-interior-level-matrix (interior-mat sol level)
   (let* ((ansatz-space (ansatz-space interior-mat))
 	 (h-mesh (hierarchical-mesh ansatz-space))
 	 (top-level (top-level h-mesh))
 	 (mat (extract-level interior-mat level)))
     ;; extend the surface matrix on this level by the refined region
     (when (< level top-level)
-      (assemble-interior ansatz-space :mat mat :level level :where :refined))
+      (assemble-interior ansatz-space :matrix mat :solution sol :level level :where :refined))
     ;; extend it by the hanging-node region
     (loop for level from (1- level) downto 0
 	  for constraints =

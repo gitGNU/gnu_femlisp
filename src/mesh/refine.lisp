@@ -158,6 +158,9 @@ reference cells.  This is needed for plotting."
 (defun nr-of-subcell-children (cell)
   (refcell-nr-of-subcell-children (reference-cell cell)))
 
+(defun nr-of-refinement-vertices (cell depth)
+  (length (refcell-refinement-vertices (reference-cell cell) depth)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; refine-info generation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -154,13 +154,14 @@ probably called only on relatively few values of local-pos."
 global position by taking the scalar product with the list of corners.  It
 should be very useful to memoize the results of this function, because it is
 probably called only on relatively few values of local-pos."
-  (declare (type <cell> cell) (type double-vec local-pos))
+  (assert (reference-cell-p cell))
   (weight-vector-factors (factor-simplices cell) local-pos))
 
 ;;; the following speeds up bl-cdr by about 5%
 (memoize-symbol 'weight-vector-tensorial :test 'equalp)
 
 (defmethod l2g ((cell <tensorial>) local-pos)
+  "This method is open-coded for performance reasons."
   (let ((dim (manifold-dimension cell)))
     (declare (type fixnum dim))
     (let ((result (make-double-vec dim)))
@@ -215,24 +216,16 @@ corresponding to the weights for a partial derivative."
 		    (apply #'map-product #'* weight-lists)
 		  (setf (car weight-lists-tail) temp))))))
 
-;;;(memoize-symbol 'weight-lists-grad-tensorial :test 'equalp)
+(defun weight-matrix-grad-tensorial (tensorial local-pos)
+  (transpose
+   (make-real-matrix
+    (weight-lists-grad-tensorial tensorial local-pos))))
+
+(memoize-symbol 'weight-matrix-grad-tensorial :test 'equalp)
 
 (defmethod l2Dg ((cell <tensorial>) (local-pos vector))
-  (let* ((corners (corners cell))
-	 (m (vlength (car corners)))
-	 (n (dimension cell))
-	 (Dg (make-real-matrix m n))
-	 (grad (make-real-matrix m 1))
-	 (grad-store (store grad)))
-    (declare (type double-vec grad-store) (type fixnum m))
-    (loop for weight-list in (weight-lists-grad-tensorial
-			      (reference-cell cell) local-pos)
-	  and i of-type fixnum from 0 do
-	  (x<-0 grad)
-	  (loop for corner in corners and weight in weight-list do
-		(axpy! weight corner grad-store))
-	  (minject grad Dg 0 i))
-    Dg))
+  (m* (corner-matrix cell)
+      (weight-matrix-grad-tensorial (reference-cell cell) local-pos)))
 
 (defmethod local-coordinates-of-midpoint ((cell <tensorial>))
   (apply #'concatenate 'double-vec
@@ -362,7 +355,48 @@ boundary paths."
   "Returns the reference cube of dimension dim."
   (ensure-tensorial (make-list dim :initial-element 1)))
 
+(defun cube-p (cell)
+  "Returns T iff CELL is a cube."
+  (loop for factor in (factor-simplices cell)
+	always (= (dimension factor) 1)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Mapping of cubes to tensorials
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun cube-index->simplex-index (i)
+  "Transforms an index in the vertex field of the cube into the
+corresponding vertex index in the simplex."
+  (if (zerop i)
+      0
+      (loop for k from 0 until (logbitp k i)
+	    finally (return (1+ k)))))
+
+(defun cube-index->tensorial-index (dims i)
+  "Transforms an index in the vertex field of the cube into the
+corresponding vertex index in the tensorial with the dimension DIMS of its
+factors."
+  (loop for dim in (reverse dims)
+	and dim-offset = 0 then (+ dim-offset dim)
+	and offset = 1 then (* (1+ dim) offset)
+	summing (* (cube-index->simplex-index (ldb (byte dim dim-offset) i))
+		   offset)))
+
+(defun cell->cube (cell)
+  "Transforms a tensorial into a degenerated cube with the same vertices."
+  (let* ((dim (dimension cell))
+	 (dims (mapcar #'dimension (factor-simplices cell)))
+	 (vertices (coerce (vertices cell) 'vector)))
+    (make-cell-from-vertices
+     (tensorial-class (make-list dim :initial-element 1))
+     (loop for cube-index below (expt 2 dim)
+	   for cell-index = (cube-index->tensorial-index dims cube-index)
+	   collect (aref vertices cell-index)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; immediate generation of commonly used tensorials, check for consistency
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defparameter *unit-quadrangle* (n-cube 2))
 (defparameter *unit-cube* (n-cube 3))
 (defparameter *unit-prism-1-2* (ensure-tensorial '(1 2)))

@@ -59,72 +59,76 @@ other problems or other finite element discretizations.  |#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod discretize-locally ((problem <cdr-problem>) coeffs fe qrule fe-geometry
-			       &key local-mat local-rhs local-sol local-u local-v)
+			       &key local-mat local-rhs local-sol local-u local-v
+			       coefficient-parameters)
   "Local discretization for a convection-diffusion-reaction equation."
-  #+(or)
-  (declare (type (or null real-matrix) local-mat)
-	   (type (or null real-matrix) local-sol local-rhs local-u local-v))
   (let ((diffusion-function (getf coeffs 'CDR::DIFFUSION))
 	(convection-function (getf coeffs 'CDR::CONVECTION))
 	(gamma-function (getf coeffs 'CDR::GAMMA))
 	(alpha-function (getf coeffs 'CDR::ALPHA))
 	(source-function (getf coeffs 'CDR::SOURCE))
 	(reaction-function (getf coeffs 'CDR::REACTION)))
+    
     ;; loop over quadrature points
-    (loop for shape-vals in (ip-values fe qrule) ; (n-basis x 1)-matrix
-	  and shape-grads in (ip-gradients fe qrule) ; (n-basis x dim)-matrix
-	  and global in (getf fe-geometry :global-coords)
-	  and Dphi^-1 in (getf fe-geometry :gradient-inverses)
-	  and weight in (getf fe-geometry :weights)
-	  do
-	  (let* ((transposed-sv (transpose shape-vals))
-		 (sol-ip (and local-sol (m* transposed-sv local-sol)))
-		 (right-vals (if local-u (dot local-u shape-vals) shape-vals))
-		 (left-vals (if local-v (dot local-v shape-vals) shape-vals))
-		 (coeff-input (list :global global :solution sol-ip)))
+    (loop
+     for i from 0
+     and shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
+     and shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
+     and global in (getf fe-geometry :global-coords)
+     and Dphi^-1 in (getf fe-geometry :gradient-inverses)
+     and weight in (getf fe-geometry :weights)
+     do
+     (let* ((right-vals (if local-u (dot local-u shape-vals) shape-vals))
+	    (left-vals (if local-v (dot local-v shape-vals) shape-vals))
+	    (sol-ip (and local-sol (m*-tn shape-vals local-sol)))
+	    (coeff-input
+	     (list* :global global :solution sol-ip
+		    (loop for (key data) on coefficient-parameters by #'cddr
+			  collect key collect (aref data i)))))
+       
+       (when (or (and local-mat (or diffusion-function convection-function))
+		 (and local-rhs diffusion-function gamma-function))
+	 (let* ((gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
+		(right-gradients (if local-u (m*-tn local-u gradients) gradients))
+		(left-gradients (if local-v (m*-tn local-v gradients) gradients)))
+	   ;; diffusion
+	   (when diffusion-function
+	     (let* ((diff-tensor (evaluate diffusion-function coeff-input))
+		    (fluxes (m* left-gradients diff-tensor))) ; (n-basis x dim)-matrix
+	       (when local-mat
+		 (gemm! weight fluxes right-gradients 1.0 local-mat :NT))
+	       ;; gamma
+	       (when (and gamma-function local-rhs)
+		 (gemm! weight fluxes (evaluate gamma-function coeff-input)
+			1.0 local-rhs))
+	       ))
+	   ;; convection
+	   (when (and convection-function local-mat)
+	     (let* ((velocity-vector (evaluate convection-function coeff-input)))
+	       (gemm! (- weight) (m* left-gradients velocity-vector) right-vals 1.0 local-mat :NT)))
+	   ))
 	    
-	    (when (or (and local-mat (or diffusion-function convection-function))
-		      (and local-rhs diffusion-function gamma-function))
-	      (let* ((gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
-		     (right-gradients (if local-u (m* (transpose local-u) gradients) gradients))
-		     (left-gradients (if local-v (m* (transpose local-v) gradients) gradients)))
-		;; diffusion
-		(when diffusion-function
-		  (let* ((diff-tensor (evaluate diffusion-function coeff-input))
-			 (fluxes (m* left-gradients diff-tensor))) ; (n-basis x dim)-matrix
-		    (when local-mat
-		      (gemm! weight fluxes right-gradients 1.0 local-mat :NT))
-		    ;; gamma
-		    (when (and gamma-function local-rhs)
-		      (gemm! weight fluxes (evaluate gamma-function coeff-input)
-			     1.0 local-rhs))
-		    ))
-		;; convection
-		(when (and convection-function local-mat)
-		  (let* ((velocity-vector (evaluate convection-function coeff-input)))
-		    (gemm! (- weight) (m* left-gradients velocity-vector) right-vals 1.0 local-mat :NT)))
-	    ))
+       ;; reaction
+       (when (and reaction-function local-mat)
+	 (let* ((reaction (evaluate reaction-function coeff-input))
+		(factor (* weight reaction)))
+	   (when alpha-function
+	     (setq factor (* factor (evaluate alpha-function coeff-input))))
+	   (gemm! factor left-vals right-vals 1.0 local-mat :NT)))
 	    
-	    ;; reaction
-	    (when (and reaction-function local-mat)
-	      (let* ((reaction (evaluate reaction-function coeff-input))
-		     (factor (* weight reaction)))
-		(when alpha-function
-		  (setq factor (* factor (evaluate alpha-function coeff-input))))
-		(gemm! factor left-vals right-vals 1.0 local-mat :NT)))
-	    
-	    ;; source
-	    (when (and source-function local-rhs)
-	      (let ((source (evaluate source-function coeff-input)))
-		(when alpha-function
-		  (setq source (scal (evaluate alpha-function coeff-input) source)))
-		(when (numberp source) (setq source (make-real-matrix `((,source)))))
-		(gemm! weight left-vals source 1.0 local-rhs)
-		))
-	    ))
+       ;; source
+       (when (and source-function local-rhs)
+	 (let ((source (evaluate source-function coeff-input)))
+	   (when alpha-function
+	     (setq source (scal (evaluate alpha-function coeff-input) source)))
+	   (when (numberp source) (setq source (make-real-matrix `((,source)))))
+	   (gemm! weight left-vals source 1.0 local-rhs)
+	   ))
+       ))
     ;; custom fe rhs
     (whereas ((fe-rhs (and local-rhs (getf coeffs 'CDR::FE-RHS))))
-      (m+! (funcall fe-rhs (getf fe-geometry :cell) fe) local-rhs))
+      (m+! (evaluate fe-rhs (list :cell (getf fe-geometry :cell) :fe fe))
+	   local-rhs))
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -176,7 +180,9 @@ other problems or other finite element discretizations.  |#
 
 (defmethod select-discretization ((problem <cdr-problem>) blackboard)
   (let* ((dim (dimension (domain problem)))
-	 (order (if (<= dim 2) 4 3)))
+	 (order (cond ((<= dim 2) 4)
+		      ((= dim 3) 3)
+		      (t 1))))
     (lagrange-fe order)))
 
 

@@ -48,10 +48,10 @@
     (:gauss-lobatto
      (coerce (gauss-lobatto-points-on-unit-interval (1- order)) 'vector))))
   
-(defmethod lagrange-inner-coords ((vtx <vertex>) (order fixnum) (type symbol))
+(defmethod lagrange-inner-coords ((vtx <vertex>) order type)
   (list (double-vec)))
 
-(defmethod lagrange-inner-coords ((simplex <simplex>) (order fixnum) (type symbol))
+(defmethod lagrange-inner-coords ((simplex <simplex>) order type)
   (let ((coords-1d (lagrange-coords-1d order type))
 	(dim (dimension simplex))
 	(result ()))
@@ -61,7 +61,7 @@
 	      result)))
     (reverse result)))
 
-(defmethod lagrange-inner-coords ((cell <tensorial>) (order fixnum) (type symbol))
+(defmethod lagrange-inner-coords ((cell <tensorial>) order type)
   (apply #'map-product #'(lambda (&rest args) (apply #'concatenate 'double-vec args))
 	 (mapcar #'(lambda (simplex) (lagrange-inner-coords simplex order type))
 		 (factor-simplices cell))))
@@ -213,7 +213,7 @@ boundary lagrangian."
 	      (boundary-indices (range< nr-inner-dofs nr-dofs)))
 	 (loop with qrule = (quadrature-rule fe-class fe)
 	       for ip in (integration-points qrule)
-	       for gradients in (ip-gradients fe qrule) do
+	       for gradients across (ip-gradients fe qrule) do
 	       (gemm! (ip-weight ip) gradients gradients 1.0 energy-mat :nt))
 	 (let* ((A_II (submatrix energy-mat :row-indices inner-indices :col-indices inner-indices))
 		(A_IB (submatrix energy-mat :row-indices inner-indices :col-indices boundary-indices))

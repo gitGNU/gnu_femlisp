@@ -50,7 +50,7 @@ Femlisp uses two graphics packages, namely Gnuplot and Data Explorer.  Make
 sure that they can be found in your path and that they work.
 
 [Debian: "apt-get install gnuplot dx"]
-
+[MacOSX: Use the DX from fink/unstable.]
 
 ** (C) Femlisp download
 
@@ -58,6 +58,11 @@ sure that they can be found in your path and that they work.
 (if "wget" should not be available try "curl" instead)
 
   wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
+
+You can check the correctness of the download against the binary GPG
+signature in <http://www.femlisp.org/femlisp-current.tar.gz.sig>.  My
+public PGP key can be found at
+<http://www.iwr.uni-heidelberg.de/~Nicolas.Neuss/nicolas_neuss.pgp>.
 
 *** Alternative 2: Checkout a CVS version
 
@@ -81,10 +86,11 @@ CL_TYPE to either "sbcl" or "cmucl".
 
 ** (F) Compiling Femlisp
 
-You should now be able to start Femlisp by executing the startup script.
-The first time you use this script, your Lisp implementation has to compile
-both CL-PPCRE and Femlisp.  This will take a while.  The next time, startup
-will be faster.  You can exit Femlisp by typing "(quit)".
+You should now be able to start Femlisp by executing the script
+"femlisp/bin/femlisp.  The first time you use this script, your Lisp
+implementation has to compile both CL-PPCRE and Femlisp.  This will take a
+while.  The next time, startup will be much faster.  You can exit Femlisp
+by typing "(quit)".
 
 ** (G) [OPTIONAL] Saving a core
 
@@ -94,7 +100,7 @@ Femlisp during startup.  This is done by executing the command
   make femlisp-core
 
 from inside the Femlisp main directory.  After this operation, Femlisp
-should start up much faster.
+should start up very fast.
 
 ** (H) Setup of a simple interactive Femlisp environment
 
@@ -132,11 +138,13 @@ If you want to start real work with Femlisp, you should get yourself some
 literature on CL. An indispensable resource for Common Lisp is the ANSI CL
 specification in the form of the Hyperspec, which is available online.
 
+[Debian: "apt-get install hyperspec"]
+
 ###########################################################################
 
 * Notes:
 
 Up to now, Femlisp has been tested with CMUCL and SBCL on X86/Linux, with
-CMUCL on Sparc/Solaris platforms and with SBCL on Mac OS X.  It should not
+CMUCL on Sparc/Solaris platforms, and with SBCL on Mac OS X.  It should not
 be difficult to port it to other CL implementations running on other
 computer architectures.

@@ -73,25 +73,8 @@ oscillating domain."
   (list "                Cbl" "~19,10,2E" #'compute-cbl)
   "Observe list for Cbl.")
 
-(defparameter *result* nil)
-
-(defun bl-computation (&key domain order max-levels output plot &allow-other-keys)
-  "Computes a boundary layer and a boundary law coefficient
-constant for a given boundary layer cell domain."
-  (defparameter *result*
-    (solve (blackboard
-	    :problem (boundary-layer-cell-problem domain)
-	    :fe-class (lagrange-fe order)
-	    :functional :load-functional
-	    :output output :plot-mesh t
-	    :observe (append *stationary-fe-strategy-observe*
-			     (list *cbl-observe* *eta-observe*))
-	    :success-if `(= :max-level ,(1- max-levels)))))
-  (when plot
-    (plot (getf *result* :solution))))
-
-
-(defun cdr-bl-computation (dim order max-levels &rest rest)
+(defun cdr-bl-computation (dim/domain order max-levels &rest rest
+			   &key output plot &allow-other-keys)
   "bl-diffusion-~Dd - Computes a boundary law coefficient
 
 Computes a boundary law coefficient constant for an oscillating
@@ -103,22 +86,36 @@ with high order approximations and local mesh refinement is well
 suited for computing this constant with high accuracy.  Error
 estimation is achieved by using a duality error estimator for
 the load functional."
-  (apply #'bl-computation
-	 :domain (apply #'sinusoidal-bl-cell dim rest)
-	 :order order :max-levels max-levels rest))
+  (let ((domain (if (numberp dim/domain)
+		    (apply #'sinusoidal-bl-cell dim/domain rest)
+		    dim/domain)))
+    (defparameter *result*
+      (solve (blackboard
+	      :problem (boundary-layer-cell-problem domain)
+	      :fe-class (lagrange-fe order)
+	      :estimator
+	      (make-instance '<duality-error-estimator>
+			     :functional :load-functional)
+	      :indicator
+	      (make-instance '<largest-eta-indicator> :pivot-factor 0.01
+			     :from-level 1 :block-p t)
+	      :output output :plot-mesh t
+	      :observe (append *stationary-fe-strategy-observe*
+			       (list *cbl-observe* *eta-observe*))
+	      :success-if `(= :max-level ,(1- max-levels)))))
+    (when plot
+      (plot (getbb *result* :solution)))))
 
 #+(or) (cdr-bl-computation
-	2 4 2 :plot t :amplitude 0.15 :extensible nil :output :all)
+	2 4 3 :plot t :amplitude 0.15 :extensible nil :output 1)
 #|
 (profile:unprofile)
 (profile:report-time)
 (profile:reset-time)
-(profile:profile iteration::newton)
 (profile:profile discretization::do-fe-dofs-mblocks)
 (profile:profile discretization::do-fe-dofs-vblocks)
 (profile:profile discretization::fe-cell-geometry)
 (profile:profile discretization::assemble-interior)
-(profile:profile iteration::solve)
 (profile:profile :methods 'discretization::discretize-locally)
 (profile:profile mesh::local->Dglobal)
 (profile:profile mesh::local->global)
@@ -167,8 +164,8 @@ the load functional."
      (oscillating-boundary-domain
      2 f :grad-f Df)))
   
-  (bl-computation :domain (spline-interpolated-bl-cell #(1.2 1.2 1.2))
-		  :order 2 :max-levels 2 :plot t :output :all)
+  (cdr-bl-computation (spline-interpolated-bl-cell #(1.2 1.2 1.2))
+		      2 2 :plot t :output :all)
   
   ;; testing if identification with only one cell width works
   (let* ((problem (sinusoidal-boundary-layer-cell-problem 2))
@@ -183,34 +180,34 @@ the load functional."
 	    :depth 3)
       ))
 
-  (plot (getf *result* :mesh))
-  (plot (strategy::eta->p2-vec (getf *result* :eta) (getf *result* :problem)
-			       (getf *result* :mesh)))
-  (display-ht (getf *result* :eta))
+  (plot (getbb *result* :mesh))
+  (plot (strategy::eta->p2-vec (getbb *result* :eta) (getbb *result* :problem)
+			       (getbb *result* :mesh)))
+  (display-ht (getbb *result* :eta))
   (apply #'strategy::compute-local-estimate
-	 (slot-value (getf *result* :strategy) 'strategy::estimator) *result*)
+	 (slot-value (getbb *result* :strategy) 'strategy::estimator) *result*)
 
-  (dohash (key (getf *result* :eta))
+  (dohash (key (getbb *result* :eta))
     (let ((mp (midpoint key)))
       (when (< (norm (m- mp #(0.9375 -0.3125))) 1.0e-10)
-	(display-ht (matrix-row (getf *result* :matrix) key)))))
+	(display-ht (matrix-row (getbb *result* :matrix) key)))))
  
-  (plot (getf *result* :solution))
+  (plot (getbb *result* :solution))
 
   ;; reiteration
   (solve (s1-reduction-amg-solver 4 :reduction 1.0e-3 :output t) *result*)
-  (plot (getf *result* :solution))
-  (plot (getf *result* :mesh))
-  (getf *result* :global-eta)
-  (show (getf *result* :solution))
-  (plot (getf *result* :solution) :depth 2 :plot :file :filename "bl-cell-sol" :format "eps")
-  (plot (mesh (getf *result* :solution)) :plot :file :filename "bl-cell-mesh.ps" :format "eps")
+  (plot (getbb *result* :solution))
+  (plot (getbb *result* :mesh))
+  (getbb *result* :global-eta)
+  (show (getbb *result* :solution))
+  (plot (getbb *result* :solution) :depth 2 :plot :file :filename "bl-cell-sol" :format "eps")
+  (plot (mesh (getbb *result* :solution)) :plot :file :filename "bl-cell-mesh.ps" :format "eps")
   (compute-cbl *result*)
-  (nr-of-levels (mesh (getf *result* :solution)))
-  (nr-of-cells (mesh (getf *result* :solution)))
+  (nr-of-levels (mesh (getbb *result* :solution)))
+  (nr-of-cells (mesh (getbb *result* :solution)))
   (destructuring-bind (&key matrix solution rhs &allow-other-keys)
       *result*
     (plot (m- rhs (m* matrix solution))))
   
-  (problem-info (sinusoidal-boundary-layer-cell-problem 2))
+  (describe (sinusoidal-boundary-layer-cell-problem 2))
   )

@@ -85,7 +85,8 @@ already assembled.  Works only for uniformly refined meshes."
 	 (top-level (top-level h-mesh))
 	 (a-vec (make-array (nr-of-levels h-mesh)))
 	 (i-vec (make-array (nr-of-levels h-mesh)))
-	 (interior-mat (getf (discretization-info mat) :interior-matrix)))
+	 (interior-mat (getf (discretization-info mat) :interior-matrix))
+	 (solution (getf (discretization-info mat) :solution)))
     
     ;; set the matrix vector
     (multiple-value-bind (essential-P essential-Q essential-r)
@@ -93,7 +94,7 @@ already assembled.  Works only for uniformly refined meshes."
 	 ansatz-space :where :all)
       (loop for level from 0 upto top-level
 	    for l-mat = (discretization::compute-interior-level-matrix
-			 interior-mat level) do
+			 interior-mat solution level) do
 	    (let ((eliminated-mat
 		   (eliminate-constraints
 		    l-mat nil essential-P essential-Q essential-r
@@ -128,7 +129,7 @@ already assembled.  Works only for uniformly refined meshes."
     (setf (aref a-vec top-level) mat)
     (loop for level below top-level do
 	  (let ((l-mat (make-ansatz-space-automorphism ansatz-space)))
-	    (assemble-interior ansatz-space :mat l-mat :level level :where :refined)
+	    (assemble-interior ansatz-space :matrix l-mat :level level :where :refined)
 	    (multiple-value-bind (constraints-P constraints-Q constraints-r)
 		(discretization::compute-essential-boundary-constraints
 		 ansatz-space :level level :where :refined)

@@ -35,7 +35,7 @@
 (in-package :discretization)
 
 (defmethod essential-boundary-constraints
-    ((problem <problem>) (ansatz-space <ansatz-space>)
+    ((problem <pde-problem>) (ansatz-space <ansatz-space>)
      &key level (where :surface) interface)
   (assert (or (not (eq where :surface)) interface))
   (let* ((problem (problem ansatz-space))
@@ -58,7 +58,6 @@
 	    (loop with fe = (get-fe fe-class cell)
 		  for dof in (fe-dofs fe)
 		  when (interior-dof? dof) do
-		  ;;for j below (nr-of-inner-dofs fe) do
 		  (let ((k (dof-in-vblock-index dof))
 			(comp (dof-component dof))
 			(ci (list :local (dof-coord dof)
@@ -66,7 +65,7 @@
 		    ;; Very simple component-wise constraints for Lagrange
 		    ;; fe. This should be extended to constraints in the
 		    ;; form P, Q, r.  It could also be accelerated by not
-		    ;; evaluating every bc dim times.
+		    ;; evaluating every bc several times.
 		    (multiple-value-bind (constraint-flag constraint-val)
 			(evaluate constraint-function ci)
 		      (when (aref constraint-flag comp)

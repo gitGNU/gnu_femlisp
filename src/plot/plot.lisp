@@ -51,7 +51,9 @@ printed to *trace-output* instead of plotting.")
   "Handles the *plot* parameter."
   (case *plot*
     (t (call-next-method))
-    (:message (format *trace-output* "~&<Plotting>~%"))))
+    (:message (format *trace-output* "~&<Plotting>~%")))
+  ;; and generally we return the object itself
+  object)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; graphic-write-data
@@ -94,6 +96,8 @@ consisting of cell and vertex indices."
     (dolist (cell cells connection-list)
       (skel-for-each
        #'(lambda (mini-cell)
+	   (unless (simplex-p mini-cell)
+	     (setq mini-cell (cell->cube mini-cell)))
 	   (push
 	    (mapcar
 	     #'(lambda (local-vtx) (gethash (make-key cell local-vtx) position-indices))
@@ -126,9 +130,9 @@ consisting of cell and vertex indices."
     data))
 
 
-(defun position-array (cells position-indices depth)
-  "Collects all positions into an array.  For the moment, we ignore hanging
-nodes."
+(defun position-array (cells position-indices depth &optional transformation)
+  "Collects all positions in the hash-table POSITION-INDICES into an
+array."
   (let ((position-array (make-array (hash-table-count position-indices))))
     (dolist (cell cells position-array)
       (loop
@@ -136,6 +140,9 @@ nodes."
 			     (reference-cell cell) depth)
        do
        (setf (aref position-array (gethash (make-key cell local-vtx) position-indices))
-	     (local->global cell (vertex-position local-vtx)))))))
+	     (let ((pos (local->global cell (vertex-position local-vtx))))
+	       (if transformation
+		   (evaluate transformation pos)
+		   pos)))))))
 
 

@@ -84,7 +84,5 @@ server."))
     (whereas ((stream (graphic-stream program)))
       (when debug (apply #'send-graphic-commands *trace-output* object program rest))
       (apply #'send-graphic-commands stream object program rest)
-      (force-output stream)))
-  ;; this is quite useful, similar to the behaviour of print
-  object)
+      (force-output stream))))
 

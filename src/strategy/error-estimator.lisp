@@ -235,12 +235,12 @@ estimator is computationally more intensive than the original problem."
     (unless dual-problem-blackboard
       (setf dual-problem-blackboard (blackboard)))
     (unless (getbb dual-problem-blackboard :ansatz-space)
-      (let* ((dual-problem #-(or) (dual-problem problem (functional errest))
-			   #+(or) problem)
+      (let* ((dual-problem (dual-problem problem (functional errest)))
 	     (as-low (getbb blackboard :ansatz-space))
 	     (order (discretization-order (fe-class as-low)))
 	     (as-high (make-fe-ansatz-space (lagrange-fe (1+ order))
 					    dual-problem mesh)))
+	(setf (getbb dual-problem-blackboard :problem) dual-problem)
 	(setf (getbb dual-problem-blackboard :ansatz-space) as-high)
 	(setf (getbb dual-problem-blackboard :solution)
 	      (make-ansatz-space-vector as-high))))
@@ -252,7 +252,7 @@ estimator is computationally more intensive than the original problem."
 	(setf (getbb dual-problem-blackboard :refined-cells) refined-cells)
 	(update-I-P-sol dual-problem-blackboard)))
     (with-items (&key interior-matrix matrix interior-rhs rhs solution
-		      solver-blackboard)
+		      discretized-problem linearization-blackboard)
       dual-problem-blackboard
       ;; should be improved later to avoid reassembly
       (setf interior-matrix nil interior-rhs nil)
@@ -260,15 +260,16 @@ estimator is computationally more intensive than the original problem."
 	     (setf matrix nil)
 	     (cond ((eq (functional errest) :load-functional)
 		    ;; energy error estimate
-		    (setf rhs (getbb enlarged-as-blackboard :rhs)))
-		   (t (fe-discretize dual-problem-blackboard)))
-	     (setf matrix (getbb enlarged-as-blackboard :matrix)))
+		    (setf rhs (getbb enlarged-as-blackboard :rhs))
+		    (setf matrix (getbb enlarged-as-blackboard :matrix))
+		    (setf discretized-problem (lse :matrix matrix :rhs rhs)))
+		   (t (fe-discretize dual-problem-blackboard))))
 	    (t (fe-discretize dual-problem-blackboard)))
-      (setq solver-blackboard
-	    (solve (or (slot-value errest 'solver)
-		       (slot-value strategy 'solver))
-		   (blackboard :matrix matrix :rhs rhs :solution solution)))
-      (setf solution (getbb solver-blackboard :solution)))
+      (setq linearization-blackboard (blackboard :problem discretized-problem :solution solution))
+      (solve (or (slot-value errest 'solver)
+		 (slot-value strategy 'solver))
+	     linearization-blackboard)
+      (setf solution (getbb linearization-blackboard :solution)))
     ))
 
 ;;; compute-local-estimate

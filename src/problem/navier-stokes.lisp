@@ -46,7 +46,7 @@
 ;;;; <navier-stokes-problem>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <navier-stokes-problem> (<problem>)
+(defclass <navier-stokes-problem> (<pde-problem>)
   ()
   (:documentation "Navier-Stokes problem."))
 
@@ -98,11 +98,14 @@
 ;;;; Driven cavity
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun driven-cavity-upper-boundary (dim)
-  (let ((flags (make-array (1+ dim) :initial-element t))
+(defun driven-cavity-upper-boundary (dim &optional smooth-p)
+  (let ((flags (make-array (1+ dim) :initial-element (not smooth-p)))
 	(values (make-double-vec (1+ dim))))
     (setf (aref flags dim) nil) ; no constraint for pressure
-    (setf (aref values 0) 1.0)
+    (when smooth-p  ; zero constraint for u_n
+      (setf (aref flags (1- dim)) t))
+    (unless smooth-p
+      (setf (aref values 0) 1.0))
     (constant-coefficient flags values)))
 
 (defun driven-cavity-force (dim)
@@ -125,15 +128,17 @@
 	   ((member-of-skeleton? patch (domain-boundary domain))
 	    ;; boundary coeffs
 	    (if (eq patch upper)
-		(if smooth-p
-		    (list 'FORCE (driven-cavity-force dim))
-		    (list 'CONSTRAINT (driven-cavity-upper-boundary dim)))
-		(list 'CONSTRAINT (no-slip-boundary dim))))
+		(append (when smooth-p
+			  (list 'FORCE (driven-cavity-force dim)))
+			(list 'CONSTRAINT (driven-cavity-upper-boundary
+					   dim smooth-p)))
+	    (list 'CONSTRAINT (no-slip-boundary dim))))
 	   ;; inner coeffs
 	   ((= dim (dimension patch))
-	    (list 'VISCOSITY (constant-coefficient viscosity)
-		  'REYNOLDS (constant-coefficient reynolds)))
-	   (t ()))))))
+	    (list 'VISCOSITY (ensure-coefficient viscosity)
+		  'REYNOLDS (ensure-coefficient reynolds)))
+	   (t ())))
+     :linear-p (zerop reynolds))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Periodic cavity
@@ -142,10 +147,12 @@
 (defun periodic-cavity-force (dim)
   (function->coefficient
    #'(lambda (x)
-    (coerce (append (make-list dim :initial-element
-			       (make-real-matrix `((,#I"sin(2*pi*x[0])*cos(2*pi*x[1])"))))
-		    (list #m((0.0))))
-	    'vector))))
+    (let ((result (make-array (1+ dim))))
+      (dotimes (i (1+ dim) result)
+	(setf (aref result i)
+	      (if (< i dim)
+		  (make-real-matrix `((,#I"sin(2*pi*x[0])*cos(2*pi*x[1])")))
+		  (zeros 1))))))))
 
 (defun periodic-cavity (dim &key (viscosity 1.0) (reynolds 0.0))
   (let ((domain (n-cell-domain dim)))
@@ -155,20 +162,20 @@
      :patch->coefficients
      #'(lambda (patch)
 	 (when (= (dimension patch) dim)
-	   (list 'VISCOSITY (constant-coefficient viscosity)
-		 'REYNOLDS (constant-coefficient reynolds)
+	   (list 'VISCOSITY (ensure-coefficient viscosity)
+		 'REYNOLDS (ensure-coefficient reynolds)
 		 'FORCE (periodic-cavity-force dim)
 		 ))))))
 
 
 
-;;; Testing: (test-navier-stokes)
+;;; Testing: (navier-stokes::test-navier-stokes)
 
 (defun test-navier-stokes ()
-  (problem-info
+  (describe
    (standard-navier-stokes-problem
     *unit-quadrangle-domain* :force (constantly (unit-vector 2 0))))
-  (problem-info (driven-cavity 2 :smooth-p nil))
+  (describe (driven-cavity 2 :smooth-p nil :reynolds 1.0))
   )
 
 (fl.tests:adjoin-test 'test-navier-stokes)

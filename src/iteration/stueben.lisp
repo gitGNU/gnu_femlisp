@@ -230,7 +230,6 @@ corresponding index."))
     ))
 
 
-
 ;;;; Testing
 
 (defun test-stueben ()
@@ -240,30 +239,22 @@ corresponding index."))
     (pt-remove pt 'B)
     (pt-pop pt)
     (describe pt))
-  
-  (let* ((key->size (constantly 1))
-	 (A (make-sparse-automorphism :key->size key->size
-				      :keys->pattern (constantly (full-crs-pattern 1 1))))
-	 (b (make-instance '<sparse-vector> :key->size key->size)))
-    (setf (mref A 0 0) #m(( 2.0)))
-    (setf (mref A 0 1) #m((-1.0)))
-    (setf (mref A 1 0) #m((-1.0)))
-    (setf (mref A 1 1) #m(( 2.0)))
-    (setf (mref A 1 2) #m((-1.0)))
-    (setf (mref A 2 1) #m((-1.0)))
-    (setf (mref A 2 2) #m(( 2.0)))
-    (setf (vref b 1)   #m(( 1.0)))
-
-    (let ((amg (make-instance '<stueben> :max-depth 1 :cg-max-size 1)))
+    
+  (let* ((A (laplace-sparse-matrix 3))
+	 (b (make-image-vector-for A)))
+    (fill-random! b 1.0)
+    (let ((amg (make-instance '<stueben>
+			      :max-depth 1 :cg-max-size 1 :output t)))
       #+(or)
       (show (getf (apply #'improved-prolongation amg
 			 (apply #'tentative-prolongation amg
 				(choose-coarse-grid amg :mat A)))
 		  :prolongation))
-      #+(or)
       (coarsen amg A)
-      (linsolve A b :output t :iteration amg :maxsteps 20)))
+      (solve (make-instance '<linear-solver> :iteration *lu-iteration*
+			    :output t :success-if '(>= :step 3))
+	     (blackboard :problem (lse :matrix A :rhs b)))))
   )
 
-;;; (test-stueben)
+;;; (multigrid::test-stueben)
 (fl.tests:adjoin-test 'test-stueben)

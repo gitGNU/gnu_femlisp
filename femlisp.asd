@@ -38,11 +38,16 @@
   (:use #:cl #:asdf))
 
 (asdf::defsystem
- "femlisp"
- :pathname (translate-logical-pathname "femlisp:src;")
- :depends-on ()
- :components
- ((:module "basic"
+    "femlisp"
+    :pathname (translate-logical-pathname "femlisp:src;")
+    :depends-on ()
+    :components
+    (
+     ;;
+     ;; Basic functionality
+     ;;
+     (:module
+      "basic"
       :depends-on ()
       :components
       ((:file "debug")
@@ -58,56 +63,44 @@
        (:file "mflop" :depends-on ("utilities"))
        (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))
        ))
-      (:module "matlisp"
-       :depends-on ("basic")
-       :components
-       ((:file "matlisp-defp")
-	(:file "vector" :depends-on ("matlisp-defp"))
-	(:file "matrix" :depends-on ("vector"))
-	(:file "number-blas" :depends-on ("matrix"))
-	(:file "standard-matrix" :depends-on ("matrix"))
-	(:file "standard-matrix-blas" :depends-on ("standard-matrix"))
-	(:file "standard-matrix-lr" :depends-on ("standard-matrix-blas"))
-	(:file "array-blas" :depends-on ("matrix"))
-	(:file "compat" :depends-on ("matrix"))
-	))
-     (:module "algebra"
-       :depends-on ("basic" "matlisp")
-       :components
-       ((:file "algebra-defp")
-	(:file "tensor" :depends-on ("algebra-defp"))
-	(:file "sparse-tensor" :depends-on ("tensor"))
-	(:file "crs" :depends-on ("algebra-defp"))
-	(:file "sparse" :depends-on ("crs"))
-	(:file "sparselu" :depends-on ("sparse"))))
-     (:module "function"
-       :depends-on ("basic" "matlisp" "algebra")
-       :components
-       ((:file "function-defp")
-	(:file "function" :depends-on ("function-defp"))
-	(:file "polynom" :depends-on ("function"))
-	(:file "spline" :depends-on ("polynom"))))
      (:module
-      "iteration"
-      :depends-on ("basic" "algebra" "function")
+      "matlisp"
+      :depends-on ("basic")
       :components
-      ((:file "iteration-defp")
-       (:file "iterate" :depends-on ("iteration-defp"))
-       (:file "solve" :depends-on ("iteration-defp" "iterate"))
-       (:file "newton" :depends-on ("iteration-defp"))
-       (:file "linit" :depends-on ("iteration-defp"))
-       (:file "blockit" :depends-on ("iteration-defp"))
-       (:file "linsolve" :depends-on ("linit"))
-       (:file "krylow" :depends-on ("linit"))
-       (:file "multigrid-defp" :depends-on ("iteration-defp"))
-       (:file "multigrid" :depends-on ("linit" "multigrid-defp"))
-       (:file "amg" :depends-on ("multigrid"))
-       (:file "selection-amg" :depends-on ("amg"))
-       (:file "aggregation-amg" :depends-on ("amg"))
-       (:file "stueben" :depends-on ("selection-amg"))))
+      ((:file "matlisp-defp")
+       (:file "vector" :depends-on ("matlisp-defp"))
+       (:file "matrix" :depends-on ("vector"))
+       (:file "number-blas" :depends-on ("matrix"))
+       (:file "standard-matrix" :depends-on ("matrix"))
+       (:file "standard-matrix-blas" :depends-on ("standard-matrix"))
+       (:file "standard-matrix-lr" :depends-on ("standard-matrix-blas"))
+       (:file "array-blas" :depends-on ("matrix"))
+       (:file "compat" :depends-on ("matrix"))
+       ))
+     (:module
+      "algebra"
+      :depends-on ("basic" "matlisp")
+      :components
+      ((:file "algebra-defp")
+       (:file "tensor" :depends-on ("algebra-defp"))
+       (:file "sparse-tensor" :depends-on ("tensor"))
+       (:file "crs" :depends-on ("algebra-defp"))
+       (:file "sparse" :depends-on ("crs"))
+       (:file "sparselu" :depends-on ("sparse"))))
+     (:module
+      "function"
+      :depends-on ("basic" "matlisp" "algebra")
+      :components
+      ((:file "function-defp")
+       (:file "function" :depends-on ("function-defp"))
+       (:file "polynom" :depends-on ("function"))
+       (:file "spline" :depends-on ("polynom"))))
+     ;;
+     ;; Mesh
+     ;;
      (:module
       "mesh"
-      :depends-on ("basic" "matlisp" "algebra" "function" "iteration")
+      :depends-on ("basic" "matlisp" "algebra" "function")
       :components
       ((:file "mesh-defp")
        (:file "cell" :depends-on ("mesh-defp"))
@@ -118,28 +111,33 @@
        (:file "simplex" :depends-on ("vertex"))
        (:file "tensorial" :depends-on ("simplex"))
        (:file "skeleton-build" :depends-on ("tensorial"))
-       (:file "domain" :depends-on ("tensorial"))
+       (:file "domain" :depends-on ("skeleton-build"))
        (:file "mesh" :depends-on ("domain" "identify"))
        (:file "meshgen" :depends-on ("mesh"))
        (:file "extend" :depends-on ("meshgen"))
        ))
+     ;;
+     ;; Problems
+     ;;
      (:module
       "problem"
       :depends-on ("mesh")
       :components
       ((:file "problem-defp")
        (:file "problem" :depends-on ("problem-defp"))
-       ;;(:file "periodic" :depends-on ("problem"))
-       ;;
-       (:file "cdr" :depends-on ("problem-defp"))
-       (:file "time" :depends-on ("problem-defp" "cdr"))
-       (:file "cdrsys" :depends-on ("problem-defp"))
-       (:file "elasticity" :depends-on ("problem-defp"))
-       (:file "navier-stokes" :depends-on ("problem-defp"))
+       (:file "pde-problem" :depends-on ("problem"))
+       (:file "cdr" :depends-on ("pde-problem"))
+       (:file "elasticity" :depends-on ("pde-problem"))
+       (:file "navier-stokes" :depends-on ("pde-problem"))
+       (:file "cdrsys" :depends-on ("cdr"))
+       (:file "time" :depends-on ("pde-problem" "cdr"))
        ))
+     ;;
+     ;; Discretization
+     ;;
      (:module
       "discretization"
-      :depends-on ("algebra" "function" "problem")
+      :depends-on ("algebra" "function" "mesh" "problem")
       :components
       ((:file "discretization-defp")
        (:file "discretization" :depends-on ("discretization-defp"))
@@ -153,11 +151,32 @@
        (:file "constraints" :depends-on ("fe" "sparseif"))
        (:file "fedisc" :depends-on ("constraints"))
        ;;
-       (:file "cdr-fe" :depends-on ("discretization-defp" "fe"))
-       (:file "system-fe" :depends-on ("discretization-defp" "fe"))
-       (:file "elasticity-fe" :depends-on ("discretization-defp" "fe" "system-fe"))
-       (:file "navier-stokes-fe" :depends-on ("discretization-defp" "fe" "system-fe"))
+       (:file "cdr-fe" :depends-on ("fe"))
+       (:file "system-fe" :depends-on ("fe" "sparseas"))
+       (:file "elasticity-fe" :depends-on ("system-fe"))
+       (:file "navier-stokes-fe" :depends-on ("system-fe"))
        ))
+     ;;
+     ;; Iteration
+     ;;
+     (:module
+      "iteration"
+      :depends-on ("basic" "algebra" "function" "problem")
+      :components
+      ((:file "iteration-defp")
+       (:file "iterate" :depends-on ("iteration-defp"))
+       (:file "linit" :depends-on ("iteration-defp"))
+       (:file "blockit" :depends-on ("linit"))
+       (:file "krylow" :depends-on ("linit"))
+       (:file "solve" :depends-on ("iteration-defp" "iterate"))
+       (:file "linsolve" :depends-on ("linit" "solve"))
+       (:file "nlsolve" :depends-on ("solve"))
+       (:file "multigrid-defp" :depends-on ("iteration-defp"))
+       (:file "multigrid" :depends-on ("linit" "multigrid-defp" "linit"))
+       (:file "amg" :depends-on ("multigrid"))
+       (:file "selection-amg" :depends-on ("amg"))
+       (:file "aggregation-amg" :depends-on ("amg"))
+       (:file "stueben" :depends-on ("selection-amg"))))
      (:module
       "special-iteration"
       :pathname #.(translate-logical-pathname #p"femlisp:src;iteration;")
@@ -168,6 +187,9 @@
        (:file "vanka" :depends-on ("geoblock"))
        (:file "geomg" :depends-on ("geomg-defp"))
        ))
+     ;;
+     ;; Post-processing
+     ;;
      (:module
       "graphic"
       :depends-on ("basic")
@@ -185,9 +207,12 @@
        (:file "plot-dx" :depends-on ("plot"))
        (:file "plot-gnuplot" :depends-on ("plot"))
        (:file "meshplot" :depends-on ("plot"))
+       (:file "feplot" :depends-on ("plot" "meshplot"))
        (:file "coeffplot" :depends-on ("plot"))
-       (:file "feplot" :depends-on ("plot"))
        (:file "asaplot" :depends-on ("plot"))))
+     ;;
+     ;; Strategy
+     ;;
      (:module
       "strategy"
       :depends-on ("mesh" "problem" "discretization" "iteration"
@@ -204,23 +229,26 @@
        (:file "fe-stationary" :depends-on ("fe-approximation"))
        (:file "gps" :depends-on ("fe-stationary"))
        ))
+     ;;
+     ;; Applications
+     ;;
      (:module
       "applications"
       :depends-on ("basic" "algebra" "function" "iteration" "mesh"
-		   "problem" "discretization" "strategy" "plot")
+			   "problem" "discretization" "strategy" "plot")
       :components
       ((:file "application-defp")
        (:file "app-utils" :depends-on ("application-defp"))
        (:module
 	"domains"
-	:depends-on ("application-defp")
+	:depends-on ("app-utils")
 	:components
 	((:file "hole-domain")
 	 (:file "inlay-domain")
 	 (:file "bl-cell")))
        (:module
 	"demos"
-	:depends-on ("application-defp")
+	:depends-on ("app-utils")
 	:components
 	((:file "application-demos")
 	 (:file "discretization-demos" :depends-on ("application-demos"))
@@ -236,7 +264,9 @@
 	 (:file "unstructured" :depends-on ("tools"))
 	 (:file "locref" :depends-on ("tools"))
 	 (:file "hom-cdr" :depends-on ("tools"))
-	 (:file "bl-cdr" :depends-on ("tools"))
+	 (:file "bl-cdr" :depends-on ("demo-cdr"))
+	 (:file "amg-cdr" :depends-on ("demo-cdr"))
+	 (:file "bratu" :depends-on ("demo-cdr"))
 	 ))
        (:module
 	"elasticity"
@@ -244,14 +274,14 @@
 	:components
 	((:file "demo-elasticity")
 	 (:file "model-problem")
-	 (:file "elahom")
+	 (:file "elahom" :depends-on ("demo-elasticity"))
 	 ))
        (:module
 	"navier-stokes"
 	:depends-on ("demos" "domains")
 	:components
 	((:file "demo-ns")
-	 (:file "model-problem")
+	 (:file "driven-cavity")
 	 (:file "hom-ns")
 	 ))
        (:module
@@ -274,9 +304,9 @@
 	:depends-on ("demos" "domains" "cdr" "elasticity")
 	:components
 	((:file "effcoeff")))
-       )   ; application components
-      )   ; applications module
-     )   ; femlisp modules
+       )				; application components
+      )					; applications module
+     )					; femlisp modules
     )
 
 ;;;(asdf:operate 'asdf::load-op 'femlisp)

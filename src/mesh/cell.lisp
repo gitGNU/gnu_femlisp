@@ -80,15 +80,18 @@
   (factor-simplices ())
   (nr-of-sides -1 :type fixnum)
   (nr-of-vertices -1 :type fixnum)
+  (refcell-subcells nil)
+  (boundary-indices-of-subcells nil)
   (nr-of-subcells -1 :type fixnum)
   (subcell-parent-indices (fixnum-vec) :type fixnum-vec)
   (subcell-boundary-indices (fixnum-vec) :type fixnum-vec)
   (refine-info nil))
 
+;;; for debugging purposes this is preferable
 (declaim (notinline cell-class-information
 		 cell-dimension reference-cell factor-simplices
-		 nr-of-sides nr-of-vertices nr-of-subcells
-		 refine-info))
+		 nr-of-sides nr-of-vertices nr-of-subcells refcell-subcells
+		 boundary-indices-of-subcells refine-info))
 
 (defun cell-class-information (obj)
   "Returns the cell information for the class which is stored as a property
@@ -210,13 +213,17 @@ special mapping."))
 (defgeneric vertices (cell)
   (:documentation "Returns a list of all vertices of the cell."))
 
+(defgeneric copy-cell (cell)
+  (:documentation "Copy constructor for cells.  It is guaranteed that the
+cell boundary is copied."))
+
 (definline reference-cell-p (cell)
   "Tests if a cell is a reference cell."
   (eq (reference-cell cell) cell))
 
 (defmethod copy-cell ((cell <cell>))
   "Copy constructor for cells."
-  (make-instance (class-of cell) :boundary (boundary cell)))
+  (make-instance (class-of cell) :boundary (copy-seq (boundary cell))))
 
 (defmethod copy-cell ((cell <mapped-cell>))
   (let ((copy (call-next-method)))
@@ -238,10 +245,6 @@ special mapping."))
 	     (numgrad (evaluate (numerical-gradient mapping) mp)))
 	(assert (< (norm (m- grad numgrad))
 		   (* 1.0e-2 (max (norm grad) (norm numgrad)))))))))
-
-#+(or)
-(defmethod describe-object ((cell <cell>) stream)
-  (format stream "~&~A~%" cell))
 
 (defmethod describe-all ((cell <cell>))
   (describe cell)
@@ -274,6 +277,19 @@ is called often repeatedly on the same cell in l2g."
 	       (mapcar #'(lambda (vtx) (local->global vtx (double-vec)))
 		       (vertices cell)))))))
 
+(let (previous-cell previous-matrix)
+  (defun corner-matrix (cell)
+    "Returns a matrix whose columns are the corners of the cell."
+    (cond
+      ((eq previous-cell cell) previous-matrix)
+      (t (setq previous-cell cell)
+	 (setq previous-matrix
+	       (let ((corners (corners cell)))
+		 (make-instance
+		  (standard-matrix 'double-float)
+		  :nrows (length (car corners)) :ncols (length corners)
+		  :store (apply #'concatenate 'double-vec corners))))))))
+
 (defmethod g-corners ((cell <cell>))
   (mapcar #'(lambda (vtx) (l2g vtx (double-vec)))
 	  (vertices cell)))
@@ -295,6 +311,34 @@ equivalent to calling l2g and l2Dg."
   "Return the mappingFor non-mapped cells, this returns a <special-function> which is
 equivalent to calling l2g and l2Dg."
   (slot-value cell 'mapping))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; cell construction from vertices
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun make-cell-from-vertices (cell-class vertices)
+  "Creates a cell of class CELL-CLASS having the given VERTICES."
+  (with-cell-class-information (reference-cell refcell-subcells nr-of-vertices
+					       boundary-indices-of-subcells)
+    cell-class
+    (assert (= nr-of-vertices (length vertices)))
+    ;; replace the refcell-subcells step by step with newly created ones
+    ;; having the given vertices
+    (loop with subcells = (copy-seq refcell-subcells)
+	  for vlist = vertices then (cdr vlist)
+	  and k downfrom (1- (length subcells)) to 0 do
+	  (setf (aref subcells k)
+		(if vlist
+		    (car vlist)
+		    (make-instance
+		     (class-of (aref subcells k))
+		     :boundary (map 'cell-vec (curry #'aref subcells)
+				    (aref boundary-indices-of-subcells k)))))
+	  finally (return (aref subcells 0)))))
+
+(defun make-cell-from-corners (cell-class corners)
+  "Creates a cell of class CELL-CLASS having the given CORNERS."
+  (make-cell-from-vertices cell-class (mapcar #'make-vertex corners)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; local->global for isoparametric cells (as an after method)
@@ -350,19 +394,39 @@ vertices, i.e. multiple values g, Dg, ..., D^k g."))
 value of a fe function can be obtained by interpolation.  This is done by a
 Newton iteration, which converges in one step for linear mappings."))
 
+(defvar *g2l-newton-steps* 4
+  "Limit for the number of Newton steps for global->local.  Small numbers
+should work for reasonable geometries and initial values.")
+
+(defun simple-newton (f x-start &key approximate-gradient)
+  "A simple Newton iteration for converting global to local coordinates."
+  (loop
+   for defnorm = nil then new-defnorm
+   for x = x-start then (m- x (gesv (funcall approximate-gradient x) defect))
+   for defect = (funcall f x)
+   for new-defnorm = (norm defect)
+   for i = 0 then (1+ i)
+   do
+   (dbg :mesh "Step ~3D: |f| = ~8,3,2E, x = ~A~%" i new-defnorm x)
+   (when (> i *g2l-newton-steps*)
+     (error "Newton did not converge fast enough.  Improve the mesh or
+increase *g2l-newton-steps*."))
+   until (and defnorm (<= defnorm new-defnorm))
+   finally (return x)))
+
 (defmethod global->local ((cell <cell>) global-pos)
   "Does a Newton iteration or a Gauss-Newton method for approximating
 global-pos by the cell mapping."
   (if (= (dimension cell) (length global-pos))
-      (newton #'(lambda (x) (m- (local->global cell x) global-pos))
-	      (make-double-vec (dimension cell))
-	      :approximate-gradient #'(lambda (x) (local->Dglobal cell x)))
+      (simple-newton #'(lambda (x) (m- (local->global cell x) global-pos))
+		     (make-double-vec (dimension cell))
+		     :approximate-gradient #'(lambda (x) (local->Dglobal cell x)))
       (let* ((A (local->Dglobal cell (make-double-vec (dimension cell))))
 	     (At (transpose A))
 	     (At*A (m* At A)))
-	(newton #'(lambda (x) (m* At (m- (local->global cell x) global-pos)))
-		(make-double-vec (dimension cell))
-		:approximate-gradient (constantly At*A)))))
+	(simple-newton #'(lambda (x) (m* At (m- (local->global cell x) global-pos)))
+		       (make-double-vec (dimension cell))
+		       :approximate-gradient (constantly At*A)))))
 
 (defgeneric inside-cell? (cell global-pos)
   (:documentation "Checks if global-pos is inside the interior of the cell.
@@ -394,15 +458,15 @@ involves more computational work than global->local.  As a second value, the
 distance to global-pos is returned."))
 
 (defmethod global->embedded-local ((cell <cell>) global-pos)
-  (let ((x (newton #'(lambda (x)
-		       (m* (transpose (local->Dglobal cell x))
-			   (m- (local->global cell x) global-pos)))
-		   (make-double-vec (dimension cell))
-		   :approximate-gradient
-		   #'(lambda (x)
-		       (let ((A (local->Dglobal cell x)))
-			 (m* (transpose A) A)))
-		   :maxsteps 1)))
+  (let ((x (simple-newton
+	    #'(lambda (x)
+		(m* (transpose (local->Dglobal cell x))
+		    (m- (local->global cell x) global-pos)))
+	    (make-double-vec (dimension cell))
+	    :approximate-gradient
+	    #'(lambda (x)
+		(let ((A (local->Dglobal cell x)))
+		  (m* (transpose A) A))))))
     (values x (norm (m- (local->global cell x) global-pos)))))
 
 (defgeneric inside-cell? (cell global-pos)
@@ -428,9 +492,9 @@ cells."))
 	     (setf (cell-class-information (class-of refcell))
 		   (make-cell-class-information
 		    :reference-cell refcell :factor-simplices factors)))))
-    (with-ci-slots
-	(dimension reference-cell factor-simplices nr-of-sides nr-of-vertices
-		   nr-of-subcells subcell-parent-indices subcell-boundary-indices)
+    (with-ci-slots (dimension reference-cell factor-simplices nr-of-sides nr-of-vertices
+			      refcell-subcells boundary-indices-of-subcells
+			      nr-of-subcells subcell-parent-indices subcell-boundary-indices)
       cell-class-information
       (setq reference-cell refcell)
       (setq factor-simplices factors)
@@ -441,26 +505,31 @@ cells."))
       ;; create the subcell information
       (let ((all-subcells (list refcell))
 	    (parent-indices (list -1))
-	    (boundary-indices (list -1))
-	    (n 1))
+	    (boundary-indices (list -1)))
 	(do ((subcells all-subcells (cdr subcells))
 	     (parent-index 0 (1+ parent-index)))
-	    ((null subcells)
-	     ;; end of loops: set subcell info in class slots
-	     (setf nr-of-subcells n)
-	     (setf subcell-parent-indices
-		   (coerce (nreverse parent-indices) 'fixnum-vec))
-	     (setf subcell-boundary-indices
-		   (coerce (nreverse boundary-indices) 'fixnum-vec)))
+	    ((null subcells))
 	  (loop for side across (boundary (car subcells))
 		and boundary-index from 0 do
 		(unless (member side all-subcells)
-		  (incf n)
 		  (push parent-index parent-indices)
 		  (push boundary-index boundary-indices)
-		  (nconc all-subcells (list side))))))
+		  (nconc all-subcells (list side)))))
+	;; now set the subcell info in class slots
+	(setf refcell-subcells (coerce all-subcells 'vector))
+	(setf nr-of-subcells (length refcell-subcells))
+	(setf boundary-indices-of-subcells
+	      (map 'vector
+		   #'(lambda (subcell)
+		       (map 'vector (rcurry #'position refcell-subcells)
+			    (boundary subcell)))
+		   refcell-subcells))
+	(setf subcell-parent-indices
+	      (coerce (nreverse parent-indices) 'fixnum-vec))
+	(setf subcell-boundary-indices
+	      (coerce (nreverse boundary-indices) 'fixnum-vec)))
       (setq nr-of-vertices
-	    (count-if #'zerop (subcells refcell) :key #'dimension))
+	    (count-if #'zerop refcell-subcells :key #'dimension))
       ;; set the refinement info
       (generate-refine-info refcell)
       nil
@@ -469,7 +538,8 @@ cells."))
 ;;; Testing: in mesh-tests.lisp
 
 (defun test-cell ()
-  "Tests are done when initializing the classes."
+  (flet ((simple-linear-f (x) (+ 1.0 (* 0.5 x))))
+    (simple-newton #'simple-linear-f 1.0 :approximate-gradient (constantly 0.5)))
   )
 
 (fl.tests:adjoin-test 'test-cell)

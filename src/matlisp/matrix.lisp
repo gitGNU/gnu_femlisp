@@ -192,10 +192,19 @@ calls the corresponding generic function, e.g. GEMM-NN!."
   "Default method allocates an instance of class of Y."
   (make-instance (class-of y) :nrows (nrows x) :ncols (ncols y)))
 
+(defmethod m*-product-instance-tn (x y)
+  "Default method allocates an instance of class of Y."
+  (make-instance (class-of y) :nrows (ncols x) :ncols (ncols y)))
+
 (defmethod m* (x y)
   "By default M* is rewritten in terms of GEMM!."
   (gemm-nn! (coerce 1 (scalar-type x)) x y
 	    (coerce 0 (scalar-type x)) (m*-product-instance x y)))
+  
+(defun m*-tn (x y)
+  "By default M*-TN is rewritten in terms of GEMM-TN!."
+  (gemm-tn! (coerce 1 (scalar-type x)) x y
+	    (coerce 0 (scalar-type x)) (m*-product-instance-tn x y)))
   
 (definline getrf (x &optional ipiv)
   "Rewriting for GETRF  in terms of GETRF!."

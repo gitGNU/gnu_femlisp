@@ -34,7 +34,7 @@
 
 (in-package :strategy)
 
-(defclass <strategy> (<iteration>)
+(defclass <strategy> (<iterative-solver>)
   ()
   (:documentation "A strategy is an iteration for solving a problem defined
 on a blackboard."))

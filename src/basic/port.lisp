@@ -41,6 +41,8 @@
 
 (defpackage "FL.PORT"
   (:use "COMMON-LISP")
+  #+cmu(:import-from "PCL" "GENERIC-FUNCTION-METHODS" "METHOD-SPECIALIZERS")
+  #+sbcl(:import-from "SB-PCL" "GENERIC-FUNCTION-METHODS" "METHOD-SPECIALIZERS")
   (:export "FIND-EXECUTABLE" "GETENV"
 	   "RUN-PROGRAM" "PROCESS-INPUT"))
 
@@ -82,4 +84,5 @@
   #+sbcl (sb-ext:process-input process)
   #-(or cmu sbcl) (error "Unknown Lisp implementation")
   )
+
 

@@ -34,7 +34,7 @@
 
 (in-package :problem)
 
-(defclass <time-dependent-problem> (<problem>)
+(defclass <time-dependent-problem> (<pde-problem>)
   ((stationary-problem :accessor stationary-problem
     :initarg :stationary-problem :documentation
     "Stationary problem F(u)=A(u)-f=0 for which this problem is the

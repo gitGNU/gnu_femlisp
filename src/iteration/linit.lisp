@@ -175,7 +175,7 @@ parameter, eta is the diagonal enhancement."))
 		    (declare (optimize (speed 3) (safety 1)))
 		    (declare (ignore b))
 		    (let ((result (copy r)))
-		      (x<-Ay result ldu r)
+		      (getrs! ldu result)
 		      (axpy! damp result x)))
        :residual-after nil))))
 
@@ -232,38 +232,47 @@ parameter, eta is the diagonal enhancement."))
 
 (defclass <sor> (<linear-iteration>)
   ((omega :initform 1.0 :initarg :omega)
-   (ordering :initform () :initarg :ordering :type list)))
+   (compare :initform nil :initarg :compare
+	    :documentation "Comparison function (COMPARE MAT I J) for
+sorting matrix indices I and J.  The result is used as unknown ordering for
+the iteration.")))
 
 (defmethod make-iterator ((sor <sor>) (mat standard-matrix))
-  (with-slots (omega ordering) sor
-    (make-instance
-     '<iterator>
-     :matrix mat
-     :residual-before nil
-     :initialize nil
-     :iterate
-     #'(lambda (x b r)
-	 (declare (ignore r))
-	 (assert (null ordering) () "NYI")
-	 (dotimes (i (nrows mat))
-	   (let ((factor (/ omega (mref mat i i))))
-	     (dotimes (j (ncols b))
-	       (incf (mref x i j)
-		     (* factor
-			(- (mref b i j)
-			   (loop for k from 0 below (ncols mat)
-				 summing (* (mref mat i k) (mref x k j))))))))))
-     :residual-after nil)))
+  (with-slots (omega compare) sor
+    (let ((ordering (range< 0 (nrows mat))))
+      (when compare
+	(setq ordering (sort ordering #'(lambda (x y)
+					  (funcall compare x y mat)))))
+      (make-instance
+       '<iterator>
+       :matrix mat
+       :residual-before nil
+       :initialize nil
+       :iterate
+       #'(lambda (x b r)
+	   (declare (ignore r))
+	   (dolist (i ordering)
+	     (let ((factor (/ omega (mref mat i i))))
+	       (dotimes (j (ncols b))
+		 (incf (mref x i j)
+		       (* factor
+			  (- (mref b i j)
+			     (loop for k from 0 below (ncols mat)
+				   summing (* (mref mat i k) (mref x k j))))))))))
+       :residual-after nil))))
 
 (defmethod make-iterator ((sor <sor>) (mat <sparse-matrix>))
-  (with-slots (omega ordering) sor
-    (let ((diagonal-inverse (make-hash-table)))
-      ;; store the inverse of the diagonal
-      (for-each-row-key
-       #'(lambda (row-key)
-	   (setf (gethash row-key diagonal-inverse)
-		 (m/ (mref mat row-key row-key))))
-       mat)
+  (with-slots (omega compare) sor
+    (let ((ordering (row-keys mat))
+	  (diagonal-inverse (make-hash-table)))
+      (when compare
+	(setq ordering
+	      (sort ordering #'(lambda (x y)
+				 (funcall compare x y mat)))))
+      (dbg :iter "Ordering: ~A" ordering)
+      (dolist (row-key ordering)
+	(setf (gethash row-key diagonal-inverse)
+	      (m/ (mref mat row-key row-key))))
       (make-instance
        '<iterator>
        :matrix mat
@@ -274,37 +283,42 @@ parameter, eta is the diagonal enhancement."))
 	   (declare (type <sparse-vector> x b r))
 	   (declare (ignore r))
 	   (declare (optimize (speed 3) (safety 1)))
-	   (assert (null ordering) () "NYI")
-	   (for-each-row-key
-	    #'(lambda (row-key)
-		(let ((corr (copy (vref b row-key))))
-		  (for-each-key-and-entry-in-row
-		   #'(lambda (col-key mblock)
-		       (gemm! -1.0 mblock (vref x col-key) 1.0 corr))
-		   mat row-key)
-		  (gemm! omega (gethash row-key diagonal-inverse) corr
-			 1.0 (vref x row-key))
-		  ))
-	    mat))
+	   (dolist (row-key ordering)
+	     (let ((corr (copy (vref b row-key))))
+	       (for-each-key-and-entry-in-row
+		#'(lambda (col-key mblock)
+		    (gemm! -1.0 mblock (vref x col-key) 1.0 corr))
+		mat row-key)
+	       (gemm! omega (gethash row-key diagonal-inverse) corr
+		      1.0 (vref x row-key))
+	       )))
        :residual-after nil))))
 
 (defclass <gauss-seidel> (<sor>)
   ()
   (:documentation "The Gauss-Seidel iteration is SOR with omega=1."))
 
-(defmethod initialize-instance ((instance <gauss-seidel>) &rest initargs)
-  (assert (not (getf initargs :omega)))
-  (call-next-method))
+(defmethod initialize-instance :before ((instance <gauss-seidel>) &rest initargs)
+  (assert (not (getf initargs :omega))))
 
 (defparameter *gauss-seidel* (make-instance '<gauss-seidel>))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  
+
 (defun test-linit ()
   "Most tests can be found in linsolve.lisp."
-  (make-instance '<multi-iteration> :base *undamped-jacobi* :nr-steps 2))
+  (make-instance '<multi-iteration> :base *undamped-jacobi* :nr-steps 2)
+  ;; test LU-iteration for full and sparse matrices
+  (let* ((A (laplace-sparse-matrix 3))
+	 (b (make-image-vector-for A)))
+    (fill-random! b 1.0)
+    ;; should be stable
+    (solve (make-instance '<linear-solver> :iteration *lu-iteration*
+			  :output t :success-if '(>= :step 3))
+	   (blackboard :problem (lse :matrix A :rhs b))))
+  )
 
-;;; (test-linit)
+;;; (iteration::test-linit)
 (fl.tests:adjoin-test 'test-linit)

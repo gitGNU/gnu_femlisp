@@ -56,6 +56,28 @@ indicating if output is to be done.")
    )
   (:documentation "The iteration base class."))
 
+
+;;; Output
+
+
+(defparameter *iteration-level* 0
+  "Depth of nested iteration.  This is used for steering output and the
+printout of status information.")
+
+(defmethod output-p ((iter <iteration>))
+  (with-slots (output) iter
+    (if (numberp output)
+	(<= *iteration-level* output)
+	output)))
+
+(defun indented-format (stream control-string &rest args)
+  (let ((indentation (* 5 (1- *iteration-level*))))
+    (if (plusp indentation)
+      (apply #'format stream (concatenate 'string "~&>~VT" control-string)
+	     indentation args)
+      (apply #'format stream (concatenate 'string "~&" control-string)
+	     args))))
+
 (defparameter *time-observe*
   (list "  TIME" "~6,1F"
 	#'(lambda (blackboard) (getbb blackboard :time)))
@@ -88,6 +110,11 @@ blackboard.  Keywords are replaced by macros accessing the blackboard."
 (defgeneric name (iter)
   (:documentation "Name of the iteration."))
 
+(defgeneric inner-iteration (iter)
+  (:documentation "Often the iteration uses another iteration in its loop.
+In this case, this routine returns this inner iteration.  Usually, this
+will be another reader function for some slot."))
+
 (defgeneric initially (iter blackboard)
   (:documentation "Performs initial operations."))
 
@@ -108,18 +135,28 @@ blackboard.  Keywords are replaced by macros accessing the blackboard."
   (:documentation "Iterates on the data in the blackboard according to the
 iteration iter."))
 
-(defmethod name (iter)
-  "Default name is the class name of the iteration."
-  (class-name (class-of iter)))
+(defmethod inner-iteration (iter)
+  "Default method returns nil, i.e. there is no inner iteration."
+  nil)
+
+(defmethod name ((iter <iteration>))
+  "The default name of an iteration is either its class name or the class
+name together with the name of the inner iteration."
+  (aif (inner-iteration iter)
+       (format nil "~A (~A)"
+	       (class-name (class-of iter))
+	       (class-name (class-of it)))
+       (class-name (class-of iter))))
 
 (defmethod initially ((iter <iteration>) blackboard)
   "Default method.  Prints the header line for observed quantities and
 performs all actions in initial."
-  (with-slots (start-time output observe) iter
+  (dbg :iter "Initially: blackboard = ~A" blackboard)
+  (with-slots (start-time observe) iter
     (setq start-time (get-internal-run-time))
     (setf (getbb blackboard :time) 0.0)
     (setf (getbb blackboard :step) 0)
-    (when output
+    (when (output-p iter)
       (indented-format t "Iteration ~A" (name iter))
       (let ((fstr (make-array '(0) :element-type 'base-char
 			      :fill-pointer 0 :adjustable t)))
@@ -139,20 +176,20 @@ performs all actions in initial."
 (defmethod intermediate ((iter <iteration>) blackboard)
   "Default method.  Prints observed quantities and
 performs all actions in intermediate."
-  (with-slots (start-time output observe) iter
+  (with-slots (start-time observe) iter
     (setf (getbb blackboard :time)
 	  (float (/ (- (get-internal-run-time) start-time)
 		    internal-time-units-per-second)
 		 1.0))
-    (when output
+    (when (output-p iter)
       (let ((fstr (make-array '(0) :element-type 'base-char
 			      :fill-pointer 0 :adjustable t)))
-	(with-output-to-string (s fstr)
+	(with-output-to-string (stream fstr)
 	  (dolist (item observe)
 	    (let ((formatter (second item))
 		  (evaluator (third item)))
-	      (format s formatter (funcall evaluator blackboard))
-	      (format s "  "))))
+	      (format stream formatter (funcall evaluator blackboard))
+	      (format stream "  "))))
 	(indented-format t fstr)
 	(force-output)))))
 
@@ -185,7 +222,7 @@ performs all actions in intermediate."
   "Executes all actions in finally."
   (dolist (action (slot-value iter 'finally))
     (funcall action blackboard))
-  (when (slot-value iter 'output)
+  (when (output-p iter)
     ;; and ensure a fresh line
     (format t "~&")))
 
@@ -193,8 +230,7 @@ performs all actions in intermediate."
   "Default method for performing an iteration.  Increases indentation level
 and calls initialization, termination check, stepping, and finalization in
 the correct order."
-  (let ((*indentation-level* (1+ *indentation-level*)))
-    (dbg :iter (format nil "Iteration ~A: initializing" (name iter)))
+  (let ((*iteration-level* (1+ *iteration-level*)))
     (initially iter blackboard)
     (dbg :iter (format nil "Iteration ~A: looping" (name iter)))
     (loop (intermediate iter blackboard)

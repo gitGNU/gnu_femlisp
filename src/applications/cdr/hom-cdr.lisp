@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package application)
+(in-package :application)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Utilities
@@ -50,7 +50,7 @@
     (with-items (&key solution matrix rhs)
 	blackboard
       (setq solution
-	    (getbb (solve solver (blackboard :matrix matrix :rhs rhs))
+	    (getbb (solve solver (blackboard :problem (lse :matrix matrix :rhs rhs)))
 		   :solution))
       blackboard)))
 
@@ -69,7 +69,7 @@ diffusion tensor."
    :multiplicity dim :patch->coefficients
    #'(lambda (patch)
        (when (= (dimension patch) dim)
-	 (list 'CDR::DIFFUSION (function->coefficient diffusion-function)
+	 (list 'CDR::DIFFUSION (ensure-coefficient diffusion-function)
 	       'CDR::GAMMA (constant-coefficient (eye dim)))))))
 
 (defun simple-square-inlay-cell-problem (dim)
@@ -176,7 +176,7 @@ must be a scalar multiple of the identity."
      (blackboard :problem problem)))
   ;; plot cell solutions and compute the homogenized coefficient
   (when plot
-    (let ((solution (getf *result* :solution)))
+    (let ((solution (getbb *result* :solution)))
       (plot solution :index 0)
       (sleep 1.0)
       (plot solution :index 1)))
@@ -272,7 +272,7 @@ must be a scalar multiple of the identity."
   (cell-solve (simple-ball-inlay-cell-problem 2 0.1)
 	      :level 3 :order 1))
 (effective-tensor *result*)
-(plot (getf *result* :solution) :index 0)
+(plot (getbb *result* :solution) :index 0)
 
 ;; generate 3D cell problem
 (simple-ball-inlay-cell-problem 3 0.1)
@@ -286,7 +286,7 @@ must be a scalar multiple of the identity."
       (cell-solve (inlay-cell-problem 2 0.1) :level 1
 		  :order 1 :parametric (lagrange-mapping 2)))
 (effective-tensor *result*)
-(plot (getf *result* :solution) :index 0)
+(plot (getbb *result* :solution) :index 0)
 
 ;; first order with full multigrid
 (defparameter *result*
@@ -305,13 +305,13 @@ must be a scalar multiple of the identity."
        :success-if `(< :reduction 1.0d-5)
        :failure-if `(> :step 20)
        )))))
-(plot (getf *result* :solution) :index 0)
-(plot (getf *result* :solution) :index 1)
+(plot (getbb *result* :solution) :index 0)
+(plot (getbb *result* :solution) :index 1)
 
 (defparameter *result*
   (cell-solve (inlay-cell-problem 2 0.1) :level 2
 		:order 1 :parametric (lagrange-mapping 2)))
-(plot (getf *result* :mesh)) ; :plot :file :format "tiff")
+(plot (getbb *result* :mesh)) ; :plot :file :format "tiff")
 
 ;; higher order
 (time
@@ -333,7 +333,7 @@ must be a scalar multiple of the identity."
 
 ;; (l=2, o=4, cgs=10 ILU, 3 smooth, fmg)*2=146.7 URT
 (effective-tensor *result*)
-(plot (getf *result* :solution) :index 1)
+(plot (getbb *result* :solution) :index 1)
 
 ;;; an adaptive calculation (working?)
 (defparameter *result*
@@ -351,7 +351,7 @@ must be a scalar multiple of the identity."
       (blackboard :problem (inlay-cell-problem dim 0.1))))))
 
 (effective-tensor *result*)
-(getf *result* :global-eta)
+(getbb *result* :global-eta)
 
 ;; chequerboard cell
 (let ((dim 2) (order 1))
@@ -359,9 +359,7 @@ must be a scalar multiple of the identity."
    (cell-solve (chequerboard-problem dim 0.1):level 3 :order order)))
 
 ;; examine properties
-(let* ((problem (simple-ball-inlay-cell-problem 1 0.1))
-       (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) 1)))
-  (problem-info problem h-mesh))
+(describe (simple-ball-inlay-cell-problem 1 0.1))
 
 )
 

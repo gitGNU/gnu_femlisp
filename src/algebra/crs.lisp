@@ -151,7 +151,7 @@ its actual offsets in the sparse graph."))
   (make-crs-matrix (full-crs-pattern nrows ncols)
 		   (make-double-vec (* nrows ncols))))
 
-(defmethod mref ((A crs-matrix) (i fixnum) (j fixnum))
+(defmethod mref ((A crs-matrix) i j)
   (with-slots (pattern store) A
     (with-slots (row-starts col-inds offsets) pattern
     (loop for k from (aref row-starts i) below (aref row-starts (1+ i))
@@ -159,7 +159,7 @@ its actual offsets in the sparse graph."))
 		 (return (aref store (aref offsets k))))
 	  finally (return 0.0)))))
 
-(defmethod (setf mref) (val (A crs-matrix) (i fixnum) (j fixnum))
+(defmethod (setf mref) (val (A crs-matrix) i j)
   (with-slots (pattern store) A
     (with-slots (row-starts col-inds offsets) pattern
       (loop for k from (aref row-starts i) below (aref row-starts (1+ i))

@@ -38,6 +38,6 @@
   (:use "COMMON-LISP")
   (:export
    "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "NIF" "AIF"
-   "AAND" "_F" "IT" "SHORT-REMOVE-METHOD" "WITH-ITEMS"
+   "AAND" "ACOND" "_F" "IT" "REMOVE-THIS-METHOD"
    "FOR" "FOR<" "MULTI-FOR" "DEFINLINE"
    "?1" "?2" "?3"))

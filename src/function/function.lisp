@@ -87,6 +87,12 @@ given degree."))
 ;(define-generic gradient)
 ;(define-generic integrate)
 
+(defmethod evaluate-k-jet (f k x)
+  "By default, the k-jet evaluation handles the cases K=0 and K=1 by calls
+to EVALUATE and EVALUATE-GRADIENT, respectively."
+  (cond ((= k 0) (evaluate f x))
+	((= k 1) (evaluate-gradient f x))
+	(t (call-next-method))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Self-evaluating objects
@@ -130,7 +136,7 @@ computation."))
 (defmethod evaluate-gradient ((f <special-function>) x)
   (funcall (gradient f) x))
 
-(defmethod evaluate-k-jet ((f <special-function>) (k fixnum) x)
+(defmethod evaluate-k-jet ((f <special-function>) k x)
   (funcall (jet f) k x))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -150,21 +156,51 @@ computation are trivial."))
   (declare (ignore k))
   t)
 
-(defmethod smoothness ((f <constant-function>))
-  :infinity)
+(defmethod smoothness ((f <constant-function>)) :infinity)
 
 (defmethod evaluate-gradient ((f <constant-function>) x)
   (assert (eq (length x) (domain-dimension f)))
   (make-real-matrix (image-dimension f) (domain-dimension f)))
 
-(defmethod evaluate-k-jet ((f <constant-function>) (k fixnum) x)
-  (assert (eq (length x) (domain-dimension f)))
-  (cond ((= k 0) (value f))
-	((= k 1) (make-real-matrix (image-dimension f) (domain-dimension f)))
-	(t (make-real-tensor
-	    (coerce (cons (image-dimension f)
-			  (make-list k :initial-element (domain-dimension f)))
-		    'fixnum-vec)))))
+(defun zero-k-jet (f k)
+  (make-real-tensor
+   (coerce (cons (image-dimension f)
+		 (make-list k :initial-element (domain-dimension f)))
+	   'fixnum-vec)))
+
+(defmethod evaluate-k-jet ((f <constant-function>) k x)
+  (if (<= k 1)
+      (call-next-method)
+      (zero-k-jet f k)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; <linear-function>
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <linear-function> (<function>)
+  ((A :initform nil :initarg :A)
+   (b :initform nil :initarg :b))
+  (:documentation "A <linear-function> is determined by a matrix A and a vector b."))
+
+(defmethod initialize-instance :after ((f <linear-function>) &key &allow-other-keys)
+  (with-slots (A b domain-dimension image-dimension) f
+  (setf image-dimension (nrows A))
+  (setf domain-dimension (ncols A))
+  (unless b (setf b (make-double-vec (image-dimension f))))))
+
+(defmethod differentiable-p ((f <linear-function>) &optional (k 1))
+  (declare (ignore k))
+  t)
+
+(defmethod smoothness ((f <linear-function>)) :infinity)
+
+(defmethod evaluate ((f <linear-function>) x)
+  (with-slots (A b) f
+    (gemm 1.0 A x 1.0 b)))
+
+(defmethod evaluate-gradient ((f <linear-function>) x)
+  (or (slot-value f 'A)
+      (zeros (image-dimension f) (domain-dimension f))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; transformed functions
@@ -430,7 +466,10 @@ Also grad-f has to be provided."
     (let ((grad (evaluate-gradient distortion pos))
 	  (num-grad (evaluate (numerical-gradient distortion) pos)))
       (assert (< (norm (m- grad num-grad)) 1.0e-4))))
-  (interval-method #'(lambda (x) (- (* x x) 2.0)) 0.0 2.0 1e-16))
+  (interval-method #'(lambda (x) (- (* x x) 2.0)) 0.0 2.0 1e-16)
+  (let ((f (make-instance '<linear-function> :A (ones 2) :b #d(1.0 0.0))))
+    (evaluate f #d(1.0 1.0)))
+  )
 
 ;;; (test-function)
 (fl.tests:adjoin-test 'test-function)

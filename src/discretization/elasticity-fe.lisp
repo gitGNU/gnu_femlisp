@@ -40,15 +40,12 @@
 (in-package :elasticity-fe)
 
 (defmethod discretize-locally ((problem <elasticity-problem>) coeffs vecfe qrule fe-geometry
-			       &key local-mat local-rhs local-sol local-u local-v)
+			       &key local-mat local-rhs local-sol local-u local-v
+			       coefficient-parameters &allow-other-keys)
   "Local discretization for an elasticity problem, in fact, even more
 general it can be used for solving elliptic systems.  The basic idea is
 that we work with arrays having standard-matrix entries whereas in the
 scalar case we worked directly with standard-matrix."
-  #+(or)
-  (declare (type (array real-matrix (* *)) local-mat)
-	   (type (or null (array real-matrix (*)))
-		 local-sol local-rhs local-u local-v))
   ;; we want isotropic ansatz spaces...
   (assert (same-p (components vecfe)))
   ;; and this situation should be checked before use
@@ -62,53 +59,56 @@ scalar case we worked directly with standard-matrix."
 	(force-function (getf coeffs 'ELASTICITY::FORCE)))
 
     ;; loop over quadrature points
-    (loop for shape-vals in (ip-values fe qrule) ; (n-basis x 1)-matrix
-	  and shape-grads in (ip-gradients fe qrule) ; (n-basis x dim)-matrix
-	  and global in (getf fe-geometry :global-coords)
-	  and Dphi^-1 in (getf fe-geometry :gradient-inverses)
-	  and weight in (getf fe-geometry :weights)
-	  do
-	  (let* ((transposed-sv (transpose shape-vals))
-		 (sol-ip (and local-sol (map 'vector #'(lambda (ls) (m* transposed-sv ls))
-					     local-sol)))
-		 (coeff-input (list :global global :solution sol-ip))
-		 (ip-tensor (and elasticity-tensor
-				 (evaluate elasticity-tensor coeff-input)))
-		 (gamma (and gamma-function local-rhs
-			     (evaluate gamma-function coeff-input)))
-		 (reaction (and reaction-function
-				(evaluate reaction-function coeff-input)))
-		 (force (and force-function (evaluate force-function coeff-input)))
-		 (gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
-		 (right-gradients gradients)
-		 (left-gradients gradients)
-		 (fluxes (make-analog gradients))
-		 (right-vals shape-vals)
-		 (left-vals shape-vals))
+    (loop
+     for k from 0
+     and shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
+     and shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
+     and global in (getf fe-geometry :global-coords)
+     and Dphi^-1 in (getf fe-geometry :gradient-inverses)
+     and weight in (getf fe-geometry :weights)
+     do
+     (let* ((sol-ip (and local-sol (map 'vector (curry #'m*-tn shape-vals) local-sol)))
+	    (coeff-input
+	     (list* :global global :solution sol-ip
+		    (loop for (key data) on coefficient-parameters by #'cddr
+			  collect key collect (aref data k))))
+	    (ip-tensor (and elasticity-tensor
+			    (evaluate elasticity-tensor coeff-input)))
+	    (gamma (and gamma-function local-rhs
+			(evaluate gamma-function coeff-input)))
+	    (reaction (and reaction-function
+			   (evaluate reaction-function coeff-input)))
+	    (force (and force-function (evaluate force-function coeff-input)))
+	    (gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
+	    (right-gradients gradients)
+	    (left-gradients gradients)
+	    (fluxes (make-analog gradients))
+	    (right-vals shape-vals)
+	    (left-vals shape-vals))
 	    
-	    (dotimes (i nr-comps)
-	      ;; matrix-part
-	      (dotimes (j nr-comps)
-		;; diffusion 
-		(when ip-tensor
-		  (let ((D (aref ip-tensor i j)))
-		    (unless (mzerop D)
-		      (gemm! 1.0 left-gradients D 0.0 fluxes)
-		      (when local-mat
-			(gemm! weight fluxes right-gradients 1.0 (aref local-mat i j) :NT))
-		      ;; gamma
-		      (when (and gamma local-rhs)
-			(gemm! weight fluxes (aref gamma j) 1.0 (aref local-rhs i))))))
-		;; reaction
-		(when (and reaction local-mat)
-		  (let ((R (aref reaction i j)))
-		    (unless (mzerop R)
-		      (gemm! (* weight R)
-			     left-vals right-vals 1.0 local-mat :NT)))))
-	      ;; rhs-part / force
-	      (when (and force local-rhs)
-		(gemm! weight left-vals (aref force i)
-		       1.0 (aref local-rhs i))))))))
+       (dotimes (i nr-comps)
+	 ;; matrix-part
+	 (dotimes (j nr-comps)
+	   ;; diffusion 
+	   (when ip-tensor
+	     (let ((D (aref ip-tensor i j)))
+	       (unless (mzerop D)
+		 (gemm! 1.0 left-gradients D 0.0 fluxes)
+		 (when local-mat
+		   (gemm! weight fluxes right-gradients 1.0 (aref local-mat i j) :NT))
+		 ;; gamma
+		 (when (and gamma local-rhs)
+		   (gemm! weight fluxes (aref gamma j) 1.0 (aref local-rhs i))))))
+	   ;; reaction
+	   (when (and reaction local-mat)
+	     (let ((R (aref reaction i j)))
+	       (unless (mzerop R)
+		 (gemm! (* weight R)
+			left-vals right-vals 1.0 local-mat :NT)))))
+	 ;; rhs-part / force
+	 (when (and force local-rhs)
+	   (gemm! weight left-vals (aref force i)
+		  1.0 (aref local-rhs i))))))))
 
 ;;; Assembly of boundary conditions -> system-fe.lisp
 

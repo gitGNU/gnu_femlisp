@@ -83,6 +83,18 @@ is for use in some macros."
 	((null (cdr args)) (car args))
 	(t `(aif ,(car args) (aand ,@(cdr args))))))
 
+(defmacro acond (&rest clauses)
+  (if (null clauses)
+      nil
+      (let ((cl1 (car clauses))
+            (sym (gensym)))
+        `(let ((,sym ,(car cl1)))
+           (if ,sym
+               (let ((it ,sym))
+		 (declare (ignorable it))
+		 ,@(cdr cl1))
+               (acond ,@(cdr clauses)))))))
+
 (defmacro _f (op place &rest args)
   (multiple-value-bind (vars forms var set access) 
                        (get-setf-expansion place)
@@ -99,46 +111,24 @@ is for use in some macros."
     (find-method (function ,gf-name) (quote ,qualifiers)
      (mapcar #'find-class (quote ,specializers)))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun with-items-expander (prop-vars prop-names prop-defaults plist body)
-    "Expander for with-items."
-    `(progn
-      ,@(mapcar #'(lambda (prop default)
-		    `(setf (getf ,plist ',prop) (getf ,plist ',prop ,default)))
-		prop-names prop-defaults)
-      (symbol-macrolet
-	    ,(mapcar #'(lambda (var prop) `(,var (getf ,plist ',prop)))
-		     prop-vars prop-names)
-	  ,@body))))
-
-(defmacro with-items (props blackboard &body body)
-  "Introduce property list members as variables.  If a parameter is a list,
-the second one is the default value and the third is an alias to be used to
-refer to this parameter.  Example:
-   (with-items (&key sol (rhs nil rhs-high)) blackboard
-     (setq sol rhs-high))"
-  (let (key-p prop-vars prop-defaults prop-names)
-    (dolist (prop props)
-      (cond
-	((eq prop '&key) (assert (not key-p))
-	 (setq key-p t))
-	(t (let ((prop-var
-		  (if (atom prop)
-		      prop
-		      (or (nth 2 prop) (nth 0 prop))))
-		 (prop-default (and (listp prop) (nth 1 prop)))
-		 (prop-name (if (atom prop) prop (nth 0 prop))))
-	     ;;(format t "~A ~A ~A" prop-var prop-default prop-name)
-	     (push prop-var prop-vars)
-	     (push prop-default prop-defaults)
-	     (push (if key-p
-		       (intern (symbol-name prop-name) :keyword)
-		       prop-name)
-		   prop-names)))))
-  `(progn
-    (assert (eq (car ,blackboard) :blackboard))
-    ,(with-items-expander prop-vars prop-names prop-defaults
-			  `(cddr ,blackboard) body))))
+(defmacro remove-this-method (gf-name &rest rest)
+  "It should be possible to use this directly on a copied first line of a
+DEFMETHOD definition, e.g.:
+> (remove-this-method m* :before ((mat <matrix>) (x <vector>)))"
+  (let ((next (first rest)))
+    (multiple-value-bind (qualifiers args)
+	(if (member next '(:before :after :around))
+	    (values (list next) (second rest))
+	    (values () next))
+      (let ((specializers (mapcar #'(lambda (arg)
+				      (if (consp arg)
+					  (second arg)
+					  t))
+				  args)))
+	`(remove-method
+	  (function ,gf-name)
+	  (find-method (function ,gf-name) (quote ,qualifiers)
+	   (mapcar #'find-class (quote ,specializers))))))))
 
 (defmacro for ((var start end) &body body)
   "Syntax: (for (i 1 10) (princ i)).
@@ -208,9 +198,6 @@ Example: (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))"
 ;;;; Testing:
 
 (defun test-macros ()
-  (let ((blackboard (list :blackboard t)))
-    (with-items (&key (a 2)) blackboard
-      (princ a)))
   )
 
 

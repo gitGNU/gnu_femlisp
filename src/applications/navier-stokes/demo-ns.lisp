@@ -36,5 +36,7 @@
 
 (defvar *navier-stokes-demo*
   (make-demo :name "Navier-Stokes"
-	     :short "Solve flow problems"))
+	     :short "Solve Navier-Stokes flow problems"))
 (adjoin-demo *navier-stokes-demo* *equation-demo*)
+
+

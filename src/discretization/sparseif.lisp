@@ -255,5 +255,14 @@ still a suboptimal implementation for vector functions."
 (defmethod increment-global-by-local-mat ((cell <cell>) fe (smat <sparse-matrix>) local-mat)
   (do-fe-dofs-mat cell fe smat local-mat :global+=local))
 
-
+(defmethod extract-ip-data ((cell <cell>) qrule property-list)
+  "Converts all ansatz-space objects in the parameters list into local
+value arrays corresponding to the finite element."
+  (loop for (key object) on property-list by #'cddr
+	when (typep object '<ansatz-space-vector>)
+	collect key and collect
+	(let* ((fe (get-fe (fe-class object) cell))
+	       (local-vec (get-local-from-global-vec cell fe object)))
+	  (map 'vector #'(lambda (shape-vals) (m*-tn shape-vals local-vec))
+	       (ip-values fe qrule)))))
 

@@ -113,6 +113,9 @@ nrows and ncols of the given matrices."
 (define-blas-macro 'standard-matrix 'element-m+!
   '(element-m+! (x y) `(incf ,y ,x)))
 
+(define-blas-macro 'standard-matrix 'element-m+
+  '(element-m+ (x y) `(+ ,y ,x)))
+
 (define-blas-macro 'standard-matrix 'element-m-!
   '(element-m-! (x y) `(decf ,y ,x)))
 
@@ -230,9 +233,9 @@ nrows and ncols of the given matrices."
   (defun remove-subclass-methods (gf template-args)
     "Removes all methods dispatching on subclasses of the template
 arguments."
-    (loop for method in (copy-seq (generic-function-methods gf))
+    (loop for method in (copy-seq (fl.port::generic-function-methods gf))
 	  when (every #'subtypep
-		      (method-specializers method)
+		      (fl.port::method-specializers method)
 		      (mapcar #'(lambda (arg)
 				  (if (consp arg)
 				      (second arg)
@@ -254,7 +257,7 @@ arguments."
 			     do (assert (not (member arg '(&key &allow-other-keys))))))))
 	  ;; define specialized method
 	  (let ((method-source
-		 `(let (*compile-print*)
+		 `(let ((*compile-print* (dbg-p :blas)))
 		   ,(specialized-method-code
 		     ',name ',template-args ,actual-args
 		     ',(if (stringp (car body)) (cdr body) body)))))
@@ -318,9 +321,7 @@ result.  At bottlenecks, the use of gemm! should be preferred."
     sum))
 
 (define-blas-template mequalp ((x standard-matrix) (y standard-matrix))
-  "Dot product for standard-matrix.  This is not a perfectly fast routine
-due to the condition in the innermost and due to consing when returning the
-result.  At bottlenecks, the use of gemm! should be preferred."
+  "Exact equality test for standard-matrix."
   (or (and (or (zerop x-nrows) (zerop x-ncols))
 	   (or (zerop x-nrows) (zerop x-ncols)))
       (when (and (= x-nrows y-nrows) (= x-ncols y-ncols))
@@ -352,9 +353,9 @@ result.  At bottlenecks, the use of gemm! should be preferred."
   y)
 
 ;;; Matrix-matrix multiplication
+
 (defun generate-standard-matrix-gemm!-template (job)
   "Generates the GEMM-XX! routine defined by JOB."
-  (declare (optimize speed))
   (assert (member job '(:nn :nt :tn :tt)))
   (let ((gemm-job (symconc "GEMM-" (symbol-name job) "!"))
 	(x-index-1 :row-index) (x-index-2 :col-index)
@@ -377,20 +378,16 @@ result.  At bottlenecks, the use of gemm! should be preferred."
 	 (error "Size of arguments does not fit for matrix-matrix multiplication."))
        (matrix-loop ((z :col-index) (y ,y-index-2))
 	 (matrix-loop ((z :row-index) (x ,x-index-1))
-	   (let ((sum (element-scal! beta (ref z))))
+	   (let ((sum (coerce 0 'element-type)))
 	     (declare (type element-type sum))
 	     (matrix-loop ((x ,x-index-2) (y ,y-index-1))
-	       (element-m+! (element-m* alpha (element-m* (ref x) (ref y))) sum))
-	     (setf (ref z) sum))))
+	       (element-m+! (element-m* (ref x) (ref y)) sum))
+	     (setf (ref z) (element-m+ (element-m* alpha sum)
+				       (element-m* beta (ref z)))))))
        z))))
+
 ;;; activate all of the GEMM-XX! routines
 (mapc #'generate-standard-matrix-gemm!-template '(:nn :nt :tn :tt))
-
-#+(or)
-(let* ((x (make-real-matrix #2a((2.0 1.0) (1.0 2.0))))
-       (y (make-real-matrix #2a((2.0 1.0) (1.0 2.0))))
-       (z (make-real-matrix 2 2)))
-     (gemm-nn! 1.0 x y 0.0 z))
 
 (define-blas-template transpose! ((x standard-matrix) (y standard-matrix))
   (declare (optimize (speed 3) (space 0) (debug 0) (safety 0)))
@@ -477,10 +474,14 @@ result.  At bottlenecks, the use of gemm! should be preferred."
   #'(lambda (n)
       (make-instance (standard-matrix type) :nrows n :ncols 1)))
 
-(defun test-blas-1 (fsym size &optional
-		    (genvec (typed-vector-generator 'double-float)))
-  (let ((x (funcall genvec size))
-	(y (funcall genvec size))
+(defun test-blas (fsym size &key
+		  (generator (typed-vector-generator 'double-float))
+		  (flop-calculator (curry #'* 2))
+		  (nr-of-arguments 2))
+  (let ((x (funcall generator size))
+	(y (funcall generator size))
+	(z (when (= nr-of-arguments 3)
+	     (funcall generator size)))
 	(fn (symbol-function fsym)))
     (format
      t "~A-~D: ~$ MFLOPS~%" fsym size
@@ -488,25 +489,40 @@ result.  At bottlenecks, the use of gemm! should be preferred."
 	   for before = (get-internal-run-time) then after
 	   and count of-type fixnum = 1 then (* count 2)
 	   do
-	   (loop repeat count do (funcall fn x y))
+	   (if z
+	       (loop repeat count do (funcall fn x y z))
+	       (loop repeat count do (funcall fn x y)))
 	   (setq after (get-internal-run-time))
 	   (when (> (/ (- after before) internal-time-units-per-second)
 		    fl.utilities::*mflop-delta*)
-	       (return (/ (* 2 size count internal-time-units-per-second)
+	       (return (/ (* (funcall flop-calculator size)
+			     count
+			     internal-time-units-per-second)
 			  (* 1e6 (- after before)))))))))
 
 ;;;; Testing
 
 (defun test-standard-matrix-blas ()
   (dbg-on :blas)
+  (test-blas 'm+! 7992)
   (scal! 0.5 #m((1.0 2.0)))
   (copy! (eye 2) (eye 2))
-  (test-blas-1 'dot 2 (typed-vector-generator '(complex double-float)))
-  (test-blas-1 'dot 1 (typed-vector-generator '(complex double-float)))
-  (test-blas-1 'm+! 20 (typed-vector-generator 'double-float))
-  (test-blas-1 'm+! 1 (typed-vector-generator 'single-float))
-  (test-blas-1 'm.*! 1 (typed-vector-generator 'double-float))
-  (test-blas-1 'dot 1 (typed-vector-generator 'single-float))
+  (test-blas 'dot 2 :generator (typed-vector-generator '(complex double-float)))
+  (test-blas 'dot 1 :generator (typed-vector-generator '(complex double-float)))
+  (time (test-blas 'm* 1024 :generator 'eye
+	     :flop-calculator (lambda (n) (* 2 n n n))))
+  (loop for k = 1 then (* 2 k) until (> k 1000) do
+	(fl.matlisp::test-blas
+	 'fl.matlisp:m+! k :generator 'fl.matlisp:ones
+	 :flop-calculator (lambda (n) (* n n))))
+  #+(or)
+  (loop for k = 1 then (* 2 k) until (> k 1000) do
+	(fl.matlisp::test-blas
+	 'matlisp:m+! k :generator 'matlisp:ones
+	 :flop-calculator (lambda (n) (* n n))))
+  (test-blas 'm+! 1 :generator (typed-vector-generator 'single-float))
+  (test-blas 'm.*! 1)
+  (test-blas 'dot 1 :generator (typed-vector-generator 'single-float))
   (let* ((x #m((2.0 1.0) (-1.0 2.0)))
 	 (y #m((2.0 1.0) (1.0 2.0)))
 	 (z (make-real-matrix 2 2)))

@@ -248,7 +248,7 @@ ansatz-space-morphism."))
 ;;; performed often.  In that case one could consider incorporating it
 ;;; in a class derived from <ansatz-space-vector>.
 
-(defmethod extract-level ((asv <ansatz-space-vector>) (level fixnum))
+(defmethod extract-level ((asv <ansatz-space-vector>) level)
   (let* ((sub-vec (make-ansatz-space-vector (ansatz-space asv)))
 	 (vblocks (slot-value sub-vec 'algebra::blocks))
 	 (level-skel (cells-on-level (hierarchical-mesh asv) level)))
@@ -272,7 +272,7 @@ accelerated by taking member-checks out of the loop."
      asa)
     sub-mat))
 
-(defmethod extract-level ((asa <ansatz-space-automorphism>) (level fixnum))
+(defmethod extract-level ((asa <ansatz-space-automorphism>) level)
   (extended-extract asa (cells-on-level (hierarchical-mesh asa) level)))
 
 (defmethod decompose (as-obj)
@@ -460,7 +460,7 @@ masters."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod select-linear-solver ((asa <ansatz-space-automorphism>) blackboard)
-  "Tries to select a suitable solver depending on the problem."
+  "Tries to select a suitable solver depending on the pde problem."
   (select-linear-solver (problem asa) blackboard))
 
 

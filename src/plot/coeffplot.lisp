@@ -34,7 +34,7 @@
 
 (in-package :plot)
 
-(defmethod graphic-commands ((problem <problem>) (program (eql :dx))
+(defmethod graphic-commands ((problem <pde-problem>) (program (eql :dx))
 			     &key (foreground :white) &allow-other-keys)
   (let ((axis-color (ecase foreground (:black "black")(:white "white")))
 	(graph-color (ecase foreground (:black "black")(:white "yellow"))))
@@ -62,7 +62,7 @@
 	  ;;"image = Render(tubes, camera);"
 	  )))))
 
-(defmethod plot ((problem <problem>) &rest rest
+(defmethod plot ((problem <pde-problem>) &rest rest
 		 &key (depth 0) (key #'identity) refinements parametric coefficient &allow-other-keys)
   "Plots a coefficient function for problem.  It generates a temporary
 mesh, refines it as often as given in the keyword parameter refinements and
@@ -95,9 +95,9 @@ given by the additional parameter depth."
   (let* ((dim 1) (domain (n-cell-domain dim))
 	 (my-problem
 	  (make-instance
-	   '<problem> :domain domain :patch->coefficients
+	   '<pde-problem> :domain domain :patch->coefficients
 	   (constantly (list 'MY-COEFFICIENT
-			     (function->coefficient #'(lambda (x) (aref x 0))))))))
+			     (ensure-coefficient #'(lambda (x) (aref x 0))))))))
     (plot my-problem :refinements 0 :coefficient 'MY-COEFFICIENT))
   )
 

@@ -272,12 +272,17 @@ disection method.  Returns a list of the sorted cells."
 	unless (refined-p cell h-mesh)
 	do (funcall func cell)))
 
-(defun surface-cells-of-highest-dim (h-mesh)
-  "This function is needed mainly for plotting.  It returns the surface
-cells of a locally refined hierarchical-mesh structure."
-  (loop for cell being each hash-key of (etable-of-highest-dim h-mesh)
+(defun surface-cells-of-dim (h-mesh dim)
+  "This function returns the surface cells of a locally refined
+hierarchical-mesh structure."
+  (loop for cell being each hash-key of (etable h-mesh dim)
 	unless (refined-p cell h-mesh)
 	collect cell))
+
+(defun surface-cells-of-highest-dim (h-mesh)
+  "This function returns the surface cells of highest dimension of a
+locally refined hierarchical-mesh structure."
+  (surface-cells-of-dim h-mesh (dimension h-mesh)))
 
 (defun nr-of-surface-cells (h-mesh)
   (let ((sum 0))

@@ -88,7 +88,6 @@
   (make-tensor dimensions t))
 
 (defun make-real-tensor (dimensions)
-  (declare (values <real-tensor>))
   (make-tensor dimensions 'double-float))
 
 (defun make-complex-tensor (dimensions)
@@ -453,26 +452,23 @@ contracted index pair fit."
 ;;; cache.  For comparison, see the values obtained by mflop.lisp.
 
 #+ignore
-(let* ((n 300)
-       (t1 (make-real-tensor (make-fixnum-vec 2 n)))
-       (t2 (make-real-tensor (make-fixnum-vec 2 n))))
-  (time ; we have to fill the matrices because zeros perform better? why?
-   (progn
-     (fill (entries t1) 1.0)
-     (fill (entries t2) 2.0)))
-  (time (t* t1 t2 '((1 . 0))))
-  (* n n n))
+(time
+ (let* ((n 50)
+	(t1 (make-real-tensor (make-fixnum-vec 2 n)))
+	(t2 (make-real-tensor (make-fixnum-vec 2 n))))
+   (fill! (entries t1) 1.0)
+   (fill! (entries t2) 2.0)
+   (loop repeat 1000 do
+	 (t* t1 t2 '((1 . 0))))))
 ; 100: 0.12, 200: 0.87, 300: 2.52, 400: 5.5, 500: 10.1
 
 #+ignore
-(let* ((n 500)
-       (t1 (make-real-matrix n))
-       (t2 (make-real-matrix n)))
-  (time ; we have to fill the matrices because m* optimizes on zeros
-   (progn
-     (fill! t1 1.0)
-     (fill! t2 2.0)))
-  (time (m* t1 t2))
-  (* n n n))
+(time
+ (let* ((n 50)
+	(t1 (make-real-matrix n))
+	(t2 (make-real-matrix n)))
+   (fill! t1 1.0)
+   (fill! t2 2.0)
+   (loop repeat 1000 do (m* t1 t2))))
 ; 100: 0.02, 200: 0.31, 300: 1.43, 400: 3.39, 500: 6.7
 

@@ -347,29 +347,34 @@ cell->fe mapping given as a class slot."))
 
 (defun base-function-values-at-ips (fe qrule)
   "Returns a list of nr-ip float-matrices of dimension (n-basis x 1)."
-  (loop for ip in (integration-points qrule)
-	collect
-	(make-real-matrix
-	  (loop for shape in (fe-basis fe)
-		collect (list (evaluate shape (ip-coords ip)))))))
+  (map 'vector
+       #'(lambda (ip)
+	   (make-real-matrix
+	    (loop for shape in (fe-basis fe)
+		  collect (list (evaluate shape (ip-coords ip))))))
+        (integration-points qrule)))
 (memoize-symbol 'base-function-values-at-ips :test 'equal)
 
 (defun base-function-gradients-at-ips (fe qrule)
   "Returns a list of nr-ip float-matrices of dimension (n-basis x dim)."
-  (loop for ip in (integration-points qrule) collect
-	(make-real-matrix
-	 (loop for shape in (fe-basis fe) collect
-	       (evaluate-gradient shape (ip-coords ip))))))
+  (map 'vector
+       #'(lambda (ip)
+	   (make-real-matrix
+	    (loop for shape in (fe-basis fe) collect
+		  (evaluate-gradient shape (ip-coords ip)))))
+       (integration-points qrule)))
 (memoize-symbol 'base-function-gradients-at-ips :test 'equal)
 
 (defun vector-fe-ip-values (vecfe qrule)
-  (apply #'mapcar #'vector (map 'list (rcurry 'ip-values qrule)
-				(components vecfe))))
+  (apply #'map 'vector #'vector
+	 (map 'list (rcurry 'ip-values qrule)
+	      (components vecfe))))
 (memoize-symbol 'vector-fe-ip-values :test 'equal)
 
 (defun vector-fe-ip-gradients (vecfe qrule)
-  (apply #'mapcar #'vector (map 'list (rcurry 'ip-gradients qrule)
-				(components vecfe))))
+  (apply #'map 'vector #'vector
+	 (map 'list (rcurry 'ip-gradients qrule)
+	      (components vecfe))))
 (memoize-symbol 'vector-fe-ip-gradients :test 'equal)
 
 (defmethod ip-values ((fe <fe>) qrule)

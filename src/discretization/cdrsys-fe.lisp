@@ -40,11 +40,9 @@
 (in-package :cdrsys-fe)
 
 (defmethod discretize-locally ((problem <cdrsys-problem>) coeffs vecfe qrule fe-geometry
-			       &key local-mat local-rhs local-sol local-u local-v)
+			       &key local-mat local-rhs local-sol local-u local-v
+			       coefficient-parameters &allow-other-keys)
   "Local discretization for a convection-diffusion-reaction system."
-  (declare (type (array local-mat))
-	   #+(or)(type (or null real-matrix) local-sol local-rhs local-u local-v))
-  
   (let ((diffusion-function (getf coeffs 'CDRSYS::DIFFUSION))
 	(convection-function (getf coeffs 'CDRSYS::CONVECTION))
 	(gamma-function (getf coeffs 'CDRSYS::GAMMA))
@@ -54,7 +52,7 @@
 
 
 #+(or)  ; has to be converted
-(defmethod essential-boundary-constraints ((problem <problem>) (ansatz-space <ansatz-space>)
+(defmethod essential-boundary-constraints ((problem <pde-problem>) (ansatz-space <ansatz-space>)
 					    &key level sol mat rhs (where :surface))
   (declare (ignore sol rhs))
   (assert (or (not (eq where :surface)) mat))

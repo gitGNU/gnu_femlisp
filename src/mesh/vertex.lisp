@@ -66,8 +66,8 @@ are not mapped."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod copy-cell ((vtx <vertex>))
-  "Copy constructor for vertex."
-  (make-instance (class-of vtx) :position (vertex-position vtx)))
+  "Copy constructor for vertex.  The vertex position is freshly allocated."
+  (make-instance (class-of vtx) :position (copy-seq (vertex-position vtx))))
 
 (defmethod vertices ((vtx <vertex>)) (list vtx))
 
