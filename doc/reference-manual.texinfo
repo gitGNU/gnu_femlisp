@@ -84,12 +84,6 @@ Returns the speed which should be characteristic for the setting
 determined by the keyword arguments.
 @end deffn
 
-@anchor{fun-fl.utilities-compose}
-@deffn Function COMPOSE &REST @var{FUNCTIONS}
-@findex COMPOSE
-Returns the composition of @arg{functions}.
-@end deffn
-
 @anchor{fun-fl.utilities-copy-hash-table}
 @deffn Function COPY-HASH-TABLE @var{HASH-TABLE}
 @findex COPY-HASH-TABLE
@@ -220,6 +214,18 @@ Collect the values of @arg{hash-table} into a list.
 Checks if the permutation is the identity.
 @end deffn
 
+@anchor{fun-fl.utilities-iterator}
+@deffn Function ITERATOR @var{RANGE}
+@findex ITERATOR
+Returns an iterator for the given vector.
+@end deffn
+
+@anchor{fun-fl.utilities-iterator-next}
+@deffn Function ITERATOR-NEXT @var{RANGE} @var{I}
+@findex ITERATOR-NEXT
+Returns an incremented @arg{iterator}.
+@end deffn
+
 @anchor{fun-fl.utilities-k->l-subsets}
 @deffn Function K->L-SUBSETS @var{SET} @var{K} @var{L}
 @findex K->L-SUBSETS
@@ -245,6 +251,12 @@ Returns all subsets of @arg{set} with length @arg{k}.  Example:
 @deffn Function LIST->QUEUE @var{LIST}
 @findex LIST->QUEUE
 Transforms @arg{list} to a queue.
+@end deffn
+
+@anchor{macro-fl.utilities-loop+}
+@deffn Macro LOOP+ @var{ITEMS} &BODY @var{BODY}
+@findex LOOP+
+Iterates @arg{body} over @arg{items}.
 @end deffn
 
 @anchor{fun-fl.utilities-make-analog}
@@ -313,29 +325,23 @@ connected sets and the remaining disconnected ones.  Example:
 @end lisp
 @end deffn
 
-@anchor{fun-fl.utilities-memoize}
-@deffn Function MEMOIZE @var{FUNC}
+@anchor{macro-fl.utilities-memoize}
+@deffn Macro MEMOIZE (@var{DEFUN} @var{FUNSYM} &REST @var{REST})
 @findex MEMOIZE
-Primitive memoizer.  Handles multi-argument non-recursive functions.
+Defines a function and memoizes it.
 @end deffn
 
 @anchor{fun-fl.utilities-memoize-1}
-@deffn Function MEMOIZE-1 @var{FUNC}
+@deffn Function MEMOIZE-1 @var{FUNC} &KEY (@var{TEST} (@var{QUOTE} @var{EQL}))
 @findex MEMOIZE-1
-Primitive memoizer.  Does handle only one-argument and
-non-recursive functions.
-@end deffn
-
-@anchor{fun-fl.utilities-memoize-1-symbol}
-@deffn Function MEMOIZE-1-SYMBOL @var{FUNSYM}
-@findex MEMOIZE-1-SYMBOL
-Memoizes 1-argument functions named by the given symbol.
+Memoizes the function @arg{func} which should be a non-recursive
+function of one argument.
 @end deffn
 
 @anchor{fun-fl.utilities-memoize-symbol}
 @deffn Function MEMOIZE-SYMBOL @var{FUNSYM} &KEY (@var{TEST} (@var{QUOTE} @var{EQUAL}))
 @findex MEMOIZE-SYMBOL
-Memoizes multi-argument functions named by the given symbol.
+Memoizes multi-argument functions named by the symbol @arg{funsym}.
 @end deffn
 
 @anchor{fun-fl.utilities-mklist}
@@ -464,10 +470,36 @@ Returns T if @arg{property} is found in the object's properties.
 Transforms @arg{queue} to a list.
 @end deffn
 
+@anchor{fun-fl.utilities-range}
+@deffn Function RANGE &REST @var{ARGS} &KEY @var{TO} @var{BELOW}
+@findex RANGE
+Constructor for a range of numbers.
+@end deffn
+
+@anchor{class-fl.utilities-range}
+@deftp Class RANGE
+@tindex RANGE
+Range of numbers for iteration.
+
+Direct slots:
+@itemize
+@item FROM: NIL
+@item TO: NIL
+@item BELOW: NIL
+@item BY: NIL
+@end itemize
+@end deftp
+
 @anchor{fun-fl.utilities-rcurry}
 @deffn Function RCURRY @var{FUNC} &REST @var{ARGS}
 @findex RCURRY
 Supplies @arg{args} to @arg{func} from the right.
+@end deffn
+
+@anchor{fun-fl.utilities-reference}
+@deffn Function REFERENCE @var{RANGE} @var{I}
+@findex REFERENCE
+Reader for the element of @arg{vec} referenced by @arg{iterator}.
 @end deffn
 
 @anchor{fun-fl.utilities-required-argument}
@@ -546,7 +578,7 @@ Returns the last element of @arg{vec}.
 @end deffn
 
 @anchor{fun-fl.utilities-vector-map}
-@deffn Function VECTOR-MAP @var{FUNC} @var{VEC}
+@deffn Function VECTOR-MAP @var{FUNC} &REST @var{VECS}
 @findex VECTOR-MAP
 Map @arg{vec} with @arg{func} to a vector of the same type.
 @end deffn
@@ -1070,6 +1102,17 @@ Loops on indices and entries of a vector.  Examples:
 Type of the elements of the vector/matrix.
 @end deffn
 
+@anchor{fun-fl.matlisp-extend-matlisp-function}
+@deffn Function EXTEND-MATLISP-FUNCTION @var{FUNC}
+@findex EXTEND-MATLISP-FUNCTION
+If @package{MATLISP} is available, and the argument @arg{func} is a
+generic function in this package, this function is extended to be
+applicable to matrices in @arg{FL.MATLISP}.  This is done by defining a
+method for @function{no-applicable-method} which converts the arguments,
+calls @arg{func} and reconverts the returned values.  If @package{MATLISP}
+is not available, NIL is returned.
+@end deffn
+
 @anchor{fun-fl.matlisp-fill!}
 @deffn Function FILL! @var{X} @var{S}
 @findex FILL!
@@ -1542,7 +1585,7 @@ Returns the specified subvector.
 @end deffn
 
 @anchor{fun-fl.matlisp-vlength}
-@deffn Function VLENGTH @var{MAT}
+@deffn Function VLENGTH @var{SEQ}
 @findex VLENGTH
 Length of vector.
 @end deffn
@@ -1915,7 +1958,7 @@ Superclasses: <SKELETON>
 
 Direct slots:
 @itemize
-@item DOMAIN: NIL
+@item DOMAIN: The domain of the mesh.
 @item PARAMETRIC: NIL
 @end itemize
 @end deftp
@@ -2603,14 +2646,16 @@ keyword parameters which should correspond to the list in DEMANDS.
 @anchor{class-fl.problem-<domain-problem>}
 @deftp Class <DOMAIN-PROBLEM>
 @tindex <DOMAIN-PROBLEM>
-Base-class for problems posed on a domain.  The slot
-DOMAIN contains the domain on which the problem lives.  The slot
-COEFFICIENTS contains a table from domain patches to coefficients on this
-patch which are property lists of the form (SYM1 coefficient1 SYM2
-coefficient2 ...).  When the problem instance is initialized this table is
-set up by calling the function PATCH->COEFFICIENTS which has to be provided
-as a key argument.  The multiplicity slot can be chosen as n>1 if the
-problem is posed with n different right hand sides simultaneously.
+An instance of this class describes a problem posed on
+the domain @slot{domain}.  The slot @slot{coefficients} contains a table
+mapping domain patches to property lists of the form (@symbol{identifier1}
+@code{coefficient1} @symbol{identifier2} @code{coefficient2} ...).  Here
+identifiers are special symbols and the coefficients are objects of type
+@class{<coefficient>}.  When the problem instance is initialized this table
+is usually set up by calling the function @function{patch->coefficients}
+which has to be provided as a key argument.  The slot @slot{multiplicity}
+can be chosen as a positive integer @math{n} if the problem is posed with
+@math{n} different right hand sides simultaneously.
 
 Superclasses: <PROBLEM>
 
@@ -2748,7 +2793,8 @@ Tests, if @arg{coeff} is a boundary coefficient of @arg{problem}.
 @anchor{fun-fl.problem-boundary-coefficients}
 @deffn Function BOUNDARY-COEFFICIENTS @var{PROBLEM}
 @findex BOUNDARY-COEFFICIENTS
-Yields a list of possible boundary coefficients for PROBLEM.
+Returns a list of possible boundary coefficients for
+@arg{problem}.
 @end deffn
 
 @anchor{fun-fl.problem-coefficient-p}
@@ -2760,13 +2806,14 @@ Test if @arg{coeff} is a coefficient of @arg{problem}.
 @anchor{fun-fl.problem-coefficients-of-cell}
 @deffn Function COEFFICIENTS-OF-CELL @var{CELL} @var{MESH} @var{PROBLEM}
 @findex COEFFICIENTS-OF-CELL
-An accessor for the coefficients.
+An accessor for the coefficients of @arg{problem} valid
+for @arg{cell}.
 @end deffn
 
 @anchor{fun-fl.problem-coefficients-of-patch}
 @deffn Function COEFFICIENTS-OF-PATCH @var{PATCH} @var{PROBLEM}
 @findex COEFFICIENTS-OF-PATCH
-An accessor for the coefficients.
+An accessor for the coefficients of @arg{patch} for @arg{problem}.
 @end deffn
 
 @anchor{fun-fl.problem-constant-coefficient}
@@ -2782,6 +2829,12 @@ boundary condition.
 @findex CONSTRAINT-COEFFICIENT
 Returns a coefficient function which sets Dirichlet zero boundary
 conditions for all components of a PDE system.
+@end deffn
+
+@anchor{fun-fl.problem-constraint-identifier}
+@deffn Function CONSTRAINT-IDENTIFIER @var{PROBLEM} &OPTIONAL @var{CELL}
+@findex CONSTRAINT-IDENTIFIER
+Returns the symbol which identifies constraints for this problem.
 @end deffn
 
 @anchor{fun-fl.problem-dual-problem}
@@ -2843,7 +2896,8 @@ Tests, if @arg{coeff} is an interior coefficient of @arg{problem}.
 @anchor{fun-fl.problem-interior-coefficients}
 @deffn Function INTERIOR-COEFFICIENTS @var{PROBLEM}
 @findex INTERIOR-COEFFICIENTS
-Yields a list of possible interior coefficients for PROBLEM.
+Returns a list of possible interior coefficients for
+@arg{problem}.
 @end deffn
 
 @anchor{fun-fl.problem-linear-p}
@@ -3295,7 +3349,7 @@ Choose a reasonable start vector for some strategy.
 @end deffn
 
 @anchor{fun-fl.discretization-constrained-interpolation-matrix}
-@deffn Function CONSTRAINED-INTERPOLATION-MATRIX @var{ANSATZ-SPACE} &KEY @var{LEVEL} @var{WHERE} @var{IMAT}
+@deffn Function CONSTRAINED-INTERPOLATION-MATRIX @var{ANSATZ-SPACE} &KEY @var{LEVEL} @var{WHERE} @var{IMAT} (@var{TYPE} @var{LOCAL})
 @findex CONSTRAINED-INTERPOLATION-MATRIX
 The multigrid algorithm needs an interpolation which satisfies the
 constraints like essential or periodic boundary conditions.
@@ -3424,11 +3478,12 @@ and fe to the values of the local vector array.
 @end deffn
 
 @anchor{fun-fl.discretization-interpolation-matrix}
-@deffn Function INTERPOLATION-MATRIX @var{ANSATZ-SPACE} &KEY @var{LEVEL} @var{REGION} @var{IMAT}
+@deffn Function INTERPOLATION-MATRIX @var{ANSATZ-SPACE} &KEY @var{LEVEL} @var{REGION} @var{IMAT} (@var{TYPE} @var{*INTERPOLATION-TYPE*})
 @findex INTERPOLATION-MATRIX
-The algorithm works as follows: On each cell of the provided region or
-on all cells of the h-mesh a local interpolation matrix computed on the
-reference finite element is collected into an interpolation matrix.
+On each cell of the skeleton @arg{region} or on all cells of level
+@arg{level} of the mesh of @arg{ansatz-space}, a local interpolation matrix
+is collected into an interpolation matrix.  @arg{type} is the interpolation
+type having a default value @var{*interpolation-type*}.
 @end deffn
 
 @anchor{fun-fl.discretization-lagrange-fe}
@@ -3463,7 +3518,7 @@ Memoized call of compute-local-pmatrix.
 @end deffn
 
 @anchor{fun-fl.discretization-local-transfer-matrix}
-@deffn Function LOCAL-TRANSFER-MATRIX @var{FE-FROM} @var{FE-TO}
+@deffn Function LOCAL-TRANSFER-MATRIX &REST @var{ARGS}
 @findex LOCAL-TRANSFER-MATRIX
 Computes a local transfer matrix between different FE spaces.
 @end deffn
@@ -3616,18 +3671,6 @@ in a separate file @file{geomg.lisp} and package @package{FL.GEOMG}.
 Maximum iteration depth for which status output is done.
 @end defvr
 
-@anchor{var-fl.iteration-*standard-cg*}
-@defvr Variable *STANDARD-CG*
-@vindex *STANDARD-CG*
-CG iteration.
-@end defvr
-
-@anchor{var-fl.iteration-*standard-pcg*}
-@defvr Variable *STANDARD-PCG*
-@vindex *STANDARD-PCG*
-PCG iteration.
-@end defvr
-
 @anchor{var-fl.iteration-*time-observe*}
 @defvr Variable *TIME-OBSERVE*
 @vindex *TIME-OBSERVE*
@@ -3654,10 +3697,14 @@ Direct slots:
 @anchor{class-fl.iteration-<cg>}
 @deftp Class <CG>
 @tindex <CG>
-CG iteration.  Think about using preconditioning,
-i.e. PCG.
+The CG iteration is PCG with no preconditioner.
 
-Superclasses: <LINEAR-ITERATION>
+Superclasses: <PCG>
+
+Direct slots:
+@itemize
+@item PRECONDITIONER: NIL
+@end itemize
 @end deftp
 
 @anchor{class-fl.iteration-<custom-psc>}
@@ -3832,7 +3879,7 @@ Superclasses: <NONLINEAR-SOLVER>
 @anchor{class-fl.iteration-<pcg>}
 @deftp Class <PCG>
 @tindex <PCG>
-Preconditioned CG iteration
+Preconditioned conjugate gradient iteration
 
 Superclasses: <LINEAR-ITERATION>
 
@@ -4057,7 +4104,7 @@ selection amg.  The original Ruge-Stueben algorithm was developed further
 since 1987 by Klaus Stueben and collaborators.  These developments are
 published in ....  The algorithm implemented here uses their ideas, but
 does not claim to be equivalent to their code which can be bought at SCAI,
-St. Augustin, Germany.  At this point, I want to thank Tanja Fuellenbach
+St. Augustin, Germany.  At this point, I want to thank Tanja Clees
 for several discussions on AMG.
 
 Superclasses: <SELECTION-AMG>
@@ -4125,6 +4172,13 @@ is often the essence of an AMG method.
 @findex RESTRICTION
 Compute a restriction matrix from amg, mat and
 prolongation.
+@end deffn
+
+@anchor{fun-fl.multigrid-select-smoother}
+@deffn Function SELECT-SMOOTHER @var{MGIT} @var{PROBLEM}
+@findex SELECT-SMOOTHER
+Select a suitable smoother depending on multigrid
+iteration and matrix.
 @end deffn
 
 @anchor{fun-fl.multigrid-slave-dof-p}
@@ -4584,6 +4638,12 @@ Checks if the patch is part of the inlay including its boundary.
 @deffn Function PATCH-ON-INNER-BOUNDARY-P @var{PATCH}
 @findex PATCH-ON-INNER-BOUNDARY-P
 Checks if the patch is part of the hole boundary.
+@end deffn
+
+@anchor{fun-fl.domains-patch-on-n-cube-boundary-p}
+@deffn Function PATCH-ON-N-CUBE-BOUNDARY-P @var{PATCH}
+@findex PATCH-ON-N-CUBE-BOUNDARY-P
+Returns T, if the patch is on the boundary of the n-cube.
 @end deffn
 
 @anchor{fun-fl.domains-sinusoidal-bl-cell}

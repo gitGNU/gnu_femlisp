@@ -6,6 +6,7 @@
 * Solving problems::            
 * Plotting::                    
 * Common Lisp environment::     
+* Learning Common Lisp::        
 @end menu
 
 @node Demos, Solving problems, First steps, First steps
@@ -156,7 +157,7 @@ You can also plot the result to several graphic formats.  For example,
       :filename "mesh.tiff")
 @end lisp
 
-@node Common Lisp environment,  , Plotting, First steps
+@node Common Lisp environment, Learning Common Lisp, Plotting, First steps
 @section Common Lisp environment
 
 First, it is of uttermost importance that you use an editor which
@@ -193,3 +194,9 @@ free alternative is the editor Emacs together with the SLIME package.
 Emacs/SLIME can handle a large range of Lisp implementations and
 provides more or less the same possibilities as the commercial IDEs.
 
+@node Learning Common Lisp,  , Common Lisp environment, First steps
+@section Learning Common Lisp
+
+There is a very nice online book ``Practical Common Lisp'' by Peter
+Seibel (Seibel 2005).  It is available online at
+@url{http://www.gigamonkeys.com/book}.

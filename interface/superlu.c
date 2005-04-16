@@ -35,8 +35,11 @@
   gcc -c -fPIC -I/usr/include/superlu superlu.c
   ld -lsuperlu -shared superlu.o -o superlu.so
    
+ Compiling for obtaining a filter:
+  gcc -D__FILTER__ -g  -I/usr/include/superlu -lsuperlu -o superlu superlu.c
+
  For testing purposes:
-  gcc -D__TESTING__  -I/usr/include/superlu superlu.c
+  gcc -D__TESTING__  -I/usr/include/superlu -lsuperlu superlu.c
 ************************************************************************/
 
 #include "dsp_defs.h"
@@ -75,6 +78,43 @@ int c_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
 	
 	return info;
 }
+
+#ifdef __FILTER__
+#include <stdio.h>
+
+int main(int argc, char *argv[])
+{
+    int nrhs, m, n, nnz;
+    int *asub, *xa;
+    double *a, *rhs, *sol;
+	
+	if (argc!=5) return -1;
+	if (sscanf (argv[1], "%d", &m)!=1) return -2;
+	if (sscanf (argv[2], "%d", &n)!=1) return -3;
+	if (sscanf (argv[3], "%d", &nnz)!=1) return -4;
+	if (sscanf (argv[4], "%d", &nrhs)!=1) return -5;
+
+    if (!(xa = malloc ((n+1)*sizeof(int)))) return -6;
+    if (!(asub = malloc (nnz*sizeof(int)))) return -7;
+    if (!(a = malloc (nnz*sizeof(double)))) return -8;
+    if (!(rhs = malloc (m*nrhs*sizeof(double)))) return -9;
+
+	/* read matrix and rhs from stdin */
+	fread (xa, sizeof(int), n+1, stdin);
+	fread (asub, sizeof(int), nnz, stdin);
+	fread (xa, sizeof(double), nnz, stdin);
+	fread (rhs, sizeof(double), m*nrhs, stdin);
+	
+	sol = rhs;  /* rhs is overwritten */
+	
+	c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+
+	/* write out solution */
+	fwrite (rhs, sizeof(double), m*nrhs, stdin);
+	
+	return 0;
+}
+#endif
 
 #ifdef __TESTING__
 #include <stdio.h>

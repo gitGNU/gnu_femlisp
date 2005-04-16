@@ -11,10 +11,10 @@ Femlisp FAQ
 
 2. Q: What manuals and other introductory material are available?
 
-   A: There is a short preliminary manual in the doc-directory which is
-   partly a reference manual generated automatically from the Femlisp
-   docstrings.  Therefore, it is often more convenient obtain this
-   information from your Lisp environment.
+   A: There is a short manual in the doc-directory which is partly a
+   reference manual generated automatically from the Femlisp docstrings.
+   There is a very nice book "Practical Common Lisp" by Peter Seibel which
+   is also available online at <http://www.gigamonkeys.com/book>.
 
 3. Q: What is the best way to get started?
 

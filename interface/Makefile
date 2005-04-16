@@ -47,4 +47,4 @@ umfpack:
 	ld -shared $(UMFPACK_LIB) $(AMD_LIB) umfpack.o -o umfpack.so
 
 clean:
-	rm -f superlu.o superlu.so umfpack.o umfpack.so
+	rm -f superlu superlu.o superlu.so umfpack.o umfpack.so

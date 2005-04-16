@@ -1,5 +1,35 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.5 to Femlisp-0.9.6:
+
+Femlisp runs successfully on an AMD-64 platform using SBCL (however, mine
+was a parallel machine in Warwick/UK, and I could not test any graphics).
+Many thanks especially to Dan Barlow and Juho Snellman for making this work
+for SBCL.
+
+The installation procedure was improved with a configure script.
+
+The use of LAPACK/Matlisp for full matrices in Femlisp is now possible in a
+very convenient way: if Matlisp is available, the function
+@function{extend-matlisp-function} can be used to extend a Matlisp generic
+function to be applicable to Femlisp matrices.
+
+There is now an installation section for MacOS X in the manual.
+
+If neither SuperLU nor UMFPACK is available, we use the old LU
+decomposition for our own sparse matrix format.  This makes those packages
+optional, although the performance may suffer for larger matrices.
+
+General refinement rules are allowed now.  For example, although
+anisotropic refinement rules are not yet created, this should be very easy
+to do now.
+
+Finite element interpolation now works for vector-valued functions.
+
+Automatically generated matrix classes are now correctly interned in the
+package @package{FL.MATLISP}.
+
+
 * From Femlisp-0.9.4 to Femlisp-0.9.5:
 
 Several enhancements for the linear algebra.  The file @path{tensor.lisp}

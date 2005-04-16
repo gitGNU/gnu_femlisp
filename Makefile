@@ -30,17 +30,13 @@
 ###########################################################################
 
 help:
-	echo "Options: doc, infix, superlu, umfpack, triangle";\
-	echo "         femlisp, femlisp-core, slime, all, clean."
+	echo "Options: all, configure, clean, documentation, femlisp, help,";\
+	echo "         triangle, superlu, umfpack."
 
-all: doc infix superlu umfpack triangle femlisp femlisp-core
+all: configure superlu umfpack triangle femlisp documentation
 
-doc:
-	cd doc; make all
-
-infix:
-	cd external;\
-	wget http://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/lang/lisp/code/syntax/infix/infix.cl
+configure:
+	cd bin; ./femlisp-configure
 
 superlu:
 	cd interface; make superlu
@@ -57,28 +53,17 @@ using it."
 	unzip triangle.zip; rm triangle.zip; make
 
 femlisp:
-	sed "/^FEMLISP_DIR=.*/c\FEMLISP_DIR=`pwd`" bin/femlisp >bin/femlisp2;\
-	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
-
-use_cmucl:
-	sed "/^FEMLISP_CL=.*/c\FEMLISP_CL=/usr/bin/lisp" bin/femlisp >bin/femlisp2;\
-	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
-	sed "/^FEMLISP_CL_TYPE=.*/c\FEMLISP_CL_TYPE=cmucl" bin/femlisp >bin/femlisp2;\
-	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
-
-use_sbcl:
-	sed "/^FEMLISP_CL=.*/c\FEMLISP_CL=/usr/bin/sbcl" bin/femlisp >bin/femlisp2;\
-	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
-	sed "/^FEMLISP_CL_TYPE=.*/c\FEMLISP_CL_TYPE=sbcl" bin/femlisp >bin/femlisp2;\
-	mv -f bin/femlisp2 bin/femlisp; chmod +x bin/femlisp;
-
-femlisp-core:
 	cd bin; sh ./femlisp --save-core-and-die
+
+documentation:
+	cd doc; make all
 
 slime:
 	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
 
 clean:
+	rm -f *.x86f *.fasl
+	cd bin; rm -f *.core
 	cd doc; make clean;
 	cd interface; make clean;
 	cd src; make clean;

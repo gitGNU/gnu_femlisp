@@ -1,0 +1,95 @@
+#!/bin/sh
+
+FEMLISP_CL=`which lisp`
+if test -z "$FEMLISP_CL"
+then
+    FEMLISP_CL=`which cmucl`
+fi
+if test -z "$FEMLISP_CL"
+then
+    FEMLISP_CL=`which sbcl`
+    if test -n "$FEMLISP_CL"
+	then
+	FEMLISP_CL_TYPE=sbcl
+    fi
+fi
+echo "Enter the path to your CL executable [$FEMLISP_CL]: "
+read input
+
+if test -n "$input"
+then
+    FEMLISP_CL=$input
+fi
+
+if ! test -x "$FEMLISP_CL"
+then
+    echo "Executable $FEMLISP_CL not found"
+    exit 1
+fi
+
+if test "`basename $FEMLISP_CL`"="sbcl"
+then
+    FEMLISP_CL_TYPE=sbcl
+else
+    FEMLISP_CL_TYPE=cmucl
+fi
+
+echo "Enter the type of your Lisp [$FEMLISP_CL_TYPE]: "
+read input
+
+if test -n "$input"
+then
+    FEMLISP_CL_TYPE=$input
+fi
+
+case $FEMLISP_CL_TYPE in
+    cmucl) echo -e "using CMUCL\n";;
+    sbcl) echo -e "... using SBCL\n";;
+    *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
+esac
+
+current_dir=`pwd`
+FEMLISP_DIR=`dirname $current_dir` 
+echo "Check the path to the Femlisp directory [$FEMLISP_DIR]: "
+read input
+if test -n "$input"
+then
+    FEMLISP_DIR=$input
+fi
+
+if ! test -d "$FEMLISP_DIR"; then
+    echo "Directory $FEMLISP_DIR not found"
+    exit 1
+fi
+
+# Obsolete, but may become necessary later on because of license issues
+#
+# INFIX_LOCATION=http://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/lang/lisp/code/syntax/infix/infix.cl
+#
+# echo "Femlisp needs the Infix library.  If it is not available,"
+# echo "it should be downloaded now."
+# echo "Should I download the Infix library now using wget [n]? "
+# read yn
+# if ! test "$yn" = "yes"
+# then
+#     cd ../external; wget $INFIX_LOCATION; cd ../bin
+# fi
+
+
+# All variables are set, thus we start configuring:
+
+# change the Femlisp script
+sed "s%^\([ \t]*\)FEMLISP_DIR=.*%\1FEMLISP_DIR=$FEMLISP_DIR%" femlisp >femlisp2
+mv -f femlisp2 femlisp
+sed "s%^\([ \t]*\)FEMLISP_CL=.*%\1FEMLISP_CL=$FEMLISP_CL%" femlisp >femlisp2
+mv -f femlisp2 femlisp
+sed "s%^\([ \t]*\)FEMLISP_CL_TYPE=.*%\1FEMLISP_CL_TYPE=$FEMLISP_CL_TYPE%" femlisp >femlisp2
+mv -f femlisp2 femlisp
+
+# mark the script as executable 
+chmod +x femlisp
+
+
+
+
+

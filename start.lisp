@@ -42,7 +42,7 @@ during initialization of Femlisp."))
 
 (in-package :fl.start)
 
-(defparameter *femlisp-version* "0.9.5")
+(defparameter *femlisp-version* "0.9.6")
 
 (defun femlisp-version () *femlisp-version*)
 (defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
@@ -100,12 +100,17 @@ location of this file when it is loaded.")
 
 ;;; INFIX
 #-infix (load "femlisp:external;infix.cl")
-#-(or asdf mk-defsystem) (load "femlisp:external;defsystem.lisp")
 
 #+asdf
 (push *femlisp-pathname* asdf::*central-registry*)
 #+mk-defsystem
 (push *femlisp-pathname* mk::*central-registry*)
+
+;;; POSIX
+#+sbcl (require 'sb-posix)
+
+;;; Introspection
+#+sbcl (require 'sb-introspect)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Compiling and loading of Femlisp

@@ -85,6 +85,9 @@ Generator and Delaunay Triangulator}. In Ming C. Lin Dinesh Manocha
 Engineering}, Lecture Notes in Computer Science 1148, Springer-Verlag,
 1997, pp. 203-222.
 
+@item (Seibel 2005)
+P. Seibel: @emph{Practical Common Lisp}.  Apress, 2005.  Available
+online at @url{http://www.gigamonkeys.com/book}.
 
 @item (Stueben 2001)
 K. Stueben: @emph{A review of algebraic multigrid}.

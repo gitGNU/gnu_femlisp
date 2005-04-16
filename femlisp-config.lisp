@@ -37,7 +37,7 @@
 
 ;;; Set the following variables only if DX or Gnuplot should not be found
 ;;; automatically or if you are not satisfied with the standard directory
-;;; where images are written to.
+;;; where images or meshes are written to.
 
 (defparameter *dx-path* nil          ; Example: "/usr/local/bin/dx"
   "Path to the @program{DX} executable.")
@@ -55,13 +55,10 @@
   "Directory where meshes are put by default.")
 
 (defparameter *superlu-library*
-  "/usr/lib/libsuperlu.so"
-  "Library for SuperLU, if available.")
+  (probe-file #p"femlisp:interface;superlu.so")
+  "Wrapper for SuperLU, if available.")
 
 (defparameter *umfpack-library*
-  "/usr/lib/libumfpack.so"
-  "Library for UMFPACK, if available.")
+  (probe-file #p"femlisp:interface;umfpack.so")
+  "Wrapper for UMFPACK, if available.")
 
-(defparameter *amd-library*
-  "/usr/lib/libamd.so"
-  "Library for AMD, if available.")

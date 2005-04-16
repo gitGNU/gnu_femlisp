@@ -10,7 +10,7 @@ Femlisp needs the following more or less urgently:
  - sparse interpolation/projection matrices
 
 * Mesh refinement:
- - more refinement rules
+ - anisotropic refinement rules
 
 * Improved linear algebra for sparse matrices, see the FAQ.
  - switch to CCS for speed?
@@ -20,6 +20,5 @@ Femlisp needs the following more or less urgently:
 * Improved solution of eigenvalue problems.
 
 * Parallelization.
-
 
 
