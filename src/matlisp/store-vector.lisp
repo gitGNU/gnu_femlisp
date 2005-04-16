@@ -46,7 +46,7 @@ vector which can be obtained by calling the function
 
 (defun store-vector-class-name (type)
   (intern (format nil "~A" (list 'store-vector type))
-	  :fl.matlisp))
+	  "FL.MATLISP"))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun store-vector (type)

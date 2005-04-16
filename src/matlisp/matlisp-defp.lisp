@@ -82,7 +82,7 @@
    "DOVEC" "MEXTRACT" "MINJECT"
 
    ;; standard-matrix.lisp
-   "MRANDOM"
+   "MRANDOM" "EXTEND-MATLISP-FUNCTION"
    
    ;; ctypes.lisp
    "INT-VEC" "MAKE-INT-VEC"
@@ -98,6 +98,7 @@
    ;; ccs.lisp
    "CCS-PATTERN" "COLUMN-STARTS" "ROW-INDICES"
    "FULL-CCS-PATTERN" "CCS-MATRIX" "PATTERN"
+   "CCS->MATLISP"
    
    ;; tensor.lisp
    "FULL-TENSOR" "MAKE-REAL-TENSOR"

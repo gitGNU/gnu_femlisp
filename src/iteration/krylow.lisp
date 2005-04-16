@@ -34,16 +34,16 @@
 
 (in-package :fl.iteration)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Gradient method
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <gradient-method> (<linear-iteration>)
   ()
   (:documentation "Gradient-method.  Better use CG."))
 
 (defmethod make-iterator ((linit <gradient-method>) mat)
-  "Gradient-method via matlisp methods."
+  "Iterator for the gradient method."
   (let ((p (make-domain-vector-for mat))
 	(a (make-image-vector-for mat)))
     (make-instance
@@ -54,102 +54,69 @@
      :iterate
      #'(lambda (x b r)
 	 (declare (ignore b))
-	 (copy! r p) (copy! p a)
-	 (setq a (m* mat a))
+	 (copy! r p)
+	 (gemm! 1.0 mat p 0.0 a)
 	 (let ((lam (/ (dot r p) (dot a p))))
 	   (axpy! lam p x)))
      :residual-after nil)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; CG method without preconditioning
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <cg> (<linear-iteration>)
-  ()
-  (:documentation "CG iteration.  Think about using preconditioning,
-i.e. PCG."))
-
-(defmethod make-iterator ((linit <cg>) mat)
-  "Standard method for CG iteration.  Works if matlisp methods are defined for
-the given matrix-vector representation."
-  (let ((p (make-domain-vector-for mat))
-	(a (make-image-vector-for mat))
-	(defnorm 0.0))
-    (make-instance
-     '<iterator>
-     :matrix mat
-     :residual-before t
-     :initialize
-     #'(lambda (x b r)
-	 (declare (ignore x b))
-	 (copy! r p)
-	 (setq defnorm (dot r r)))
-     :iterate
-     #'(lambda (x b r)
-	 (declare (ignore b))
-	 (unless (zerop defnorm)
-	   (copy! p a)
-	   (setq a (m* mat a))
-	   (let ((lam (/ defnorm (dot a p))))
-	     (axpy! lam p x)
-	     (axpy! (- lam) a r)
-	     (let ((new-defnorm (dot r r)))
-	       (scal! (/ new-defnorm defnorm) p)
-	       (m+! r p)
-	       (setq defnorm new-defnorm)))))
-     :residual-after t)))
-
-(defparameter *standard-cg* (make-instance '<cg>)
-  "CG iteration.")
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; PCG iteration
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Preconditioned conjugate gradient iteration
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <pcg> (<linear-iteration>)
   ((preconditioner :initform nil :initarg :preconditioner))
-  (:documentation "Preconditioned CG iteration"))
+  (:documentation "Preconditioned conjugate gradient iteration"))
 
-(defparameter *standard-pcg* (make-instance '<pcg>)
-  "PCG iteration.")
+(defclass <cg> (<pcg>)
+  ((preconditioner :initform nil))
+  (:documentation "The CG iteration is PCG with no preconditioner."))
 
 (defmethod make-iterator ((pcg <pcg>) mat)
-  "Standard method for PCG iteration.  Works if matlisp methods are defined
-for the given matrix-vector representation."
-  (let ((p (make-domain-vector-for mat))
-	(a (make-image-vector-for mat))
-	(q (make-domain-vector-for mat))
-	(alpha 0.0)
-	(precond (whereas ((preconditioner (slot-value pcg 'preconditioner)))
+  "Standard method for the preconditioned conjugate-gradient iteration."
+  (let ((precond (whereas ((preconditioner (slot-value pcg 'preconditioner)))
 		   (make-iterator preconditioner mat))))
-    (with-slots (initialize iterate) precond
-      (make-instance
-       '<iterator>
-       :matrix mat
-       :residual-before t
-       :initialize
-       #'(lambda (x b r)
-	   (declare (ignore x b))
-	   (cond
-	     (precond
-	      (when initialize (funcall initialize p r r))
-	      (funcall iterate p r r))
-	     (t (copy! r p)))
-	   (setq alpha (dot p r)))
-       :iterate
-       #'(lambda (x b r)
-	   (declare (ignore b))
-	   (unless (zerop alpha)
-	     (copy! p a)
-	     (setq a (m* mat a))
-	     (let* ((beta (dot a p))
-		    (lam (/ alpha beta)))
-	       (axpy! lam p x)
-	       (axpy! (- lam) a r)
-	       (cond (precond (x<-0 q) (funcall iterate q r r))
-		     (t (copy! r q)))
-	       (let ((new-alpha (dot q r)))
-		 (scal! (/ new-alpha alpha) p)
-		 (m+! q p)
-		 (setq alpha new-alpha)))))
-       :residual-after t))))
+    (let ((p (make-domain-vector-for mat))
+	  (a (make-image-vector-for mat))
+	  (q (and precond (make-domain-vector-for mat)))
+	  (alpha 0.0))
+      (with-slots (initialize iterate) precond
+	(make-instance
+	 '<iterator>
+	 :matrix mat
+	 :residual-before t
+	 :initialize
+	 #'(lambda (x b r)
+	     (declare (ignore x b))
+	     (cond
+	       (precond
+		(when initialize (funcall initialize p r r))
+		(funcall iterate p r r))
+	       (t (copy! r p)))
+	     (setq alpha (dot p r)))
+	 :iterate
+	 #'(lambda (x b r)
+	     (declare (ignore b))
+	     (unless (zerop alpha)
+	       (gemm! 1.0 mat p 0.0 a)
+	       (let* ((beta (dot a p))
+		      (lam (/ alpha beta)))
+		 (axpy! lam p x)
+		 (axpy! (- lam) a r)
+		 (let ((q (cond (precond (x<-0 q) (funcall iterate q r r))
+				(t r))))
+		   (let ((new-alpha (dot q r)))
+		     (scal! (/ new-alpha alpha) p)
+		     (m+! q p)
+		     (setq alpha new-alpha))))))
+	 :residual-after t)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; BiCGStab
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <bi-cgstab> (<linear-iteration>)
+  ((preconditioner :initform nil :initarg :preconditioner))
+  (:documentation "Preconditioned Bi-CGStab iteration"))
+
+;;; to be done

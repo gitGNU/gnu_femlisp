@@ -64,18 +64,17 @@
 	 (components (components fe))
 	 (result (make-array nr-comps :initial-element nil)))
     (dotimes (comp nr-comps result)
-      (loop with Dphi^-1 = (m/ (local->Dglobal cell local-pos))
-	    and f-values = (if (vectorp f-values)
-			       (aref f-values comp)
-			       f-values)
-	    for shape in (fe-basis (aref components comp))
-	    and i from 0 do
-	    (m-incf (aref result comp)
-		    (scal (vref f-values i)
-			  (m* (ensure-matlisp
-			       (coerce (evaluate-gradient shape local-pos) 'double-vec)
-			       :row)
-			      Dphi^-1)))))))
+      (let ((Dphi^-1 (m/ (local->Dglobal cell local-pos)))
+	    (f-values (if (vectorp f-values)
+			  (aref f-values comp)
+			  f-values)))
+	(loop+ (i (shape (fe-basis (aref components comp)))) do
+	   (m-incf (aref result comp)
+		   (scal (vref f-values i)
+			 (m* (ensure-matlisp
+			      (coerce (evaluate-gradient shape local-pos) 'double-vec)
+			      :row)
+			     Dphi^-1))))))))
 
 (defmethod fe-gradient ((asv <ansatz-space-vector>) pos)
   "Evaluates a finite element gradient at point pos."

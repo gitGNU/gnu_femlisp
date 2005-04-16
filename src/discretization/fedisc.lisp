@@ -70,6 +70,35 @@ on for implementing matrixless computations."))
 ;;;; Interior assembly
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   
+(defparameter *static-condensation* nil
+  "This is experimental and usually switched off, because several things
+like error estimators or multigrid do not yet work correctly.")
+
+(defun static-condensation (mat &optional rhs)
+  "Does static condensation destructively on mat and rhs, i.e. essentially
+eliminate all equations for highest-dimensional cells from the system.  The
+system should be completely equivalent to the original one."
+  (declare (optimize debug safety))
+  (let ((dim (dimension (mesh mat))))
+    (for-each-row-key
+     #'(lambda (i)
+	 (when (= (dimension (representative i)) dim)
+	   (let ((Aii-inv (m/ (mref mat i i)))
+		 (f_i (when rhs (vref rhs i))))
+	     (for-each-key-in-col
+	      #'(lambda (l)
+		  (unless (eq l i)
+		    (let ((B (m* (mref mat l i) Aii-inv)))
+		      (when rhs (gemm! -1.0 B  f_i 1.0 (vref rhs l)))
+		      (for-each-key-in-row
+		       #'(lambda (j)
+			   (unless (eq j i)
+			     (gemm! -1.0 B (mref mat i j) 1.0 (mref mat l j))))
+		       mat i))
+		    (remove-entry mat l i)))
+	      mat i))))
+     mat)))
+
 (defun assemble-interior (ansatz-space &key level (where :surface)
 			  matrix rhs solution ; left right
 			  (mass-factor 0.0) (stiffness-factor 1.0)
@@ -112,7 +141,7 @@ handling constraints are intricate, but usually of lower complexity."
 				  (or (eq (dimension coeff) t)
 				      (= (dimension cell)
 					 (or (dimension coeff) (dimension patch))))
-				  (not (eq symbol 'CONSTRAINT)))
+				  (not (equal (symbol-name symbol) "CONSTRAINT")))
 			collect symbol and collect coeff)))
 	    (let* ((fe (get-fe fe-class cell))
 		   (qrule (quadrature-rule fe))
@@ -129,10 +158,15 @@ handling constraints are intricate, but usually of lower complexity."
 	       :mass-factor mass-factor :stiffness-factor stiffness-factor)
 	      ;; accumulate to global matrix and rhs (if not nil)
 	      (when rhs (increment-global-by-local-vec cell fe rhs local-rhs))
-	      (when matrix (increment-global-by-local-mat cell fe matrix local-mat)))))))))
+	      (when matrix (increment-global-by-local-mat cell fe matrix local-mat))))))))
+  ;;  experimental: static condensation
+  (when *static-condensation*
+    (static-condensation matrix rhs))
+  )
 
 (defun compute-interior-level-matrix (interior-mat sol level)
-  "Is called in the geomg package."
+  "This function is needed for the multilevel decomposition of geometric
+multigrid."
   (let* ((ansatz-space (ansatz-space interior-mat))
 	 (h-mesh (hierarchical-mesh ansatz-space))
 	 (top-level (top-level h-mesh))
@@ -149,8 +183,12 @@ handling constraints are intricate, but usually of lower complexity."
 	  while constraints-p do
 	  (add-local-part! mat interior-mat (column-table constraints)
 			   :directions '(:right)))
-    ;; and return it
+    ;; experimental: static condensation
+    (when *static-condensation*
+      (static-condensation mat))
+    ;; and return the result
     mat))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Assembly of full problem

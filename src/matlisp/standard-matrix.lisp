@@ -117,7 +117,7 @@ If content is a 2d array, the dimensions can be deduced."
   (assert (subtypep type 'number))
   (fl.amop:find-programmatic-class
    (list (store-vector type) 'standard-matrix)
-   (intern (format nil "~A" (list 'STANDARD-MATRIX type)))))
+   (intern (format nil "~A" (list 'STANDARD-MATRIX type)) "FL.MATLISP")))
 
 (defun make-real-matrix (&rest args)
   "Generates a real matrix as specified by its arguments.  If two arguments
@@ -150,6 +150,54 @@ structure defining the contents matrix."
   (make-instance (standard-matrix 'double-float)
 		 :nrows dim :ncols 1
 		 :content (make-double-vec dim value)))
+
+(defun extend-matlisp-function (func)
+  "If @package{MATLISP} is available, and the argument @arg{func} is a
+generic function in this package, this function is extended to be
+applicable to matrices in @arg{FL.MATLISP}.  This is done by defining a
+method for @function{no-applicable-method} which converts the arguments,
+calls @arg{func} and reconverts the returned values.  If @package{MATLISP}
+is not available, NIL is returned."
+  (whereas ((matlisp-package (find-package "MATLISP")))
+    (when (and (typep func 'generic-function)
+	       (eq (symbol-package (fl.amop::generic-function-name func))
+		   matlisp-package))
+      (destructuring-bind (standard-matrix real-matrix complex-matrix
+					   nrows ncols store)
+	  (mapcar (rcurry #'intern matlisp-package)
+		  '("STANDARD-MATRIX" "REAL-MATRIX" "COMPLEX-MATRIX"
+		    "NROWS" "NCOLS" "STORE"))
+	(defmethod no-applicable-method ((gf (eql func)) &rest args)
+	  (let (alist)
+	    ;; setup translation table with arguments
+	    (loop for obj in args do
+		 (when (and (typep obj 'fl.matlisp:standard-matrix)
+			    (not (assoc obj alist)))
+		   (setf (geta alist obj)
+			 (make-instance (if (eq (element-type obj) 'double-float)
+					    real-matrix  complex-matrix)
+					:nrows (nrows obj) :ncols (ncols obj) :store (store obj)))))
+	    (unless alist
+	      (error "No matching method for the generic function ~S, when called with arguments ~S."
+		     gf args))
+	    (let ((return-values
+		   (multiple-value-list
+		    (apply gf (loop for obj in args collect
+				   (or (geta alist obj) obj))))))
+	      ;; augment translation table with returned values
+	      (loop for obj in return-values do
+		   (when (and (typep obj standard-matrix)
+			      (not (rassoc obj alist)))
+		     (push (cons (make-instance (fl.matlisp:standard-matrix
+						 (cond ((typep obj real-matrix) 'double-float)
+						       ((typep obj complex-matrix) '(complex double-float))
+						       (t (error "Unknown Matlisp matrix."))))
+						:nrows (funcall nrows obj) :ncols (funcall ncols obj)
+						:store (funcall store obj))
+				 obj)
+			   alist)))
+	      (apply #'values (loop for obj in return-values collect
+				   (or (car (rassoc obj alist)) obj))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; conversion of vectors to standard-matrix

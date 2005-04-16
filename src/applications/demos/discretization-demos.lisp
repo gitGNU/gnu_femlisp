@@ -45,11 +45,9 @@
 (defun plot-lagrange-basis (order type)
   "1D-~type~ - Plots 1D Lagrange basis (points=~type~)"
   (plot
-   (loop for phi in (fe-basis (get-fe (lagrange-fe order :type type) *unit-interval*))
-	 and i from 1
-	 collect
-	 (cons (format nil "phi-~D" i)
-	       (1d-graph phi :left 0.0 :right 1.0 :step 0.01)))))
+   (loop+ (i (phi (fe-basis (get-fe (lagrange-fe order :type type) *unit-interval*))))
+      collect (cons (format nil "phi-~D" i)
+		    (1d-graph phi :left 0.0 :right 1.0 :step 0.01)))))
 
 (defun make-lagrange-basis-demo (type)
   (multiple-value-bind (title short long)

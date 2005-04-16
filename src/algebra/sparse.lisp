@@ -860,6 +860,8 @@ col-keys=nil means to allow every key."
 (defmethod sparse-matrix->matlisp ((A <sparse-matrix>)
 				   &key keys row-keys col-keys
 				   ranges row-ranges col-ranges)
+  "This routine should be rewritten to get faster.  I started to do that,
+but the result fails due to a compiler bug in CMUCL."
   (setq row-keys (coerce (or row-keys keys (row-keys A)) 'vector))
   (setq col-keys (coerce (or col-keys keys (col-keys A)) 'vector))
   (setq row-ranges (aand (or row-ranges ranges) (coerce it 'vector)))
@@ -893,7 +895,6 @@ col-keys=nil means to allow every key."
 				      (mref mblock i j)
 				      0.0))))))
     mm))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Local matrix manipulation
@@ -979,7 +980,6 @@ discretized with the 3-point stencil on a structured mesh."
 	   (AA (make-sparse-matrix
 		:row-key->size #'constantly-2 :col-key->size #'constantly-2
 		:keys->pattern (constantly (full-crs-pattern 2 2)))))
-      
       (setf (mref AA 0 1) #m((1.0 2.0e-15) (3.0 -4.0)))
       (display AA :order '(0 1))
       (assert (mzerop A))
@@ -997,6 +997,7 @@ discretized with the 3-point stencil on a structured mesh."
       (show B)
       (show x)
       (show (m* B x))
+      (sparse-matrix->matlisp AA :row-keys '(0) :col-keys '(1))
   
       (x<-0 A)
       (show B)
@@ -1006,7 +1007,7 @@ discretized with the 3-point stencil on a structured mesh."
       (sparse-matrix->matlisp A :keys '(0 1 2))
       (setf (mref AA 0 1) (make-full-crs-matrix 2 2))
       (fill! (mref AA 0 1) 1.0)
-      (sparse-matrix->matlisp AA :row-keys '(0 1) :col-keys '(1))
+      ;;(sparse-matrix->matlisp AA :row-keys '(0 1) :col-keys '(1))
       ;;
       (setf (mref A 0 1) #m((2.0)))
       (show (sparse-m* A A))

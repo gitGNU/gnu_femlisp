@@ -48,7 +48,7 @@
 
 (definline double-vec (&rest comps)
   "Returns a @class{double-vec} with the entries in @arg{comps}."
-  (coerce comps 'double-vec))
+  (map 'double-vec (rcurry #'coerce 'double-float) comps))
 
 (definline make-double-vec (dim &optional (init 0.0))
   "Returns a @class{double-vec} of length @arg{dim} and initial value

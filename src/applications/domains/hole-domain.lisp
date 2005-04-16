@@ -72,6 +72,9 @@ using n-cube patches."
   "Checks if the patch is part of the hole boundary."
   (patch-in-inlay-p patch))
 
+(defun patch-on-n-cube-boundary-p (patch)
+  "Returns T, if the patch is on the boundary of the n-cube."
+  (some #'(lambda (xc) (or (zerop xc) (= 1.0 xc))) (midpoint patch)))
 
 ;;; Testing: (test-hole-domain)
 (defun test-hole-domain ()

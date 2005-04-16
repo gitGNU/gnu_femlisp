@@ -226,7 +226,7 @@ cube with its opposite sides identified."
       (loop initially (insert! '(0))
 	    for k from 1 upto (1+ dim)
 	    for sign-lists = (apply #'map-product #'list (make-list k :initial-element '(-1 1))) do
-	    (loop for k-subset in (k-subsets (range 1 dim) k) do
+	    (loop for k-subset in (k-subsets (range<= 1 dim) k) do
 		  (loop for signs in sign-lists
 			for corners = (mapcar #'* k-subset signs) do
 			(insert! corners)

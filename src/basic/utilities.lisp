@@ -43,6 +43,7 @@
 default form when an argument should be supplied."
   (error "A required argument was not supplied."))
 
+#+(or)
 (defun compose (&rest functions)
   "Returns the composition of @arg{functions}."
   (if (null functions)
@@ -148,9 +149,9 @@ partial sums."
 ;;;; Vectors
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(definline vector-map (func vec)
+(definline vector-map (func &rest vecs)
   "Map @arg{vec} with @arg{func} to a vector of the same type."
-  (map (type-of vec) func vec))
+  (apply #'map (type-of (elt vecs 0)) func vecs))
 
 (deftype positive-fixnum ()
   "Positive fixnum tpye."
@@ -232,7 +233,7 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 
 (definline single? (lst) (and (consp lst) (null (cdr lst))))
 
-(definline range (k l)
+(definline range<= (k l)
   (loop for i from k upto l
 	collect i))
 
@@ -502,10 +503,10 @@ two values.  Those pairs are stored in a new hash-table."
 ;;; Memoizing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun memoize-1 (func)
-  "Primitive memoizer.  Does handle only one-argument and
-non-recursive functions."
-  (let ((table (make-hash-table)))
+(defun memoize-1 (func &key (test 'eql))
+  "Memoizes the function @arg{func} which should be a non-recursive
+function of one argument."
+  (let ((table (make-hash-table :test test)))
     #'(lambda (key)
 	(multiple-value-bind (value found)
 	    (gethash key table)
@@ -514,33 +515,8 @@ non-recursive functions."
 	      (setf (gethash key table)
 		    (funcall func key)))))))
 
-(defun memoize (func)
-  "Primitive memoizer.  Handles multi-argument non-recursive functions."
-  (let ((table (make-hash-table :test #'equalp)))
-    #'(lambda (&rest args)
-	(princ args)
-	(multiple-value-bind (value found)
-	    (gethash args table)
-	  (if found
-	      value
-	      (setf (gethash args table)
-		    (apply func args)))))))
-
-(defun memoize-1-symbol (funsym)
-  "Memoizes 1-argument functions named by the given symbol."
-  (let ((unmemoized (symbol-function funsym)) 
-	(table (make-hash-table)))
-    (setf (symbol-function funsym)
-	  #'(lambda (key)
-	      (multiple-value-bind (value found)
-		  (gethash key table)
-		(if found
-		    value
-		    (setf (gethash key table)
-			  (funcall unmemoized key))))))))
-
 (defun memoize-symbol (funsym &key (test 'equal))
-  "Memoizes multi-argument functions named by the given symbol."
+  "Memoizes multi-argument functions named by the symbol @arg{funsym}."
   (let ((unmemoized (symbol-function funsym)) 
 	(table (make-hash-table :test test)))
     (setf (get funsym :memoization-table) table)
@@ -553,19 +529,11 @@ non-recursive functions."
 		    (setf (gethash args table)
 			  (apply unmemoized args))))))))
 
-(defmacro defmemo-1 (name &rest rest)
-  `(progn
-    (defun ,name ,@rest)
-    (memoize-1-symbol ',name)
-    ))
-
-(defmacro defmemo (name &rest rest)
-  (let ((unmemoized (intern (format nil "~A-UNMEMOIZED" name))))
-    `(progn
-      (defun ,name ,@rest)
-      (memoize-symbol ',name)
-      (defun ,unmemoized ,@rest)
-      )))
+(defmacro memoize ((defun funsym &rest rest))
+  "Defines a function and memoizes it."
+  (assert (eq defun 'defun))
+  `(progn (defun ,funsym ,@rest)
+	  (memoize-symbol ',funsym)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Association lists
@@ -855,6 +823,7 @@ according to @math{result[i] = v[perm[i]]}."
 
 ;;; Testing
 (defun test-utilities ()
+  (range<= 1 5)
   (assert (= 1 (permutation-signum #(5 3 4 0 2 1))))
   (assert (tree-uniformp '((1 2) (3 4) (5 6))))
   (on-leaves #'princ '((1 2) 3))

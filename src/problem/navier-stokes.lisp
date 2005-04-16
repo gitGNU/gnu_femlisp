@@ -57,9 +57,6 @@
 (defmethod interior-coefficients ((problem <navier-stokes-problem>))
   "Interior coefficients for the Navier-Stokes problem."
   '(VISCOSITY REYNOLDS FORCE))
-(defmethod boundary-coefficients ((problem <navier-stokes-problem>))
-  "Boundary coefficients for the Navier-Stokes problem."
-  '(CONSTRAINT))
 
 ;;; Warning: in elasticity-fe we handle incompressible Navier-Stokes with a
 ;;; viscosity term of the form nu*Delta u.  For non-Dirichlet boundary
@@ -91,11 +88,11 @@
      :patch->coefficients
      #'(lambda (patch)
 	 (cond ((member-of-skeleton? patch (domain-boundary domain))
-		(list 'CONSTRAINT (no-slip-boundary dim)))
+		(list 'FL.NAVIER-STOKES::CONSTRAINT (no-slip-boundary dim)))
 	       ((= dim (dimension patch))
-		(list 'VISCOSITY (ensure-coefficient viscosity)
-		      'REYNOLDS (ensure-coefficient reynolds)
-		      'FORCE (ensure-coefficient force)))
+		(list 'FL.NAVIER-STOKES::VISCOSITY (ensure-coefficient viscosity)
+		      'FL.NAVIER-STOKES::REYNOLDS (ensure-coefficient reynolds)
+		      'FL.NAVIER-STOKES::FORCE (ensure-coefficient force)))
 	       (t ()))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -125,20 +122,22 @@
 	 (let ((midpoint (midpoint patch)))
 	   (cond
 	     ((= dim (dimension patch)) ; interior coefficients
-	      (list 'VISCOSITY (ensure-coefficient viscosity)
-		    'REYNOLDS (ensure-coefficient reynolds)))
+	      (list 'FL.NAVIER-STOKES::VISCOSITY (ensure-coefficient viscosity)
+		    'FL.NAVIER-STOKES::REYNOLDS (ensure-coefficient reynolds)))
 	      ;; upper boundary
 	     ((and (= (dimension patch) (1- dim))
 		   (= (aref midpoint (1- dim)) 1.0))
 	      (append (when smooth-p
-			(list 'FORCE (driven-cavity-force dim)))
-		      (list 'CONSTRAINT (driven-cavity-upper-boundary
-					 dim smooth-p))))
+			(list 'FL.NAVIER-STOKES::FORCE (driven-cavity-force dim)))
+		      (list 'FL.NAVIER-STOKES::CONSTRAINT
+			    (driven-cavity-upper-boundary dim smooth-p))))
 	     ;; lower corner sets also pressure to zero:
 	     ((mzerop midpoint)
-	      (list 'CONSTRAINT (constraint-coefficient (1+ dim) 1)))
+	      (list 'FL.NAVIER-STOKES::CONSTRAINT
+		    (constraint-coefficient (1+ dim) 1)))
 	     ;; other boundaries have standard no-slip bc
-	     (t (list 'CONSTRAINT (no-slip-boundary dim))))))
+	     (t (list 'FL.NAVIER-STOKES::CONSTRAINT
+		      (no-slip-boundary dim))))))
      :properties (list :linear-p (zerop reynolds)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -168,50 +167,44 @@
 		 'FORCE (oscillating-force dim)
 		 ))))))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Driven cavity
+;;;; Channel flow
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun driven-cavity-upper-boundary (dim &optional smooth-p)
-  (let ((flags (make-array (1+ dim) :initial-element (not smooth-p)))
+(defun simple-pressure-boundary-conditions (dim dir value)
+  "This function is a preliminary version which works only for boundaries
+lying in a coordinate hyperplane."
+  (assert (<= 0 dir (1- dim)))
+  (let ((flags (make-array (1+ dim) :initial-element t))
 	(values (make-array (1+ dim) :initial-element #m(0.0))))
-    (setf (aref flags dim) nil) ; no constraint for pressure
-    (when smooth-p  ; zero constraint for u_n
-      (setf (aref flags (1- dim)) t))
-    (unless smooth-p
-      (setf (aref values 0) #m(1.0)))
+    (setf (aref flags dir) nil) ; no constraint for dir-component
+    (setf (aref values dim) (ensure-matlisp value))
     (constant-coefficient flags values)))
 
-(defun driven-cavity-force (dim)
-  (unit-vector-force dim 0))
-
-(defun driven-cavity (dim &key (viscosity 1.0) (reynolds 0.0) smooth-p)
+(defun cubic-channel (dim &key (viscosity 1.0) (reynolds 0.0) (direction 0))
+  "The channel is a simple test problem which has for every Reynolds number
+a Hagen-Poiseuille solution with linear pressure.  The corresponding
+velocity profile is a solution to @math{-\Delta u = constant}."
   (let ((domain (n-cube-domain dim)))
     (make-instance
      '<navier-stokes-problem>
      :domain domain
      :patch->coefficients
      #'(lambda (patch)
-	 (let ((midpoint (midpoint patch)))
+	 (let ((dir-coordinate (aref (midpoint patch) direction)))
 	   (cond
 	     ((= dim (dimension patch)) ; interior coefficients
-	      (list 'VISCOSITY (ensure-coefficient viscosity)
-		    'REYNOLDS (ensure-coefficient reynolds)))
-	      ;; upper boundary
-	     ((and (= (dimension patch) (1- dim))
-		   (= (aref midpoint (1- dim)) 1.0))
-	      (append (when smooth-p
-			(list 'FORCE (driven-cavity-force dim)))
-		      (list 'CONSTRAINT (driven-cavity-upper-boundary
-					 dim smooth-p))))
-	     ;; lower corner sets also pressure to zero:
-	     ((mzerop midpoint)
-	      (list 'CONSTRAINT (constraint-coefficient (1+ dim) 1)))
+	      (list 'FL.NAVIER-STOKES::VISCOSITY (ensure-coefficient viscosity)
+		    'FL.NAVIER-STOKES::REYNOLDS (ensure-coefficient reynolds)))
+	     ((and (= (1- dim) (dimension patch))
+		   (not (/= dir-coordinate 0.0 1.0)))
+	      (list 'FL.NAVIER-STOKES::CONSTRAINT
+		    (simple-pressure-boundary-conditions
+		     dim direction (if (zerop dir-coordinate) 1.0 0.0))))
 	     ;; other boundaries have standard no-slip bc
-	     (t (list 'CONSTRAINT (no-slip-boundary dim))))))
+	     (t (list 'FL.NAVIER-STOKES::CONSTRAINT (no-slip-boundary dim))))))
      :properties (list :linear-p (zerop reynolds)))))
-
-
 
 ;;; Testing: (test-navier-stokes)
 

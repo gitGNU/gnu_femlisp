@@ -240,11 +240,12 @@ Parameters: order=~D, levels=~D~%~%"
 #+(or)(demo *effective-elasticity-demo*)
      
 (defun test-homogenization-elasticity ()
-
   (time (elasticity-interior-effective-coeff-demo
-	 (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2)) :order 4 :levels 2))
+	 (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2)) :order 3 :levels 1))
+  ;;(profile:report-time)
+  ;;(profile:profile :methods 'fl.algebra:sparse-matrix->matlisp)
+  ;;(profile:unprofile)
   ;; we should have N^{lr}_q = N^{lq}_r
-
   (let ((average-tensor
 	 (average-coefficient (getbb *result* :ansatz-space)
 			      :coefficient 'FL.ELASTICITY::ELASTICITY))

@@ -54,9 +54,9 @@ generalized Taylor hood elements."))
   (make-instance
    '<navier-stokes-lagrange-fe>
    :components
-   (append
-    (make-list dim :initial-element (lagrange-fe (+ order delta)))
-    (list (lagrange-fe order :integration-order (+ order delta))))))
+   (concatenate 'vector
+		(make-array dim :initial-element (lagrange-fe (+ order delta)))
+		(list (lagrange-fe order :integration-order (+ order delta))))))
 
 (defvar *full-newton* t
   "If T, a full Newton linearization is used.  If NIL, the reaction term is

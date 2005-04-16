@@ -55,10 +55,10 @@ delegate it to the specialized assembly."
    (problem ansatz-space) ansatz-space
    :level level :where where :interface interface))
 
-(defun constrained-interpolation-matrix (ansatz-space &key level where imat)
+(defun constrained-interpolation-matrix (ansatz-space &key level where imat (type :local))
   "The multigrid algorithm needs an interpolation which satisfies the
 constraints like essential or periodic boundary conditions."
-  (let ((imat (interpolation-matrix ansatz-space :level level :imat imat)))
+  (let ((imat (interpolation-matrix ansatz-space :level level :imat imat :type type)))
     ;; Could this create problems for FAS and non-Dirichlet b.c.??  Should
     ;; prolongation respect the constraints for level+1 and restriction for
     ;; level?  Alternatively, this could be achieved by enforcing the

@@ -99,55 +99,74 @@ abstract class which is made concrete by mixing it with a store-vector."))
 	(setf store (make-array (number-nonzero-entries pattern)
 				:element-type (element-type ccs))))))
 
+(defmethod for-each-key-and-entry ((fn function) (x ccs-matrix))
+  (let* ((store (store x))
+	 (pattern (pattern x))
+	 (column-starts (slot-value pattern 'column-starts))
+	 (row-indices (slot-value pattern 'row-indices)))
+    (dotimes (i (ncols x))
+      (loop for offset from (aref column-starts i) below (aref column-starts (1+ i))
+	 for k = (aref row-indices offset) do
+	   (funcall fn (cons k i) (aref store offset))))))
+
+(defmethod ccs->matlisp ((ccs ccs-matrix) &optional transposed-p)
+  (let ((m (nrows ccs))
+	(n (ncols ccs)))
+    (make-instance
+     (standard-matrix (element-type ccs))
+     :nrows m :ncols n :store
+     (let ((store (make-array (* m n) :element-type (element-type ccs))))
+       (for-each-key-and-entry
+	#'(lambda (i.j value)
+	    (destructuring-bind (i . j) i.j
+	      (format t "~A ~A ~A~%" i j value)
+	      (if transposed-p
+		  (setf (aref store (+ (* i m) j)) value)
+		  (setf (aref store (+ (* j m) i)) value))))
+	ccs)
+       store))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; GEMV!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod gemv-nn! ((alpha number) (x ccs-matrix) (y standard-matrix)
 		     (beta number) (z standard-matrix))
-  ;;(declare (optimize (speed 3) (space 0) (debug 0) (safety 0)))
   (unless (= beta 1) (scal! beta z))
-  (let* ((store (store x))
-	 (pattern (pattern x))
-	 (column-starts (slot-value pattern 'column-starts))
-	 (row-indices (slot-value pattern 'row-indices)))
-    (if (= (ncols x) 1)
-	;; fast version for single rhs/sol
-	(dotimes (i (ncols x))
-	  (dotimes (offset (aref column-starts i) (aref column-starts (1+ i)))
-	    (let ((k (aref row-indices offset))
-		  (factor (* alpha (aref store offset))))
-	      (incf (vref z i) (* factor (vref y k))))))
-	;; slower version for multiple rhs/sol
-	(dotimes (i (ncols x))
-	  (dotimes (offset (aref column-starts i) (aref column-starts (1+ i)))
-	    (let ((k (aref row-indices offset))
-		  (factor (* alpha (aref store offset))))
-	      (dotimes (l (ncols y))
-		(incf (mref z i l) (* factor (mref y k l))))))))))
+  (for-each-key-and-entry
+   #'(lambda (i.j value)
+       (destructuring-bind (i . j) i.j
+	 (let ((factor (* value alpha)))
+	   (dotimes (l (ncols y))
+	     (incf (mref z i l) (* factor (mref y j l)))))))
+   x)
+  z)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; GESV!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar *default-ccs-solver*
-  #+superlu 'fl.alien::superlu
-  #-superlu #+umfpack 'fl.alien::umfpack
-  #-(or superlu umfpack) nil
+(defparameter *default-ccs-solver*
+  (if fl.start::*superlu-library*
+      'fl.alien::superlu
+      (when fl.start::*umfpack-library*
+	'fl.alien::umfpack))
   "Default solver for the CCS format.  At the moment this can be UMFPACK or
 SuperLU.")
 
 (defmethod gesv! ((mat ccs-matrix) (vec standard-matrix))
   "Solve the system by calling an external sparse solver."
-  (with-slots (nrows ncols column-starts row-indices)
-      (pattern mat)
-    (assert (= nrows (nrows vec)))
-    (funcall *default-ccs-solver*
-	     nrows ncols (number-nonzero-entries (pattern mat))
-	     column-starts row-indices (store mat)
-	     (ncols vec) (store vec) (store vec)))
-  vec)
-
+  (if *default-ccs-solver*
+      (with-slots (nrows ncols column-starts row-indices)
+	  (pattern mat)
+	(assert (= nrows (nrows vec)))
+	(funcall *default-ccs-solver*
+		 nrows ncols (number-nonzero-entries (pattern mat))
+		 column-starts row-indices (store mat)
+		 (ncols vec) (store vec) (store vec))
+	vec)
+      (gesv! (ccs->matlisp mat) vec)))
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Test direct solvers on the CCS scheme
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -204,8 +223,12 @@ given number of active grid points in each dimension."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-ccs ()
-  #+umfpack (direct-solver-performance-test 'fl.alien::umfpack 400)
-  #+superlu (direct-solver-performance-test 'fl.alien::superlu 200)
+  (when fl.start::*superlu-library*
+    (direct-solver-performance-test 'fl.alien::superlu 200))
+  (when fl.start::*umfpack-library*
+    (direct-solver-performance-test 'fl.alien::umfpack 400))
+  (let ((*print-matrix* t))
+    (princ (ccs->matlisp (five-point-stencil-matrix 4 4))))
   (make-instance (store-vector 'single-float)
 		 :store (make-array 1 :element-type 'single-float))
   (let* ((pattern (make-instance

@@ -136,7 +136,7 @@ derivative."
   "Returns all partitions of {1,...,n} which consist of two sorted
 parts.  This is used in Freudenthal/Bey's simplex refinement.
 Example: (two-sorted-parts 2) -> ((() (1 2)) ((1) (2)) ((2) (1)) ((1 2) ()))"
-  (loop with indices = (range 1 n)
+  (loop with indices = (range<= 1 n)
 	for k from 0 upto n
 	nconc (loop for set in (k-subsets indices k)
 		    collect (list set (ordered-set-difference indices set)))))

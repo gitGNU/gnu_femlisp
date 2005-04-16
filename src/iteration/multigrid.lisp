@@ -44,17 +44,17 @@
 ;;; <mg-iteration>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *default-smoother* *gauss-seidel*
-  "The default smoothing iteration for the multigrid scheme.  This can be
-Gauss-Seidel, but for many applications something special will give better
-results.")
+(defgeneric select-smoother (mg-it matrix)
+  (:documentation "Select a suitable smoother depending on multigrid
+iteration and matrix.")
+  (:method (mg-it matrix)
+    "Returns the Gauss-Seidel method as default smoother."
+    (make-instance '<gauss-seidel>)))
 
 (defclass <mg-iteration> (<linear-iteration>)
-  ((pre-smoother :reader pre-smoother :initform *default-smoother*
-	       :initarg :pre-smoother :initarg :smoother)
+  ((pre-smoother :reader pre-smoother :initarg :pre-smoother :initarg :smoother)
    (pre-steps :reader pre-steps :initform 1 :initarg :pre-steps)
-   (post-smoother :reader post-smoother :initform *default-smoother*
-		:initarg :post-smoother :initarg :smoother)
+   (post-smoother :reader post-smoother	:initarg :post-smoother :initarg :smoother)
    (post-steps :reader post-steps :initform 1 :initarg :post-steps)
    (gamma :reader gamma :initform 1 :initarg :gamma)
    (base-level :reader base-level :initform 0 :initarg :base-level)
@@ -286,6 +286,7 @@ level for computing the correction to be prolongated."
 (defmethod make-iterator ((mg-it <mg-iteration>) (A <sparse-matrix>))
   "This is the method for a multigrid iteration on a uniformly refined
 grid, or an algebraic multigrid iteration."
+  (declare (optimize debug))
   (dbg :iter "making iterator for <mg-iteration>")
   (with-slots (gamma pre-smoother pre-steps post-smoother post-steps
 		     coarse-grid-iteration)
@@ -306,23 +307,35 @@ grid, or an algebraic multigrid iteration."
 	(setq pre-smoother-vec (make-array nr-levels)
 	      post-smoother-vec (make-array nr-levels))
 	;; smoothers on levels above base-level
-	(loop for level from top-level above base-level
-	      for pre-smoother-l = (if (functionp pre-smoother)
-				     (funcall pre-smoother level)
-				     pre-smoother)
-	      for post-smoother-l = (if (functionp post-smoother)
-				      (funcall post-smoother level)
-				      post-smoother)
-	      for pre-smoother-it = (and (plusp pre-steps)
-				       (make-iterator pre-smoother-l (aref a-vec level)))
-	      for post-smoother-it = (and (plusp post-steps)
-					(or (and (eq pre-smoother-l post-smoother-l) pre-smoother-it)
-					    (make-iterator post-smoother-l (aref a-vec level))))
-	      do
-	      (setf (aref pre-smoother-vec level)
-		    (and pre-smoother-it (product-iterator pre-smoother-it pre-steps)))
-	      (setf (aref post-smoother-vec level)
-		    (and post-smoother-it (product-iterator post-smoother-it post-steps))))
+	(loop for level from top-level above base-level do
+	     (let* ((A-l (aref a-vec level))
+		    (default-smoother
+		     (when (or (not (slot-boundp mg-it 'pre-smoother))
+			       (not (slot-boundp mg-it 'post-smoother)))
+		       (select-smoother mg-it A-l)))
+		    (pre-smoother-l
+		     (if (slot-boundp mg-it 'pre-smoother)
+			 (if (functionp pre-smoother)
+			     (funcall pre-smoother level)
+			     pre-smoother)
+			 default-smoother))
+		    (post-smoother-l
+		     (if (slot-boundp mg-it 'post-smoother)
+			 (if (functionp post-smoother)
+			     (funcall post-smoother level)
+			     post-smoother)
+			 default-smoother))
+		    (pre-smoother-it
+		     (and (plusp pre-steps)
+			  (make-iterator pre-smoother-l A-l)))
+		    (post-smoother-it
+		     (and (plusp post-steps)
+			  (or (and (eq pre-smoother-l post-smoother-l) pre-smoother-it)
+			      (make-iterator post-smoother-l A-l)))))
+	       (setf (aref pre-smoother-vec level)
+		     (and pre-smoother-it (product-iterator pre-smoother-it pre-steps)))
+	       (setf (aref post-smoother-vec level)
+		     (and post-smoother-it (product-iterator post-smoother-it post-steps)))))
 	;; coarse-grid iterator
 	(when (or (= top-level base-level) (> gamma 0))
 	  (setq coarse-grid-it

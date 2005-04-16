@@ -321,6 +321,7 @@ associated with each key."
 ;;;; GESV!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+#+(or umfpack superlu)  ; otherwise there is no GESV! for ccs-matrices
 (defmethod gesv! ((smat <sparse-matrix>) (svec <sparse-vector>))
   "Solve the system by calling an external sparse solver."
   (let* ((keys (row-keys smat))

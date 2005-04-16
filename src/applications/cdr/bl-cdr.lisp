@@ -54,7 +54,7 @@ $x_n=0$."
 		     (bl-patch-on-artificial-boundary bl-cell-domain patch))
 		(list 'FL.CDR::SOURCE (constant-coefficient 1.0)))
 	       ((bl-patch-on-lower-boundary bl-cell-domain patch)
-		(list 'FL.PROBLEM::CONSTRAINT (constant-coefficient 0.0)))
+		(list 'FL.CDR::CONSTRAINT (constant-coefficient 0.0)))
 	       ((= (dimension patch) dim)
 		(list 'FL.CDR::DIFFUSION (identity-diffusion-tensor dim)))
 	       (t nil))))))

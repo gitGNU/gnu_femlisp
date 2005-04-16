@@ -56,12 +56,12 @@
 
 #+(or)
 (progn
-  (iteration-test *standard-cg* :size 20 :maxsteps 10)
+  (iteration-test (make-instance '<cg>) :size 20 :maxsteps 10)
   (iteration-test *undamped-jacobi* :size 5 :maxsteps 20 :output t)
   (iteration-test *gauss-seidel* :size 20 :maxsteps 200 :output t)
   (iteration-test *gauss-seidel* :dim 2 :size 5 :maxsteps 10 :output t)
   (iteration-test (make-instance '<ilu>) :dim 2 :size 5 :maxsteps 10 :output t)
-  (iteration-test *standard-cg* :dim 2 :size 5 :maxsteps 10 :output t)
+  (iteration-test (make-instance '<cg>) :dim 2 :size 5 :maxsteps 10 :output t)
   (iteration-test (make-instance '<pcg> :preconditioner *standard-ilu*)
 		  :dim 2 :size 10 :output t :maxsteps 10))
 

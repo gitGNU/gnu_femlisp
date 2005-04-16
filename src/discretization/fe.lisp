@@ -118,24 +118,35 @@ cells as keys."))
 (defun inner-dof-indices (fe)
   (getf (properties fe) 'INNER-DOF-INDICES))
 
-(defmacro do-dofs ((dof fe) &body body)
-  `(loop for ,dof of-type <dof> in (fe-dofs ,fe) do
-    ,@body))
+(defmacro do-dof ((dof-and-shape fe &key (type :dof)) &body body)
+  (with-gensyms (fe2)
+    (destructuring-bind (dof shape)
+      (ecase type
+	(:dof (list dof-and-shape nil))
+	(:shape (list nil dof-and-shape))
+	(:dof-and-shape dof-and-shape))
+      `(let ((,fe2 ,fe))
+	 (map nil
+	      (lambda ,(append (mklist dof) (mklist shape))
+		,@body)
+	      ,@(when dof `((fe-dofs ,fe2)))
+	      ,@(when shape `((fe-basis ,fe2))))))))
+
 
 (defmethod initialize-instance :after ((fe <scalar-fe>) &key &allow-other-keys)
   (with-slots (refcell properties)
     fe
     (let ((subcell-ndofs (make-fixnum-vec (nr-of-subcells refcell) 0)))
-      (do-dofs (dof fe)
+      (do-dof (dof fe)
 	(incf (aref subcell-ndofs (dof-subcell-index dof))))
       (setf (getf properties 'SUBCELL-NDOFS) subcell-ndofs)
       (setf (getf properties 'SUBCELL-INDICES)
 	    (loop for nr-dofs across subcell-ndofs and i from 0
 		  unless (zerop nr-dofs) collect i)))
     (setf (getf properties 'INNER-DOF-INDICES)
-	  (coerce (loop for i below (nr-of-inner-dofs fe)
-			and dof in (fe-dofs fe) collect
-			(dof-in-vblock-index dof))
+	  (coerce (loop+ ((i (range :below (nr-of-inner-dofs fe)))
+			  (dof (fe-dofs fe)))
+		     collecting (dof-in-vblock-index dof))
 		  'vector))))
 
 (defmethod make-local-vec ((fe <scalar-fe>) &optional (multiplicity 1))
@@ -143,21 +154,6 @@ cells as keys."))
 
 (defmethod make-local-mat ((fe <scalar-fe>))
   (make-real-matrix (nr-of-dofs fe)))
-
-(defmethod interpolate-on-refcell ((fe <scalar-fe>) function)
-  "Interpolates @arg{function} on the reference cell of @arg{fe} using
-@arg{FE}."
-  (let ((values (loop for dof in (subseq (fe-dofs fe) 0 (nr-of-inner-dofs fe))
-		      collecting (evaluate dof function))))
-    (when values
-      (assert (apply #'= (mapcar #'multiplicity values)))
-      (let ((vblock (make-real-matrix (nr-of-inner-dofs fe)
-				      (multiplicity (first values)))))
-	(loop for value in values and i from 0 do
-	      (if (numberp value)
-		  (setf (vref vblock i) value)
-		  (minject vblock value i 0)))
-	vblock))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <vector-fe>
@@ -230,16 +226,15 @@ in a sparse vector value block corresponding to the subcell."
       (setf (getf properties 'SUBCELL-NDOFS) subcell-ndofs)
       ;; set subcell-indices
       (setf (getf properties 'SUBCELL-INDICES)
-	    (loop for nr-dofs across (subcell-ndofs vecfe)
-		  and i from 0
-		  unless (zerop nr-dofs) collect i))
+	    (loop+ (i (nr-dofs (subcell-ndofs vecfe)))
+	       unless (zerop nr-dofs) collect i))
       ;; setup dofs
       (setq dofs
-	    (loop for fe across components and comp from 0
-		  and local-off across local-offset
-		  and subcell-offset across subcell-offsets nconcing
-		  (loop for dof in (fe-dofs fe) collecting
-			(dof->vector-dof dof comp subcell-offset))))
+	    (loop+ (comp (fe components)
+		    (local-off local-offset) (subcell-offset subcell-offsets))
+	       nconcing
+	       (loop+ ((dof (fe-dofs fe))) collecting
+		  (dof->vector-dof dof comp subcell-offset))))
       )))
 
 (defmethod make-local-vec ((vecfe <vector-fe>) &optional (multiplicity 1))
@@ -250,20 +245,43 @@ in a sparse vector value block corresponding to the subcell."
 (defmethod make-local-mat ((vecfe <vector-fe>))
   (let* ((n-comps (nr-of-components vecfe))
 	 (result (make-array (list n-comps n-comps) :initial-element nil)))
-    (loop for i from 0 and fe1 across (components vecfe) do
-	  (loop for j from 0 and fe2 across (components vecfe) do
-		(setf (aref result i j)
-		      (make-real-matrix (nr-of-dofs fe1) (nr-of-dofs fe2)))))
+    (loop+ (i (fe1 (components vecfe))) do
+       (loop+ (j (fe2 (components vecfe))) do
+	  (setf (aref result i j)
+		(make-real-matrix (nr-of-dofs fe1) (nr-of-dofs fe2)))))
     result))
 
-(defmethod interpolate-on-refcell ((vecfe <vector-fe>) function)
-  "Interpolates FUNC on the reference cell of VECTOR-FE using VECTOR-FE."
-  (error "NYI.  Do you really need it?")
-  #+(or)(coerce
-   (loop for fe in (components vecfe) and comp from 0 collect
-	 (interpolate-on-refcell
-	  fe (sliced-function function comp)))
-   'vector))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Interpolation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric interpolation-function (fe func &key &allow-other-keys)
+  (:documentation "Assserts a correct form of @arg{func} for
+interpolation with the finite element @arg{fe}.")
+  (:method ((fe <scalar-fe>) func &key &allow-other-keys)
+    "Asserts a scalar value of @arg{func}."
+    #'(lambda (x)
+	(let ((value (funcall func x)))
+	(if (numberp value) value (aref value 0)))))
+  (:method ((fe <vector-fe>) func &key dof)
+    "Returns a function for the component of @arg{dof}."
+    #'(lambda (x) (aref (funcall func x)
+			(dof-component dof)))))
+
+(defmethod interpolate-on-refcell ((fe <fe>) function)
+  "Interpolates @arg{function} on the reference cell of the scalar finite
+element @arg{fe}."
+  (let ((values (loop for dof in (fe-dofs fe) when (interior-dof? dof)
+		      collecting (evaluate dof (interpolation-function fe function :dof dof)))))
+    (when values
+      (assert (apply #'= (mapcar #'multiplicity values)))
+      (let ((vblock (make-real-matrix (nr-of-inner-dofs fe)
+				      (multiplicity (first values)))))
+	(loop for value in values and i from 0 do
+	      (if (numberp value)
+		  (setf (vref vblock i) value)
+		  (minject vblock value i 0)))
+	vblock))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <fe-discretization>
@@ -315,8 +333,7 @@ depends only on the type of the reference cell."))
 (defmethod nr-of-components ((fe-disc <scalar-fe-discretization>)) 1)
 
 (defclass <vector-fe-discretization> (<standard-fe-discretization>)
-  ((components :accessor components :initarg :components
-	       :type (vector <scalar-fe-discretization>)))
+  ((components :accessor components :initarg :components))
   (:documentation "Vector FE discretization class."))
 
 (defmethod initialize-instance ((disc <vector-fe-discretization>) &key components)
@@ -331,15 +348,16 @@ depends only on the type of the reference cell."))
 		    components))))
 	   #'reference-cell))
   (setf (slot-value disc 'components)
-	(coerce (loop for comp-disc in components and i from 0 collect
-		      (make-instance
-		       '<scalar-fe-discretization>
-		       :order (discretization-order comp-disc)
-		       :cell->fe
-		       #'(lambda (cell)
-			   (aref (components (get-fe disc cell)) i))))
-		'vector))
-    disc)
+	(map 'vector
+	     #'(lambda (comp-disc i)
+		 (make-instance
+		  '<scalar-fe-discretization>
+		  :order (discretization-order comp-disc)
+		  :cell->fe
+		  #'(lambda (cell)
+		      (aref (components (get-fe disc cell)) i))))
+	     components (range< 0 (length components))))
+  disc)
 
 
 (defmethod discretization-order ((vecfe-disc <vector-fe-discretization>))
@@ -371,8 +389,8 @@ depends only on the type of the reference cell."))
   (map 'vector
        #'(lambda (ip)
 	   (make-real-matrix
-	    (loop for shape in (fe-basis fe)
-		  collect (list (evaluate shape (ip-coords ip))))))
+	    (loop+ ((shape (fe-basis fe)))
+	       collect (list (evaluate shape (ip-coords ip))))))
         (integration-points qrule)))
 (memoize-symbol 'base-function-values-at-ips :test 'equal)
 
@@ -381,8 +399,8 @@ depends only on the type of the reference cell."))
   (map 'vector
        #'(lambda (ip)
 	   (make-real-matrix
-	    (loop for shape in (fe-basis fe) collect
-		  (evaluate-gradient shape (ip-coords ip)))))
+	    (loop+ ((shape (fe-basis fe))) collect
+	       (evaluate-gradient shape (ip-coords ip)))))
        (integration-points qrule)))
 (memoize-symbol 'base-function-gradients-at-ips :test 'equal)
 
@@ -485,12 +503,11 @@ on the subspace given by basis wrt the scalar product pairing."
 (defun project (vector basis pairing)
   "Projects vector on the subspace given by basis orthogonal to the
 scalar product in pairing."
-  (loop with result = vector
-	with coeffs = (and basis (projection-coefficients vector basis pairing))
-	for phi in basis
-	and i from 0
-	do (m-! (scal (vref coeffs i) phi) result)
-	finally (return result)))
+  (let ((result vector)
+	(coeffs (and basis (projection-coefficients vector basis pairing))))
+    (loop+ ((coeff coeffs) (phi basis))
+       doing (axpy! (- coeff) phi result))
+    result))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; fe-cell-geometry

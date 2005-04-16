@@ -69,21 +69,19 @@ function assumes that a structured cube mesh is used!"
 	(delta *HR-delta*))
     (when (every #'(lambda (c) (<= (- delta) c (+ 1.0 delta))) local)
       ;; point is inside or very near the cell...
-      (loop
-       with nr-neighbors =
-       (expt 2 (count-if #'(lambda (c)
-			     (or (< (abs c) delta)
-				 (< (abs (1- c)) delta)))
-			 local))
-       with Dphi^-1 = (m/ (local->Dglobal cell local))
-       for shape in (fe-basis fe)
-       and i from 0 do
-       (setf (vref rhs i)
-	     (/ (vref (m* (ensure-matlisp (coerce (evaluate-gradient shape local) 'double-vec)
-					  :row)
-			  Dphi^-1)
-		      0)
-		nr-neighbors))))
+      (let ((nr-neighbors 
+	     (expt 2 (count-if #'(lambda (c)
+				   (or (< (abs c) delta)
+				       (< (abs (1- c)) delta)))
+			       local)))
+	    (Dphi^-1 (m/ (local->Dglobal cell local))))
+	(loop+ (i (shape (fe-basis fe))) do
+	   (setf (vref rhs i)
+		 (/ (vref (m* (ensure-matlisp (coerce (evaluate-gradient shape local) 'double-vec)
+					      :row)
+			      Dphi^-1)
+			  0)
+		    nr-neighbors)))))
     rhs))
 
 (defun heuveline-rannacher-dual-problem-fe-rhs ()

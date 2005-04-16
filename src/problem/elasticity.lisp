@@ -59,9 +59,6 @@
 (defmethod interior-coefficients ((problem <elasticity-problem>))
   "Interior coefficients for the elasticity problem."
   '(ELASTICITY FORCE GAMMA))
-(defmethod boundary-coefficients ((problem <elasticity-problem>))
-  "Boundary coefficients for the elasticity problem."
-  '(CONSTRAINT))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generation of standard elasticity problems
@@ -110,11 +107,11 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
      :patch->coefficients
      #'(lambda (patch)
 	 (if (member-of-skeleton? patch (domain-boundary domain))
-	     (list 'CONSTRAINT (constraint-coefficient dim 1))
-	     (list 'ELASTICITY
+	     (list 'FL.ELASTICITY::CONSTRAINT (constraint-coefficient dim 1))
+	     (list 'FL.ELASTICITY::ELASTICITY
 		   (constant-coefficient
 		    (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu))
-		   'FORCE
+		   'FL.ELASTICITY::FORCE
 		   (ensure-coefficient force)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -140,11 +137,11 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
      :patch->coefficients
      #'(lambda (patch)
 	 (if (member-of-skeleton? patch (domain-boundary domain))
-	     (list 'CONSTRAINT (constraint-coefficient nr-comps 1))
-	     (list 'ELASTICITY
+	     (list 'FL.ELASTICITY::CONSTRAINT (constraint-coefficient nr-comps 1))
+	     (list 'FL.ELASTICITY::ELASTICITY
 		   (constant-coefficient
 		    (system-diffusion-tensor :dim dim :nr-comps nr-comps :D D))
-		   'FORCE
+		   'FL.ELASTICITY::FORCE
 		   (ensure-coefficient force)))))))
 
 

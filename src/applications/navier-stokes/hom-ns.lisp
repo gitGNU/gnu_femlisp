@@ -54,7 +54,7 @@
      :patch->coefficients
      #'(lambda (patch)
 	 (cond ((patch-on-inner-boundary-p patch)
-		(list 'CONSTRAINT (no-slip-boundary dim)))
+		(list 'FL.NAVIER-STOKES::CONSTRAINT (no-slip-boundary dim)))
 	       ((= dim (dimension patch))  ; inner coeffs
 		(list 'FL.NAVIER-STOKES::VISCOSITY (constant-coefficient viscosity)
 		      'FL.NAVIER-STOKES::REYNOLDS (constant-coefficient reynolds)
@@ -99,6 +99,8 @@ components."
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
 	:success-if `(>= :nr-levels ,levels)
 	:solver
+	(lu-solver)
+	#+(or)
 	(make-instance
 	 '<linear-solver> :iteration
 	 (let ((smoother (make-instance '<vanka> :store-p store-p)))
@@ -132,8 +134,12 @@ components."
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 2)
-		   :order 4 :levels 5 :output :all :plot t :delta 1)
-#+(or)(plot (getbb *result* :solution) :component 0 :index 0)
+		   :order 1 :levels 3 :store-p nil :output :all :plot t :delta 1)
+
+#+(or)
+(let ((sol (getbb *result* :solution)))
+  (fe-extreme-values sol)
+  (plot (component sol 0) :index 0))
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 3)
@@ -184,7 +190,10 @@ Parameters: order=~D, max-levels=~D~%~%"
 (defun hom-ns-tests ()
   (stokes-darcy-demo
    (ns-hole-cell-problem 2)
-   :order 2 :levels 2 :plot nil :delta 1))
+   :order 2 :levels 2 :plot nil :delta 1)
+  (let ((tensor (permeability-tensor *result*)))
+    (assert #I"abs(mref(tensor,0,0) - 0.019) < 1e-3"))
+  )
 
 ;;;  (hom-ns-tests)
 (fl.tests:adjoin-test 'hom-ns-tests)

@@ -40,7 +40,8 @@
 (defun lagrange-coords-1d (order type)
   (ecase type
     (:uniform
-     (map 'vector #'(lambda (i) (float (/ i order) 1.0)) (range 0 order)))
+     (coerce (loop for i upto order
+		collect (float (/ i order) 1.0)) 'vector))
     ;; The following choice of nodal points does not work for simplices with
     ;; dim>=3 and order>=3 because nodal points on the sides do not fit.  But
     ;; it is much better suited for interpolation in the case of tensorial
@@ -205,8 +206,8 @@ boundary lagrangian."
 	 (result (make-hash-table)))
     (cond
       ((zerop nr-inner-dofs)
-       (loop for dof in (fe-dofs fe) and shape in (fe-basis fe) do
-	     (setf (gethash dof result) shape)))
+       (loop+ ((dof (fe-dofs fe)) (shape (fe-basis fe)))
+	  do (setf (gethash dof result) shape)))
       (t
        (let* ((nr-dofs (nr-of-dofs fe))
 	      (energy-mat (make-real-matrix nr-dofs))

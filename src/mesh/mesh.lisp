@@ -41,7 +41,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <mesh> (<skeleton>)
-  ((domain :reader domain :initarg :domain :type <domain>)
+  ((domain :reader domain :initarg :domain :type <domain>
+	   :documentation "The domain of the mesh.")
    (parametric :reader parametric :initform nil :initarg :parametric))
   ;;
   (:documentation "A <mesh> is a special <skeleton> mapping cells to

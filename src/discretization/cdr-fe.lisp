@@ -154,31 +154,30 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 			    (member-of-skeleton? cell interface)))
 	      (:all t))
 	(let* ((coeffs (coefficients-of-cell cell h-mesh problem))
-	       (dirichlet-function (getf coeffs 'FL.PROBLEM::CONSTRAINT))
+	       (dirichlet-function (getf coeffs 'FL.CDR::CONSTRAINT))
 	       (cell-key (cell-key cell h-mesh)))
 	  (when dirichlet-function
-	    (loop with fe = (get-fe fe-class cell)
-		  for dof in (fe-dofs fe)
-		  for j below (nr-of-inner-dofs fe)
-		  for k = (dof-in-vblock-index dof)
-		  do
-		  (when dirichlet-function
-		    ;; The following is only correct for degrees of freedom of
-		    ;; Lagrange type.  Perhaps one should use Hermite finite
-		    ;; cells only in the interior?
-		    (setf (mref (mref constraints-P cell-key cell-key) k k) 1.0)
-		    ;;		       (clear-row mat cell k)
-		    ;;		       (setf (mref (mref mat cell cell) k k) 1.0)
-		    (let* ((value
-			    (evaluate dirichlet-function
-				      (list :local (dof-coord dof)
-					    :global (local->global cell (dof-gcoord dof)))))
-			   (values (cond ((numberp value)
-					  (scal value (ones 1 multiplicity)))
-					 ((vectorp value) (aref value 0))
-					 (t value))))
-		      (minject values (vref constraints-rhs cell-key)
-			       k 0))))))))
+	    (let ((fe (get-fe fe-class cell)))
+	      (loop+ ((dof (fe-dofs fe))
+		      (j (range :below (nr-of-inner-dofs fe))))
+		 do
+		 (let ((k (dof-in-vblock-index dof)))
+		   ;; The following is only correct for degrees of freedom of
+		   ;; Lagrange type.  Perhaps one should use Hermite finite
+		   ;; cells only in the interior?
+		   (setf (mref (mref constraints-P cell-key cell-key) k k) 1.0)
+		   ;;		       (clear-row mat cell k)
+		   ;;		       (setf (mref (mref mat cell cell) k k) 1.0)
+		   (let* ((value
+			   (evaluate dirichlet-function
+				     (list :local (dof-coord dof)
+					   :global (local->global cell (dof-gcoord dof)))))
+			  (values (cond ((numberp value)
+					 (scal value (ones 1 multiplicity)))
+					((vectorp value) (aref value 0))
+					(t value))))
+		     (minject values (vref constraints-rhs cell-key)
+			      k 0)))))))))
     (values constraints-P constraints-Q constraints-rhs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

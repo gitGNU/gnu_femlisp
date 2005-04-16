@@ -365,7 +365,7 @@ represented as nested lists."))
 	    (if (= order 1)
 		(setf (tensor-ref Dnext index)
 		      (differentiate poly index))
-		(copy! (tensor-map t (rcurry #'differentiate index) Di)
+		(copy! (tensor-map (full-tensor t) (rcurry #'differentiate index) Di)
 		       (slice Dnext (list (cons (1- order) index)))))))
 	collecting Di))
 
@@ -375,7 +375,7 @@ represented as nested lists."))
 	and Di in k-jet collecting
 	(if (zerop i)
 	    (evaluate poly x)
-	    (tensor-map 'double-float (rcurry #'evaluate x) Di))))
+	    (tensor-map (full-tensor 'double-float) (rcurry #'evaluate x) Di))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

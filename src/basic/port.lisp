@@ -40,13 +40,14 @@
 (defpackage "FL.PORT"
   (:use "COMMON-LISP")
   (:import-from
-   #+cmu "C-CALL" #+sbcl "SB-ALIEN"
+   #+cmu "C-CALL" #+sbcl "SB-ALIEN" #+clisp "FFI"
    "INT" "DOUBLE")
+  #+(or cmu sbcl)
   (:import-from
    #+cmu "SYSTEM" #+sbcl "SB-SYS"
-   "VECTOR-SAP" "WITHOUT-GCING")
+   "WITHOUT-GCING")
   (:import-from
-   #+cmu "EXT" #+sbcl "SB-EXT"
+   #+(or cmu clisp) "EXT" #+sbcl "SB-EXT"
    "QUIT")
   (:export
    ;; UNIX environment
@@ -96,7 +97,8 @@ parts of Femlisp with the exception of the MOP."))
   "Change the directory to @arg{path}."
   #+cmu (unix:unix-chdir path)
   #+sbcl (sb-posix:chdir path)
-  #-(or cmu sbcl) nil
+  #+clisp (ext:cd path)
+  #-(or cmu sbcl clisp) nil
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -149,7 +151,20 @@ parts of Femlisp with the exception of the MOP."))
 
 (defmacro define-alien-routine (&rest args)
   #+cmu `(c-call::def-alien-routine ,@args)
-  #+sbcl `(sb-alien:define-alien-routine ,@args))
+  #+sbcl `(sb-alien:define-alien-routine ,@args)
+  #+clisp
+  (destructuring-bind (name return-type &rest args)
+      args
+    `(def-call-out (intern name)
+	 (cons :arguments args)
+       (list :return-type return-type))))
+
+(declaim (inline vector-sap))
+(defun vector-sap (ptr)
+  #+cmu (system:vector-sap ptr)
+  #+sbcl (sb-sys:vector-sap ptr)
+  #+clisp (ffi::foreign-pointer ptr)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Saving a core and restarting

@@ -159,7 +159,7 @@ name together with the name of the inner iteration."
   (dbg :iter "Initially: blackboard = ~A" blackboard)
   (when (output-p iter blackboard)
     (indented-format t "Iteration ~A" (name iter))
-    (let ((fstr (make-array '(0) :element-type 'base-char
+    (let ((fstr (make-array '(0) :element-type 'character
 			    :fill-pointer 0 :adjustable t)))
       (with-output-to-string (s fstr)
 	(dolist (item (slot-value iter 'observe))
@@ -177,7 +177,7 @@ name together with the name of the inner iteration."
 		    internal-time-units-per-second)
 		 1.0))
     (when (output-p iter blackboard)
-      (let ((fstr (make-array '(0) :element-type 'base-char
+      (let ((fstr (make-array '(0) :element-type 'character
 			      :fill-pointer 0 :adjustable t)))
 	(with-output-to-string (stream fstr)
 	  (dolist (item observe)

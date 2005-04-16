@@ -99,33 +99,33 @@ This is a trick to make @arg{dx} redraw the picture.")
 				  &key (plot t) dimension (background :black)
 				  (resolution 480) (width 480) (height 480)
 				  format filename &allow-other-keys)
-  (let* ((stream (if (dbg-p :graphic)
-		     (make-broadcast-stream (dx-input-stream) *trace-output*)
-		     (dx-input-stream)))
-	 (dx-file (namestring (probe-file (graphic-file-name object :dx)))))
-    (format stream "data = Import(~S);~%" dx-file)
-    (format stream "data = Options(data, \"cache\", ~D);~%" *dx-toggle*)
-    (loop for script-command in (apply #'graphic-commands object program paras)
-	  when script-command do
-	  (format stream "~A~%" script-command))
-    (format stream "camera = AutoCamera(image, direction=~S, background=~S, resolution=~D, aspect=1.0);~%"
-	    (if (= dimension 3) "off-diagonal" "front")
-	    (ecase background (:black "black") (:white "white"))
-	    resolution)
-    (format stream "image = Render(image, camera);~%")
-    (ecase plot
-      ((t :plot)
-       (let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
-	 (format stream control width height 2)
-	 (format stream control width height 1))
-       (format stream "Display (image, where=where);~%"))
-      (:file
-       (when format
-	 (format stream "WriteImage (image,~S,~S);~%"
-		 (concatenate 'string (namestring *images-pathname*) filename)
-		 format))))
-    (format stream "System(\"mv -f ~A ~A\");~%"
-	    dx-file (concatenate 'string dx-file ".bak"))
-    (force-output stream)
-    ))
+  (whereas ((stream (dx-input-stream)))
+    (when (dbg-p :graphic)
+      (setq stream (make-broadcast-stream stream *trace-output*)))
+    (let ((dx-file (namestring (probe-file (graphic-file-name object :dx)))))
+      (format stream "data = Import(~S);~%" dx-file)
+      (format stream "data = Options(data, \"cache\", ~D);~%" *dx-toggle*)
+      (loop for script-command in (apply #'graphic-commands object program paras)
+	 when script-command do
+	 (format stream "~A~%" script-command))
+      (format stream "camera = AutoCamera(image, direction=~S, background=~S, resolution=~D, aspect=1.0);~%"
+	      (if (= dimension 3) "off-diagonal" "front")
+	      (ecase background (:black "black") (:white "white"))
+	      resolution)
+      (format stream "image = Render(image, camera);~%")
+      (ecase plot
+	((t :plot)
+	 (let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
+	   (format stream control width height 2)
+	   (format stream control width height 1))
+	 (format stream "Display (image, where=where);~%"))
+	(:file
+	 (when format
+	   (format stream "WriteImage (image,~S,~S);~%"
+		   (concatenate 'string (namestring *images-pathname*) filename)
+		   format))))
+      (format stream "System(\"mv -f ~A ~A\");~%"
+	      dx-file (concatenate 'string dx-file ".bak"))
+      (force-output stream)
+      )))
 

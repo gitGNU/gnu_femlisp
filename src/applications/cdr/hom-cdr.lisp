@@ -78,7 +78,7 @@ the diffusion tensor."
 	    (list 'FL.CDR::DIFFUSION (ensure-coefficient diffusion-function)
 		  'FL.CDR::GAMMA (constant-coefficient (eye dim))))
 	   ((mzerop (midpoint patch))
-	    (list 'CONSTRAINT (constant-coefficient 0.0)))))
+	    (list 'FL.CDR::CONSTRAINT (constant-coefficient 0.0)))))
 	 )))
 
 (defun simple-square-inlay-cell-problem (dim)

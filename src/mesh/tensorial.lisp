@@ -190,15 +190,11 @@ probably called only on relatively few values of local-pos."
 (defun weight-lists-grad-simplex (simplex)
    "The result of this function are weight-lists with each weight-list
 corresponding to the weights for a partial derivative."
-  (mapcar
-   #'(lambda (index)
-       (mapcar
-	#'(lambda (barycentric-index)
+  (loop for index from 1 upto (dimension simplex) collect
+       (loop for barycentric-index upto (dimension simplex) collect
 	    (cond ((zerop barycentric-index) -1.0)
 		  ((= barycentric-index index) 1.0)
-		  (t 0.0)))
-	(range 0 (dimension simplex))))
-   (range 1 (dimension simplex))))
+		  (t 0.0)))))
 
 (defun weight-lists-grad-tensorial (tensorial local-pos)
   (assert (reference-cell-p tensorial))

@@ -37,7 +37,7 @@
 (defun watch-dc-center-velocity (dim)
   "Returns a observe list for watching the velocity at the center of the
 driven cavity."
-  (list (format nil "~{                 u~1D~}" (range 1 dim))
+  (list (format nil "~{                 u~1D~}" (range<= 1 dim))
 	"~{~19,10,2E~}"
 	#'(lambda (blackboard)
 	    (with-items (&key solution) blackboard
@@ -84,7 +84,7 @@ Taylor-Hood finite elements (Q^{k+1})^~dim~/Q^k with k=~order~."
 				     :reynolds (float reynolds 1.0))))))
       (adjoin-demo demo *navier-stokes-demo*))))
 
-;;(ns-driven-cavity-demo 2 4 4 :output :all :plot t :reynolds 0.0)
+;;(ns-driven-cavity-demo 2 4 3 :output :all :plot t :reynolds 0.0)
 (make-driven-cavity-demo 2 2 0)
 (make-driven-cavity-demo 2 2 100)
 

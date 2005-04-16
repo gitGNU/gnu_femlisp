@@ -44,10 +44,10 @@ refinement depth."
 	(when (eq (car entry) vertices)
 	  (return-from local-evaluation-matrix (cdr entry))))
       (let ((result (make-real-matrix (length vertices) (nr-of-dofs fe))))
-	(loop for vertex across vertices and i from 0 do
-	     (loop for shape in (fe-basis fe) and j from 0 do
-		  (setf (mref result i j)
-			(evaluate shape (vertex-position vertex)))))
+	(loop+ (i (vertex vertices)) do
+	   (loop+ (j (shape (fe-basis fe))) do
+	      (setf (mref result i j)
+		    (evaluate shape (vertex-position vertex)))))
 	result))))
 
 (defmethod graphic-commands ((asv <ansatz-space-vector>) (program (eql :dx))

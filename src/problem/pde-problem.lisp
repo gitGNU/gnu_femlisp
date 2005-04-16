@@ -117,14 +117,16 @@ otherwise, @arg{obj} is made into a constant coefficient."
 		 "Hash table which maps domain patches to coefficients.")
    (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity))
   ;;
-  (:documentation "Base-class for problems posed on a domain.  The slot
-DOMAIN contains the domain on which the problem lives.  The slot
-COEFFICIENTS contains a table from domain patches to coefficients on this
-patch which are property lists of the form (SYM1 coefficient1 SYM2
-coefficient2 ...).  When the problem instance is initialized this table is
-set up by calling the function PATCH->COEFFICIENTS which has to be provided
-as a key argument.  The multiplicity slot can be chosen as n>1 if the
-problem is posed with n different right hand sides simultaneously."))
+  (:documentation "An instance of this class describes a problem posed on
+the domain @slot{domain}.  The slot @slot{coefficients} contains a table
+mapping domain patches to property lists of the form (@symbol{identifier1}
+@code{coefficient1} @symbol{identifier2} @code{coefficient2} ...).  Here
+identifiers are special symbols and the coefficients are objects of type
+@class{<coefficient>}.  When the problem instance is initialized this table
+is usually set up by calling the function @function{patch->coefficients}
+which has to be provided as a key argument.  The slot @slot{multiplicity}
+can be chosen as a positive integer @math{n} if the problem is posed with
+@math{n} different right hand sides simultaneously."))
 
 (defmethod initialize-instance ((problem <domain-problem>)
 				&key patch->coefficients &allow-other-keys)
@@ -150,25 +152,37 @@ mapping domain patches to coefficient property lists."
   (:documentation "Returns the number of components for @arg{problem}."))
 
 (defun coefficients-of-patch (patch problem)
-  "An accessor for the coefficients."
+  "An accessor for the coefficients of @arg{patch} for @arg{problem}."
   (the list (gethash patch (slot-value problem 'coefficients))))
 
 (defgeneric coefficients-of-cell (cell mesh problem)
-  (:documentation "An accessor for the coefficients.")
+  (:documentation "An accessor for the coefficients of @arg{problem} valid
+for @arg{cell}.")
   (:method (cell mesh problem)
-    "Default method."
+    "This default method returns the coefficients of the associated patch."
     (coefficients-of-patch (patch-of-cell cell mesh) problem)))
 
 (defgeneric interior-coefficients (problem)
-  (:documentation "Yields a list of possible interior coefficients for PROBLEM.")
+  (:documentation "Returns a list of possible interior coefficients for
+@arg{problem}.")
   (:method (problem) ()))
 
+(defgeneric constraint-identifier (problem &optional cell)
+  (:documentation
+   "Returns the symbol which identifies constraints for this problem.")
+  (:method (problem &optional cell)
+    "Returns the CONSTRAINT symbol in the package of the class name."
+    (declare (ignore cell))
+    (find-symbol "CONSTRAINT"
+		 (symbol-package (class-name (class-of problem))))))
+
 (defgeneric boundary-coefficients (problem)
-  (:documentation "Yields a list of possible boundary coefficients for PROBLEM.")
-  (:method (problem) "The following coefficients make sense for many pde
-problems.  PERIODIC: periodic boundary conditions for non-identified
-boundaries.  This is not yet implemented (not needed?).  CONSTRAINT:
-essential boundary conditions."  '(PERIODIC CONSTRAINT)))
+  (:documentation "Returns a list of possible boundary coefficients for
+@arg{problem}.")
+  (:method (problem)
+    "This default method returns the constraint identifier for
+@arg{problem}."
+    (list (constraint-identifier problem))))
 
 (defgeneric all-coefficients (problem)
   (:documentation "Yields a list of possible coefficients for @arg{problem}.")
@@ -241,10 +255,12 @@ space."
       (loop for (nil coeff) on coeffs by #'cddr
 	    when (member :solution (demands coeff)) do
 	    (setf (get-property problem 'linear-p) nil))))
-  (unless (property-set-p problem 'coercive)
-    (dohash ((coeffs) (coefficients problem))
-      (when (member 'CONSTRAINT coeffs)
-	(setf (get-property problem 'coercive) t)))))
+  ;; very coarse test which will be often false for systems
+  (let ((constraint-id (constraint-identifier problem)))
+    (unless (property-set-p problem 'coercive)
+      (dohash ((coeffs) (coefficients problem))
+	(when (member constraint-id coeffs)
+	  (setf (get-property problem 'coercive) t))))))
 
 (defgeneric dual-problem (problem functional)
   (:documentation "Returns the dual problem for @arg{problem} with the

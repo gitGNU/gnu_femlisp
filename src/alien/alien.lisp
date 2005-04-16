@@ -47,37 +47,6 @@ should be executed when starting a saved core.")
   (dolist (func *foreign-code-loaders*)
     (funcall func)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Foreign libraries
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; SuperLU
-
-(defun load-superlu-library ()
-  "Loads foreign code for accessing SuperLU."
-  (whereas ((superlu-glue (probe-file #p"femlisp:interface;superlu.so")))
-    (load-shared-object superlu-glue)
-    (pushnew :superlu *features*)))
-
-;; execute this function immediately
-(load-superlu-library)
-;; and register it for reinitialization
-(pushnew 'load-superlu-library *foreign-code-loaders*)
-
-;;; UMFPACK/AMD
-
-(defun load-umfpack-library ()
-  "Loads foreign code for accessing UMFPACK."
-  (whereas ((umfpack-glue (probe-file #p"femlisp:interface;umfpack.so")))
-    (load-shared-object umfpack-glue)
-    (pushnew :umfpack *features*)))
-
-
-;; load it immediately
-(load-umfpack-library)
-;; and register it for reinitialization
-(pushnew 'load-umfpack-library *foreign-code-loaders*)
-
 #+cmu  
 (defun reload-global-table ()
   "Function mailed by Eric Marsden to cmucl-help at 18.9.2003."
@@ -96,14 +65,46 @@ should be executed when starting a saved core.")
 (pushnew 'reload-global-table ext:*after-save-initializations*)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Utility function (working around a bug in CMUCL)
+;;;; Utility functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmacro enumerate (name &rest items)
+  "Utility function which is not used at the moment.  The idea was working
+around a CMUCL enum bug."
   (declare (ignore name))
   (cons 'progn
 	(loop for i from 0 and item in items collect
 	      `(defconstant ,item ,i))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Sparse solvers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; It would be nice to initialize those in the corresponding files.
+;;; Unfortunately, this does not work due to some CMUCL bug.
+
+;;; SuperLU
+
+(defun load-superlu-library ()
+  "Loads foreign code for accessing SuperLU."
+  (load-shared-object fl.start::*superlu-library*))
+
+(when fl.start::*superlu-library*
+  (load-superlu-library)
+  (pushnew 'load-superlu-library *foreign-code-loaders*)
+  (pushnew :superlu *features*))
+
+;;; UMFPACK/AMD
+
+(defun load-umfpack-library ()
+  "Loads foreign code for accessing UMFPACK."
+  (load-shared-object fl.start::*umfpack-library*))
+
+(when fl.start::*umfpack-library*
+  (load-umfpack-library)
+  (pushnew 'load-umfpack-library *foreign-code-loaders*)
+  (pushnew :umfpack *features*))
 
 (defun direct-solver-test (solver)
   "Tests @arg{solver} on the simple example from the SuperLU User

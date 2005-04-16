@@ -39,7 +39,8 @@
   (:documentation "Discretization base class."))
 
 (defgeneric discretization-order (disc)
-  (:documentation "Returns the order of the discretization."))
+  (:documentation "Returns the order of the discretization.")
+  (:method (disc) "Default value is @code{:variable}." :variable))
 
 (defgeneric discretize (discretization problem blackboard)
   (:documentation "Calculates matrix and right-hand side for the

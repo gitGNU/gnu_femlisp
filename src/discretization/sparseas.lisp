@@ -317,21 +317,33 @@ accelerated by taking member-checks out of the loop."
 ;;;; Interpolation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun interpolation-matrix (ansatz-space &key level region imat)
-  "The algorithm works as follows: On each cell of the provided region or
-on all cells of the h-mesh a local interpolation matrix computed on the
-reference finite element is collected into an interpolation matrix."
+(defvar *interpolation-type* :local
+  "Default value for interpolation type.  @code{:local} means that
+interpolation extends only to the direct children, which is reasonable for
+standard interpolation of Lagrange finite elements.  @code{:global}
+interpolates from highest-dimensional cells and forms an average.")
+
+(defun interpolation-matrix (ansatz-space &key level region imat (type *interpolation-type*))
+  "On each cell of the skeleton @arg{region} or on all cells of level
+@arg{level} of the mesh of @arg{ansatz-space}, a local interpolation matrix
+is collected into an interpolation matrix.  @arg{type} is the interpolation
+type having a default value @var{*interpolation-type*}."
   (declare (optimize (debug 3)))
   (unless imat
     (setq imat (make-ansatz-space-automorphism ansatz-space)))
   (let* ((h-mesh (hierarchical-mesh ansatz-space))
-	 (level-mesh (if level (cells-on-level h-mesh level) h-mesh))
-	 (fe-class (fe-class ansatz-space)))
+	 (region (or region
+		     (if level (cells-on-level h-mesh level) h-mesh)))
+	 (fe-class (fe-class ansatz-space))
+	 (dim (dimension h-mesh)))
     (flet ((insert-local-imat (cell)
 	     (when (refined-p cell h-mesh)
 	       (let* ((subcells (subcells cell))
-		      (children (children cell h-mesh))
-		      (local-imat (local-interpolation-matrix cell h-mesh fe-class)))
+		      (children
+		       (if (eq type :local)
+			   (children cell h-mesh)
+			   (subcell-children cell h-mesh)))
+		      (local-imat (local-interpolation-matrix cell h-mesh fe-class type)))
 		 (dotensor ((i j . mblock) local-imat)
 		   (let* ((child (aref children i))
 			  (child-id (cell-key (aref children i) h-mesh))
@@ -339,7 +351,19 @@ reference finite element is collected into an interpolation matrix."
 		     (when (eq (representative child-id) child)
 		       ;; we have to add only one sample for identified cells
 		       (m+! mblock (mref imat child-id subcell-id)))))))))
-      (skel-for-each #'insert-local-imat (or region level-mesh)))
+      (apply #'skel-for-each #'insert-local-imat region
+	     (unless (eq type :local) (list :dimension dim))))
+    (unless (eq type :local)
+      ;; if interpolation is not local, we have to scale some rows of the
+      ;; interpolation matrix by the inverse of the number of supercells
+      (let ((nr-of-supercells (make-hash-table)))
+	(doskel (cell region :dimension dim)
+	  (dovec (child (subcell-children cell h-mesh))
+	    (incf (gethash (cell-key child h-mesh) nr-of-supercells 0))))
+	(for-each-key-and-entry
+	 #'(lambda (key entry)
+	     (scal! (/ 1.0 (gethash (car key) nr-of-supercells)) entry))
+	 imat)))
     imat))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

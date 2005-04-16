@@ -69,24 +69,27 @@ moment."
 
 
 (defun test-fe-interpolation ()
-  (let* ((dim 1) (order 4) (levels 3)
-	 (domain (n-cube-domain dim))
-	 (problem (make-instance
-		   '<interpolation-problem> :domain domain
-		   :patch->coefficients
-		   #'(lambda (patch)
-		       (princ patch) (terpri)
-			(list 'INITIAL
-			      (function->coefficient
-			       #'(lambda (x) (sin (* 2 pi (aref x 0)))))))))
-	 (fe-class (lagrange-fe order))
-	 (strategy (make-instance
-		    '<fe-interpolation> :fe-class fe-class :coefficient 'INITIAL
-		    :indicator (make-instance '<uniform-refinement-indicator>)
-		    :success-if `(>= :nr-levels ,levels) :plot-mesh nil :output t))
-	 (bb (blackboard :problem problem)))
-    (solve strategy bb)
-    (plot (getbb bb :solution)))
+  (flet ((test (dim fe-class levels)
+	   (let* ((domain (n-cube-domain dim))
+		  (problem (make-instance
+			    '<interpolation-problem> :domain domain
+			    :patch->coefficients
+			    #'(lambda (patch)
+				(princ patch) (terpri)
+				(list 'INITIAL
+				      (function->coefficient
+				       #'(lambda (x)
+					(let ((phi (* 2 pi (aref x 0))))
+					  (vector (cos phi) (sin phi)))))))))
+		  (strategy (make-instance
+			     '<fe-interpolation> :fe-class fe-class :coefficient 'INITIAL
+			     :indicator (make-instance '<uniform-refinement-indicator>)
+			     :success-if `(>= :nr-levels ,levels) :plot-mesh nil :output t)))
+	     (solve strategy (blackboard :problem problem)))))
+    (let ((bb (test 1 (lagrange-fe 4) 3)))
+      (plot (getbb bb :solution)))
+    (let ((bb (test 1 (lagrange-fe 4 :nr-comps 2) 3)))
+      (plot (getbb bb :solution) :component 1)))
   )
 
 ;;; (test-fe-interpolation)

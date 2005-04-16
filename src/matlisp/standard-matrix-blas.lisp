@@ -56,27 +56,6 @@
   "Returns a symbol of the form <matrix-symbol>-SIZE."
   (symconc matrix-symbol "-SIZE"))
 
-#+(or)
-(defmacro with-blas-information (matrices element-type &rest body)
-  "Sets body in an environment with local variables that access store,
-nrows and ncols of the given matrices."
-  `(let (,@(loop for matrix in matrices nconcing
-		 `((,(msym-store matrix) (slot-value ,matrix 'store))
-		   (,(msym-nrows matrix) (slot-value ,matrix 'nrows))
-		   (,(msym-ncols matrix) (slot-value ,matrix 'ncols))
-		   (,(msym-pos matrix) 0))))
-    (declare (ignorable
-	      ,@(loop for matrix in matrices nconcing
-		      (list (msym-store matrix) (msym-nrows matrix)
-			    (msym-ncols matrix) (msym-pos matrix)))))
-    (declare
-     (type (simple-array ,element-type (*)) ,@(mapcar #'msym-store matrices))
-     (type fixnum ,@(loop for matrix in matrices nconcing
-			  (list (msym-nrows matrix)
-				(msym-ncols matrix) (msym-pos matrix)))))
-    (macrolet ((ref (matrix) `(aref ,(msym-store matrix) ,(msym-pos matrix))))
-      ,@body)))
-
 (define-blas-macro 'standard-matrix
     '(with-blas-data (matrices &rest body)
       "Sets body in an environment with local variables that access store,
@@ -189,11 +168,24 @@ nrows and ncols of the given matrices."
 ;;; Implementation of the BLAS for the standard-matrix class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;; >>>>
+
 ;;; The following routines could be replaced by the BLAS for store-vector.
 ;;; Unfortunately, this would mean that no matrix compatibility check is
 ;;; done anymore.  The perfect solution would be to add the check as a
-;;; :before method.  However, the performance implications are not
-;;; completely clear.  This has to be checked in the future.
+;;; :before method as indicated here.  However, the performance
+;;; implications are not clear.  This has to be checked in the future.
+
+(declaim (inline assert-same-size))
+(defun assert-same-size (x y)
+  (unless (and (= (nrows x) (nrows y)) (= (ncols x) (ncols y))))
+    (error "Matrices do not have the same format nrows*ncols."))
+
+#+(or)
+(defmethod copy! :before ((x standard-matrix) (y standard-matrix))
+  (assert-same-size x y))
+
+;;;; <<<<
 
 (define-blas-template copy! ((x standard-matrix) (y standard-matrix))
   (declare (optimize (speed 3) (debug 0) (safety 0)))
@@ -346,7 +338,6 @@ nrows and ncols of the given matrices."
       (make-instance (standard-matrix type) :nrows n :ncols 1)))
 
 ;;;; Testing
-
 (defun test-standard-matrix-blas ()
   (dbg-on :blas)
   (test-blas 'm+! 7992 :generator (standard-matrix-generator '(complex double-float)))
@@ -392,6 +383,14 @@ nrows and ncols of the given matrices."
   (mequalp #m() #m(()))
   (let* ((x #m((2.0 1.0) (-1.0 2.0)))
 	 (y #m(0.0))
+	 (z (copy x)))
+    (dotimes (i 2)
+      (dotimes (j 2)
+	(mextract x y i j)
+	(minject y x i j)))
+    (assert (mequalp x z)))
+  (let* ((x #m((2.0 1.0 3.0) (6.0 7.0 8.0) (-1.0 -2.0 -3.0)))
+	 (y #m((0.1 0.2) (0.3 0.4)))
 	 (z (copy x)))
     (dotimes (i 2)
       (dotimes (j 2)

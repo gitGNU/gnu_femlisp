@@ -66,16 +66,19 @@
 
 (defun superlu (m n nnz cs ri store nrhs rhs sol)
   "Calls SuperLU if available."
-  #+superlu
-  (without-gcing
-   (c-superlu m n nnz (vector-sap cs) (vector-sap ri)
-	     (vector-sap store) nrhs (vector-sap rhs)
-	     (vector-sap sol)))
-  #-superlu (error "SuperLU is not available."))
+  (if fl.start::*superlu-library*
+      (without-gcing
+	  (c-superlu m n nnz (vector-sap cs) (vector-sap ri)
+		     (vector-sap store) nrhs (vector-sap rhs)
+		     (vector-sap sol)))
+      (error "SuperLU is not available.")))
 
 ;;; Testing
 
 (defun test-superlu ()
-  (direct-solver-test 'superlu)
+  (when fl.start::*superlu-library*
+    (direct-solver-test 'superlu))
   )
+
+(fl.tests:adjoin-test 'test-superlu)
 

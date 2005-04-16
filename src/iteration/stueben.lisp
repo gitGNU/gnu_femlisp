@@ -47,7 +47,7 @@ selection amg.  The original Ruge-Stueben algorithm was developed further
 since 1987 by Klaus Stueben and collaborators.  These developments are
 published in ....  The algorithm implemented here uses their ideas, but
 does not claim to be equivalent to their code which can be bought at SCAI,
-St. Augustin, Germany.  At this point, I want to thank Tanja Fuellenbach
+St. Augustin, Germany.  At this point, I want to thank Tanja Clees
 for several discussions on AMG."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

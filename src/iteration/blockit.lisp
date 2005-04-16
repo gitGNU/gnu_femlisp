@@ -180,15 +180,9 @@ decomposition."))
 		   (cond
 		     (diag-inverse
 		      (gemm! (slot-value ssc 'omega) diag-inverse local-r 1.0 local-x))
-		     #+(or)(diag-inverse
-		      (let* ((local-y (gesv (sparse-matrix->ccs smat :keys block :ranges (car ranges-tail))
-					    local-r))
-			     (local-z (axpy (slot-value ssc 'omega) local-y local-x)))
-			(gemm! (slot-value ssc 'omega) diag-inverse local-r 1.0 local-x)
-			(unless (mzerop (m- local-x local-z) 1.0e-8)
-			  (format t "~A " (length local-x))))
-		      )
-		     (t (gesv! (sparse-matrix->ccs smat :keys block :ranges (car ranges-tail))
+		     (t (gesv! (if fl.matlisp::*default-ccs-solver*
+				   (sparse-matrix->ccs smat :keys block :ranges (car ranges-tail))
+				   (sparse-matrix->matlisp smat :keys block :ranges (car ranges-tail)))
 			       local-r)
 			(axpy! (slot-value ssc 'omega) local-r local-x)))
 		   (set-svec-to-local-block x local-x block block-ranges)))

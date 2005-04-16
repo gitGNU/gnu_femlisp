@@ -66,7 +66,20 @@ slot."))
 (defgeneric evaluate (f x)
   (:documentation "Generic evaluation of functions on an argument.  Numbers and
 arrays are treated as constants.  Special evaluation is defined for multivariate
-polynomials on vectors and for <function> objects."))
+polynomials on vectors and for <function> objects.")
+  (:method ((f function) x)
+    "Lisp functions are evaluated by @command{funcall}."
+    (funcall f x))
+  (:method ((num number) x)
+    "Numbers are treated as constant functions."
+    (declare (ignore x))
+    num)
+  (:method ((vec array) x)
+    "Arrays are treated as constant functions.  This feature should
+probably not be used, because an alternative interpretation would be to
+apply evaluate to all entries, so misunderstandings may arise."
+    (declare (ignore x))
+    vec))
 
 (defgeneric evaluate-gradient (f x)
   (:documentation "Generic evaluation of gradients of differentiable functions."))
@@ -97,26 +110,6 @@ to EVALUATE and EVALUATE-GRADIENT, respectively."
   (cond ((= k 0) (evaluate f x))
 	((= k 1) (evaluate-gradient f x))
 	(t (call-next-method))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Self-evaluating objects
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmethod evaluate ((func function) x)
-  "An ordinary procedure or generic is funcalled on x."
-  (funcall func x))
-
-(defmethod evaluate ((num number) x)
-  "Numbers are treated as constant functions."
-  (declare (ignore x))
-  num)
-
-(defmethod evaluate ((vec array) x)
-  "Arrays are treated as constant functions.  This feature should probably not
-be used, because an alternative interpretation would be to apply evaluate to all
-entries, so misunderstandings may arise."
-  (declare (ignore x))
-  vec)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <special-function>
@@ -366,11 +359,9 @@ parameter."
 ;;; function composition
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; a general function COMPOSE is defined already in utilities.lisp
-
-(defmethod compose-2 (f (g function))
-  #'(lambda (&rest args)
-      (evaluate f (apply g args))))
+(defmethod compose-2 (f g)
+  #'(lambda (x)
+      (evaluate f (evaluate g x))))
 
 (defmethod compose-2 ((func1 <function>) (func2 <function>))
   (make-instance
@@ -384,6 +375,12 @@ parameter."
 	#'(lambda (x)
 	    (m* (evaluate-gradient func1 (evaluate func2 x))
 		(evaluate-gradient func2 x))))))
+
+(defun compose (&rest functions)
+  "Returns the composition of @arg{functions}."
+  (cond ((null functions) #'identity)
+	((single? functions) (car functions))
+	(t (compose-2 (car functions) (apply #'compose (cdr functions))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Special functions
@@ -489,6 +486,7 @@ isometrically to @math{S^1}."
   (interval-method #'(lambda (x) (- (* x x) 2.0)) 0.0 2.0 1e-16)
   (let ((f (make-instance '<linear-function> :A (ones 2) :b #d(1.0 0.0))))
     (evaluate f #d(1.0 1.0)))
+  (funcall (compose #'1+ #'identity) 1)
   )
 
 ;;; (test-function)

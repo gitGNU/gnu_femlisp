@@ -66,7 +66,7 @@ the oscillation is defined by a scaling function $f$ with values in $\R^+$.
 Usually, also $grad-f$ should be provided, because it makes possible an
 enhanced domain approximation."
   (let ((upper-cell (skeleton (n-cube dim))))
-    (identify-unit-cell-faces upper-cell :indices (range 0 (- dim 2)))
+    (identify-unit-cell-faces upper-cell :indices (range<= 0 (- dim 2)))
     (let ((lower-cell (transformed-skeleton
 		       upper-cell :transformation (bottom-mapping dim f grad-f))))
       (change-class (if upper
@@ -88,7 +88,7 @@ identified lateral faces."
 	     (upper-side (aref (boundary upper-cell) (* 2 dim-1))))
 	(multiple-value-bind (extension replacement)
 	    (cube-extender upper-cell dim-1)
-	  (identify-unit-cell-faces replacement :indices (range 0 (- dim 2)))
+	  (identify-unit-cell-faces replacement :indices (range<= 0 (- dim 2)))
 	  (setf (get-cell-property upper-side domain 'EXTENSION)
 		extension)
 	  (fl.mesh::ensure-secondary-information domain))))

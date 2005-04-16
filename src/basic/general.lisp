@@ -71,3 +71,87 @@ for debugging, the source code is printed."
     (dbg :compile "Compiling source:~%~A" source))
   (compile nil source))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; iteration
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass range ()
+  ((from :initform 0 :initarg :from)
+   (to :initform nil :initarg :to)
+   (below :initform nil :initarg :below)
+   (by :initform 1 :initarg :by))
+  (:documentation "Range of numbers for iteration."))
+
+(defun range (&rest args &key to below)
+  "Constructor for a range of numbers."
+  (when (and to below)
+    (error "Only one limit should be given."))
+  (apply #'make-instance 'range args))
+
+(defgeneric iterator (vec)
+  (:documentation "Returns an iterator for the given vector.")
+  (:method ((range range)) (slot-value range 'from))
+  (:method ((vec vector)) 0)
+  (:method ((vec list)) vec))
+
+(defgeneric iterator-next (vec iterator)
+  (:documentation "Returns an incremented @arg{iterator}.")
+  (:method ((range range) i) (+ i (slot-value range 'by)))
+  (:method ((vec vector) i) (1+ i))
+  (:method ((vec list) tail) (cdr tail)))
+
+(defgeneric iterator-end-p (vec iterator)
+  (:method ((range range) i)
+    (with-slots (from to below) range
+      (cond (to (> i to))
+	    (below (>= i below)))))
+  (:method ((vec vector) i) (>= i (length vec)))
+  (:method ((vec list) tail) (null tail)))
+  
+(defgeneric reference (vec iterator)
+  (:documentation "Reader for the element of @arg{vec} referenced by @arg{iterator}.")
+  (:method ((range range) i) i)
+  (:method ((vec vector) i) (aref vec i))
+  (:method ((vec list) tail) (car tail)))
+  
+(defgeneric (setf reference) (value vec iterator)
+  (:documentation "Setter for the element of @arg{vec} referenced by @arg{iterator}.")
+  (:method (value (vec vector) i)
+    (setf (aref vec i) value))
+  (:method (value (vec list) tail)
+    (setf (car tail) value)))
+
+(defmacro loop+ (items &body body)
+  "Iterates @arg{body} over @arg{items}."
+  (let ((vectors (loop for i below (length items)
+		      collect (gensym (format nil "V~D" i))))
+	(iterators (loop for i below (length items)
+		      collect (gensym (format nil "I~D" i)))))
+    `(let ,(mapcar #'(lambda (vector item)
+		       (list vector (if (listp item) (cadr item) `(range))))
+		   vectors items)
+       (symbol-macrolet ,(mapcar #'(lambda (vector iterator item)
+				     `(,(if (listp item) (car item) item)
+					(reference ,vector ,iterator)))
+				 vectors iterators items)
+	 (loop ,@(loop for iterator in iterators and vector in vectors appending
+		      `(for ,iterator = (iterator ,vector)
+			    then (iterator-next ,vector ,iterator)
+			    until (iterator-end-p ,vector ,iterator)))
+	    ,@body
+	 )))))
+
+;;;; Testing
+
+(defun test-general ()
+  (loop+ ((i (range :below 0))) do (error "should not be reached"))
+  (let ((x (make-array 10))
+	(y (make-list 10 :initial-element 1)))
+    (loop+ ((xc x) (yc y) i) doing
+       (setf xc (+ i yc))
+       finally (return x)))
+  )
+
+;;; (test-general)
+(fl.tests:adjoin-test 'test-general)

@@ -83,8 +83,8 @@ functional."
    #'(lambda (cell)
        ;; check that problem is self adjoint
        (let ((coeffs (copy-seq (coefficients-of-patch cell problem))))
-	 (when (getf coeffs 'FL.PROBLEM::CONSTRAINT)
-	   (setf (getf coeffs 'FL.PROBLEM::CONSTRAINT) (constant-coefficient 0.0)))
+	 (when (getf coeffs 'FL.CDR::CONSTRAINT)
+	   (setf (getf coeffs 'FL.CDR::CONSTRAINT) (constant-coefficient 0.0)))
 	 (assert (not (getf coeffs 'FL.CDR::CONVECTION)))  ; better: change to negative
 	 (unless (eq cell->rhs :load-functional)
 	   (let ((dual-rhs (funcall cell->rhs cell)))
@@ -134,7 +134,7 @@ cube."
 	     (let ((coeffs ()))
 	       (when (member-of-skeleton? cell bdry)
 		 (when dirichlet
-		   (setf (getf coeffs 'FL.PROBLEM::CONSTRAINT) (ensure-coefficient dirichlet))))
+		   (setf (getf coeffs 'FL.CDR::CONSTRAINT) (ensure-coefficient dirichlet))))
 	       (when (= (dimension cell) dim)
 		 (when diffusion
 		   (setf (getf coeffs 'FL.CDR::DIFFUSION) (ensure-coefficient diffusion)))
@@ -147,7 +147,7 @@ cube."
 		 (when gamma
 		   (setf (getf coeffs 'FL.CDR::GAMMA) (ensure-coefficient gamma)))
 		 (when initial
-		   (setf (getf coeffs 'FL.PROBLEM::INITIAL) (ensure-coefficient initial))))
+		   (setf (getf coeffs 'FL.CDR::INITIAL) (ensure-coefficient initial))))
 	       coeffs))
 	   (append
 	    (when evp (destructuring-bind (&key lambda mu) evp

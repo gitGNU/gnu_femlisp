@@ -51,6 +51,30 @@ iteration where the hierarchy of problems is obtained by discretizing on a
 sequence of refined meshes.  It is an abstract class and should be merged
 with either <correction-scheme> or <fas>."))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Smoother selection
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod select-smoother (mgit (matrix <ansatz-space-automorphism>))
+  "Choose the smoothing method as either Gauss-Seidel or SSC depending on
+discretization order."
+  (let* ((as (ansatz-space matrix))
+	 (order (discretization-order (fe-class as))))
+    (if (and (numberp order) (= order 1))
+	(make-instance '<gauss-seidel>)
+	(select-smoother mgit (problem as)))))
+
+(defmethod select-smoother (mgit (problem fl.problem::<pde-problem>))
+  "This method is called in the case of higher-order discretizations, such
+that we choose an SSC smoother by default."
+  (geometric-ssc))
+
+(defmethod select-smoother (mgit (problem fl.navier-stokes::<navier-stokes-problem>))
+  "For discretized Navier-Stokes system, we use Vanka type smoothing."
+   (make-instance '<vanka>))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defun extend-horizontally (mat surface-mat)
   "Adds one layer from surface-mat to mat."
   (for-each-col-key

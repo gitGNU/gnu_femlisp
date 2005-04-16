@@ -83,10 +83,12 @@ test suite before a release."))
   "Runs the Femlisp test suite.  The result is printed to
 *standard-output*."
   (unless continue
-    (setq *testing* (if package
-			(remove (find-package package) *tests*
-				:key #'symbol-package :test-not #'eq)
-			*tests*))
+    (setq *testing*
+	  (reverse  ; we want to start with the basic tests
+	   (if package
+	       (remove (find-package package) *tests*
+		       :key #'symbol-package :test-not #'eq)
+	       *tests*)))
     (setq *failed* nil))
   (flet ((run-tests ()
 	   (loop for fsym = (pop *testing*) while fsym

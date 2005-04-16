@@ -77,8 +77,9 @@ compatible way of ensuring method compilation."
 				(class-direct-superclasses class)))
 		     (class-direct-subclasses (car superclasses)))))
 	 (or class
-	     (compile-and-eval
-	      (let ((superclass-names (mapcar #'class-name superclasses)))
+	     (let ((superclass-names (mapcar #'class-name superclasses)))
+	       (dbg :amop "Generating new class for superclasses ~A" superclass-names)
+	       (compile-and-eval
 		`(defclass ,(or name (intern (format nil "~A" superclass-names)))
 		     ,superclass-names ()))))))))
 

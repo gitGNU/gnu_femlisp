@@ -110,6 +110,7 @@
 	(fl.amop:remove-subclass-methods gf template-args))
       (let* ((actual-args (gensym "ACTUAL-ARGS")))
 	`(defmethod ,name ,template-args
+	   (declare (optimize (safety 3) (debug 3)))
 	  ,@(when (stringp (car body)) (list (car body)))
 	  (let ((,actual-args
 		 (list ,@(loop for arg in template-args

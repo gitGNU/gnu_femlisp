@@ -70,7 +70,7 @@
   "Construct a full tensor with entries of @arg{type}."
   (fl.amop:find-programmatic-class
    (list 'full-tensor (store-vector type))
-   (intern (format nil "~A" (list 'FULL-TENSOR type)))))
+   (intern (format nil "~A" (list 'FULL-TENSOR type)) "FL.MATLISP")))
 
 (defun make-real-tensor (dimensions)
   "Generates an instance of a tensor with DOUBLE-FLOAT entries and the
@@ -231,15 +231,16 @@ given @arg{dimensions}."
      (dimensions a) (offset0 a) (offsets a) (offset0 b) (offsets b)))
   b)
 
-(defmethod tensor-map ((type symbol) (func function) (tensor full-tensor))
-  (let* ((result (make-instance (full-tensor type) :dimensions (dimensions tensor)))
-	 (store (store tensor))
-	 (rstore (store result)))
-    (for-each-offset-pair
-     #'(lambda (off roff)
-	 (setf (aref rstore roff)
-	       (funcall func (aref store off))))
-     (dimensions tensor) (offset0 tensor) (offsets tensor) (offset0 result) (offsets result))
+(defmethod tensor-map (tensor-class (func function) &rest tensor-args)
+  (assert (same-p tensor-args :key #'dimensions :test #'equalp))
+  (let* ((dims (dimensions (car tensor-args)))
+	 (result (make-instance tensor-class :dimensions dims)))
+    (for-each-index
+     #'(lambda (i)
+	 (setf (tensor-ref result i)
+	       (apply func (mapcar #'(lambda (tensor) (tensor-ref tensor i))
+				   tensor-args))))
+     dims)
     result))
      
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -405,7 +406,8 @@ contracted index pair fit."
 	(t2 (list->real-tensor '(1.0 2.0))))
     (t* t1 t2 '((0 . 0)))
     (t* t1 t2 '())
-    (tensor-map 'double-float #'1+ t1)
+    (tensor-map (full-tensor 'double-float) #'1+ t1)
+    (tensor-map (full-tensor 'double-float) #'+ t1 t2)
     (copy! t1 t2))
   
   ;; performance test

@@ -104,7 +104,7 @@ can be described by its dimensions nrows=2, ncols=5 together with the pattern
      :row-starts (coerce (loop for i from 0 upto nrows
 			       collect (* i ncols))
 			 'fixnum-vec)
-     :offsets (coerce (range 0 (1- N)) 'fixnum-vec)
+     :offsets (coerce (range< 0 N) 'fixnum-vec)
      :col-inds (coerce (loop for i from 0 below N
 			     collect (mod i ncols))
 		       'fixnum-vec))))
