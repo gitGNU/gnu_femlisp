@@ -48,20 +48,18 @@
     (rhs (* double))
     (sol (* double)))
 
+#+umfpack
 (defun umfpack (m n nnz cs ri store nrhs rhs sol)
   "Calls UMFPACK if available."
-  (if fl.start::*umfpack-library*
-      (without-gcing
-	  (c-umfpack m n nnz (vector-sap cs) (vector-sap ri)
-		     (vector-sap store) nrhs (vector-sap rhs)
-		     (vector-sap sol)))
-      (error "UMFPACK is not available.")))
+  (without-gcing
+      (c-umfpack m n nnz (vector-sap cs) (vector-sap ri)
+		 (vector-sap store) nrhs (vector-sap rhs)
+		 (vector-sap sol))))
 
 ;;; Testing
 
 (defun test-umfpack ()
-  (when fl.start::*umfpack-library*
-    (direct-solver-test 'umfpack))
+  #+umfpack (direct-solver-test 'umfpack)
   )
 
 

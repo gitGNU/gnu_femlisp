@@ -24,7 +24,7 @@ esac
 if test "$1" = "--save-core-and-die"; then
     cd $FEMLISP_DIR/bin
     rm -f $FEMLISP_CORE
-    sh femlisp $eval "(fl.port:save-femlisp-core-and-die \"$FEMLISP_CORE\")"
+    sh ./femlisp $eval "(fl.port:save-femlisp-core-and-die \"$FEMLISP_CORE\")"
     if test -e $FEMLISP_CORE
 	then
 	echo "Built core in $FEMLISP_CORE"

@@ -107,6 +107,7 @@
 			  )))))))))))
     (values constraints-P constraints-Q constraints-rhs)))
 
+#+(or)
 (defun dof-submatrix-indices (dof vecfe n)
   "Find the indices of dofs corresponding to @arg{n} consecutive components
 with the same dof location."

@@ -27,7 +27,7 @@ then
     exit 1
 fi
 
-if test "`basename $FEMLISP_CL`"="sbcl"
+if test "`basename $FEMLISP_CL`" = "sbcl"
 then
     FEMLISP_CL_TYPE=sbcl
 else

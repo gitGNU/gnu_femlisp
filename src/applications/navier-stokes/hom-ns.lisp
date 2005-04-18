@@ -99,8 +99,8 @@ components."
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
 	:success-if `(>= :nr-levels ,levels)
 	:solver
-	(lu-solver)
-	#+(or)
+	#+(or)(lu-solver)
+	#-(or)
 	(make-instance
 	 '<linear-solver> :iteration
 	 (let ((smoother (make-instance '<vanka> :store-p store-p)))
@@ -134,7 +134,7 @@ components."
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 2)
-		   :order 1 :levels 3 :store-p nil :output :all :plot t :delta 1)
+		   :order 4 :levels 2 :store-p nil :output :all :plot t :delta 1)
 
 #+(or)
 (let ((sol (getbb *result* :solution)))
