@@ -43,7 +43,7 @@
 the type of object it receives.  Its behaviour can additionally be modified
 by keyword parameters."))
 
-(defparameter *plot* fl.graphic::*dx-pathname*
+(defparameter *plot* (if fl.graphic::*dx-pathname* t :message)
   "If set to NIL, plotting is disabled.  If set to :message, a message is
 printed to *trace-output* instead of plotting.")
 
