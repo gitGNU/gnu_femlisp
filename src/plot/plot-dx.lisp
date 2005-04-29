@@ -86,7 +86,8 @@ data-- or some function mapping cells to a list of corner values."
     (when values
       (format stream "object 4 class array type float rank 0 items ~A data follows~%"
 	      (length values))
-      (loop for value across values do (format stream "~F~%" (float value 1.0)))
+      (loop for value across values do (format stream "~10,8,,,,,'eG~%"
+					       (coerce value 'single-float)))
       (format stream "attribute \"dep\" string \"positions\"~%"))
 
     ;; epilogue
