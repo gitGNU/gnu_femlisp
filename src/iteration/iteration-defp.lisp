@@ -60,7 +60,7 @@
   (:export  ; nlsolve.lisp
    "<NEWTON>")
   (:export  ; krylow.lisp
-   "<GRADIENT-METHOD>" "<CG>" "<PCG>")
+   "<GRADIENT-METHOD>" "<CG>" "<BI-CGSTAB>")
   (:export  ; blockit.lisp
    "<BLOCK-ITERATION>" "SETUP-BLOCKS" "MAKE-BLOCK" "BLOCKS"
    "<PSC>" "<SSC>" "<CUSTOM-PSC>" "<CUSTOM-SSC>"

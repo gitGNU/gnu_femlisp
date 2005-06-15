@@ -177,7 +177,8 @@ computation are trivial."))
 (defclass <linear-function> (<function>)
   ((A :initform nil :initarg :A)
    (b :initform nil :initarg :b))
-  (:documentation "A <linear-function> is determined by a matrix A and a vector b."))
+  (:documentation "A <linear-function> is determined by a matrix A and a
+vector b.  It represents the map @math{x -> Ax+b}."))
 
 (defmethod initialize-instance :after ((f <linear-function>) &key &allow-other-keys)
   (with-slots (A b domain-dimension image-dimension) f
@@ -450,14 +451,15 @@ Also grad-f has to be provided."
 		(setf (mref result dim-1 dim-1) value)
 		result))))))
 
-(defun circle-function (&optional (radial-distance 1.0) (midpoint #d(0.0 0.0)) (omega 1.0))
+(defun circle-function (&optional (radial-distance 1.0) (midpoint #d(0.0 0.0))
+			(omega 1.0) (phi0 0.0))
   "Returns a special function drawing a polar around @arg{midpoint} with
 distance given by the function or number @arg{radial-distance} with angular
 velocity omega.  Without arguments it yields a function mapping @math{\R^1}
 isometrically to @math{S^1}."
   (let ((evaluator
 	 #'(lambda (phi)
-	     (let* ((phi #I(phi[0]))
+	     (let* ((phi #I(phi[0]+phi0))
 		    (radius (if (functionp radial-distance)
 				(funcall radial-distance phi)
 				radial-distance)))

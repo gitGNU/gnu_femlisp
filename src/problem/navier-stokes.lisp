@@ -147,7 +147,7 @@
 (defun oscillating-force (dim)
   (function->coefficient
    #'(lambda (x)
-    (let ((result (make-array (1+ dim))))
+    (let ((result (make-array (1+ dim) :initial-element nil)))
       (dotimes (i (1+ dim) result)
 	(setf (aref result i)
 	      (if (< i dim)

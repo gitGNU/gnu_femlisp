@@ -157,7 +157,8 @@ a value vector."))
   (with-slots (store pattern) crs
     (unless (slot-boundp crs 'store)
       (setf store (make-array (slot-value pattern 'store-size)
-			      :element-type (element-type crs))))))
+			      :element-type (element-type crs)
+			      :initial-element (coerce 0 (element-type crs)))))))
 
 (defun make-crs-matrix (pattern store)
   "make-crs-matrix: crs-matrix constructor."

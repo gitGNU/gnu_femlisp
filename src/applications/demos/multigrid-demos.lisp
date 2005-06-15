@@ -141,30 +141,26 @@ See make-smoother-demo for more information."
 
 (defun smoother-demo-execute (smoother)
   (lambda ()
-    (loop for dim = (user-input "Dimension (1..4): "
-				#'(lambda (x) (and (integerp x) (< 0 x 5))))
+    (loop for dim = (user-input "Dimension (1..4): " #'parse-integer
+				#'(lambda (x) (< 0 x 5)))
 	  until (eq dim :up) do
 	  (loop with max-order = (case dim (1 8) (2 7) (t 4))
 		for order =
-		(user-input (format nil "Order (1..~A): " max-order)
-			    #'(lambda (x) (and (integerp x) (<= 1 x max-order))))
+		(user-input (format nil "Order (1..~A): " max-order) #'parse-integer
+			    #'(lambda (x) (<= 1 x max-order)))
 		until (eq order :up) do
 		(smoother-performance-test
 		 :dim dim :order order :smoother smoother :output t)))))
 
 (defun make-smoother-demo (smoother smoother-name)
-  "~name~-performance - Tests smoother ~name~
-
-Tests the performance of ~name~ applied to discretizations of
-different order of a Laplace model problem on cubes of different
-dimensions."
-  (multiple-value-bind (name short long)
-      (extract-demo-strings
-       (documentation 'make-smoother-demo 'function)
-       (list (cons "~name~" smoother-name)))
+  (let ((title (format nil "~A-performance" smoother-name))
+	(short (format nil "Tests smoother ~A" smoother-name))
+	(long (format nil "Tests the performance of ~A applied
+to discretizations of different order of a Laplace model problem
+on cubes of different dimensions." smoother-name)))
     (let ((demo
 	   (make-demo
-	    :name name :short short :long long
+	    :name title :short short :long long
 	    :execute (smoother-demo-execute smoother)
 	    :test-input (format nil "2~%4~%up~%up~%"))))
       (adjoin-demo demo *multigrid-demo*))))
@@ -174,8 +170,8 @@ dimensions."
 
 (defun smoother-graph-execute (smoother)
   (lambda ()
-    (loop for dim = (user-input "Dimension (1..4): "
-				#'(lambda (x) (and (integerp x) (< 0 x 5))))
+    (loop for dim = (user-input "Dimension (1..4): " #'parse-integer
+				#'(lambda (x) (< 0 x 5)))
 	  until (eq dim :up) do
 	  (plot
 	   (list
@@ -190,18 +186,14 @@ dimensions."
 	   ))))
 
 (defun make-smoother-performance-graph-demo (smoother smoother-name)
-  "~name~-cr-graph - Plots graph 'order->CR(order)' for ~name~
-
-Plots a graph of the convergence rate for ~name~ smoother
-applied to discretizations of different order of a Laplace model
-problem on cubes of different dimensions."
-  (multiple-value-bind (name short long)
-      (extract-demo-strings
-       (documentation 'make-smoother-performance-graph-demo 'function)
-       (list (cons "~name~" smoother-name)))
+  (let ((title (format nil "~A-cr-graph" smoother-name))
+	(short (format nil "Plots graph 'order->CR(order)' for ~A" smoother-name))
+	(long (format nil "Plots a graph of the convergence rate
+for ~A smoother applied to discretizations of different order of
+a Laplace model problem on cubes of different dimensions." smoother-name)))
     (let ((demo
 	   (make-demo
-	    :name name :short short :long long
+	    :name title :short short :long long
 	    :execute (smoother-graph-execute smoother)
 	    :test-input (format nil "2~%up~%"))))
       (adjoin-demo demo *multigrid-demo*))))
@@ -209,12 +201,53 @@ problem on cubes of different dimensions."
 (make-smoother-performance-graph-demo *gauss-seidel* "GS")
 (make-smoother-performance-graph-demo (geometric-ssc) "VC-SSC")
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; BPX
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun bpx-demo-computation (problem order level &optional (smoother-class '<jacobi>))
+  "Performs the BPX demo."
+  (let* ((smoother (make-instance smoother-class :damp 1.0))
+	 (cs (geometric-cs
+	      :gamma 1 :smoother smoother :pre-steps 1 :post-steps 0
+	      :combination :additive :base-level 1))
+	 (bpx (make-instance '<cg> :preconditioner cs))
+	 (solver (make-instance '<linear-solver> :iteration bpx
+				:success-if `(or (< :defnorm 1.0e-12) (> :step 20))))
+	 (mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
+	 (nr-comps (nr-of-components problem))
+	 (fedisc (lagrange-fe order :nr-comps (and (> nr-comps 1) nr-comps))))
+    (multiple-value-bind (A b)
+	(discretize-globally problem mesh fedisc)
+      (setq *result*
+	    (solve (blackboard :matrix A :rhs b :solver solver :output 1))))))
+
+;;; (bpx-demo-computation (cdr-model-problem 2) 1 2 '<jacobi>)
+;;; (bpx-demo-computation (cdr-model-problem 2) 1 2 '<psc>)
+;;; (bpx-demo-computation (standard-elasticity-problem 2) 5 2 '<jacobi>)
+;;; (bpx-demo-computation (standard-elasticity-problem 2) 5 2 '<geometric-psc>)
+
+(defun make-bpx-demo (problem problem-name order level)
+  (adjoin-demo
+   (make-demo
+    :name (format nil "BPX-~A" problem-name)
+    :short (format nil "BPX for the problem ~A" problem-name)
+    :long (format nil "Shows convergence for BPX for the
+problem ~A.~%Parameters: dim=~D, order=~D, level=~D,~%"
+		  problem-name (dimension (domain problem)) order level)
+    :execute (lambda () (bpx-demo-computation problem order level)))
+   *multigrid-demo*))
+(make-bpx-demo (cdr-model-problem 2) "laplace-on-square" 1 4)
+(make-bpx-demo (standard-elasticity-problem 2) "elasticity-on-square" 1 4)
+
+
 ;;;; Testing:
 
 (defun test-multigrid-demos ()
   (smoother-performance-test :dim 1 :order 1 :smoother *gauss-seidel* :output t)
   (smoother-performance-test :dim 1 :order 6 :smoother (geometric-ssc))
-  (smoother-performance-test :dim 3 :order 4 :level 3 :simplex t :smoother (geometric-ssc))
+  (smoother-performance-test :dim 3 :order 4 :level 2 :simplex t :smoother (geometric-ssc))
+  (bpx-demo-computation (standard-elasticity-problem 2) 1 4)
   )
 
 ;;; (test-multigrid-demos)

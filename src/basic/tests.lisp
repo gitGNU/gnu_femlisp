@@ -79,7 +79,7 @@ test suite before a release."))
   "Clears the Femlisp bug register."
   (setq *tests* ()))
 
-(defun test-femlisp (&key continue package (logfile #p"femlisp:fltest.log"))
+(defun test-femlisp (&key continue package (logfile #p"femlisp:fltest.log") (demos t))
   "Runs the Femlisp test suite.  The result is printed to
 *standard-output*."
   (unless continue
@@ -88,7 +88,10 @@ test suite before a release."))
 	   (if package
 	       (remove (find-package package) *tests*
 		       :key #'symbol-package :test-not #'eq)
-	       *tests*)))
+	       (if demos
+		   ;; note that the fl.demo package might not yet be there
+		   (cons (intern "TEST-ALL-DEMOS" :fl.demo) *tests*)
+		   *tests*))))
     (setq *failed* nil))
   (flet ((run-tests ()
 	   (loop for fsym = (pop *testing*) while fsym

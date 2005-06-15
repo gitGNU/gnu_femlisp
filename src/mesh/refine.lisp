@@ -110,7 +110,7 @@ positions should already be filled with the refinements of the cell's
 boundary.  Returns a vector of children."
   (declare (type simple-vector subcell-refinements refinfo))
   (declare (optimize speed (safety 1)))
-  (let ((my-refinement (make-array (length refinfo))))
+  (let ((my-refinement (make-array (length refinfo) :initial-element nil)))
     (setf (aref subcell-refinements 0) my-refinement)
     (loop for (child-refcell . vec) across refinfo
        and n of-type fixnum from 0 do
@@ -282,7 +282,10 @@ memoized, see the documentation of *REFCELL-REFINEMENT-MEMOIZE-DEPTH*."
     (assert (reference-cell-p refcell))
     (setf rule (get-refinement-rule refcell rule))
     (assert rule)
-    (when reinit (clrhash refcell-refinement-table))
+    (when reinit  ; reinitialize the whole rule
+      (loop for key being each hash-key of refcell-refinement-table
+	   when (eql (car key) rule) do
+	   (remhash key refcell-refinement-table)))
     (let ((key (list refcell level rule)))
       (or (gethash key refcell-refinement-table)
 	  (let ((result
@@ -394,11 +397,15 @@ already refined.  An existing refinement of `cell' is simply kept."))
 		  (child-info (aref refine-info i)))
 	      (unless (vertex-p child)
 		(change-class
-		 child (mapped-cell-class (class-of child))
-		 :mapping (transform-function (mapping cell)
+		 child (mapped-cell-class (class-of child)
+					  (typep cell '<distorted-cell>))
+		 :mapping
+		 (if (typep cell '<distorted-cell>)
+		     (mapping cell)
+		     (transform-function (mapping cell)
 					      :domain-transform
 					      (list (child-transform-A child-info)
-						    (child-transform-b child-info))))))))
+						    (child-transform-b child-info)))))))))
 	  ;; put the pair cell/children-vector in the refined-refion
 	(when refined-region
 	  (setf (skel-ref refined-region cell) children-vector))
@@ -411,25 +418,21 @@ already refined.  An existing refinement of `cell' is simply kept."))
 				(refined-skel <skeleton>) refined-region)
   "This after method ensures the refinement of identified cells and
 identifies the children."
-  (let ((identified-cells (cell-identification cell skel)))
-    (when identified-cells
+  (when (identified-p cell skel)
+    (let ((identified-cells (identified-cells cell skel)))
       ;; ensure refinement of identified cells; this is a recursive call
       (when (loop with every-p = t
-		  for id-cell in identified-cells
-		  unless (refined-p id-cell skel) do
-		  (setq every-p nil)
-		  (refine-cell! rule id-cell skel refined-skel refined-region)
-		  finally (return every-p))
+	       for id-cell in identified-cells
+	       unless (refined-p id-cell skel) do
+		 (setq every-p nil)
+		 (refine-cell! rule id-cell skel refined-skel refined-region)
+	       finally (return every-p))
 	;; all identified cells are refined, now set identification for
 	;; all children
-	(loop for i from 0 below (length (children cell skel))
-	      for identified-children =
-	      (loop for id-cell in identified-cells
-		    collect (aref (children id-cell skel) i))
-	      do
-	      (loop for id-cell in identified-cells
-		    for child = (aref (children id-cell skel) i) do
-		    (setf (cell-identification child refined-skel) identified-children)))))))
+	(loop for i from 0 below (length (children cell skel)) do
+	   (identify (mapcar #'(lambda (id-cell) (aref (children id-cell skel) i))
+			     identified-cells)
+		     refined-skel))))))
   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Skeleton refinement

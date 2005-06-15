@@ -53,15 +53,14 @@ threshold are dropped.")
 	 (children (ecase type
 		     (:inner (inner-refcell-children refcell rule))
 		     (:all (refcell-children refcell rule))))
-	 (result (make-array nr-comps)))
+	 (result (make-array nr-comps :initial-element nil)))
     (dotimes (comp nr-comps result)
       (setf (aref result comp)
-	    (let ((child-offsets (make-array (length children))))
-	      (dotimes (j (length children) child-offsets)
-		(let* ((child (aref children j))
-		       (child-fe (get-fe (discretization vecfe) child)))
-		  (setf (aref child-offsets j)
-			(aref (aref (subcell-offsets child-fe) comp) 0)))))))))
+	    (map 'vector
+		 #'(lambda (child)
+		     (let ((child-fe (get-fe (discretization vecfe) child)))
+		       (aref (aref (subcell-offsets child-fe) comp) 0)))
+		 children)))))
   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Interpolation
@@ -92,7 +91,7 @@ which can be used for implementing problem-dependent finite elements."
     (loop for child across children and i from 0
 	  for child-fe = (get-fe child-disc child)
 	  when (plusp (nr-of-inner-dofs child-fe)) do
-	  (loop for subcell across subcells and j from 0
+	  (loop for j below (length subcells)
 	     when (plusp (aref subcell-ndofs j)) do
 	       (let ((mblock (make-real-matrix (nr-of-inner-dofs child-fe)
 					       (aref subcell-ndofs j))))
@@ -128,7 +127,7 @@ functionals of the children on the parent shape functions."
 	   (vecfe-imat (make-instance '<sparse-tensor> :rank 2)))
       (loop for child across children and i from 0
 	    for child-fe = (get-fe child-disc child) do
-	    (loop for subcell across subcells and j from 0
+	    (loop for j below (length subcells)
 	       when (some #'(lambda (imat) (in-pattern-p imat i j))
 			  fe-imats) do
 		 (loop with mblock = (make-real-matrix (nr-of-inner-dofs child-fe)

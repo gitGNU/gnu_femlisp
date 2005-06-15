@@ -79,7 +79,7 @@
   (let* ((m (slot-value mat 'nrows))
 	 (n (slot-value mat 'ncols))
 	 (k (min m n))
-	 (ipiv (or ipiv (make-array k :element-type 'fixnum))))
+	 (ipiv (or ipiv (make-array k :element-type 'fixnum :initial-element -1))))
     (declare (type fixnum m n k)
 	     (type (simple-array fixnum (*)) ipiv))
     (declare (optimize (speed 3) (safety 0)))
@@ -148,7 +148,7 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
 
 #+(or)
 (multiple-value-bind (lr ipiv)
-    (getrf! (eye 2))
+    (getrf! #m((1.0 1.0) (1.0 0.0)))
   (getrs! lr (eye 2) ipiv))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

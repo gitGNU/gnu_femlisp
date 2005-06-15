@@ -57,8 +57,7 @@
   (warn "Deleted Gnuplot image file."))
 
 (defun ensure-gnuplot-process ()
-  (when (and *gnuplot-process*
-	     (eq (fl.port:process-status *gnuplot-process*) :running))
+  (when *gnuplot-process* ; and: (eq (fl.port:process-status *gnuplot-process*) :running) ?
     (return-from ensure-gnuplot-process *gnuplot-process*))
   (setq *gnuplot-process*
 	(when *gnuplot-pathname*
@@ -95,6 +94,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod graphic-file-name (object (program (eql :gnuplot)) &key &allow-other-keys)
+  (declare (ignore object))
   *gnuplot-file*)
 
 (defmethod send-graphic-commands (object (program (eql :gnuplot)) &rest paras

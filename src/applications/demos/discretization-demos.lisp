@@ -43,24 +43,22 @@
 	collect (vector x (evaluate func x))))
 
 (defun plot-lagrange-basis (order type)
-  "1D-~type~ - Plots 1D Lagrange basis (points=~type~)"
+  "Plots the 1D Lagrange basis of the given order and type."
   (plot
    (loop+ (i (phi (fe-basis (get-fe (lagrange-fe order :type type) *unit-interval*))))
       collect (cons (format nil "phi-~D" i)
 		    (1d-graph phi :left 0.0 :right 1.0 :step 0.01)))))
 
 (defun make-lagrange-basis-demo (type)
-  (multiple-value-bind (title short long)
-      (extract-demo-strings
-       (documentation 'plot-lagrange-basis 'function)
-       `(("~type~" . ,(symbol-name type))))
+  (let ((title (format nil "1D-~A" type))
+	(short (format nil "Plots 1D Lagrange basis (points=~A)" type))
+	long)
     (let ((demo (make-demo
 		 :name title :short short :long long
 		 :execute
 		 (lambda ()
 		   (plot-lagrange-basis 
-		    (user-input "Order (1-9): "
-				#'(lambda (x) (and (integerp x) (plusp x))))
+		    (user-input "Order (1-9): " #'parse-integer #'plusp)
 		    type))
 		 :test-input (format nil "3~%"))))
       (adjoin-demo demo *discretization-demo*))))

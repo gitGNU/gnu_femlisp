@@ -190,9 +190,13 @@ of the class symbol."
   (:documentation "A mixin which distinguishes cells which are mapped by a
 special mapping."))
 
+(defclass <distorted-cell> () ()
+  (:documentation "A mixin which distinguishes if the cell mapping is a
+distortion of the multilinear mapping."))
+
 (definline mapped-p (cell) (subtypep (class-of cell) '<mapped-cell>))
 
-(defun mapped-cell-class (class)
+(defun mapped-cell-class (class &optional distorted)
   "Constructs a cell class with <mapped-cell> mixin."
   (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
 	      (find-package "FL.MESH")))
@@ -205,7 +209,9 @@ special mapping."))
 		      "FL.MESH")))
 	(or (find-class mapped-class nil)
 	    (let ((new-class (eval `(defclass ,mapped-class
-				     (fl.mesh::<mapped-cell> ,unmapped-class) ()))))
+				     (,@(when distorted 'fl.mesh::<distorted-cell>)
+					fl.mesh::<mapped-cell>
+					,unmapped-class) ()))))
 	      (setf (cell-class-information new-class)
 		    (cell-class-information class))
 	      new-class)))))
@@ -298,7 +304,7 @@ cells in this list should have the same dimension."
       (subcell-access-indices (list refcell))
     `(defmethod subcells ((cell ,(class-name (class-of refcell))))
        (declare (optimize speed))
-       (let ((result (make-array ,(length parent-indices))))
+       (let ((result (make-array ,(length parent-indices) :initial-element nil)))
 	 ,@(loop with i = 0 until (= i (length parent-indices)) collect
 		(let ((parent-index (elt parent-indices i))
 		      (boundary-index (elt boundary-indices i)))
@@ -383,11 +389,17 @@ equivalent to calling l2g and l2Dg."
   (l2g cell local-pos))
 (defmethod local->global ((cell <mapped-cell>) local-pos)
   (evaluate (slot-value cell 'mapping) local-pos))
+(defmethod local->Dglobal ((cell <distorted-cell>) local-pos)
+  (evaluate (slot-value cell 'mapping) (l2g cell local-pos)))
 
 (defmethod local->Dglobal ((cell <cell>) local-pos)
   (l2Dg cell local-pos))
 (defmethod local->Dglobal ((cell <mapped-cell>) local-pos)
   (evaluate-gradient (slot-value cell 'mapping) local-pos))
+(defmethod local->Dglobal ((cell <distorted-cell>) local-pos)
+  (let ((g (l2g cell local-pos))
+	(Dg (l2Dg cell local-pos)))
+    (m* (evaluate-gradient (slot-value cell 'mapping) g) Dg)))
 
 ;;; Only these functions (specialized to multilinear mappings) are
 ;;; different for each cell class.

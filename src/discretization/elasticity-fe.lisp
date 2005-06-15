@@ -142,4 +142,5 @@ is an array of rank 2 with standard-matrix entries."))
       (getrs (sparse-ldu mat) rhs) :component 0))
   )
 
+;;; (elasticity-fe-tests)
 (fl.tests:adjoin-test 'elasticity-fe-tests)

@@ -122,7 +122,7 @@ a chequerboard pattern."
   "Generates the inlay cell problem.  Parameters are the coefficient of the
 inlay and the component of the cell vector."
   (make-instance
-   '<cdr-problem> :domain (n-cell-with-n-ball-inlay dim)
+   '<cdr-problem> :domain (n-cell-with-ball-inlay dim)
    :multiplicity dim :patch->coefficients
    #'(lambda (patch)
        (when (= (dimension patch) dim)
@@ -131,11 +131,11 @@ inlay and the component of the cell vector."
 		(scal! (if (patch-in-inlay-p patch) eps 1.0) (eye dim)))
 	  'FL.CDR::GAMMA (constant-coefficient (eye dim)))))))
 
-(defun porous-cell-problem (dim &key (radius 0.3) A)
+(defun porous-cell-problem (dim &key (radius 0.25) A)
   (cdr-cell-problem
    (if A
        (n-cell-with-ellipsoidal-hole dim :A A)
-       (n-cell-with-n-ball-hole dim :radius radius))))
+       (n-cell-with-ball-hole dim :radius radius))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Demos
@@ -246,9 +246,6 @@ must be a scalar multiple of the identity."
 (defparameter *result* nil)
 
 (defun cdr-hom-tests ()
-;; Warning: The default (lu-solver) in cell-solve does not really work on
-;; these singular systems.  Often it appears to work, but introduces large
-;; relative errors.
 
 (cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :output :all)
 

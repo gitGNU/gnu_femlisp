@@ -99,16 +99,7 @@ automatically generated inside the error estimator cycle."
 		(heuveline-rannacher-dual-problem-fe-rhs)))
 
 (defun heuveline-rannacher-computation (order levels &key (output 1) plot)
-  "HR2003-1 - Solves problem 1 in [Heuveline-Rannacher 2003]
-
-Solves for the functional $J(phi)=dphi/dx(0.5,2.5)$ evaluated
-for approximations $u_k$ to a Poisson equation with exact
-solution:
-
-$$  u(x,y) = sin(pi/2*(x+1))*sin(3/4*pi*(y+1))  $$
-
-Thus, the precise value is 1.026172152977031.
-Parameters of the computation: order=~order~, levels=~levels~."
+  "Performs the Heuveline-Rannacher demo."
   (defparameter *result*
     (let ((*output-depth* output))
       (solve
@@ -138,10 +129,16 @@ Parameters of the computation: order=~order~, levels=~levels~."
 #+(or) (heuveline-rannacher-computation 4 4 :output :all :plot t)
 
 (defun make-heuveline-rannacher-demo (order levels)
-  (multiple-value-bind (title short long)
-      (extract-demo-strings
-       (documentation 'heuveline-rannacher-computation 'function)
-       `(("~order~" . ,order) ("~levels~" . ,levels)))
+  (let ((title "HR2003-1")
+	(short "Solves problem 1 in [Heuveline-Rannacher 2003]")
+	(long (format nil "Solves for the functional
+@math{J(phi)=dphi/dx(0.5,2.5)} evaluated for approximations
+@math{u_k} to a Poisson equation with exact solution:
+
+@math{u(x,y) = sin(pi/2*(x+1))*sin(3/4*pi*(y+1))}
+
+Thus, the precise value is 1.026172152977031.
+Parameters of the computation: order=~D, levels=~D." order levels)))
     (let ((demo
 	   (make-demo
 	    :name title :short short :long long

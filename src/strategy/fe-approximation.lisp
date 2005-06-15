@@ -182,7 +182,7 @@ criteria."
 	  (let ((ht refinement-table))
 	    (nth-value 1 (refine mesh :indicator #'(lambda (cell)
 						     (nth-value 1 (gethash cell ht)))))))
-    (when (extensible-p (domain mesh))
+    (when (get-property  (domain mesh) 'fl.mesh::extensible-p)
       (extend mesh :test #'(lambda (cell) (member-of-skeleton? cell refined-cells))))
     (whereas ((mesh-plotter (slot-value fe-strategy 'plot-mesh)))
       (if (functionp mesh-plotter) (funcall mesh-plotter mesh) (plot mesh)))

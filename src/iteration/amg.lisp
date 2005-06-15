@@ -187,27 +187,27 @@ sparse matrices."
 ;;; Interestingly, the construction of the prolongation follows an abstract
 ;;; pattern which is identical for AMG of selection or aggregation type.
 ;;; Yet, to keep maximum flexibility, we implement this pattern as pipe
-;;; operations communicating via property lists.
+;;; operations working on blackboards.
 
-(defgeneric filtered-matrix (amg &rest parameters)
+(defgeneric filtered-matrix (amg blackboard)
   (:documentation "Precondition: items :matrix.  Postcondition: :matrix and
 :filtered-matrix."))
 
-(defgeneric choose-coarse-grid (amg &rest parameters)
-  (:documentation "Pre-condition: in the rest parameters an item :mat has
-to be supplied.  Post-condition: Items :mat and :coarse-grid in the result.
-In the case of selection-amg this will be a set of selected indices of the
-fine-grid matrix graph.  In the case of amg of aggregation type, this is a
-set of mutually disjoint sets of fine-grid indices."))
+(defgeneric choose-coarse-grid (amg blackboard)
+  (:documentation "Pre-condition: an item :matrix has to be supplied on
+@arg{blackboard}.  Post-condition: Items :matrix and :coarse-grid in the
+result.  In the case of selection-amg this will be a set of selected
+indices of the fine-grid matrix graph.  In the case of amg of aggregation
+type, this is a set of mutually disjoint sets of fine-grid indices."))
 
-(defgeneric tentative-prolongation (amg &rest paraemters)
-  (:documentation "Precondition: in the rest parameters the items :mat and
-:coarse-grid-nodes have to be supplied.  Post-condition: Items :mat and
-:tentative-prolongation in the result.  In the case of selection-amg this
-will usually be injection, in the case of aggregation-amg this will be the
-piecewise constant prolongation."))
+(defgeneric tentative-prolongation (amg blackboard)
+  (:documentation "Precondition: the items :matrix and
+:coarse-grid-nodes have to be supplied on the blackboard.  Post-condition:
+Items :matrix and :tentative-prolongation on the blackboard.  In the case
+of selection-amg this will usually be injection, in the case of
+aggregation-amg this will be the piecewise constant prolongation."))
 
-(defgeneric improved-prolongation (amg &rest parameters)
+(defgeneric improved-prolongation (amg blackboard)
   (:documentation "Precondition: items :mat and :prol in the rest
 parameters.  Postcondition: same."))
 
@@ -216,11 +216,12 @@ parameters.  Postcondition: same."))
 incorporating other AMG algorithms, you should first try to keep this
 routinge as it is and define modifications for the called generic
 functions."
-  (getf (apply #'improved-prolongation amg
-	       (apply #'tentative-prolongation amg
-		      (apply #'choose-coarse-grid amg
-			     (filtered-matrix amg :matrix mat))))
-	:prolongation))
+  (let ((bb (blackboard :matrix mat)))
+    (filtered-matrix amg bb)
+    (choose-coarse-grid amg bb)
+    (tentative-prolongation amg bb)
+    (improved-prolongation amg bb)
+    (getbb bb :prolongation)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; restriction

@@ -180,6 +180,10 @@ partial sums."
   "Returns the last element of @arg{vec}."
   (aref vec (1- (length vec))))
 
+(defun zero-vector (dim element-type)
+  "Returns a uniform vector for the given element type filled with zeros."
+  (make-array dim :element-type element-type :initial-element (coerce 0 element-type)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Arrays
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -231,6 +235,9 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 
 (defun flatten-1 (lst) (apply #'append lst))
 
+(defun modify (lst &key add remove)
+  (union add (set-difference lst remove)))
+
 (definline single? (lst) (and (consp lst) (null (cdr lst))))
 
 (definline range<= (k l)
@@ -240,11 +247,6 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 (definline range< (k l)
   (loop for i from k below l
 	collect i))
-
-(defun make-set (start size)
-  (loop repeat size
-	for j from start
-	collect j))
 
 (defun take (k lst)
   (loop for x in lst repeat k

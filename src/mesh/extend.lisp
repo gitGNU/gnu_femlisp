@@ -38,7 +38,7 @@
   "Extends a mesh on all extensible cells for which test ---if provided---
 yields T."
   (let ((domain (domain mesh)))
-    (when (extensible-p domain)
+    (when (get-property domain 'extensible-p)
       (let* ((level-0 (if (hierarchical-mesh-p mesh)
 			  (cells-on-level mesh 0)
 			  mesh))

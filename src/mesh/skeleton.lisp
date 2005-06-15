@@ -104,19 +104,11 @@ list."
   "Sets the value of the property."
   (setf (getf (skel-ref skel cell) property) value))
 
-;;;; Identification
+;;; Identification
 
-(definline cell-identification (cell skel)
-  "Returns @arg{cell}'s identification in @arg{skel} or NIL."
-  (get-cell-property cell skel 'IDENTIFIED))
-
-(definline (setf cell-identification) (identified-cells cell skel)
-  (setf (get-cell-property cell skel 'IDENTIFIED)
-	identified-cells))
-
-(defun identified-p (cell skel)
-  "Returns @arg{cell}'s identification in @arg{skel} or NIL."
-  (cell-identification cell skel))
+(defgeneric identified-cells (cell skel)
+  (:documentation "Returns a list of cells in @arg{skel} which are
+identified with @arg{cell}."))
 
 ;;; Building tools
 
@@ -279,8 +271,7 @@ have only one neighbor."
 	;; build neighbor lists for all hyperfaces
 	(dohash (cell (etable skel (dimension skel)))
 	  (loop for side across (boundary cell) do
-		(dolist (side1 (or (cell-identification side skel)
-				   (list side)))
+		(dolist (side1 (identified-cells side skel))
 		  (push cell (gethash side1 bdry-ht ())))))
 
 	;; and build a skeleton from the boundary hyperfaces
@@ -297,7 +288,7 @@ have only one neighbor."
 boundaries of skeletons."
   (skel-empty-p (skeleton-boundary skel)))
 
-;;;; Testing: (test-skeleton)
+;;;; Testing:
 
 (defun test-skeleton ()
   "Tests are done when initializing the classes."
@@ -305,6 +296,7 @@ boundaries of skeletons."
   (macroexpand-1 '(doskel (cell (skeleton *unit-interval*) :direction :down)
 		   (format t "~A~%" (corners cell))))
   (make-instance '<skeleton> :dimension -1))
-    
+
+;;; (test-skeleton)
 (fl.tests:adjoin-test 'test-skeleton)
 

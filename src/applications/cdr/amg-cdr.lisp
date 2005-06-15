@@ -57,7 +57,7 @@
 aligned grids."
   :execute
   (lambda ()
-    (let ((eps (float (user-input "eps: " #'realp) 1.0)))
+    (let ((eps (float (user-input "eps: " #'read-from-string #'realp) 1.0)))
       (defparameter *result*
 	(solve (blackboard
 		:problem

@@ -74,7 +74,7 @@ represented as nested lists."))
 				    (+ deg (tensorial-degree coeff))
 				    deg))
 			    coeff-lst
-			    (make-set 0 (length coeff-lst))))))
+			    (loop for k below (length coeff-lst) collect k)))))
     (tensorial-degree (coefficients poly))))
 
 (defmethod partial-degree ((lst list) (index integer))

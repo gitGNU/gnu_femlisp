@@ -195,6 +195,7 @@ in a sparse vector value block corresponding to the subcell."
   (the simple-vector (getf (properties fe) 'SUBCELL-OFFSETS)))
 
 (defmethod initialize-instance :after ((vecfe <vector-fe>) &key &allow-other-keys)
+  (declare (optimize safety debug))
   (with-slots (components dofs properties)
     vecfe
     (assert components)
@@ -205,22 +206,19 @@ in a sparse vector value block corresponding to the subcell."
     (let* ((refcell (reference-cell vecfe))
 	   (nr-comps (length components))
 	   (nr-subcells (nr-of-subcells refcell))
-	   (local-offset (make-array nr-comps :element-type 'fixnum))
-	   (subcell-offsets (make-array nr-comps))
-	   (subcell-ndofs (make-array nr-subcells :element-type 'fixnum)))
+	   (local-offset (make-fixnum-vec nr-comps))
+	   (subcell-offsets (make-array nr-comps :initial-element nil))
+	   (subcell-ndofs (make-fixnum-vec nr-subcells)))
       ;; fill arrays: local-offset, subcell-offsets, subcell-ndofs
       (loop with local-off = 0
-	    and subcell-off = (make-fixnum-vec nr-subcells 0)
-	    for i from 0
-	    and fe across components do
-	    (setf (aref local-offset i) local-off)
-	    (setf (aref subcell-offsets i) (copy-seq subcell-off))
-	    (incf local-off (nr-of-dofs fe))
-	    (dotimes (j nr-subcells)
-	      (incf (aref subcell-ndofs j)
-		    (aref (subcell-ndofs fe) j))
-	      (incf (aref subcell-off j)
-		    (aref (subcell-ndofs fe) j))))
+	 and subcell-off = (make-fixnum-vec nr-subcells 0)
+	 for i from 0 and fe across components
+	 do
+	   (setf (aref local-offset i) local-off)
+	   (setf (aref subcell-offsets i) (copy-seq subcell-off))
+	   (incf local-off (nr-of-dofs fe))
+	   (m+! (subcell-ndofs fe) subcell-ndofs)
+	   (m+! (subcell-ndofs fe) subcell-off))
       (setf (getf properties 'LOCAL-OFFSET) local-offset)
       (setf (getf properties 'SUBCELL-OFFSETS) subcell-offsets)
       (setf (getf properties 'SUBCELL-NDOFS) subcell-ndofs)
@@ -231,7 +229,7 @@ in a sparse vector value block corresponding to the subcell."
       ;; setup dofs
       (setq dofs
 	    (loop+ (comp (fe components)
-		    (local-off local-offset) (subcell-offset subcell-offsets))
+			 (local-off local-offset) (subcell-offset subcell-offsets))
 	       nconcing
 	       (loop+ ((dof (fe-dofs fe))) collecting
 		  (dof->vector-dof dof comp subcell-offset))))
@@ -579,16 +577,17 @@ scalar product in pairing."
 		   :gradients gradients :volume volumes
 		   :gradient-inverses gradient-inverses :weights weights)))))
 
-;;; Testing: (test-fe)
+;;; Testing:
 
 (defun test-fe ()
   (Q-nomials-of-degree *unit-interval* 1 '=)
   (Q-nomials-of-degree *reference-vertex* 0 '<=)
-  (Q-nomials-of-degree *unit-cube* 2)
+  (Q-nomials-of-degree (n-cube 3) 2)
   #+(or) ; works only if lagrange.lisp has been evaluated
   (let ((gm (gram-matrix (Q-nomials-of-degree *unit-interval* 1 '<=)
 			 (lagrange-dofs *unit-interval* 1) #'evaluate)))
     (assert (< (abs (- 1.0 (mref (m* (m/ gm) gm) 0 0)) ) 1.0e-10)))
   )
 
+;;; (test-fe)
 (fl.tests:adjoin-test 'test-fe)

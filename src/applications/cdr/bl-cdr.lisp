@@ -75,17 +75,7 @@ oscillating domain."
 
 (defun cdr-bl-computation (dim/domain order max-levels &rest rest
 			   &key output plot &allow-other-keys)
-  "bl-diffusion-~Dd - Computes a boundary law coefficient
-
-Computes a boundary law coefficient constant for an oscillating
-function which has to be 1-periodic and negative.  This involves
-solving a cell problem on a semi-infinite domain with a smooth
-and exponentially decaying solution.  The constant we search for
-is equal to the energy of the solution.  Our adaptive strategy
-with high order approximations and local mesh refinement is well
-suited for computing this constant with high accuracy.  Error
-estimation is achieved by using a duality error estimator for
-the load functional."
+  "Performs the bl-diffusion demo."
   (let ((domain (if (numberp dim/domain)
 		    (apply #'sinusoidal-bl-cell dim/domain rest)
 		    dim/domain))
@@ -110,7 +100,7 @@ the load functional."
   *result*)
 
 #+(or) (cdr-bl-computation
-	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil :output 1)
+	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil :output :all)
 
 #|
 (profile:unprofile)
@@ -146,8 +136,18 @@ the load functional."
 ;;   20       444     12426   34.6   9.4064954875d-01   2.4130130651d-06
 
 (defun make-cdr-bl-demo (dim order levels)
-  (multiple-value-bind (title short long)
-      (extract-demo-strings (documentation 'cdr-bl-computation 'function))
+  (let ((title (format nil "bl-diffusion-~Dd" dim))
+	(short "Computes a boundary law coefficient")
+	(long "Computes a boundary law coefficient constant
+for an oscillating function which has to be 1-periodic and
+negative.  This involves solving a cell problem on a
+semi-infinite domain with a smooth and exponentially decaying
+solution.  The constant we search for is equal to the energy of
+the solution.  Our adaptive strategy with high order
+approximations and local mesh refinement is well suited for
+computing this constant with high accuracy.  Error estimation is
+achieved by using a duality error estimator for the load
+functional."))
     (let ((demo
 	   (make-demo
 	    :name (format nil title dim) :short short

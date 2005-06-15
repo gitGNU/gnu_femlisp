@@ -105,7 +105,7 @@ product which is faster."
 			 #'evaluate)))
 
 (defun shapes-and-dof-coords (factor-simplices order type)
-  "Computes simpulataneously shapes and dof-coords for a tensorial as a
+  "Computes simulataneously shapes and dof-coords for a tensorial as a
 tensor product."
   (if (null factor-simplices)
       (values (list (double-vec)) (list (make-polynomial '(1.0))))
@@ -272,6 +272,7 @@ by interpolating the boundary map via Lagrange interpolation."
 
 ;;; Testing
 (defun test-lagrange ()
+  (get-fe (lagrange-fe 1 :nr-comps 2) (n-cube 0))
   (flet ((check-fe (fe-class refcell)
 	   (let* ((fe (get-fe fe-class refcell))
 		  (qrule (quadrature-rule fe)))
@@ -332,7 +333,7 @@ by interpolating the boundary map via Lagrange interpolation."
   (dbg-off :lagrange)
   )
 
+;;; (fl.discretization::test-lagrange)
 (fl.tests:adjoin-test 'test-lagrange)
 
-;;; (fl.discretization::test-lagrange)
 

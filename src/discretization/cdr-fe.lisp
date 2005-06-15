@@ -94,7 +94,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 		(left-gradients (if local-v (m*-tn local-v gradients) gradients)))
 	   ;; diffusion
 	   (when diffusion
-	     (let* ((diff-tensor (evaluate diffusion coeff-input))
+	     (let* ((diff-tensor (ensure-matlisp (evaluate diffusion coeff-input)))
 		    (fluxes (m* left-gradients diff-tensor))) ; (n-basis x dim)-matrix
 	       (when local-mat
 		 (gemm! weight fluxes right-gradients 1.0 local-mat :NT))

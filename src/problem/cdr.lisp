@@ -109,7 +109,7 @@ functional."
 
 (defun cdr-model-problem (dim/domain &key (diffusion nil diffusion-p)
 			  (source nil source-p) (dirichlet nil dirichlet-p)
-			  gamma convection reaction initial evp)
+			  gamma convection reaction initial evp properties)
   "Generates a convection-diffusion-reaction model problem.  Defaults are
 identity diffusion, right-hand-side equal 1, and Dirichlet zero boundary
 conditions.  Ordinary function are converted into coefficient functions
@@ -129,6 +129,7 @@ cube."
 	   (cond (initial '(<time-dependent-problem> <cdr-problem>))
 		 (evp '(<cdr-problem> <evp-mixin>))
 		 (t '<cdr-problem>))
+	   :properties properties
 	   :domain domain :patch->coefficients
 	   #'(lambda (cell)
 	     (let ((coeffs ()))
@@ -151,7 +152,8 @@ cube."
 	       coeffs))
 	   (append
 	    (when evp (destructuring-bind (&key lambda mu) evp
-			(list :lambda lambda :mu mu)))))))
+			(list :lambda lambda :mu mu))))
+	   )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Bratu problem

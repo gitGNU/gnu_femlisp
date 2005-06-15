@@ -131,17 +131,21 @@ decomposition."))
 	   (declare (ignore b))
 	   (dbg :iter "iterate psc")
 	   (loop for block in blocks
-		 and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
-		 for block-ranges = (car ranges-tail)
-		 and diag-inverse in diagonal-inverses do
-		 (unless diag-inverse
-		   (setq diag-inverse
-			 (compute-block-inverse smat block (car ranges-tail))))
-		 ;; now invert local system
-		 (let ((local-r (sparse-vector->matlisp r block block-ranges)))
-		   (add-svec-to-local-block
-		    x (scal! (slot-value psc 'damp) (m* diag-inverse local-r))
-		    block block-ranges)))
+	      and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
+	      for block-ranges = (car ranges-tail)
+	      and diag-inverse in diagonal-inverses do
+	      (let ((local-r (sparse-vector->matlisp r block block-ranges))
+		    (local-x (sparse-vector->matlisp x block block-ranges)))
+		(cond
+		  (diag-inverse
+		   (gemm! (slot-value psc 'damp) diag-inverse local-r 1.0 local-x))
+		  (t (gesv! (if fl.matlisp::*default-ccs-solver*
+				(sparse-matrix->ccs smat :keys block :ranges (car ranges-tail))
+				(sparse-matrix->matlisp smat :keys block :ranges (car ranges-tail)))
+			    local-r)
+		     (axpy! (slot-value psc 'damp) local-r local-x)))
+		(set-svec-to-local-block x local-x block block-ranges))
+	      )
 	   x)
        :residual-after nil))))
 

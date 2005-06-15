@@ -52,14 +52,33 @@
       polygons
       (list polygons)))
 
+(defun destructure-polygon (polygon)
+  "Extracts name and type of @arg{point-set}.  This can be either a list of
+points which is interpreted as a polygon, or a list of pairs of points
+which is interpreted as a vector field."
+  (let (name (type :polygon))
+    (when (stringp (car polygon))
+      (setf name (pop polygon)))
+    (when (symbolp (car polygon))
+      (setf type (pop polygon)))
+    (values name type polygon)))
+
 (defmethod graphic-write-data (stream (polygons list) (program (eql :gnuplot))
-				      &key &allow-other-keys)
+			       &key &allow-other-keys)
   "Can handle either a single list of points, or a single list of the form
 \(string . points) or a list of such lists which is interpreted as multiple
 graphs."
   (dovec (polygon (ensure-polygons polygons))
-    (dovec (point (if (stringp (car polygon)) (cdr polygon) polygon))
-      (format stream "~,,,,,,'EG ~,,,,,,'EG~%" (elt point 0) (elt point 1)))
+    (multiple-value-bind (name type points)
+	(destructure-polygon polygon)
+      (declare (ignore name))
+      (dovec (point points)
+	(ecase type
+	  (:polygon (format stream "~@{~,,,,,,'EG ~}~%"
+			    (elt point 0) (elt point 1)))
+	  (:vectorfield (format stream "~@{~,,,,,,'EG ~}~%"
+				(elt (car point) 0) (elt (car point) 1)
+				(elt (cdr point) 0) (elt (cdr point) 1))))))
     (format stream "~%~%")))
 
 (defmethod graphic-commands ((polygons list) (program (eql :gnuplot))
@@ -69,15 +88,16 @@ graphs."
      (apply #'concatenate 'string
 	    "plot "
 	    (loop for polygon in (ensure-polygons polygons)
-		  and i from 0 
-		  unless (zerop i) collect ", " end
-		  collect
-		  (format nil "~S index ~D title ~S with lines lw ~D"
-			  gnuplot-file i
-			  (if (stringp (car polygon))
-			      (car polygon)
-			      (format nil "data-~D" i))
-			  linewidth))))))
+	       and i from 0 unless (zerop i) collect ", " end
+	       collect
+		 (multiple-value-bind (name type)
+		     (destructure-polygon polygon)
+		   (format nil "~S index ~D title ~S with ~A lw ~D"
+			   gnuplot-file i (or name (format nil "data-~D" i))
+			   (ecase type
+			     (:polygon "lines")
+			     (:vectorfield "vectors"))
+			   linewidth)))))))
 
 (defmethod plot ((polygons list) &rest rest &key &allow-other-keys)
   (apply #'graphic-output polygons :gnuplot rest))
@@ -88,7 +108,7 @@ graphs."
 
 
 (defmethod graphic-write-data (stream object (program (eql :gnuplot))
-				      &key cells cell->values (depth 0))
+			       &key cells cell->values (depth 0))
   "Writes data in gnuplot format to a stream."
   (declare (ignore object))
   (assert (= 1 (dimension (car cells))))
@@ -106,7 +126,10 @@ graphs."
 
 ;;;; Testing: (test-plot-gnuplot)
 (defun test-plot-gnuplot ()
-  (let ((graph '(("graph-1" #(1.0 2.0) #(3.0 4.0)))))
+  (let ((graph '(("graph-1" :polygon #(1.0 2.0) #(3.0 4.0)))))
+    (plot graph :debug t))
+  (let ((graph '(("graph-2" :vectorfield
+		  (#(1.0 2.0) . #(0.5 -0.5)) (#(3.0 4.0) . #(-0.5 0.5))))))
     (plot graph :debug t))
   (let ((graph '("graph-2" #(1.0 3.0) #(4.0 2.0))))
     (plot graph :debug t))
@@ -122,7 +145,7 @@ graphs."
 	   for r = #I"1 + 0.1*sin(phi)^^2*sin(40*phi)"
 	   collect (vector (* r (cos phi)) (* r (sin phi))))))
    :border nil :tics nil
-   :terminal #-(or)"postscript eps enhanced color" #+(or) "epslatex color"
+   ;;:terminal #-(or)"postscript eps enhanced color" #+(or) "epslatex color"
    :left -1.7 :right 1.7 :top 1.15 :bottom -1.15 :linewidth 3)
   )
 

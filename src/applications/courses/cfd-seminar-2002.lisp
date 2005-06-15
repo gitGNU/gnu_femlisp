@@ -62,7 +62,7 @@
   (iteration-test *gauss-seidel* :dim 2 :size 5 :maxsteps 10 :output t)
   (iteration-test (make-instance '<ilu>) :dim 2 :size 5 :maxsteps 10 :output t)
   (iteration-test (make-instance '<cg>) :dim 2 :size 5 :maxsteps 10 :output t)
-  (iteration-test (make-instance '<pcg> :preconditioner *standard-ilu*)
+  (iteration-test (make-instance '<cg> :preconditioner *standard-ilu*)
 		  :dim 2 :size 10 :output t :maxsteps 10))
 
 (defun size-effort-graph (linit &key (dim 1) (from 3) (to 10) (maxsteps 100))

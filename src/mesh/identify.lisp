@@ -38,17 +38,57 @@
 ;;;; Identification
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Identifications is a list of identified cells stored in the property
-;;; IDENTIFIED.  This property must be identical (eq) for all their
-;;; members.
+(defclass identification ()
+  ((skeleton :initarg :skeleton)
+   (cells :initarg :cells :documentation "A list of identified cells."))
+  (:documentation "This object describes a cluster of identified cells.  At
+the moment, it is used to describe identified boundaries and might be used
+later on for parallelization purposes.  Those identifications are refered
+to in the properties of each cell."))
+
+(definline cell-identification (cell skel)
+  "Returns @arg{cell}'s identification in @arg{skel} or NIL."
+  (get-cell-property cell skel 'IDENTIFIED))
+
+(definline (setf cell-identification) (identification cell skel)
+  (setf (get-cell-property cell skel 'IDENTIFIED)
+	identification))
+
+(defun identified-p (cell skel)
+  "Returns @arg{cell}'s identification in @arg{skel} or NIL."
+  (cell-identification cell skel))
+
+(defgeneric representative (obj)
+  (:documentation "Returns a representative for this object.")
+  (:method (obj)
+    "This default method returns the object itself."
+    obj)
+  (:method ((id identification))
+    "Gets a representative cell for this identification."
+    (first (slot-value id 'cells))))
+
+(defmethod identified-cells (cell skel)
+  (aif (cell-identification cell skel)
+       (slot-value it 'cells)
+       (list cell)))
 
 (defun identify (identified-cells skel)
   "Identifies all cells in @arg{identified-cells} within @arg{skel}."
   (dbg :mesh "Identifying: ~A" identified-cells)
   (when (> (length identified-cells) 1)
-    (dolist (cell identified-cells)
-      (setf (cell-identification cell skel)
-	    identified-cells))))
+    (let ((identification
+	   (make-instance 'identification :skeleton skel :cells identified-cells)))
+      (dolist (cell identified-cells)
+	(setf (cell-identification cell skel) identification)))))
+
+(defun key-is-subcell-p (key1 key2)
+  "Checks if @arg{key1} occurs as subcell of @arg{key2}.  The keys can be
+either cells or identifications."
+  (let ((cell-subcells (subcells (representative key2))))
+    (some #'(lambda (subcell) (find subcell cell-subcells))
+	  (typecase key1
+	    (identification (slot-value key1 'cells))
+	    (t (list key1))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Helper routines for constructing a cell domain with identified
@@ -82,10 +122,11 @@ of some higher-dimensional cells."
   "Should checks correct identification.  At the moment, it tests only if
 all identification-entries are eq."
   (doskel (cell skel)
-    (whereas ((identified-cells (cell-identification cell skel)))
-      (assert (> (length identified-cells) 1))
-      (dolist (cell2 identified-cells)
-	(assert (eq identified-cells (cell-identification cell2 skel)))))))
+    (whereas ((id (cell-identification cell skel)))
+      (let ((cells (slot-value id 'cells)))
+	(assert (not (single? cells)))
+	(dolist (cell2 cells)
+	  (assert (eq id (cell-identification cell2 skel))))))))
 
 (defun identify-unit-cell-faces (skel &key (indices :all))
   "This routines identifies boundary cells in skel which correspond to

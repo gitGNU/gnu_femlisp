@@ -72,6 +72,20 @@ keyword parameters which should correspond to the list in DEMANDS.")
 		     (setf (getf demands demand) value))))
     demands))
 
+
+(defun filter-applicable-coefficients (coeffs cell patch &key (constraints t))
+  "Filters out the applicable coefficients for the respective cell with the
+given patch."
+  (loop
+     for (symbol coeff) on coeffs by #'cddr
+     when (and coeff
+	       (or (eq (dimension coeff) t)
+		   (= (dimension cell)
+		      (or (dimension coeff) (dimension patch))))
+	       (or constraints
+		   (not (equal (symbol-name symbol) "CONSTRAINT"))))
+     collect symbol and collect coeff))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; some coefficient functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -87,19 +101,36 @@ boundary condition."
 	   (apply #'values value other-values))
        (constantly value))))
 
-(defun function->coefficient (func)
+(defun f[x]->coefficient (func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on global coordinates."
   (make-instance '<coefficient> :demands '(:global)
 		 :eval #'(lambda (&key global &allow-other-keys)
 			   (funcall func global))))
 
+(defun f[u]->coefficient (func)
+  "The function argument @arg{func} is transformed into a coefficient
+depending on the solution."
+  (make-instance '<coefficient> :demands '(:solution)
+		 :eval #'(lambda (&key solution &allow-other-keys)
+			   (funcall func solution))))
+
+(defun f[xu]->coefficient (func)
+  "The function argument @arg{func} is transformed into a coefficient
+depending on position and solution."
+  (make-instance '<coefficient> :demands '(:global :solution)
+		 :eval #'(lambda (&key global solution &allow-other-keys)
+			   (funcall func global solution))))
+
+(defun function->coefficient (func)
+  (f[x]->coefficient func))
+
 (defun ensure-coefficient (obj)
   "Returns @arg{obj} if it is a coefficient, converts @arg{obj} into a
 coefficient depending on the space variable if @arg{obj} is a function;
 otherwise, @arg{obj} is made into a constant coefficient."
   (cond ((typep obj '<coefficient>) obj)
-	((functionp obj) (function->coefficient obj))
+	((functionp obj) (f[x]->coefficient obj))
 	((typep obj '<function>)
 	 (make-instance '<coefficient> :demands '(:global)
 			:eval #'(lambda (&key global &allow-other-keys)
@@ -131,13 +162,20 @@ can be chosen as a positive integer @math{n} if the problem is posed with
 (defmethod initialize-instance ((problem <domain-problem>)
 				&key patch->coefficients &allow-other-keys)
   "Setup the coefficient table, if the coefficients are given as a function
-mapping domain patches to coefficient property lists."
+mapping domain patches to coefficient property lists.  Instead of a
+function, this mapping can also be given as a list describing the
+association of patch classifications to coefficient functions."
   (call-next-method)
   (with-slots (domain coefficients) problem
-    (when patch->coefficients
-      (doskel (patch domain)
-	(setf (gethash patch coefficients)
-	      (funcall patch->coefficients patch))))))
+    (doskel (patch domain)
+      (setf (gethash patch coefficients)
+	    (typecase patch->coefficients
+	      (function (funcall patch->coefficients patch))
+	      (list (loop with classifications = (patch-classification patch domain)
+		       for (id coeffs) in patch->coefficients
+		       when (subsetp (if (consp id) id (list id)) classifications)
+		       do (return coeffs)))
+	      (t (error "Unknown mapping.")))))))
 
 (defmethod domain-dimension ((problem <domain-problem>))
   (dimension (domain problem)))

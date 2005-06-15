@@ -1,4 +1,4 @@
-;;; -*- mode: lisp; -*-
+;;; -*- mode: lisp; fill-column: 64; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; driven-cavity.lisp - Driven cavity computations
@@ -45,6 +45,7 @@ driven cavity."
 		(loop for i below dim collect (vref (aref val i) 0)))))))
 
 (defun ns-driven-cavity-demo (dim order levels &key plot output (reynolds 0.0) smooth-p)
+  "Performs the driven cavity demo."
   (defparameter *result*
     (solve 
      (blackboard
@@ -68,14 +69,11 @@ driven cavity."
 ;;; (plot (getbb *result* :solution) :component 0 :depth 2)
 
 (defun make-driven-cavity-demo (dim order reynolds)
-  "DC-~dim~D-~reynolds~ - Solves the driven cavity problem (Re=~reynolds~).
-
-Solve the ~dim~D driven cavity problem for the Navier-Stokes equation using
-Taylor-Hood finite elements (Q^{k+1})^~dim~/Q^k with k=~order~."
-  (multiple-value-bind (title short long)
-      (extract-demo-strings
-       (documentation 'make-driven-cavity-demo 'function)
-       `(("~dim~" . ,dim) ("~order~" . ,order) ("~reynolds~" . ,reynolds)))
+  (let ((title (format nil "DC-~DD-~A" dim reynolds))
+	(short (format nil "Solves the driven cavity problem (Re=~A)." reynolds))
+	(long (format nil "Solve the ~DD driven cavity problem
+for the Navier-Stokes equation using Taylor-Hood finite elements
+[Q^~D]^~D-Q^~D." dim (1+ order) dim order)))
     (let ((demo
 	   (make-demo
 	    :name title :short short :long long :execute

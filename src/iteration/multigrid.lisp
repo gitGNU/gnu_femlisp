@@ -62,7 +62,11 @@ iteration and matrix.")
 			  :initform (make-instance '<lu>)
 			  :initarg :coarse-grid-iteration
 			  :initarg :coarse-grid-solver)
-   (fmg :reader fmg :initform nil :initarg :fmg))
+   (fmg :reader fmg :initform nil :initarg :fmg)
+   (combination :reader combination-type :initform :multiplicative :initarg :combination
+		:documentation "Switch between additive and multiplicative
+combination of corrections from different levels.  The additive version
+should be used as a preconditioner."))
   (:documentation "The multigrid iteration is a linear iteration specially
 suited for the solution of systems of equations with elliptic terms.  In
 ideal situations, it solves such systems with optimal complexity.  It is a
@@ -108,6 +112,7 @@ class precedence."))
 (defmacro res_ (level) `(aref (getbb mg-data :res-vec) ,level))
 (defmacro pre-smoother_ (level) `(aref (getbb mg-data :pre-smoother-vec) ,level))
 (defmacro post-smoother_ (level) `(aref (getbb mg-data :post-smoother-vec) ,level))
+(defmacro residual-p_ (level) `(aref (getbb mg-data :residual-p-vec) ,level))
 
 (define-symbol-macro current-level (getbb mg-data :current-level))
 (define-symbol-macro A_l (A_ current-level))
@@ -119,7 +124,7 @@ class precedence."))
 (define-symbol-macro pre-smoother_l (pre-smoother_ current-level))
 (define-symbol-macro post-smoother_l (post-smoother_ current-level))
 
-(define-symbol-macro residual-p (getbb mg-data :residual-p))
+(define-symbol-macro residual-p_l (residual-p_ current-level))
 
 ;;; The FAS scheme needs an additional restriction or projection of the
 ;;; solution vector.
@@ -165,9 +170,9 @@ to be performed."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod ensure-mg-residual ((mg-it <mg-iteration>) mg-data)
-  (unless residual-p
+  (unless residual-p_l
     (compute-residual A_l sol_l rhs_l res_l)
-    (setq residual-p t)))
+    (setq residual-p_l t)))
 
 (defmethod smooth ((mg-it <mg-iteration>) mg-data which)
   (let ((smoother (ecase which
@@ -177,7 +182,7 @@ to be performed."))
       (when (slot-value smoother 'fl.iteration::residual-before)
 	(ensure-mg-residual mg-it mg-data))
       (funcall (slot-value smoother 'fl.iteration::iterate) sol_l rhs_l res_l)
-      (setq residual-p (slot-value smoother 'fl.iteration::residual-after)))))
+      (setq residual-p_l (slot-value smoother 'fl.iteration::residual-after)))))
 
 (defmethod ensure-sol-rhs-res ((mg-it <mg-iteration>) mg-data level)
   (unless (sol_ level)
@@ -203,18 +208,18 @@ level and clears the residual-p flag."
 
 (defmethod restrict :after ((mg-it <mg-iteration>) mg-data)
   (decf current-level)
-  (setq residual-p nil))
+  (setq residual-p_l nil))
 
 (defmethod restrict :after ((mg-it <correction-scheme>) mg-data)
   (x<-0 sol_l)
   (copy! res_l rhs_l)
-  (setq residual-p t))
+  (setq residual-p_l t))
 
 (defmethod restrict :after ((mg-it <fas>) mg-data)
   (copy! res_l rhs_l)
   (gemm! 1.0 FAS-R_l (sol_ (1+ current-level)) 0.0 sol_l)
   (gemm! 1.0 A_l sol_l 1.0 rhs_l)
-  (setf residual-p t))
+  (setf residual-p_l t))
 
 ;;; Note that no primary method for prolongate is defined for
 ;;; <mg-iteration>.  Thus, this class has to be merged with
@@ -233,26 +238,24 @@ level for computing the correction to be prolongated."
 
 (defmethod prolongate :after ((mg-it <mg-iteration>) mg-data)
   (incf current-level)
-  (setq residual-p nil))
+  (setq residual-p_l nil))
 
 (defmethod lmgc ((mg-it <mg-iteration>) mg-data)
   (with-items (&key current-level base-level coarse-grid-it) mg-data
     (cond
       ((= current-level base-level)
        (funcall (slot-value coarse-grid-it 'iterate) sol_l rhs_l res_l)
-       (setq residual-p (slot-value coarse-grid-it 'fl.iteration::residual-after)))
+       (setq residual-p_l (slot-value coarse-grid-it 'fl.iteration::residual-after)))
       (t
-       (smooth mg-it mg-data :pre)
-       (dbg-when :mg
-	 (format t "~&Solution after pre-smoothing:")
-	 (show sol_l))
-       (dbg-when :mg
-	 (format t "~&Residual before restriction:")
-	 (show res_l))
-       (restrict mg-it mg-data)
-       (dbg-when :mg
-	 (format t "~&Residual after restriction:")
-	 (show res_l))
+       (ecase (combination-type mg-it)
+	 (:multiplicative
+	  (smooth mg-it mg-data :pre)
+	  (restrict mg-it mg-data))
+	 (:additive
+	  (restrict mg-it mg-data)
+	  (incf current-level)
+	  (smooth mg-it mg-data :pre)
+	  (decf current-level)))
        (loop for i from (cond ((zerop (slot-value mg-it 'gamma)) 0)
 			      ((= current-level base-level) 1)
 			      (t (slot-value mg-it 'gamma)))
@@ -260,14 +263,15 @@ level for computing the correction to be prolongated."
 	     (lmgc mg-it mg-data)
 	     (unless (= i 1)
 	       (ensure-mg-residual mg-it mg-data)))
-       (dbg-when :mg
-	 (format t "~&Solution before prolongation:")
-	 (show sol_l))
-       (prolongate mg-it mg-data)
-       (dbg-when :mg
-	 (format t "~&Solution after prolongation:")
-	 (show sol_l))
-       (smooth mg-it mg-data :post)
+       (ecase (combination-type mg-it)
+	 (:additive
+	  (incf current-level)
+	  (smooth mg-it mg-data :post)
+	  (decf current-level)
+	  (prolongate mg-it mg-data))
+	 (:multiplicative
+	  (prolongate mg-it mg-data)
+	  (smooth mg-it mg-data :post)))
        ))))
 
 (defmethod f-cycle ((mg-it <mg-iteration>) mg-data)
@@ -293,7 +297,8 @@ grid, or an algebraic multigrid iteration."
     mg-it
     (let ((mg-data (multilevel-decomposition mg-it A)))
       (with-items (&key a-vec nr-levels coarse-grid-it pre-smoother-vec post-smoother-vec
-			current-level base-level top-level sol-vec rhs-vec res-vec)
+			current-level base-level top-level sol-vec rhs-vec res-vec
+			residual-p-vec)
 	  mg-data
 	
 	;; setup mg-data
@@ -303,7 +308,8 @@ grid, or an algebraic multigrid iteration."
 	(assert (<= base-level top-level))
 	(setq sol-vec (make-array nr-levels :initial-element nil)
 	      rhs-vec (make-array nr-levels :initial-element nil)
-	      res-vec (make-array nr-levels :initial-element nil))
+	      res-vec (make-array nr-levels :initial-element nil)
+	      residual-p-vec (make-array nr-levels :initial-element nil))
 	(setq pre-smoother-vec (make-array nr-levels)
 	      post-smoother-vec (make-array nr-levels))
 	;; smoothers on levels above base-level
@@ -358,7 +364,7 @@ grid, or an algebraic multigrid iteration."
 		   (rhs_ top-level) b
 		   (res_ top-level) r)
 	     ;; initialize solver state
-	     (setq residual-p t)
+	     (setf (residual-p_ top-level) t)
 	     (setf current-level top-level)
 	     
 	     (if (fmg mg-it)

@@ -37,7 +37,7 @@
 (defun elasticity-cell-problem-gamma (dim)
   "Returns a right-hand side for an elasticity cell problem."
   (ensure-coefficient
-   (let* ((gamma (make-array dim)))
+   (let* ((gamma (make-array dim :initial-element nil)))
      (dotimes (j dim)
        (setf (aref gamma j)
 	     (let ((entry (zeros dim (* dim dim))))
@@ -170,7 +170,7 @@ with dim^3 components which are plotted one after the other."
 
 #+(or)
 (elasticity-interior-effective-coeff-demo
- (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2))
+ (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2))
  :order 4 :levels 2 :output :all)
 
 #+(or)
@@ -208,7 +208,7 @@ Parameters: order=~D, max-levels=~D~%~%"
 		:execute
 		(lambda ()
 		  (elasticity-interior-effective-coeff-demo
-		   (elasticity-inlay-cell-problem (n-cell-with-n-ball-hole dim))
+		   (elasticity-inlay-cell-problem (n-cell-with-ball-hole dim))
 		   :order order :levels levels :plot t)))))
     (adjoin-demo demo *effective-elasticity-demo*)))
 
@@ -230,7 +230,7 @@ Parameters: order=~D, levels=~D~%~%"
 		:execute
 		(lambda ()
 		  (elasticity-interior-effective-coeff-demo
-		   (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2))
+		   (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2))
 		   :order order :levels levels)))))
     (adjoin-demo demo *effective-elasticity-demo*)))
 
@@ -241,7 +241,7 @@ Parameters: order=~D, levels=~D~%~%"
      
 (defun test-homogenization-elasticity ()
   (time (elasticity-interior-effective-coeff-demo
-	 (elasticity-inlay-cell-problem (n-cell-with-n-ball-inlay 2)) :order 3 :levels 1))
+	 (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2)) :order 3 :levels 1))
   ;;(profile:report-time)
   ;;(profile:profile :methods 'fl.algebra:sparse-matrix->matlisp)
   ;;(profile:unprofile)

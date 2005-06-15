@@ -134,15 +134,9 @@ handling constraints are intricate, but usually of lower complexity."
 	  ;; for the moment, we assume that the problem is resolved by the
 	  ;; domain structure, i.e. that distributional coefficients occur
 	  ;; only on patches.
-	  (whereas ((coeffs
-		     (loop
-			for (symbol coeff) on (coefficients-of-cell cell h-mesh problem) by #'cddr
-			when (and coeff
-				  (or (eq (dimension coeff) t)
-				      (= (dimension cell)
-					 (or (dimension coeff) (dimension patch))))
-				  (not (equal (symbol-name symbol) "CONSTRAINT")))
-			collect symbol and collect coeff)))
+	  (whereas ((coeffs (filter-applicable-coefficients
+			     (coefficients-of-cell cell h-mesh problem)
+			     cell patch :constraints nil)))
 	    (let* ((fe (get-fe fe-class cell))
 		   (qrule (quadrature-rule fe))
 		   (geometry (fe-cell-geometry

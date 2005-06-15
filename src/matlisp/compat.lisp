@@ -158,7 +158,7 @@ double-float array."
 
 (defmethod m*-product-instance ((A standard-matrix) (x vector))
   "Returns a CL vector as result of matrix * CL vector."
-  (make-array (nrows A) :element-type (array-element-type x)))
+  (zero-vector (nrows A) (array-element-type x)))
 
 (defmethod gemm-nn! (alpha (A standard-matrix) (x vector) beta (y vector))
   (gemm-nn! alpha A (ensure-matlisp x) beta (ensure-matlisp y))

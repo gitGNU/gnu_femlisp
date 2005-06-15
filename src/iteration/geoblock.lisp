@@ -62,16 +62,6 @@ finite elements of Lagrange type [Pavarino 1994]."))
 ;;; Block setup for geometric subspace correction schemes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun in-subcells-support (subcells cells)
-  "Checks if one of the subcells is a subcell of one of the cells.
-Usually, this will be one element lists.  The general case occurs for
-identifications and hanging nodes."
-  (some #'(lambda (cell)
-	    (let ((cell-subcells (subcells cell)))
-	      (some #'(lambda (subcell) (find subcell cell-subcells))
-		    subcells)))
-	cells))
-
 (defun find-vertex-centered-block (vertex-key asa)
   "Collects a block of keys for cells containing the vertex.  Handles
 identification and hanging nodes."
@@ -81,7 +71,7 @@ identification and hanging nodes."
 	(constraints-Q (getf (properties (ansatz-space asa)) :constraints-Q)))
     ;; first direct neighbors are chosen
     (dolist (candidate candidates)
-      (when (in-subcells-support (mklist vertex-key) (mklist candidate))
+      (when (key-is-subcell-p vertex-key candidate)
 	(setq block-keys (adjoin candidate block-keys))))
     ;; remove the positive choices
     (setq candidates (set-difference candidates block-keys))
@@ -92,7 +82,7 @@ identification and hanging nodes."
       ;; second loop checks if some candidate has a subcell in dependent-keys
     (dolist (candidate candidates)
       (when (some #'(lambda (dependent-key)
-		      (in-subcells-support (mklist dependent-key) (mklist candidate)))
+		      (key-is-subcell-p dependent-key candidate))
 		  dependent-keys)
 	(push candidate block-keys))))
     ;; return result

@@ -80,16 +80,41 @@
 
 (defmethod plot ((skel <skeleton>) &rest rest &key transformation depth &allow-other-keys)
   (when depth
-    (error "The depth option is not yet allowed for mesh plotting."))
+    (error "The depth option is not allowed for mesh plotting."))
   (let ((dim (embedded-dimension skel)))
     (apply #'graphic-output skel :dx
-	   :cells (plot-cells skel)
 	   :dimension (plot-dimension dim)
 	   :transformation (or transformation (plot-transformation dim))
 	   rest)))
 
 (defmethod plot ((cell <cell>) &rest rest)
   (apply #'plot (skeleton cell) rest))
+
+(defmethod graphic-write-data (stream (skel <skeleton>) (program (eql :dx))
+			       &key (cells nil cells-p) transformation)
+  "Plots a mesh. @arg{cells} should be 1-cells."
+  (unless cells-p (setq cells (find-cells (constantly t) skel :dimension 1 :where :surface)))
+  (unless cells (return-from graphic-write-data))
+  (assert (every #'(lambda (cell) (= (dimension cell) 1)) cells))
+  (let* ((position-indices (compute-position-indices cells 0))
+	 (position-array (position-array cells position-indices 0 transformation)))
+    ;; write positions
+    (write-positions stream position-array)
+    ;; write connections
+    (format stream "object 2 class array type int rank 1 shape 2 items ~D data follows~%"
+	    (length cells))
+    (let* ((bdry (boundary (n-cube 1)))
+	   (from (aref bdry 1)) (to (aref bdry 0)))
+      (dolist (cell cells)
+	(format stream "~D ~D~%"
+		(gethash (cons cell from) position-indices)
+		(gethash (cons cell to) position-indices))))
+    (format stream "attribute \"ref\" string \"positions\"~%~
+attribute \"element type\" string \"lines\"~%~
+object \"grid\" class field~%~
+component \"positions\" value 1~%~
+component \"connections\" value 2~%~
+end~%")))
 
 #| Test of 1d plotting with dx
 dx -script
@@ -117,6 +142,7 @@ Display (image);
 		       :A #m((1.0 0.0   0.0  0.0)
 			     (0.0 0.8  -0.6  0.0)
 			     (0.0 0.56  0.57 0.6))))
+  (plot (skeleton-boundary (n-ball-domain 3)))
   )
 
 (fl.tests::adjoin-test 'test-meshplot)

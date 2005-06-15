@@ -179,7 +179,7 @@ occur for the inexact arithmetic."
 		:weight (reduce #'* (mapcar #'car args)) ; multiply weights
 		:coords (coerce (transform (mappend #'cdr args) 1.0) 'double-vec)))
 	   (mapcar #'(lambda (k) (gauss-rule-for-weight k s))
-		   (nreverse (make-set 0 n))))))
+		   (loop for k from (1- n) downto 0 collect k)))))
 
 (defun product-rule (&rest quadrature-rules)
   "Computes a product rule for several lower-dimensional quadrature rules."

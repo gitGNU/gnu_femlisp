@@ -38,38 +38,26 @@
 ;;;; Domain class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <domain> (<skeleton>)
-  ((boundary :accessor domain-boundary)
-   (extensible-p :reader extensible-p :initform nil))
+(defclass <domain> (<skeleton> property-mixin)
+  ((boundary :reader domain-boundary :documentation
+    "A skeleton containing all boundary patches which is used for
+classification of patches.")
+   (classifiers :documentation
+    "A list of functions of two arguments -patch and classifications so
+far- which are called from the right to classify of the patch."))
   (:documentation "A @class{<domain>} is a special @class{<skeleton>}.  We
 call its cells @emph{patches}, and the properties of a patch carries
 geometric information.  Properties supported up to now are:
 
 @itemize
-@item @code{IDENTIFIED} @emph{list-of-identified-patches}
-@item @code{EXTENSION} @emph{extender}
-@item @code{METRIC} @emph{function}
-@item @code{VOLUME} @emph{function}
+@item @code{IDENTIFIED}: @emph{list of identified patches}
+@item @code{EXTENSION}: @emph{extender}
+@item @code{METRIC}: @emph{metric tensor function}
+@item @code{VOLUME}: @emph{volume function}
 @end itemize
 
-Here, @emph{function} should be a function depending on keyword arguments
-like @code{:LOCAL} and @code{:GLOBAL} and allowing arbitrary other keys."))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Patches
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defparameter *known-patch-properties*
-  '(METRIC VOLUME IDENTIFIED EXTENSION)
-  "This list contains some pre-defined keywords for use as patch
-properties.")
-
-(defun patch-identification (patch domain)
-  "Returns a list of identified cells."
-  (getf (skel-ref domain patch) 'IDENTIFIED))
-(defun (setf patch-identification) (patch-list patch domain)
-  "Sets the identification of patch to a list of identified patches."
-  (setf (getf (skel-ref domain patch) 'IDENTIFIED) patch-list))
+Metric and volume should be functions depending on keyword arguments like
+@code{:LOCAL} and @code{:GLOBAL} and allowing arbitrary other keys."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Domain generation
@@ -79,11 +67,18 @@ properties.")
   "Preliminary.  Maybe it would be better to update the boundary
 automatically when inserting cells.  Unfortunately, it is not clear
 how this could be done in an easy way."
-  (setf (domain-boundary domain) (skeleton-boundary domain))
+  (setf (slot-value domain 'boundary) (skeleton-boundary domain))
   (doskel (patch domain)
     (when (get-cell-property patch domain 'EXTENSION)
-      (setf (slot-value domain 'extensible-p) t))))
-   
+      (setf (get-property domain 'extensible-p) t))))
+
+(defun patch-classification (patch domain)
+  "Returns a list of classifications for @arg{patch} in @arg{domain}."
+  (labels ((classify (classifiers)
+	     (and classifiers
+		  (funcall (car classifiers) patch (classify (cdr classifiers))))))
+    (classify (slot-value domain 'classifiers))))
+
 (defmethod initialize-instance :after ((domain <domain>) &key cells &allow-other-keys)
   "When a domain is constructed from a list of cells, we assume that its
 definition is finished and setup the boundary slot."
@@ -96,6 +91,25 @@ Usually, this means that the definition is finished such that we can
 compute the boundary afterwards."
   (declare (ignore initargs))
   (ensure-secondary-information domain))
+
+(defmethod shared-initialize :after ((domain <domain>) slot-names
+				     &key classifiers &allow-other-keys)
+  "When a domain is constructed from a list of cells, we assume that its
+definition is finished and setup the boundary slot."
+  (setf (slot-value domain 'classifiers)
+	(list (lambda (patch classifications)
+		(declare (ignore classifications))
+		(let ((result (if (member-of-skeleton? patch (domain-boundary domain))
+				  (list :skeleton-boundary :boundary :external-boundary)
+				  (list :skeleton-interior :interior)))
+		      (dim (dimension patch)))
+		  (when (= dim (dimension domain)) (push :d-dimensional result))
+		  (when (= dim (1- (dimension domain))) (push :d-1-dimensional result))
+		  (when (= dim 0) (push :0-dimensional result))
+		  (when (= dim 1) (push :1-dimensional result))
+		  result))))
+  (loop for classifier in classifiers do
+       (pushnew classifier (slot-value domain 'classifiers))))
 
 (defun domain-characteristics (domain)
   "Returns a property list of characteristics.  The property curved means
@@ -291,6 +305,9 @@ the unit cube."
     (describe (triangle-domain #d(0.0 0.0) #d(1.0 0.0) #d(0.0 1.0))))
   (check (n-cube-domain 2))
   (assert (= -1 (dimension (skeleton-boundary (n-cell-domain 2)))))
+  (let ((domain (n-cube-domain 1)))
+    (doskel (patch domain)
+      (format t "~A : ~S~%" patch (patch-classification patch domain))))
   )
 
 ;;; (test-domain)

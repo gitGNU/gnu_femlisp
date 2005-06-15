@@ -92,15 +92,14 @@ skeleton starting from the 0-dimensional patches."
 	 (patches (cells-of-dim domain 0)))
     (loop
      while patches for patch = (first patches) do
-     (let* ((identified-patches (or (patch-identification patch domain) (list patch)))
+     (let* ((identified-patches (identified-cells patch domain))
 	    (identified-cells (mapcar #'(lambda (patch)
 					  (make-vertex (vertex-position patch)))
 				      identified-patches)))
        (loop for cell in identified-cells
 	     and patch in identified-patches do
-	     (setf (patch-of-cell cell mesh) patch)
-	     (unless (single? identified-cells)
-	       (setf (cell-identification cell mesh) identified-cells)))
+	     (setf (patch-of-cell cell mesh) patch))
+       (identify identified-cells mesh)
        (setq patches (nset-difference patches identified-patches)))))
   ;; pass on args
   args)
@@ -121,7 +120,7 @@ function @arg{patch->raster} mapping patches to complete rasters."
       (let ((result (funcall it patch)))
 	(if (listp result)
 	    result
-	    (loop for i from 1 below result collect (/ 1.0 result))))))
+	    (loop for i from 1 below result collect (float (/ i result) 1.0))))))
   ;; compute a raster for a differentiable curve
   (labels ((curve (x) (local->global patch (double-vec x)))
 	   (raster (alpha x beta y depth)
@@ -153,16 +152,17 @@ function @arg{patch->raster} mapping patches to complete rasters."
   (let ((domain (domain mesh))
 	(table (make-hash-table :test 'equalp)))
     (flet ((key (cell)
-	     (list (patch-identification (patch-of-cell cell mesh) domain)
+	     (list (cell-identification (patch-of-cell cell mesh) domain)
 		   (map 'list #'(lambda (side)
 				  (cell-identification side mesh))
 			(boundary cell)))))
       (doskel (cell mesh :dimension dim)
 	(when (identified-p (patch-of-cell cell mesh) domain)
 	  (push cell (gethash (key cell) table))))
-      (loop for cluster being each hash-value of table do
-	    (dolist (cell cluster)
-	      (setf (cell-identification cell mesh) cluster))))))
+      (loop for cluster being each hash-value of table
+	   for id = (make-instance 'identification :skeleton mesh :cells cluster) do
+	   (dolist (cell cluster)
+	     (setf (cell-identification cell mesh) id))))))
 
 (defmethod extend-triangulation (mesh (dim (eql 1)) &rest keys)
   "Generates a mesh on the 1-skeleton for domain.  Identification is taken
@@ -180,8 +180,7 @@ care of."
 	    (gethash patch patch->nodes)))
     ;; generate internal vertices on patches of dimension 1
     (doskel (patch domain :dimension 1)
-      (let ((identified-patches (or (patch-identification patch domain)
-				    (list patch))))
+      (let ((identified-patches (identified-cells patch domain)))
 	(when (eq patch (car identified-patches))
 	  (let ((raster (apply #'compute-raster patch keys)))
 	    (dolist (s raster)
@@ -193,11 +192,7 @@ care of."
 		      and patch in identified-patches do
 		      (setf (patch-of-cell cell mesh) patch)
 		      (unless (single? identified-cells)
-			(?2 (setf (getf (gethash cell (etable mesh (dimension cell)))
-					'IDENTIFIED)
-				  identified-cells)
-			    (setf (cell-identification cell mesh) identified-cells))
-			(assert (eq (cell-identification cell mesh) identified-cells)))
+			(identify identified-cells mesh))
 		      (push (cons s cell) (gethash patch patch->nodes)))))))))
     ;; finalize tables of patch vertices
     (doskel (patch domain :dimension 1)
@@ -266,13 +261,14 @@ triangulation program."
   (check (triangulate (n-cell-domain 1)))
   
   (let* ((vtx (make-vertex #d(1.0 0.0)))
-	 (circle (make-line vtx vtx :mapping (circle-function)))
+	 (circle (make-line vtx vtx :mapping (circle-function 1.0 #d(0.0 0.0) (* 2 pi))))
 	 (ball (make-instance '<boundary-cell>
 			      :dimension 2
 			      :boundary (vector circle)
 			      :midpoint #d(0.0 0.0)))
 	 (domain (change-class (skeleton ball) '<domain>))
 	 (mesh (triangulate domain :meshsize 0.3)))
+    #+(or)(fl.plot:plot mesh)
     (check domain)
     (check mesh)
     (assert				; test if boundary mappings are there
@@ -286,4 +282,5 @@ triangulation program."
 
   )
 
+;;; (test-triangulate)
 (fl.tests:adjoin-test 'test-triangulate)

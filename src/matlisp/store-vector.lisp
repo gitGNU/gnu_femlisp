@@ -117,6 +117,7 @@ vector which can be obtained by calling the function
 	  ,(loop for (xc x) in loop-vars
 		 collect `(,xc (aref ,(symbol-store x) ,i)))
 	  (dotimes (,i (length ,(symbol-store (cadar loop-vars))))
+	    (declare (type fixnum ,i))
 	    ,@body)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -130,37 +131,32 @@ vector which can be obtained by calling the function
 ;;; Copying
 
 (define-blas-template copy! ((x store-vector) (y store-vector))
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
+  (assert-store-vector-compatibility x y)
   (for-each-entry ((xc x) (yc y)) (setf yc xc))
   y)
 
 ;;; BLAS routines involving one store-vector
 
 (define-blas-template fill! ((x store-vector) (s number))
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
   (for-each-entry ((xc x)) (element-copy! s xc))
   x)
 
 (define-blas-template fill-random! ((x store-vector) (s number))
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
   (for-each-entry ((xc x)) (element-copy! (random s) xc))
   x)
 
 (define-blas-template scal! ((alpha number) (x store-vector))
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
   (for-each-entry ((xc x)) (element-scal! alpha xc))
   x)
 
 ;;; BLAS routines involving two store-vectors
 
 (define-blas-template axpy! ((alpha number) (x store-vector) (y store-vector))
-  (declare (optimize speed))
   (assert-store-vector-compatibility x y)
   (for-each-entry ((xc x) (yc y)) (element-m+! (element-m* alpha xc) yc))
   y)
 
 (define-blas-template dot ((x store-vector) (y store-vector))
-  (declare (optimize speed))
   (let ((sum (coerce 0 'element-type)))
     (declare (type element-type sum))
     (for-each-entry ((xc x) (yc y))
@@ -176,7 +172,6 @@ vector which can be obtained by calling the function
   t)
 
 (define-blas-template dot-abs ((x store-vector) (y store-vector))
-  (declare (optimize speed))
   (let ((sum (coerce 0 'element-type)))
     (declare (type element-type sum))
     (for-each-entry ((xc x) (yc y))
@@ -184,13 +179,11 @@ vector which can be obtained by calling the function
     sum))
 
 (define-blas-template m+! ((x store-vector) (y store-vector))
-  (declare (optimize speed))
   (assert-store-vector-compatibility x y)
   (for-each-entry ((xc x) (yc y)) (element-m+! xc yc))
   y)
 
 (define-blas-template m.*! ((x store-vector) (y store-vector))
-  (declare (optimize speed))
   (assert-store-vector-compatibility x y)
   (for-each-entry ((xc x) (yc y)) (element-m.*! xc yc))
   y)
@@ -198,7 +191,7 @@ vector which can be obtained by calling the function
 (defun store-vector-generator (type)
   #'(lambda (n)
       (make-instance (store-vector type)
-		     :store (make-array n :element-type type))))
+		     :store (zero-vector n type))))
 
 (defun test-store-vector-blas ()
   (dbg-on :blas)
@@ -208,7 +201,7 @@ vector which can be obtained by calling the function
     (m+! y x)
     (scal! 0.5 x)
     (copy! x y))
-  (test-blas 'm+! 10 :generator (store-vector-generator 'single-float))
+  (test-blas 'm+! 1000 :generator (store-vector-generator 'single-float))
   (test-blas 'm.*! 10 :generator (store-vector-generator 'double-float))
   (test-blas 'dot 1 :generator (store-vector-generator 'single-float))
   (dbg-off :blas)

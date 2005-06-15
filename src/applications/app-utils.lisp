@@ -98,7 +98,7 @@
   "Converts the (dim^2)x(dim^2) matrix returned as result of correction
 tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
   (let* ((dim (floor (sqrt (nrows mat))))
-	 (result (make-array (list dim dim))))
+	 (result (make-array (list dim dim) :initial-element nil)))
     (dotimes (i dim)
       (dotimes (j dim)
 	(setf (aref result i j) (make-real-matrix dim))))

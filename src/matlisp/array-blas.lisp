@@ -57,7 +57,6 @@
 (defmethod scalar-type ((x vector))
   (array-element-type x))
 
-
 (defmethod vref ((vec vector) index)
   (aref vec index))
 (defmethod (setf vref) (val (vec vector) index)

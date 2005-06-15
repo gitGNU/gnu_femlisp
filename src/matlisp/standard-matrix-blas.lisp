@@ -340,6 +340,7 @@ nrows and ncols of the given matrices."
 ;;;; Testing
 (defun test-standard-matrix-blas ()
   (dbg-on :blas)
+  (dbg-on :compile)
   (test-blas 'm+! 7992 :generator (standard-matrix-generator '(complex double-float)))
   (scal! 0.5 #m((1.0 2.0)))
   (copy! (eye 2) (eye 2))
@@ -398,6 +399,7 @@ nrows and ncols of the given matrices."
 	(minject y x i j)))
     (assert (mequalp x z)))
   (dbg-off :blas)
+  (dbg-off :compile)
    )
 
 ;;; (time (fl.matlisp::test-standard-matrix-blas))

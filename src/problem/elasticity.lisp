@@ -40,7 +40,7 @@
   (:export
    "<ELASTICITY-PROBLEM>" "ISOTROPIC-ELASTICITY-TENSOR"
    "CHECK-ELASTICITY-TENSOR"
-   "SYSTEM-DIFFUSION-PROBLEM" "STANDARD-ELASTICITY-PROBLEM")
+   "STANDARD-ELASTICITY-PROBLEM")
   (:documentation "Defines elasticity problems."))
 
 (in-package :fl.elasticity)
@@ -99,8 +99,10 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
 	  (check-permutation #(2 1 0 3)))))
     tensor))
 
-(defun standard-elasticity-problem (domain &key lambda mu force)
-  (let ((dim (dimension domain)))
+(defun standard-elasticity-problem (domain &key (lambda 1.0) (mu 1.0) force)
+  (let* ((domain (if (numberp domain) (n-cube-domain domain) domain))
+	 (dim (dimension domain))
+	 (force (or force (constant-coefficient (make-array dim :initial-element (ones 1))))))
     (make-instance
      '<elasticity-problem>
      :domain domain
@@ -113,37 +115,6 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
 		    (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu))
 		   'FL.ELASTICITY::FORCE
 		   (ensure-coefficient force)))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Systems of diffusion equations (mainly for testing purposes)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun system-diffusion-tensor (&key dim nr-comps D)
-  "Returns a tensor for a system of separate diffusion equations."
-  (let ((tensor (make-array (list nr-comps nr-comps) :initial-element nil)))
-    (dotimes (k nr-comps)
-      (dotimes (l nr-comps)
-	(setf (aref tensor k l)
-	      (if (= k l)
-		  (scal! D (eye dim))
-		  (zeros dim)))))
-    tensor))
-
-(defun system-diffusion-problem (domain &key nr-comps D force)
-  (let ((dim (dimension domain)))
-    (make-instance
-     '<elasticity-problem>
-     :domain domain
-     :patch->coefficients
-     #'(lambda (patch)
-	 (if (member-of-skeleton? patch (domain-boundary domain))
-	     (list 'FL.ELASTICITY::CONSTRAINT (constraint-coefficient nr-comps 1))
-	     (list 'FL.ELASTICITY::ELASTICITY
-		   (constant-coefficient
-		    (system-diffusion-tensor :dim dim :nr-comps nr-comps :D D))
-		   'FL.ELASTICITY::FORCE
-		   (ensure-coefficient force)))))))
-
 
 ;;; Testing: (test-elasticity)
 

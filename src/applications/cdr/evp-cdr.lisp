@@ -1,4 +1,4 @@
-;;; -*- mode: lisp; -*-
+;;; -*- mode: lisp; fill-column: 64; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; evp-cdr.lisp - computing eigenvalues for cdr problems
@@ -43,12 +43,9 @@ eigenvalue/eigenvector pairs for convection-diffusion-reaction problems.")
    :short "Some eigenvalue problems"))
 (adjoin-demo *laplace-eigenvalue-demo* *laplace-demo*)
 
-(defun laplace-eigenvalue-computation (domain &key output plot (lambda 0.0) (mu 1.0) (dirichlet 0.0))
-  "~A - Eigenvalues of Laplace on a ~A.
-
-Computes eigenvalues for the Laplace operator on the given domain.  The
-solution strategy does uniform refinement and terminates if more than 20
-seconds have passed after a step."
+(defun laplace-eigenvalue-computation
+    (domain &key output plot (lambda 0.0) (mu 1.0) (dirichlet 0.0))
+  "Function performing the eigenvalue demo for the Laplace operator."
   (let ((problem (cdr-model-problem
 		  domain :evp (list :lambda (box lambda) :mu (box mu))
 		  :dirichlet dirichlet)))
@@ -65,16 +62,18 @@ seconds have passed after a step."
       (plot (getbb *result* :solution)))))
 
 (defun make-laplace-eigenvalue-demo (domain domain-name)
-  (multiple-value-bind (title short long)
-      (extract-demo-strings (documentation 'laplace-eigenvalue-computation 'function))
+  (let ((title domain-name)
+	(short (format nil "Eigenvalues of Laplace on a ~A." domain-name))
+	(long (format nil "Computes eigenvalues for the Laplace
+operator on a ~A.  The solution strategy does uniform refinement
+and terminates if more than 20 seconds have passed after a
+step." domain-name)))
     (let ((demo
 	   (make-demo
-	    :name (format nil title domain-name)
-	    :short (format nil short domain-name)
-	    :long long
+	    :name title :short short :long long
 	    :execute (lambda ()
 		       (let ((lambda (user-input "Eigenvalue approximation: "
-				      #'(lambda (x) (and (numberp x) (<= 0.0 100.0))))))
+				      #'read-from-string #'numberp)))
 			 (laplace-eigenvalue-computation
 			  domain :lambda lambda :plot t :output 1))))))
       (adjoin-demo demo *laplace-eigenvalue-demo*))))

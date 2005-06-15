@@ -282,11 +282,11 @@ the zero-vector.  The others are equal to (unit-vector dim 1-i)."
     ;; the entry for corners is the desired simplex
     (gethash corners simplex-ht)))
 
-(defun simplex-class (dim &optional mapped)
+(defun simplex-class (dim &optional mapped distorted)
   "Returns the n-simplex class."
   (let* ((class-name (intern (format nil "<~D-SIMPLEX>" dim) "FL.MESH"))
 	 (class (find-class class-name nil)))
-    (cond (class (if mapped (mapped-cell-class class) class))
+    (cond (class (if mapped (mapped-cell-class class distorted) class))
 	  (t
 	   (prog1
 		(eval `(defclass ,class-name (<simplex> <standard-cell>) ()))

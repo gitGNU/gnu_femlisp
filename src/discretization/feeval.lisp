@@ -81,25 +81,34 @@
   (let ((cell (find-cell-from-position (mesh asv) pos)))
     (fe-local-gradient asv cell (global->local cell pos))))
 
-(defmethod cell-integrate (cell x &key (initial-value 0.0) (combiner #'+) (key #'identity))
+(defmethod cell-integrate (cell x &key (initial-value 0.0) (combiner #'+)
+			   (key #'identity) coeff-func)
+  "Integrates the ansatz-space vector @arg{x} on @arg{cell}.  If
+@arg{coeff-fun} is set it should be a function which expects keyword
+arguments @code{:solution} and @code{:global}."
+  (dbg :feeval "Cell: ~A" cell)
   (let* ((fe (get-fe (fe-class x) cell))
 	 (qrule (quadrature-rule fe))
 	 (x-values (get-local-from-global-vec cell fe x))
 	 (result initial-value))
     (loop for ip in (integration-points qrule)
-	  for shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
-	  for shape-vals-transposed =  (if (typep fe '<vector-fe>)
-					   (vector-map #'transpose shape-vals)
-					   (transpose shape-vals))
-	  for xip = (if (typep fe '<vector-fe>)
-			(map 'simple-vector #'m* shape-vals-transposed x-values)
-			(m* shape-vals-transposed x-values))
-	  do
-	  (setq result
+       for shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
+       for shape-vals-transposed =  (if (typep fe '<vector-fe>)
+					(vector-map #'transpose shape-vals)
+					(transpose shape-vals))
+       for xip = (if (typep fe '<vector-fe>)
+		     (map 'simple-vector #'m* shape-vals-transposed x-values)
+		     (m* shape-vals-transposed x-values))
+       for local = (ip-coords ip)
+       for value = (if coeff-func
+		       (evaluate coeff-func (list :solution xip :local local
+						  :global (local->global cell local)))
+		       xip)
+       do (setq result
 		(funcall combiner
 			 (scal (* (ip-weight ip)
-				  (area-of-span (local->Dglobal cell (ip-coords ip))))
-			       (funcall key xip))
+				  (area-of-span (local->Dglobal cell local)))
+			       (funcall key value))
 			 result)))
     result))
 

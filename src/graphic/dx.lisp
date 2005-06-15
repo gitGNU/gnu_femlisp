@@ -57,15 +57,15 @@
   (warn "Deleted DX image file."))
 
 (defun ensure-dx-process ()
-  (when (and *dx-process* (eq (fl.port:process-status *dx-process*) :running))
+  (when *dx-process*  ; (eq (fl.port:process-status *dx-process*) :running) ?
     (return-from ensure-dx-process *dx-process*))
   ;;; execute it within the images directory
-  (fl.port:unix-chdir (namestring *images-pathname*))
   (setq *dx-process*
 	(when *dx-pathname*
 	  (fl.port:run-program
 	   *dx-pathname* `("-script" "-cache" "off" "-log" "on") :wait nil
 	   :input :stream :output (dbg-when :graphic *trace-output*))))
+;;;	   :directory *images-pathname*)))
   (unless *dx-process*
     (format *error-output* "~&ENSURE-DX-PROCESS: could not start DX.~%"))
   *dx-process*)

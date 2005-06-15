@@ -111,7 +111,7 @@ command 'make triangle' from the Femlisp main directory."))
    (list (concatenate 'string "-YqeB" (dbg-when :triangle "V"))
 	 (concatenate 'string (namestring *meshes-pathname*)
 		      (pathname-name (mesh-file :poly))))
-   :wait t :input :stream :output (dbg-when :triangle *trace-output*)))
+   :wait t :output (dbg-when :triangle *trace-output*)))
 
 (defun read-next-uncommented-line (stream)
   "Reads the next line from @arg{stream} which does not begin with

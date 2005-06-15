@@ -64,6 +64,15 @@ this object."))
   "Sets the property @arg{property} of @arg{problem} to @arg{value}."
   (setf (getf (slot-value object 'properties) property) value))
 
+(defmacro with-properties (properties object &body body)
+  "Work with @arg{properties} on the property list of @arg{object}."
+  (with-gensyms (obj)
+    `(let ((,obj ,object))
+       (symbol-macrolet ,(loop for prop in properties collect
+			      `(,prop (getf (properties ,obj) ',prop)))
+	 ,@body))))
+
+
 (defun runtime-compile (source)
   "Calls compile on the provided @arg{source}.  When :compile is activated
 for debugging, the source code is printed."

@@ -39,7 +39,9 @@
   (:export "FEMLISP-DEMO" "LEAVES" "MAKE-DEMO" "ADJOIN-DEMO"
 	   "REMOVE-DEMO" "FIND-DEMO"
 	   "*DEMO-ROOT*" "*DEMO-TIME*"
-	   "USER-INPUT" "EXTRACT-DEMO-STRINGS")
+	   "USER-INPUT"
+	   "EXTRACT-DEMO-STRINGS"
+	   "TEST-ALL-DEMOS")
   (:documentation "This package provides routines for building a
 demo suite.  Wherever something interesting can be demonstrated,
 a small demo node should be generated with the
@@ -198,16 +200,19 @@ for `homogenization-2d'."
 bound to *standard-input*.  During testing this can be bound to
 a string stream to provide sample input.")
 
-(defun user-input (prompt test-p)
+(defun user-input (prompt &optional (converter #'identity) (test-p (constantly t)))
   "User input for demo functions.  Reads lines until
 @arg{test-p} returns t on the item read."
   (loop for line = (progn (format t "~&~A" prompt)
 			  (finish-output)
-			  (read-line *user-input-stream*))
-	for item = (read-from-string line) do
-	(cond ((string-equal line "quit") (throw 'quit nil))
-	      ((string-equal line "up") (return :up))
-	      ((funcall test-p item) (return item)))))
+			  (read-line *user-input-stream*)) do
+       (cond
+	 ((string-equal line "quit") (throw 'quit nil))
+	 ((string-equal line "up") (return :up))
+	 (t (ignore-errors
+	      (let ((item (funcall converter line)))
+		(when (funcall test-p item)
+		  (return item))))))))
 
 (defun translate (item translations)
   "Performs certain translations from an association table on the string item.
@@ -284,11 +289,10 @@ generating function."
     (adjoin-demo demo *boundary-coeffs-demo*)))
 
 
-  
 ;;;; Testing: 
 
-(defun test-all-demos (demo)
-  "Performs all demos reachable from demo."
+(defun test-all-demos (&optional (demo *demo-root*))
+  "Performs all demos reachable from @arg{demo}."
   (let ((*visited-demos* *visited-demos* #+(or) (make-hash-table :test 'equal))
 	(buggy-demos ()))
     (with-slots (name long short execute leaves input)
@@ -319,8 +323,6 @@ generating function."
 			 :execute (lambda () (princ "Hello, world!~%")))))
     (adjoin-demo demo *demo-root*)
     (remove-demo "hello" *demo-root*))
-  (format t "~&The following demos are buggy:~%~A~%"
-	      (mapcar #'name (test-all-demos *demo-root*)))
   )
 
 ;;; (fl.demo::test-demo)

@@ -84,6 +84,14 @@ abstract class which is made concrete by mixing it with a store-vector."))
 (defmethod ncols ((ccs ccs-matrix))
   (slot-value (pattern ccs) 'ncols))
 
+(defmethod make-domain-vector-for ((ccs ccs-matrix) &optional (multiplicity 1))
+  (make-instance (standard-matrix (element-type ccs))
+		 :nrows (slot-value (pattern ccs) 'ncols) :ncols multiplicity))
+
+(defmethod make-image-vector-for ((ccs ccs-matrix) &optional (multiplicity 1))
+  (make-instance (standard-matrix (element-type ccs))
+		 :nrows (slot-value (pattern ccs) 'nrows) :ncols multiplicity))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun ccs-matrix (type)
     "Construct a CCS matrix with entries of @arg{type}."
@@ -96,8 +104,7 @@ abstract class which is made concrete by mixing it with a store-vector."))
     (if (slot-boundp ccs 'store)
 	(assert (= (length (store ccs))
 		   (number-nonzero-entries (pattern ccs))))
-	(setf store (make-array (number-nonzero-entries pattern)
-				:element-type (element-type ccs))))))
+	(setf store (zero-vector (number-nonzero-entries pattern) (element-type ccs))))))
 
 (defmethod for-each-key-and-entry ((fn function) (x ccs-matrix))
   (let* ((store (store x))
@@ -115,7 +122,7 @@ abstract class which is made concrete by mixing it with a store-vector."))
     (make-instance
      (standard-matrix (element-type ccs))
      :nrows m :ncols n :store
-     (let ((store (make-array (* m n) :element-type (element-type ccs))))
+     (let ((store (zero-vector (* m n) (element-type ccs))))
        (for-each-key-and-entry
 	#'(lambda (i.j value)
 	    (destructuring-bind (i . j) i.j
@@ -130,7 +137,7 @@ abstract class which is made concrete by mixing it with a store-vector."))
 ;;;; GEMV!
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod gemv-nn! ((alpha number) (x ccs-matrix) (y standard-matrix)
+(defmethod gemm-nn! ((alpha number) (x ccs-matrix) (y standard-matrix)
 		     (beta number) (z standard-matrix))
   (unless (= beta 1) (scal! beta z))
   (for-each-key-and-entry
@@ -141,6 +148,13 @@ abstract class which is made concrete by mixing it with a store-vector."))
 	     (incf (mref z i l) (* factor (mref y j l)))))))
    x)
   z)
+
+#+(or) ; still very slow, should be improved with BLAS macros
+(time (let* ((n 128)
+	     (A (fl.matlisp::five-point-stencil-matrix n n))
+	     (b (ones (* n n) 1)))
+	(gemm-nn! 1.0 A b 0.0 b)
+	nil))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; GESV!
@@ -178,9 +192,9 @@ given number of active grid points in each dimension."
   (let* ((nrows (* nx ny))
 	 (ncols (* nx ny))
 	 (nnz (- (* 5 nrows) (* 2 (+ nx ny))))
-	 (column-starts (make-array (1+ nrows) :element-type '(signed-byte 32)))
-	 (row-indices (make-array nnz :element-type '(signed-byte 32)))
-	 (store (make-array nnz :element-type 'double-float))
+	 (column-starts (zero-vector (1+ nrows) '(signed-byte 32)))
+	 (row-indices (zero-vector nnz '(signed-byte 32)))
+	 (store (zero-vector nnz 'double-float))
 	 (pos 0))
     (declare (type (integer 0 100000000) pos))
     (dotimes (j ny)
@@ -230,7 +244,7 @@ given number of active grid points in each dimension."
   (let ((*print-matrix* t))
     (princ (ccs->matlisp (five-point-stencil-matrix 4 4))))
   (make-instance (store-vector 'single-float)
-		 :store (make-array 1 :element-type 'single-float))
+		 :store (zero-vector 1 'single-float))
   (let* ((pattern (make-instance
 		   'ccs-pattern :nrows 1 :ncols 1
 		   :column-starts (int-vec 0 1)

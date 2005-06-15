@@ -98,7 +98,7 @@ If content is a 2d array, the dimensions can be deduced."
 	  (assert (and (= n (length store))
 		       (subtypep (upgraded-array-element-type type)
 				 (array-element-type store))))
-	  (setq store (make-array n :element-type type)))
+	  (setq store (zero-vector n type)))
       (when content
 	(etypecase content
 	  (sequence

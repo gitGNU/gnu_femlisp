@@ -44,10 +44,7 @@
 	       (vref (aref val 0) 0))))))
 
 (defun bratu-computation (dim &key (plot t) (time 5.0) (output 1))
-  "bratu-~Dd - Solve the Bratu problem in ~DD
-
-Solves the Bratu problem -Delta u +e^u =0.  It reports the value in the
-midpoint of the domain."
+  "Function performing the Bratu demo."
   (defparameter *result*
     (solve (blackboard
 	    :problem (bratu-problem dim)
@@ -56,14 +53,13 @@ midpoint of the domain."
   (when plot (plot (getbb *result* :solution))))
 
 (defun make-bratu-demo (dim)
-  (multiple-value-bind (title short long)
-      (extract-demo-strings (documentation 'bratu-computation 'function))
+  (let ((title (format nil "bratu-~Dd" dim))
+	(short (format nil "Solve the Bratu problem in ~DD" dim))
+	(long "Solves the Bratu problem -Delta u +e^u =0.
+It reports the value in the midpoint of the domain."))
     (let ((demo
-	   (make-demo
-	    :name (format nil title dim)
-	    :short (format nil short dim)
-	    :long long
-	    :execute (lambda () (bratu-computation dim :plot t)))))
+	   (make-demo :name title :short short :long long
+		      :execute (lambda () (bratu-computation dim :plot t)))))
       (adjoin-demo demo *cdr-demo*))))
 
 ;;; 2D and 3D Bratu problem

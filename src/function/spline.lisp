@@ -56,15 +56,17 @@ interval to a polygon."))
   ()
   (:documentation "This class implements a periodic polygon."))
 
+(defgeneric nr-segments (polygon)
+  (:method ((polygon <polygon>)) (1- (length (points polygon))))
+  (:method ((polygon <periodic-polygon>)) (length (points polygon))))
+
 (defun find-segment-coordinates (polygon s)
   (let ((periodic-p (typep polygon '<periodic-polygon>)))
     (unless (<= 0.0 (aref s 0) 1.0)
       (error "Parameter not in domain @math{[0,1]}."))
     (with-slots (points)
       polygon
-      (let ((segments (if periodic-p
-			  (length points)
-			  (1- (length points)))))
+      (let ((segments (nr-segments polygon)))
 	(multiple-value-bind (k s2)
 	    (floor (* (aref s 0) segments) 1.0)
 	  (values (- 1.0 s2) (aref points (if periodic-p
@@ -83,7 +85,8 @@ interval to a polygon."))
   (multiple-value-bind (s1 point1 s2 point2)
       (find-segment-coordinates polygon s)
     (declare (ignore s1 s2))
-    (make-real-matrix (m- point2 point1))))
+    (scal (float (nr-segments polygon) 1.0)
+	  (make-real-matrix (m- point2 point1)))))
 
 (defmethod differentiable-p ((f <polygon>) &optional (k 1))
   (<= k 1))
@@ -93,13 +96,13 @@ interval to a polygon."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun apply-1d-stencil (stencil x)
-  (let* ((n (length x))
-	 (y (make-array n)))
-    (dotimes (i n y)
-      (setf (aref y i)
-	    (+ (* (aref stencil 0) (aref x (mod (1- i) n)))
-	       (* (aref stencil 1) (aref x i))
-	       (* (aref stencil 2) (aref x (mod (1+ i) n))))))))
+  (let ((n (length x)))
+    (coerce
+     (loop for i below n collecting
+	  (+ (* (aref stencil 0) (aref x (mod (1- i) n)))
+	     (* (aref stencil 1) (aref x i))
+	     (* (aref stencil 2) (aref x (mod (1+ i) n)))))
+     'vector)))
     
 (defun M-times (x)
   (apply-1d-stencil #(1.0 4.0 1.0) x))

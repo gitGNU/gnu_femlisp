@@ -49,21 +49,17 @@ Warning: does not handle identifications yet."
   "Synchronizes identification information between @arg{new-skel} and
 @arg{skel}.  @arg{table} is a hash-table mapping cells from new-skel to
 skel."
-  (doskel (cell1 skel)
-    (let ((identified-cells1 (cell-identification cell1 skel)))
-      (when identified-cells1
-	(let ((cell2 (gethash cell1 table)))
-	  (unless (cell-identification cell2 new-skel)
-	    (let ((identified-cells2 (mapcar (rcurry #'gethash table)
-					     identified-cells1)))
-	      (loop for cell2 in identified-cells2 do
-		    (setf (cell-identification cell2 new-skel)
-			  identified-cells2)))))))))
+  (doskel (cell skel)
+    (when (and (identified-p cell skel)
+	       (not (identified-p (gethash cell table) new-skel)))
+      (identify (mapcar (rcurry #'gethash table)
+			(identified-cells cell skel))
+		new-skel))))
 
 (defmethod copy-skeleton (skel &key properties transformation)
   "Copies a skeleton.  Properties is a list of properties to be copied."
   (when (member 'IDENTIFIED properties)
-    "The IDENTIFIED property is handled automatically.")
+    (warn "The IDENTIFIED property is handled automatically."))
   (let ((new-skel (make-analog skel))
 	(table (make-hash-table)))
     (doskel (cell skel :direction :up)
@@ -255,7 +251,7 @@ positions."
     ;; and generate the telescope skeleton
     (skeleton (hash-table-values product-table))))
 
-;;; Testing: (test-skeleton-build)
+;;; Testing:
 (defun test-skeleton-build ()
   (describe
    (let ((skel (copy-skeleton (skeleton *unit-quadrangle*))))
@@ -264,4 +260,5 @@ positions."
 	       #'(lambda (cell) (= (aref (midpoint cell) 0) 0.0)))
 )
 
+;;; (test-skeleton-build)
 (fl.tests:adjoin-test 'test-skeleton-build)

@@ -92,7 +92,8 @@
 		       arg))
 	   ,@rest-args)
 	  (declare (type ,element-type ,@number-args))
-	  ,(subst element-type 'element-type
+	   (declare (optimize (speed 3) (safety 0) (debug 0)))
+	   ,(subst element-type 'element-type
 		  `(macrolet ,(mapcar #'cdr (get class-name 'BLAS-MACROS))
 		    (with-blas-data ,matrices
 		      ,@body))))))))
@@ -110,7 +111,6 @@
 	(fl.amop:remove-subclass-methods gf template-args))
       (let* ((actual-args (gensym "ACTUAL-ARGS")))
 	`(defmethod ,name ,template-args
-	   (declare (optimize (safety 3) (debug 3)))
 	  ,@(when (stringp (car body)) (list (car body)))
 	  (let ((,actual-args
 		 (list ,@(loop for arg in template-args

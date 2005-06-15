@@ -55,27 +55,23 @@ build the actual interpolation matrix."))
 ;;;; prolongation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod tentative-prolongation ((amg <selection-amg>) &rest parameters)
+(defmethod tentative-prolongation ((amg <selection-amg>) blackboard)
   "Simply injection, i.e. P_{CC}=Id_{CC}."
-  (let ((mat (getf parameters :matrix))
-	(coarse (getf parameters :coarse-nodes)))
+  (with-items (&key matrix coarse-nodes prolongation) blackboard
     (let ((prol (make-sparse-matrix
-		 :print-row-key (print-row-key mat)
-		 :print-col-key (print-col-key mat)
-		 :row-key->size (row-key->size mat)
-		 :col-key->size (col-key->size mat)
-		 :keys->pattern (keys->pattern mat))))
+		 :print-row-key (print-row-key matrix)
+		 :print-col-key (print-col-key matrix)
+		 :row-key->size (row-key->size matrix)
+		 :col-key->size (col-key->size matrix)
+		 :keys->pattern (keys->pattern matrix))))
       ;; set prolongation entries
-      (dolist (node coarse)
+      (dolist (node coarse-nodes)
 	(setf (mref prol node node)
-	      (eye (funcall (row-key->size mat) node))))
+	      (eye (funcall (row-key->size matrix) node))))
       ;; augment parameters list with result
-      (list* :prolongation prol parameters))))
+      (setf prolongation prol))))
 
-(defmethod improved-prolongation ((amg <selection-amg>) &rest parameters
-				  &key matrix filtered-keys filtered-matrix
-				  prolongation fine-nodes
-				  &allow-other-keys)
+(defmethod improved-prolongation ((amg <selection-amg>) blackboard)
   "Define P_{FC} in a Stueben like manner.  For the fine grid point i we
 have to solve for e_i in
 
@@ -88,51 +84,32 @@ chosen as
 $$ \alpha = \frac{\sum_{j \in N_i} a_{ij}}}{\sum_{j \in P_i} a_{ij}} $$
 
 to make the prolongation exact for constant functions."
-
-  (dolist (i fine-nodes)
-    (let ((sum-neighboring 0.0)
-	  (sum-prolongating 0.0))
-      (for-each-key-and-entry-in-row
-       #'(lambda (j entry)
-	   (when (and (not (eql j i)) (gethash j filtered-keys))
-	     (incf sum-neighboring (mref entry 0 0))))
-       matrix i)
-      (for-each-key-and-entry-in-row
-       #'(lambda (j entry)
-	   (when (matrix-column prolongation j)
-	     (incf sum-prolongating (mref entry 0 0))))
-       matrix i)
-      (let ((scaled-diagonal-inverse (scal! (- (/ sum-neighboring sum-prolongating))
-					    (m/ (mref matrix i i)))))
+  (with-items (&key matrix filtered-keys filtered-matrix
+		    prolongation fine-nodes)
+      blackboard
+    (dolist (i fine-nodes)
+      (let ((sum-neighboring 0.0)
+	    (sum-prolongating 0.0))
+	(for-each-key-and-entry-in-row
+	 #'(lambda (j entry)
+	     (when (and (not (eql j i)) (gethash j filtered-keys))
+	       (incf sum-neighboring (mref entry 0 0))))
+	 matrix i)
 	(for-each-key-and-entry-in-row
 	 #'(lambda (j entry)
 	     (when (matrix-column prolongation j)
-	       (setf (mref prolongation i j)
-		     (m* scaled-diagonal-inverse entry))))
-	 filtered-matrix i))))
-    
-  ;; pass on parameters (including modified prolongation)
-  parameters)
+	       (incf sum-prolongating (mref entry 0 0))))
+	 matrix i)
+	(let ((scaled-diagonal-inverse (scal! (- (/ sum-neighboring sum-prolongating))
+					      (m/ (mref matrix i i)))))
+	  (for-each-key-and-entry-in-row
+	   #'(lambda (j entry)
+	       (when (matrix-column prolongation j)
+		 (setf (mref prolongation i j)
+		       (m* scaled-diagonal-inverse entry))))
+	   filtered-matrix i))))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Variants
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; The most interesting variant due to Stueben can be found in
-;;; stueben.lisp.
-
-(defclass <custom-coarsening-selection-amg> (<selection-amg>)
-  ((select :accessor select :initarg :select))
-  (:documentation "If you should already have a suitable selection of
-coarse grid points, you may use it in this type of selection-amg.  Your
-routine should accept a blackboard of arguments and return two lists: the
-coarse nodes and the fine nodes."))
-
-(defmethod choose-coarse-grid ((amg <custom-coarsening-selection-amg>) &rest parameters)
-  (multiple-value-bind (coarse fine)
-      (apply (select amg) parameters)
-    (list* :coarse-nodes coarse :fine-nodes fine parameters)))
 
 
 

@@ -47,7 +47,7 @@
 	   'vector)))
 
 (defun ns-hole-cell-problem (dim &key (viscosity 1.0) (reynolds 0.0))
-  (let* ((domain (n-cell-with-n-ball-hole dim)))
+  (let* ((domain (n-cell-with-ball-hole dim)))
     (make-instance
      '<navier-stokes-problem>
      :domain domain

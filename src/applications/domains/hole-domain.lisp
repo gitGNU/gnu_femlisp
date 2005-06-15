@@ -60,13 +60,13 @@ using n-cube patches."
   "Generates an n-dimensional cell domain with an ellipsoidal hole."
   (identify-unit-cell-faces (n-cube-with-ellipsoidal-hole dim :A A)))
 
-(defun n-cube-with-n-ball-hole (dim &key (radius 0.25))
+(defun n-cube-with-ball-hole (dim &key (radius 0.25))
   "Generates an n-cube-domain with an n-ball hole using n-cube patches."
   (n-cube-with-ellipsoidal-hole dim :A (scal (/ (* radius radius)) (eye dim))))
 
-(defun n-cell-with-n-ball-hole (dim &key (radius 0.25))
+(defun n-cell-with-ball-hole (dim &key (radius 0.25))
   "Generates an n-dimensional cell domain with an n-ball hole."
-  (identify-unit-cell-faces (n-cube-with-n-ball-hole dim :radius radius)))
+  (identify-unit-cell-faces (n-cube-with-ball-hole dim :radius radius)))
 
 (defun patch-on-inner-boundary-p (patch)
   "Checks if the patch is part of the hole boundary."
@@ -79,11 +79,12 @@ using n-cube patches."
 ;;; Testing: (test-hole-domain)
 (defun test-hole-domain ()
   (check (n-cube-with-cubic-hole 2))
-  (check (n-cube-with-n-ball-hole 2))
-  (let ((skel (n-cell-with-n-ball-hole 2 :radius 0.3)))
+  (check (n-cube-with-ball-hole 2))
+  (let ((skel (n-cell-with-ball-hole 2 :radius 0.3)))
     (doskel (cell skel)
-      (whereas ((id (cell-identification cell skel)))
-	(format t "~A~% --> ~A~%" cell id))))
+      (when (identified-p cell skel)
+	(dolist (id (identified-cells cell skel))
+	  (format t "~A~% --> ~A~%" cell id)))))
   )
 
 (fl.tests:adjoin-test 'test-hole-domain)

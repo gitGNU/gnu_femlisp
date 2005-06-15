@@ -48,21 +48,17 @@
   (:documentation "Mixin for full tensors."))
 
 (defun dimensions->offsets (dims)
-  (loop	with offsets = (make-array (length dims) :element-type 'fixnum)
-	for k from 0
-	and dim across dims
-	and offset = 1 then (* offset dim) do
-	(setf (aref offsets k) offset)
-	finally
-	(return offsets)))
+  (coerce (loop	for k from 0
+	     and dim across dims
+	     and offset = 1 then (* offset dim) collect offset)
+	  'fixnum-vec))
 
 (defmethod initialize-instance ((tensor full-tensor) &key &allow-other-keys)
   (call-next-method)
   (assert (typep tensor 'store-vector))
   (with-slots (store dimensions offsets) tensor
     (unless (slot-boundp tensor 'store)
-      (setf store (make-array (reduce #'* dimensions)
-			      :element-type (element-type tensor))))
+      (setf store (zero-vector (reduce #'* dimensions) (element-type tensor))))
     (unless (slot-boundp tensor 'offsets)
       (setf offsets (dimensions->offsets dimensions)))))
 

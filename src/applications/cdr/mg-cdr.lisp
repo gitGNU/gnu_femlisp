@@ -35,15 +35,18 @@
 (in-package :fl.application)
 
 (defun test-v-cycle-convergence (dim order level &key (smoother *gauss-seidel*)
-				 (steps 20) galerkin-p (output 1) cr-max (base-level 1))
+				 (steps 20) galerkin-p (output 1) cr-max (base-level 1)
+				 (combination :multiplicative) cg)
   "Solves with a V-cycle and prints the average convergence rate.  If
 cr-max is provided, it is checked if the convergence rate is smaller than
 this value."
   (let* ((problem (cdr-model-problem dim))
 	 (cs (geometric-cs
 	      :gamma 1 :smoother smoother :pre-steps 1 :post-steps 0
+	      :combination combination
 	      :base-level base-level :galerkin-p galerkin-p))
-	 (solver (make-instance '<linear-solver> :iteration cs
+	 (cg (and cg (make-instance '<cg> :preconditioner cs)))
+	 (solver (make-instance '<linear-solver> :iteration (or cg cs)
 				:success-if `(or (< :defnorm 1.0e-12) (> :step ,steps))))
 	 (mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order)))
@@ -61,8 +64,13 @@ this value."
 (defun mg-cdr-tests ()
   (dbg-on :mg) (dbg-off)
   (time (test-v-cycle-convergence
-	 1 1 3 :base-level 2 :steps 10 ;:cr-max 0.3941  ; should be 0.39407...
+	 1 1 3 :base-level 2 :steps 10 :cr-max 0.3941  ; should be 0.39407...
 	 :smoother (make-instance '<jacobi> :damp 0.5)))
+  (time (test-v-cycle-convergence
+	 2 3 4 :base-level 2 :steps 10
+	 :smoother (make-instance '<jacobi> :damp 0.5)
+	 :combination :additive :cg t))
+  (time (test-v-cycle-convergence 2 1 5))
   (time (test-v-cycle-convergence 1 1 5))
   (time (test-v-cycle-convergence 3 1 2 :galerkin-p t :cr-max 0.15))
   (time (test-v-cycle-convergence 2 4 3 :galerkin-p t :cr-max 0.25))

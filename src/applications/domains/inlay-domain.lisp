@@ -48,7 +48,7 @@
   "Generates an n-dimensional cell domain with an n-cube hole."
   (identify-unit-cell-faces (n-cube-with-cubic-inlay dim)))
 
-(defun n-cube-with-n-ball-inlay (dim &key (radius 0.25))
+(defun n-cube-with-ball-inlay (dim &key (radius 0.25))
   "Generates an n-cube-domain with an n-ball inlay using n-cube patches."
   (let* ((outer-skel (skeleton-boundary (skeleton (n-cube dim))))
 	 (midpoint (make-double-vec dim 0.5))
@@ -74,10 +74,10 @@
 	(skel-add! center-block (telescope outer-skel outer->middle))
 	(change-class center-block '<domain>)))))
 
-(defun n-cell-with-n-ball-inlay (dim &key (radius 0.25))
+(defun n-cell-with-ball-inlay (dim &key (radius 0.25))
   "Generates an n-dimensional cell domain with an n-ball inlay."
   (identify-unit-cell-faces
-   (n-cube-with-n-ball-inlay dim :radius radius)))
+   (n-cube-with-ball-inlay dim :radius radius)))
 
 (defun patch-in-inlay-p (patch)
   "Checks if the patch is part of the inlay including its boundary."
@@ -90,7 +90,7 @@
 ;;; Testing
 (defun test-inlay-domain ()
   (n-cube-with-cubic-inlay 2)
-  (let* ((domain (n-cell-with-n-ball-inlay 2 :radius 0.3))
+  (let* ((domain (n-cell-with-ball-inlay 2 :radius 0.3))
 	 (chars (domain-characteristics domain)))
     (assert (and (getf chars :exact) (getf chars :curved)))
     (doskel (cell domain)

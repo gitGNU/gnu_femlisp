@@ -34,6 +34,19 @@
 
 (in-package :fl.plot)
 
+(defun write-positions (stream position-array &optional (header t))
+  "Write a header and all positions to the stream."
+  (let ((dim (length (elt position-array 0))))
+    (assert (every #'(lambda (pos) (= dim (length pos))) position-array))
+    ;; write positions
+    (when header
+      (format stream "object 1 class array type float rank 1 shape ~D items ~D data follows~%"
+	      dim (length position-array)))
+    (loop for position across position-array do
+	 (loop for coord across position do
+	      (format stream "~G " (float coord 1.0))
+	    finally (terpri stream)))))
+
 (defmethod graphic-write-data (stream object (program (eql :dx))
 			       &key cells cell->values (depth 0) transformation)
   "Rather general plotting procedure writing data to a file.  Plots in
@@ -52,13 +65,7 @@ data-- or some function mapping cells to a list of corner values."
 	 (simplices (remove-if-not #'simplex-p cells))
 	 (other-cells (remove-if #'simplex-p cells)))
 	 
-    ;; write positions
-    (format stream "object 1 class array type float rank 1 shape ~D items ~D data follows~%"
-	    dim (length position-array))
-    (loop for position across position-array do
-	  (loop for coord across position do
-		(format stream "~G " (float coord 1.0))
-		finally (terpri stream)))
+    (write-positions stream position-array)
     
     ;; write simplices
     (when simplices

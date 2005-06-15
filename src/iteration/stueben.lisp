@@ -70,9 +70,10 @@ for several discussions on AMG."))
   ;;(assert (not (plusp min)))
   min)
 
-(defmethod filtered-matrix ((amg <stueben>) &rest parameters &key matrix &allow-other-keys)
+(defmethod filtered-matrix ((amg <stueben>) blackboard)
   "Special filtering used by Ruge-Stueben."
-  (let ((theta (theta amg))
+  (let ((matrix (getbb blackboard :matrix))
+	(theta (theta amg))
 	(filtered-keys (make-hash-table))
 	(pivot-table (make-hash-table)))
     
@@ -106,14 +107,15 @@ for several discussions on AMG."))
        matrix)
       
       ;; return result
-      (list* :filtered-keys filtered-keys :filtered-matrix
-	     (extract-if
+      (setf (getbb blackboard :filtered-keys) filtered-keys)
+      (setf (getbb blackboard :filtered-matrix)
+	    (extract-if
 	      #'(lambda (row-key col-key entry)
 		  (and (gethash row-key filtered-keys)
 		       (gethash col-key filtered-keys)
 		       (or (not theta) (strong-p row-key col-key entry))))
-	      matrix)
-	     parameters))))
+	      matrix))))
+  blackboard)
 
 ;;; Priority-table - this is used for the Ruge-Stueben coarsening
 
@@ -185,9 +187,9 @@ corresponding index."))
 
 ;;; Coarse-grid construction
 
-(defmethod choose-coarse-grid ((amg <stueben>) &rest parameters)
+(defmethod choose-coarse-grid ((amg <stueben>) blackboard)
   "Ruge-Stueben coarse grid selection."
-  (let* ((filtered-mat (getf parameters :filtered-matrix))
+  (let* ((filtered-mat (getbb blackboard :filtered-matrix))
 	 (undecided (make-instance 'priority-table))
 	 (coarse ())
 	 (fine ()))
@@ -228,7 +230,8 @@ corresponding index."))
     ;; it according to Tanja.
 
     ;; augment result with coarsening data
-    (list* :coarse-nodes coarse :fine-nodes fine parameters)
+    (setf (getbb blackboard :coarse-nodes) coarse
+	  (getbb blackboard :fine-nodes) fine)
     ))
 
 
@@ -247,13 +250,8 @@ corresponding index."))
     (fill-random! b 1.0)
     (let ((amg (make-instance '<stueben>
 			      :max-depth 1 :cg-max-size 1 :output t)))
-      #+(or)
-      (show (getf (apply #'improved-prolongation amg
-			 (apply #'tentative-prolongation amg
-				(choose-coarse-grid amg :mat A)))
-		  :prolongation))
       (coarsen amg A)
-      (solve (lu-solver :output t)
+      (solve (make-instance '<linear-solver> :iteration amg :success-if '(> :step 0) :output t)
 	     (blackboard :problem (lse :matrix A :rhs b)))))
   )
 

@@ -1,4 +1,4 @@
-;;; -*- mode: lisp; -*-
+;;; -*- mode: lisp; fill-column: 64; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -88,28 +88,25 @@ for the value u(1/2,1/2,1/2).
 
 
 (defun model-problem-computation (domain &key (output 1) plot)
-  "~A - Solve the Laplace equation on a ~A.
-
-Solves the Laplace problem with rhs identical 1 on the given domain.  The
-solution strategy does uniform refinement and terminates if more than 20
-seconds have passed after a step."
+  "Performs the model problem demo."
   (defparameter *result*
     (solve (blackboard
 	    :problem (cdr-model-problem domain)
 	    :plot-mesh t :output output :success-if `(> :time 5.0))))
   (when plot
     (plot (getbb *result* :solution))))
-
+  
 (defun make-model-problem-demo (domain domain-name)
-  (multiple-value-bind (title short long)
-      (extract-demo-strings (documentation 'model-problem-computation 'function))
+  (let ((title domain-name)
+	(short (format nil "Solve the Laplace equation on a ~A." domain-name))
+	(long "Solves the Laplace problem with rhs identical 1
+on the given domain.  The solution strategy does uniform
+refinement and terminates if more than 5 seconds have passed
+after a step."))
     (let ((demo
-	   (make-demo
-	    :name (format nil title domain-name)
-	    :short (format nil short domain-name)
-	    :long long
-	    :execute (lambda ()
-		       (model-problem-computation domain :plot t)))))
+	   (make-demo :name title :short short :long long
+		      :execute (lambda ()
+				 (model-problem-computation domain :plot t)))))
       (adjoin-demo demo *laplace-demo*))))
 
 (make-model-problem-demo (n-simplex-domain 1) "unit-interval")

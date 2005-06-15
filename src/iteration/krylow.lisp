@@ -64,20 +64,20 @@
 ;;; Preconditioned conjugate gradient iteration
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <pcg> (<linear-iteration>)
+(defclass <cg> (<linear-iteration>)
   ((preconditioner :initform nil :initarg :preconditioner))
   (:documentation "Preconditioned conjugate gradient iteration"))
 
-(defclass <cg> (<pcg>)
-  ((preconditioner :initform nil))
-  (:documentation "The CG iteration is PCG with no preconditioner."))
-
-(defmethod make-iterator ((pcg <pcg>) mat)
+(defmethod make-iterator ((cg <cg>) mat)
   "Standard method for the preconditioned conjugate-gradient iteration."
-  (let ((precond (whereas ((preconditioner (slot-value pcg 'preconditioner)))
-		   (make-iterator preconditioner mat))))
+  (let* ((precond (aand (slot-value cg 'preconditioner)
+			(make-iterator it mat))))
+    (when (and precond (slot-value precond 'residual-after))
+      (error "This preconditioner does not work, because the application
+here wants to keep residual andrhs intact."))
     (let ((p (make-domain-vector-for mat))
 	  (a (make-image-vector-for mat))
+	  (w (make-image-vector-for mat))
 	  (q (and precond (make-domain-vector-for mat)))
 	  (alpha 0.0))
       (with-slots (initialize iterate) precond
@@ -90,8 +90,10 @@
 	     (declare (ignore x b))
 	     (cond
 	       (precond
-		(when initialize (funcall initialize p r r))
-		(funcall iterate p r r))
+		(copy! r w)
+		(when initialize
+		  (funcall initialize p w w))
+		(funcall iterate p w w))
 	       (t (copy! r p)))
 	     (setq alpha (dot p r)))
 	 :iterate
@@ -103,8 +105,10 @@
 		      (lam (/ alpha beta)))
 		 (axpy! lam p x)
 		 (axpy! (- lam) a r)
-		 (let ((q (cond (precond (x<-0 q) (funcall iterate q r r))
-				(t r))))
+		 (let ((q (cond (precond
+				 (copy! r w) (x<-0 q)
+				 (funcall iterate q w w))
+				(t (copy r)))))
 		   (let ((new-alpha (dot q r)))
 		     (scal! (/ new-alpha alpha) p)
 		     (m+! q p)
@@ -119,4 +123,65 @@
   ((preconditioner :initform nil :initarg :preconditioner))
   (:documentation "Preconditioned Bi-CGStab iteration"))
 
-;;; to be done
+(defmethod make-iterator ((it <bi-cgstab>) mat)
+  "Standard method for the preconditioned conjugate-gradient iteration."
+  (let ((precond (whereas ((preconditioner (slot-value it 'preconditioner)))
+		   (make-iterator preconditioner mat))))
+    (with-slots (iterate) precond
+      (make-instance
+       '<iterator>
+       :matrix mat
+       :residual-before t
+       :iterate
+       (let (r~ p p^ v s s^ rho alpha omega)
+	 #'(lambda (x b r)
+	     (declare (ignore b))
+	     (unless r~ (setf r~ (copy r)))
+	     (let ((rho~ (dot r~ r)))
+	       (when (zerop rho~)
+		 (error "Failure"))
+	       (cond
+		 (p (axpy! (- omega) v p)
+		    (scal! (* (/ rho~ rho) (/ alpha omega)) p)
+		    (m+! r p))
+		 (t (setf p (copy r))))
+	       (setf rho rho~))
+	     (ensure p^ (make-analog p))
+	     (cond (precond (x<-0 p^) (funcall iterate p^ p p))
+		   (t (copy! p p^)))
+	     (setf v (m* mat p^))
+	     (setf alpha (/ rho (dot r~ v)))
+	     (setf s (axpy (- alpha) v r))
+	     (ensure s^ (make-analog s))
+	     (cond (precond (x<-0 s^) (funcall iterate s^ s s))
+		   (t (copy! s s^)))
+	     (let ((tee (m* mat s^)))
+	       ;; check of (norm s^) dropped
+	       (setf omega (/ (dot tee s) (dot tee tee)))
+	       ;; update of x
+	       (axpy! alpha p^ x)
+	       (axpy! omega s^ x)
+	       (copy! s r)
+	       (axpy! (- omega) tee r)
+	       ;; convergence check dropped (is done outside)
+	       )))
+       :residual-after t
+       ))))
+
+;;;; Testing
+
+(defun test-krylow ()
+  (time (let* ((n 32)
+	       (A (fl.matlisp::five-point-stencil-matrix n n))
+	       (b (ones (* n n) 1)))
+	  (linsolve A b :output t :iteration (make-instance '<cg>))))
+  (let ((A #m((2.0 -1.0  0.0)
+	      (-1.0  2.0 -1.0)
+	      ( 0.0 -1.0  2.0)))
+	(b #m((1.0) (2.0) (1.0))))
+    (linsolve A b :output t :iteration (make-instance '<cg>))
+    (setf (mref A 2 1) 7.0)
+    (linsolve A b :output t :iteration (make-instance '<cg>))  ; diverges
+    (linsolve A b :output t :iteration (make-instance '<bi-cgstab> :preconditioner (make-instance '<jacobi>))) ; converges
+  )
+  )

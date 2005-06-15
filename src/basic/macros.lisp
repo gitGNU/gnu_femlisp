@@ -46,12 +46,13 @@
 
 (in-package :fl.macros)
 
-(defmacro with-gensyms (syms &body body)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro with-gensyms (syms &body body)
   "Standard macro providing the freshly generated symbols @arg{syms} to the
 code in @arg{body}."
   `(let ,(mapcar #'(lambda (s) `(,s (gensym ,(symbol-name s))))
 		 syms)
-    ,@body))
+    ,@body)))
 
 (defun symconc (&rest args)
   "This function builds a symbol from its arguments and interns it.  This

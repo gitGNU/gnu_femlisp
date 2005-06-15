@@ -90,10 +90,6 @@ these matrices change when mesh or discretization are adapted."))
   "If cell is identified, its identification is the key."
   (or (cell-identification cell mesh) cell))
 
-(definline representative (obj)
-  "Gets a representative cell for some key."
-  (if (listp obj) (car obj) obj))
-
 (defmethod key->size (ansatz-space)
   (let ((fe-class (fe-class ansatz-space)))
     #'(lambda (key)
@@ -297,7 +293,7 @@ accelerated by taking member-checks out of the loop."
 
 (defmethod decompose (as-obj)
   (let* ((nr-levels (nr-of-levels (hierarchical-mesh as-obj)))
-	 (decomposed (make-array nr-levels)))
+	 (decomposed (make-array nr-levels :initial-element nil)))
     (loop for k below nr-levels do
 	  (setf (aref decomposed k) (extract-level as-obj k)))
     decomposed))

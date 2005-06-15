@@ -330,10 +330,10 @@ boundary paths."
   (reduce #'carthesian-product
 	  (mapcar #'ensure-simplex factor-dims)))
 
-(defun tensorial-class (factor-dims &optional mapped)
+(defun tensorial-class (factor-dims &optional mapped distorted)
   (let* ((class-name (intern (format nil "<~{~S-~}TENSORIAL>" factor-dims) "FL.MESH"))
 	 (class (find-class class-name nil)))
-    (cond (class (if mapped (mapped-cell-class class) class))
+    (cond (class (if mapped (mapped-cell-class class distorted) class))
 	  (t
 	   (let ((class (eval `(defclass ,class-name (<tensorial> <standard-cell>) ()))))
 	      (let ((refcell (make-reference-tensorial factor-dims)))

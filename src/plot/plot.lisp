@@ -79,7 +79,7 @@ reference cells.  This is needed for plotting."
 	  (return-from refcell-refinement-vertices (cdr entry))))
       ;; generate a new entry
       (let* ((index-table (vertex-index-table skeleton))
-	     (vertex-array (make-array (hash-table-count index-table))))
+	     (vertex-array (make-array (hash-table-count index-table) :initial-element nil)))
 	(maphash #'(lambda (vtx index) (setf (aref vertex-array index) vtx))
 		 index-table)
 	;; because DX does not use connections in 1D
