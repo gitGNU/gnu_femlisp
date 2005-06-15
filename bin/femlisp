@@ -16,6 +16,7 @@ fi
 FEMLISP_CORE=$FEMLISP_DIR/bin/femlisp-$FEMLISP_CL_TYPE.core;
 
 case $FEMLISP_CL_TYPE in
+    acl) core="-I"; eval="-e"; noinit="-qq";;
     cmucl) core="-core"; load="-load"; eval="-eval"; noinit="-nositeinit -noinit";;
     sbcl) core="--core"; load="--load"; eval="--eval"; noinit="--sysinit /dev/null --userinit /dev/null";;
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;

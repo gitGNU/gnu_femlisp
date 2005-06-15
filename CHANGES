@@ -1,11 +1,34 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.6 to Femlisp-0.9.7:
+
+Femlisp now works with Allegro CL on AMD-64 and Linux.  Many thanks to
+Franz Inc. for allowing me to use an evaluation license of their product.
+
+Removed a bug in the CG method which assumed that a smoother would keep the
+residual intact.  Now, BPX preconditioning with Jacobi smoothing works.
+
+Changed the representation of identifications from a list of identified
+cells to a class containing a slot of identified cells.  This should remove
+the following subtle bug: with list as hash-table keys, the ordering of
+hash-based sparse matrices might change after GC, whereas, on the other
+hand, there may be still places in Femlisp where it is implicitly assumed
+that this ordering is kept.
+
+Worked towards full ANSI compliance of Femlisp.  One important step was
+checking that all array allocations have an initialization parameter
+(CMUCL/SBCL do a default initialization with 0 which is not guaranteed by
+the standard).
+
+Removed an underflow bug in DX graphics by converting each value to
+single-float before output.
+
 * From Femlisp-0.9.5 to Femlisp-0.9.6:
 
 Femlisp runs successfully on an AMD-64 platform using SBCL (however, mine
 was a parallel machine in Warwick/UK, and I could not test any graphics).
-Many thanks especially to Dan Barlow and Juho Snellman for making this work
-for SBCL.
+Many thanks especially to Dan Barlow and Juho Snellman for making SBCL work
+on AMD.
 
 The installation procedure was improved with a configure script.
 

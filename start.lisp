@@ -43,6 +43,8 @@ during initialization of Femlisp."))
 (in-package :fl.start)
 
 (defparameter *femlisp-version* "0.9.6")
+(defparameter *process* nil
+  "This variable should be set externally for identifying a certain process.")
 
 (defun femlisp-version () *femlisp-version*)
 (defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
@@ -67,12 +69,12 @@ Femlisp, and enter \"(quit)\" to leave the program.~%~%"
 ;;;; Setup the logical host "FEMLISP"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *femlisp-pathname*
+(defvar *femlisp-pathname*
   (make-pathname :directory (pathname-directory *load-truename*))
   "The pathname for the Femlisp main directory.  This should be the
 location of this file when it is loaded.")
 
-(defparameter *femlisp-directory* (namestring *femlisp-pathname*)
+(defvar *femlisp-directory* (namestring *femlisp-pathname*)
   "The namestring for @var{*femlisp-pathname*}.")
 
 (let ((directory (pathname-directory *femlisp-pathname*)))
@@ -88,29 +90,28 @@ location of this file when it is loaded.")
 (load "femlisp:femlisp-config.lisp")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Implementation-dependent
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+#+cmu (setq extensions:*gc-verbose* nil)
+#+sbcl (require 'sb-posix)
+#+sbcl (require 'sb-introspect)
+#+sbcl (require 'asdf)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Ensure the presence of Common Lisp libraries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; ASDF
-#+cmu
-(progn
-  (setq extensions:*gc-verbose* nil)
-  #-asdf (load #p"femlisp:external;asdf"))
-#+sbcl (require 'asdf)
+#-(or asdf mk-defsystem) (load #p"femlisp:external;asdf")
 
 ;;; INFIX
 #-infix (load "femlisp:external;infix.cl")
 
-#+asdf
-(push *femlisp-pathname* asdf::*central-registry*)
+#+asdf 
+(pushnew *femlisp-pathname* asdf::*central-registry*)
 #+mk-defsystem
-(push *femlisp-pathname* mk::*central-registry*)
-
-;;; POSIX
-#+sbcl (require 'sb-posix)
-
-;;; Introspection
-#+sbcl (require 'sb-introspect)
+(pushnew *femlisp-pathname* mk::*central-registry*)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Compiling and loading of Femlisp
@@ -126,4 +127,8 @@ location of this file when it is loaded.")
 
 (pushnew :femlisp *features*)
 
+(let ((private (probe-file #p"femlisp:start-private.lisp")))
+  (when private (load private)))
+
 (femlisp-banner)
+

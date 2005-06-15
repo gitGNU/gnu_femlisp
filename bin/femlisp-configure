@@ -31,7 +31,12 @@ if test "`basename $FEMLISP_CL`" = "sbcl"
 then
     FEMLISP_CL_TYPE=sbcl
 else
-    FEMLISP_CL_TYPE=cmucl
+    if test "`basename $FEMLISP_CL`" = "alisp"
+	then
+	FEMLISP_CL_TYPE=acl
+    else
+	FEMLISP_CL_TYPE=cmucl
+    fi
 fi
 
 echo "Enter the type of your Lisp [$FEMLISP_CL_TYPE]: "
@@ -43,6 +48,7 @@ then
 fi
 
 case $FEMLISP_CL_TYPE in
+    acl) echo -e "using Allegro CL\n";;
     cmucl) echo -e "using CMUCL\n";;
     sbcl) echo -e "... using SBCL\n";;
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
@@ -88,7 +94,6 @@ mv -f femlisp2 femlisp
 
 # mark the script as executable 
 chmod +x femlisp
-
 
 
 

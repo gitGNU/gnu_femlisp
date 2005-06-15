@@ -38,6 +38,12 @@ all: configure superlu umfpack triangle femlisp documentation
 configure:
 	cd bin; ./femlisp-configure
 
+download_superlu:
+	echo "Downloading SuperLU in femlisp/external."
+	cd external; \
+	wget http://crd.lbl.gov/~xiaoye/SuperLU/superlu_3.0.tar.gz; \
+	tar xzf superlu_3.0.tar.gz; rm -f superlu_3.0.tar.gz;
+
 superlu:
 	cd interface; make superlu
 
@@ -65,5 +71,6 @@ clean:
 	rm -f *.x86f *.fasl
 	cd bin; rm -f *.core
 	cd doc; make clean;
+	cd external; make clean;
 	cd interface; make clean;
 	cd src; make clean;
