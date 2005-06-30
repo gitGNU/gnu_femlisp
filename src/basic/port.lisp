@@ -51,7 +51,7 @@
    "PROCESS-CLOSE" "PROCESS-STATUS"
 
    ;; load alien code
-   "LOAD-SHARED-OBJECT" "DEFINE-ALIEN-ROUTINE"
+   "LOAD-FOREIGN-LIBRARY" "DEF-FUNCTION"
    "INT" "DOUBLE" "LOAD-FOREIGN"
    "VECTOR-SAP" "WITHOUT-GCING")
   (:export "SAVE-FEMLISP-CORE-AND-DIE" "FEMLISP-RESTART")
@@ -66,20 +66,22 @@ inspired by this module.  It will be dropped when CLOCC/port is easily
 installable in all CL implementations we are interested in or if the
 maintenance of this file should become too difficult.")
 
-;;;; required modules
-#+allegro (require :osi)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Utility
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun portability-warning (function &optional (error t))
-  (let ((message (format nil "The function ~A has not yet been written for
-your Lisp.  If you want full functionality of Femlisp you should provide it
-in the file @path{femlisp:src;basic;port.lisp}." function)))
-    (if error
-	(error message)
-	(warn message))))
+(defparameter *portability-problem-handling* :error
+  "Determines which action should be taken if we encounter a portability
+problem for a Lisp.")
+
+(defun portability-warning (function &rest args)
+  (let ((message (format nil "The function~& ~A~% called with
+parameters~&~A~%has not yet been written for your Lisp.  If you want full
+functionality of Femlisp you should provide it in the file
+@path{femlisp:src;basic;port.lisp}." function args)))
+    (ecase *portability-problem-handling*
+      (:error (error message))
+      (:warn (warn message)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Quitting
@@ -99,7 +101,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
 
 (defun find-executable (name)
   #-(or allegro cmu sbcl)
-  (portability-warning 'find-executable nil)
+  (portability-warning 'find-executable name)
   #+allegro (excl.osi:find-in-path name)
   #+cmu (probe-file (pathname (concatenate 'string "path:" name)))
   #+sbcl (sb-ext:find-executable-in-search-path name)
@@ -117,7 +119,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
   #+mcl (ccl::getenv var)
   #+sbcl (sb-ext:posix-getenv var)
   #-(or allegro clisp cmu gcl lispworks mcl sbcl scl)
-  (portability-warning 'getenv)
+  (portability-warning 'getenv var)
   )
   
 (defun unix-chdir (path)
@@ -127,7 +129,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
   #+sbcl (sb-posix:chdir path)
   #+clisp (ext:cd path)
   #-(or cmu sbcl clisp)
-  (portability-warning 'unix-chdir)
+  (portability-warning 'unix-chdir path)
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -136,6 +138,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
 
 (defun run-program (program args &key wait input output error-output directory)
   "Interface to run-program."
+  #+(or clisp cmu sbcl) (declare (ignore error-output))
   #+allegro
   (let ((program (namestring program)))
     (cond
@@ -161,7 +164,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
 	   (when directory (unix-chdir (namestring directory)))
 	   (sb-ext:run-program program args :wait wait :input input :output output))
   #-(or allegro clisp cmu sbcl)
-  (portability-warning 'run-program)
+  (portability-warning 'run-program args wait input output error-output directory)
   )
 
 (defun process-input (process)
@@ -170,7 +173,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
   #+cmu (ext:process-input process)
   #+sbcl (sb-ext:process-input process)
   #-(or allegro cmu sbcl)
-  (portability-warning 'process-input)
+  (portability-warning 'process-input process)
   )
 
 (defun process-output (process)
@@ -179,7 +182,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
   #+cmu (ext:process-output process)
   #+sbcl (sb-ext:process-output process)
   #-(or allegro cmu sbcl)
-  (portability-warning 'process-output)
+  (portability-warning 'process-output process)
   )
 
 (defun process-close (process)
@@ -188,7 +191,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
   #+cmu (ext:process-close process)
   #+sbcl (sb-ext:process-close process)
   #-(or allegro cmu sbcl)
-  (portability-warning 'process-close)
+  (portability-warning 'process-close process)
   )
 
 (defun process-status (process)
@@ -196,38 +199,49 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
   #+cmu (ext:process-status process)
   #+sbcl (sb-ext:process-status process)
   #-(or cmu sbcl)
-  (portability-warning 'process-status)
+  (portability-warning 'process-status process)
   )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Memory
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun memory-usage ()
+  "Returns an approixmation to the memory used at this moment."
+  #+cmu (lisp::dynamic-usage)
+  #+sbcl (sb-kernel::dynamic-usage)
+  #-(or cmu sbcl)
+  (portability-warning 'process-status))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Foreign libraries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun load-shared-object (file)
+(defun load-foreign-library (file)
+  #+uffi (uffi:load-foreign-library file)
+  #-uffi
+  #+allegro (cl:load file)
   #+cmu (sys::load-object-file file)
   #+sbcl (sb-alien:load-shared-object file)
-  #-(or cmu sbcl)
-  (portability-warning 'load-shared-object))
+  #-(or uffi allegro cmu sbcl)
+  (portability-warning 'load-shared-object file))
 
-(defmacro define-alien-routine (&rest args)
-  #+cmu `(c-call::def-alien-routine ,@args)
-  #+sbcl `(sb-alien:define-alien-routine ,@args)
-  #+clisp
-  (destructuring-bind (name return-type &rest args)
-      args
-    `(def-call-out (intern name)
-	 (cons :arguments args)
-       (list :return-type return-type)))
-  #-(or cmu sbcl clisp)
-  (portability-warning 'define-alien-routine))
+(defmacro def-function (&rest args)
+  #+uffi `(uffi:def-function ,@args)
+  #-uffi (portability-warning 'define-alien-routine args))
 
 (declaim (inline vector-sap))
 (defun vector-sap (ptr)
+  #+allegro ptr
   #+cmu (system:vector-sap ptr)
   #+sbcl (sb-sys:vector-sap ptr)
   #+clisp (ffi::foreign-pointer ptr)
-  #-(or cmu sbcl clisp)
-  (portability-warning 'vector-sap))
+  #-(or allegro cmu sbcl clisp)
+  (portability-warning 'vector-sap ptr))
+
+#+allegro
+(defmacro without-gcing (op) 
+  op)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Saving a core and restarting
@@ -237,7 +251,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
   #+allegro
   (progn
     (excl:dumplisp :name core-file-name)
-    (exit 0))
+    (excl:exit 0))
   #+cmu
   (progn
     (ext:save-lisp core-file-name :print-herald nil)
@@ -247,7 +261,7 @@ in the file @path{femlisp:src;basic;port.lisp}." function)))
   #+clisp
   (EXT:SAVEINITMEM corefilename)
   #-(or cmu sbcl clisp)  ; do nothing
-  (portability-warning 'save-femlisp-core-and-die))
+  (portability-warning 'save-femlisp-core-and-die core-file-name))
 
 (defun femlisp-restart ()
   #+cmu (progn (ext::print-herald))

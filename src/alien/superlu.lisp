@@ -55,18 +55,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #+superlu
-(define-alien-routine "c_superlu" int
-  (m int) (n int) (nnz int)
-  (colptr (* int))
-  (rowind (* int))
-  (nzval (* double))
-  (nrhs int)
-  (rhs (* double))
-  (sol (* double)))
+(fl.port:def-function ("c_superlu" c-superlu)
+    ((m :int) (n :int) (nnz :int)
+     (colptr (* :int))
+     (rowind (* :int))
+     (nzval (* :double))
+     (nrhs :int)
+     (rhs (* :double))
+     (sol (* :double)))
+  :returning :int)
 
 #+superlu
 (defun superlu (m n nnz cs ri store nrhs rhs sol)
-  "Calls SuperLU if available."
+  "Calls SuperLU."
   (without-gcing
       (c-superlu m n nnz (vector-sap cs) (vector-sap ri)
 		 (vector-sap store) nrhs (vector-sap rhs)

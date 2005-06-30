@@ -139,7 +139,7 @@ command 'make triangle' from the Femlisp main directory."))
 	(setq nodes (make-array (1+ nr-nodes)))
 	(loop
 	 repeat nr-nodes
-	 for (node-id xc yc attribute) = (read-next-uncommented-line stream)
+	 for (node-id xc yc nil) = (read-next-uncommented-line stream)
 	 for pos = (map 'double-vec (rcurry #'coerce 'double-float)
 			(vector xc yc))
 	 for corners = (list pos) do

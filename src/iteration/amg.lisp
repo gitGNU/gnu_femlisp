@@ -40,10 +40,13 @@
 ;;; <algebraic-mg>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defvar *amg-cg-max-size* 1000
+  "Maximum size of the coarse grid in the AMG algorithm.")
+
 (defclass <algebraic-mg> (<correction-scheme> <mg-iteration>)
   ((max-depth :reader max-depth :initform most-positive-fixnum
 	      :initarg :max-depth)
-   (cg-max-size :reader cg-max-size :initform 1000
+   (cg-max-size :reader cg-max-size :initform *amg-cg-max-size*
 		:initarg :cg-max-size)
    (output :initform nil :initarg :output))
   (:documentation "The algebraic multigrid iteration is a multigrid

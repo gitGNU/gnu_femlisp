@@ -245,6 +245,7 @@ problem ~A.~%Parameters: dim=~D, order=~D, level=~D,~%"
 
 (defun test-multigrid-demos ()
   (smoother-performance-test :dim 1 :order 1 :smoother *gauss-seidel* :output t)
+  (smoother-performance-test :dim 1 :order 1 :smoother (geometric-psc))
   (smoother-performance-test :dim 1 :order 6 :smoother (geometric-ssc))
   (smoother-performance-test :dim 3 :order 4 :level 2 :simplex t :smoother (geometric-ssc))
   (bpx-demo-computation (standard-elasticity-problem 2) 1 4)

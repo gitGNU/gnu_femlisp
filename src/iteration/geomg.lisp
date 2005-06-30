@@ -67,11 +67,13 @@ discretization order."
 (defmethod select-smoother (mgit (problem fl.problem::<pde-problem>))
   "This method is called in the case of higher-order discretizations, such
 that we choose an SSC smoother by default."
+  (declare (ignore mgit))
   (geometric-ssc))
 
 (defmethod select-smoother (mgit (problem fl.navier-stokes::<navier-stokes-problem>))
   "For discretized Navier-Stokes system, we use Vanka type smoothing."
-   (make-instance '<vanka>))
+  (declare (ignore mgit))
+  (make-instance '<vanka>))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

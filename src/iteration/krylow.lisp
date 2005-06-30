@@ -70,16 +70,18 @@
 
 (defmethod make-iterator ((cg <cg>) mat)
   "Standard method for the preconditioned conjugate-gradient iteration."
+  (declare (optimize debug))
   (let* ((precond (aand (slot-value cg 'preconditioner)
 			(make-iterator it mat))))
     (when (and precond (slot-value precond 'residual-after))
       (error "This preconditioner does not work, because the application
-here wants to keep residual andrhs intact."))
+here wants to keep residual and rhs intact."))
     (let ((p (make-domain-vector-for mat))
 	  (a (make-image-vector-for mat))
 	  (w (make-image-vector-for mat))
 	  (q (and precond (make-domain-vector-for mat)))
 	  (alpha 0.0))
+      (assert (and p a w q))
       (with-slots (initialize iterate) precond
 	(make-instance
 	 '<iterator>
@@ -107,12 +109,14 @@ here wants to keep residual andrhs intact."))
 		 (axpy! (- lam) a r)
 		 (let ((q (cond (precond
 				 (copy! r w) (x<-0 q)
-				 (funcall iterate q w w))
+				 (funcall iterate q w w)
+				 q)
 				(t (copy r)))))
 		   (let ((new-alpha (dot q r)))
 		     (scal! (/ new-alpha alpha) p)
 		     (m+! q p)
-		     (setq alpha new-alpha))))))
+		     (setq alpha new-alpha))
+		   ))))
 	 :residual-after t)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -179,6 +183,7 @@ here wants to keep residual andrhs intact."))
 	      (-1.0  2.0 -1.0)
 	      ( 0.0 -1.0  2.0)))
 	(b #m((1.0) (2.0) (1.0))))
+    (linsolve A b :output t :iteration (make-instance '<cg> :preconditioner (make-instance '<jacobi>)))
     (linsolve A b :output t :iteration (make-instance '<cg>))
     (setf (mref A 2 1) 7.0)
     (linsolve A b :output t :iteration (make-instance '<cg>))  ; diverges

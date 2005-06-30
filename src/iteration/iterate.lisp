@@ -62,6 +62,7 @@
   (:method ((iter <iteration>) blackboard)
     "Checks if @var{*iteration-depth*} is smaller or equal
 @var{*output-depth*}."
+    (declare (ignore blackboard))
     (if (slot-boundp iter 'output)
 	(let ((slot (slot-value iter 'output)))
 	  (when (null slot)
@@ -113,7 +114,11 @@ blackboard.  Keywords are replaced by macros accessing the blackboard."
 (defgeneric inner-iteration (iter)
   (:documentation "Often the iteration uses another iteration in its loop.
 In this case, this routine returns this inner iteration.  Usually, this
-will be another reader function for some slot."))
+will be another reader function for some slot.")
+  (:method (iter)
+    "Default method returns nil, i.e. there is no inner iteration."
+    (declare (ignore iter))
+    nil))
 
 (defgeneric initially (iter blackboard)
   (:documentation "Performs initial operations."))
@@ -134,10 +139,6 @@ will be another reader function for some slot."))
 (defgeneric iterate (iter blackboard)
   (:documentation "Iterates on the data in the blackboard according to the
 iteration iter."))
-
-(defmethod inner-iteration (iter)
-  "Default method returns nil, i.e. there is no inner iteration."
-  nil)
 
 (defmethod name ((iter <iteration>))
   "The default name of an iteration is either its class name or the class

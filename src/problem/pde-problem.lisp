@@ -182,7 +182,7 @@ association of patch classifications to coefficient functions."
 
 (defmethod describe-object :after ((problem <domain-problem>) stream)
   (doskel ((patch properties) (domain problem))
-    (format t "~&Cell ~A  [Mapping ~A]~%Properties: ~A~%Coeffs: ~A~2%"
+    (format stream "~&Cell ~A  [Mapping ~A]~%Properties: ~A~%Coeffs: ~A~2%"
 	    patch (mapping patch) properties
 	    (coefficients-of-patch patch problem))))
 
@@ -203,7 +203,10 @@ for @arg{cell}.")
 (defgeneric interior-coefficients (problem)
   (:documentation "Returns a list of possible interior coefficients for
 @arg{problem}.")
-  (:method (problem) ()))
+  (:method (problem)
+    "Default method returns no coefficients."
+    (declare (ignore problem))
+    ()))
 
 (defgeneric constraint-identifier (problem &optional cell)
   (:documentation
@@ -308,12 +311,12 @@ problem with respect to errors in the solution."))
 
 (defgeneric self-adjoint-p (problem)
   (:documentation "Returns two values.  The first says if @arg{problem} is
-self-adjoint, the second says if that value has really been checked."))
-
-(defmethod self-adjoint-p (problem)
-  "The default method says that @arg{problem} is not self-adjoint and that no
-check has been performed."
-  (values nil nil))
+self-adjoint, the second says if that value has really been checked.")
+  (:method (problem)
+    "The default method says that @arg{problem} is not self-adjoint and
+that no check has been performed."
+    (declare (ignore problem))
+    (values nil nil)))
 
 ;;; Testing: (test-pde-problem)
 

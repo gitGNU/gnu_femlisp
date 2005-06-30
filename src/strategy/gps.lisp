@@ -39,6 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod select-linear-solver ((problem fl.cdr::<cdr-problem>) blackboard)
+  (declare (ignore blackboard))
   (let ((dim (dimension (domain problem))))
     (make-instance
      '<safe-linear-solver>
@@ -56,6 +57,7 @@
      )))
 
 (defmethod select-linear-solver ((problem fl.elasticity::<elasticity-problem>) blackboard)
+  (declare (ignore blackboard))
   (let ((dim (dimension (domain problem))))
     (make-instance
      '<safe-linear-solver> :iteration
@@ -70,6 +72,7 @@
      )))
 
 (defmethod select-linear-solver ((problem fl.navier-stokes::<navier-stokes-problem>) blackboard)
+  (declare (ignore blackboard))
   (make-instance
    '<safe-linear-solver> :iteration
    (let ((smoother (make-instance '<vanka>)))
@@ -90,6 +93,7 @@
   (:documentation "Select an error estimator."))
 
 (defmethod select-estimator (problem blackboard)
+  (declare (ignore problem))
   (with-items (&key functional) blackboard
     (when functional
       (make-instance '<duality-error-estimator> :functional functional))))
@@ -104,6 +108,7 @@
 (defmethod select-indicator ((problem t) blackboard)
   "For systems, there is still a problem with multigrid and local
 refinements.  Therefore, we do not allow local refinement here."
+  (declare (ignore blackboard))
   (make-instance '<uniform-refinement-indicator>))
 
 (defmethod select-indicator ((problem <cdr-problem>) blackboard)

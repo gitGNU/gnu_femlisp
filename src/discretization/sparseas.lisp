@@ -166,6 +166,7 @@ entries.  Essential constraints are satisfied."
   (:documentation "Choose a reasonable start vector for some strategy.")
   (:method (as problem)
     "Default method chooses 0."
+    (declare (ignore problem))
     (make-ansatz-space-vector as))
   (:method (as (problem <evp-mixin>))
     "For eigenvalue problems we choose a random guess."
@@ -482,15 +483,8 @@ masters."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod select-linear-solver ((asa <ansatz-space-automorphism>) blackboard)
-  "Select a suitable solver depending on size of the matrix and the pde
-problem."
-  (if (case (dimension (domain (problem asa)))
-	(1 t)
-	(2 (<= (nrows asa) 20000))
-	(3 (<= (nrows asa) 5000)))
-      (make-instance '<linear-solver> :success-if `(>= :step 1)
-		     :iteration (make-instance '<lu> :store-p nil))
-      (select-linear-solver (problem asa) blackboard)))
+  "Select a suitable solver depending on the pde problem."
+  (select-linear-solver (problem asa) blackboard))
 
 
 ;;;; Testing

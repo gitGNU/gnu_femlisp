@@ -369,12 +369,21 @@ is called often repeatedly on the same cell in l2g."
     (embedded-dimension (aref (boundary cell) 0))))
 
 (defmethod cell-mapping ((cell <cell>))
-  "For non-mapped cells, this returns a <special-function> which is
-equivalent to calling l2g and l2Dg."
-  (make-instance
-   '<special-function>
-   :domain-dimension (dimension cell) :image-dimension (embedded-dimension cell)
-   :evaluator (curry #'l2g cell) :gradient (curry #'l2Dg cell)))
+  "For non-mapped cells, this method returns a <special-function> which can
+be called instead of @function{l2g} and @function{l2Dg}."
+  ;; is the mapping linear?
+  (let* ((local (make-double-vec (dimension cell)))
+	 (A (l2Dg cell local)) (b (l2g cell local))
+	 (linmap (make-instance '<linear-function> :A A :b b))
+	 (delta (* (norm A) 1000 double-float-epsilon)))
+    (if (every (lambda (corner refcell-corner)
+		 (mzerop (m- corner (evaluate linmap refcell-corner)) delta))
+	       (corners cell) (corners (reference-cell cell)))
+	linmap
+	(make-instance
+	 '<special-function>
+	 :domain-dimension (dimension cell) :image-dimension (embedded-dimension cell)
+	 :evaluator (curry #'l2g cell) :gradient (curry #'l2Dg cell)))))
 
 (defmethod cell-mapping ((cell <mapped-cell>))
   "Return the mappingFor non-mapped cells, this returns a <special-function> which is
@@ -389,7 +398,7 @@ equivalent to calling l2g and l2Dg."
   (l2g cell local-pos))
 (defmethod local->global ((cell <mapped-cell>) local-pos)
   (evaluate (slot-value cell 'mapping) local-pos))
-(defmethod local->Dglobal ((cell <distorted-cell>) local-pos)
+(defmethod local->global ((cell <distorted-cell>) local-pos)
   (evaluate (slot-value cell 'mapping) (l2g cell local-pos)))
 
 (defmethod local->Dglobal ((cell <cell>) local-pos)

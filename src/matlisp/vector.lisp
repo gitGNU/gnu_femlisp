@@ -68,7 +68,12 @@ in parallel."))
 
 ;;; Copy
 (defgeneric copy (x)
-  (:documentation "Returns a deep copy of X."))
+  (:documentation "Returns a deep copy of X.")
+  (:method (x)
+    "This default method for @function{copy} does a destructive copy to an
+empty analog of @arg{x}."
+    (copy! x (make-analog x))))
+
 
 ;;; Filling
 (defgeneric fill! (x s)
@@ -84,7 +89,7 @@ in parallel."))
 
 ;;; BLAS Level 1
 (defgeneric scal! (alpha x)
-  (:documentation "X -> \alpha X"))
+  (:documentation "X <- \alpha X"))
 (defgeneric copy! (x y)
   (:documentation "Y <- X"))
 (defgeneric axpy! (alpha x y)
@@ -94,11 +99,16 @@ in parallel."))
 (defgeneric m.*! (x y)
   (:documentation "Y <- X .* Y"))
 
+(defgeneric mzerop (x &optional threshold)
+  (:documentation "Returns T if each entry of @arg{x} is smaller or equal
+than @arg{threshold}."))
 (defgeneric mequalp (x y)
   (:documentation "Returns T if X and Y have equal entries, otherwise NIL."))
 
 (defgeneric dot (x y)
   (:documentation "Returns the dot product of X and Y."))
+(defgeneric dot-abs (x y)
+  (:documentation "Returns the dot product between |X| and |Y|."))
 
 (defgeneric norm (x &optional p)
   (:documentation "Returns the @arg{p}-norm of @arg{x}."))
@@ -158,10 +168,6 @@ corresponding entry of @arg{vec1} and that entry.  Deprecated.")
 ;;; This is either defined by inlining functions, if we expect those rewritings
 ;;; to be valid for every vector or matrix class.  Alternatively, it may be
 ;;; given by a generic function.
-
-(defmethod copy (x)
-  "Default method for @function{copy}."
-  (copy! x (make-analog x)))
 
 (definline x<-0 (x)
   "X <- 0 X.  Uses SCAL!."

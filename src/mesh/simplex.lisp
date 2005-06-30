@@ -88,6 +88,7 @@ simplex corners."
 (defmethod l2Dg ((simplex <simplex>) local-pos)
   "Returns the linear transformation defined by the coordinates of the
 simplex corners."
+  (declare (ignore local-pos))
   (let* ((dim (dimension simplex))
 	 (corners (corners simplex))
 	 (origin (car corners))

@@ -39,18 +39,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #+umfpack
-(define-alien-routine "c_umfpack" int
-    (m int) (n int) (nnz int)
-    (colptr (* int))
-    (rowind (* int))
-    (nzval (* double))
-    (nrhs int)
-    (rhs (* double))
-    (sol (* double)))
+(fl.port:def-function "c_umfpack"
+    ((m :int) (n :int) (nnz :int)
+     (colptr (* :int))
+     (rowind (* :int))
+     (nzval (* :double))
+     (nrhs :int)
+     (rhs (* :double))
+     (sol (* :double)))
+  :returning :int)
 
 #+umfpack
 (defun umfpack (m n nnz cs ri store nrhs rhs sol)
-  "Calls UMFPACK if available."
+  "Calls UMFPACK."
   (without-gcing
       (c-umfpack m n nnz (vector-sap cs) (vector-sap ri)
 		 (vector-sap store) nrhs (vector-sap rhs)

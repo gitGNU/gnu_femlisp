@@ -63,7 +63,7 @@
   (setf (aref vec index) val))
 (defmethod vref ((vec array) index)
   (row-major-aref vec index))
-(defmethod (setf vref) (val (vec vector) index)
+(defmethod (setf vref) (val (vec array) index)
   (setf (row-major-aref vec index) val))
 
 (defmethod for-each-key (func (x vector))
@@ -140,10 +140,6 @@
 				       ,@body))))
 			    ,functions)))))))
 	  (funcall (aref ,functions 0) ,@(mapcar #'car args)))))))
-
-(define-vector-blas-method m+! ((x vector) (y vector))
-  (dotimes (i (length x) y)
-    (incf (aref x i) (aref y i))))
 
 (define-vector-blas-method copy! ((x vector) (y vector))
   (dotimes (i (length x) y)

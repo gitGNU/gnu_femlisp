@@ -69,7 +69,9 @@
   (+ (* alpha x) y))
 
 (defmethod l2-norm ((x number)) (abs x))
-(defmethod lp-norm ((x number) p) (abs x))
+(defmethod lp-norm ((x number) p)
+  (declare (ignore p))
+  (abs x))
 (defmethod linf-norm ((x number)) (abs x))
 
 (defmethod dot ((x number) (y number)) (* x y))
@@ -79,6 +81,7 @@
 (defmethod mequalp ((x number) (y number)) (= x y))
 
 (defmethod mzerop ((x number) &optional (threshold 0.0))
+  "Tests if the number @arg{x} is lower or equal to @arg{threshold}."
   (<= (abs x) threshold))
 
 (defmethod getrf! ((x number) &optional ipiv)

@@ -198,7 +198,7 @@ DEFMETHOD definition."
 
 (defmacro multi-for ((var start stop) &body body)
   "Loops for @arg{var} being an integer vector starting from @arg{start}
-below @arg{end}.  Example:
+upto @arg{end}.  Example:
 @lisp
   (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))
 @end lisp"
@@ -266,7 +266,7 @@ deprecated, because it won't be recognized by default by editors."
 	     (progn ,@(loop for (place value) in bindings collect
 			    `(setf ,place ,value))
 		    ,@body)
-	  ,@(loop for (place value) in bindings and i from 0 collect
+	  ,@(loop for (place nil) in bindings and i from 0 collect
 		  `(setf ,place (nth ,i ,saved))))))))
 
 ;;;; Testing:

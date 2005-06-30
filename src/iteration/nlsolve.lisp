@@ -78,6 +78,7 @@
     (setq residual-p nil)))
 
 (defmethod select-solver ((problem <nonlinear-problem>) blackboard)
+  (declare (ignore blackboard))
   (make-instance
    '<newton>
    :success-if `(and (> :step 1) (> :step-reduction 0.5))

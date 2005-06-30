@@ -340,7 +340,9 @@ represented as nested lists."))
 		       (differentiate coeff (- index 1)))
 		   lst))))
 
-(defmethod differentiate ((poly number) index) 0)
+(defmethod differentiate ((poly number) index)
+  (declare (ignore index))
+  0)
 
 (defmethod differentiate ((poly polynomial) index)
   (make-polynomial (differentiate (coefficients poly) index)))

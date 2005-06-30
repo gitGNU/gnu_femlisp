@@ -112,19 +112,22 @@ boundary.  Returns a vector of children."
   (declare (optimize speed (safety 1)))
   (let ((my-refinement (make-array (length refinfo) :initial-element nil)))
     (setf (aref subcell-refinements 0) my-refinement)
-    (loop for (child-refcell . vec) across refinfo
+    (loop for (child . vec) across refinfo  ; ! was child-refcell
        and n of-type fixnum from 0 do
-	 (cond ((vertex-p child-refcell)
-		(setf (aref my-refinement n)
-		      (make-vertex (local->global cell vec))))
-	       (t (setf (aref my-refinement n)
-			(make-instance (class-of child-refcell)))
-		  (setf (slot-value (aref my-refinement n) 'boundary)
-			(map 'cell-vec
-			     #'(lambda (k&j)
-				 (aref (the simple-vector
-					 (aref subcell-refinements (car k&j))) (cdr k&j)))
-			     vec)))))
+	 (symbol-macrolet ((new-child (aref my-refinement n)))
+	   (cond
+	     ((vertex-p child)
+	      (setf new-child (make-vertex (local->global cell vec))))
+	     (t (setf new-child (make-instance (class-of child)))
+		(setf (slot-value new-child 'boundary)
+		      (map 'cell-vec
+			   #'(lambda (k&j)
+			       (aref (the simple-vector
+				       (aref subcell-refinements (car k&j))) (cdr k&j)))
+			   vec))
+		(when (mapped-p child)
+		  (setf (slot-value new-child 'mapping)
+			(compose-2 (cell-mapping cell) (cell-mapping child))))))))
     my-refinement))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -190,9 +193,13 @@ the rule and the children."
 	    (let ((subcells (subcells refcell)))
 	      (map 'vector
 		   #'(lambda (child)
-		       (cons (reference-cell child)
+		       (cons (?2 (reference-cell child) child)
 			     (if (vertex-p child)
-				 (global->local refcell (vertex-position child))
+				 (let* ((p1 (vertex-position child))
+				       (p2 (global->local refcell p1)))
+				   (unless (mzerop (m- p1 p2) 1.0e-13)
+				     (error "Should not happen"))
+				   p2)
 				 (map 'vector
 				      #'(lambda (side)
 					  (loop for k from 0 and subcell across subcells
@@ -275,32 +282,34 @@ levels 0 and 1 are always memoized, becuause these are needed for
 refinement operations.  NIL indicates no additional memoization beyond
 levels 0 and 1, T indicates infinite depth.")
 
-(let ((refcell-refinement-table (make-hash-table :test 'equalp)))
-  (defun refcell-refinement-skeleton (refcell &optional (level 1) (rule 0) reinit)
-    "Returns an LEVEL times refined skeleton of REFCELL.  It is partially
+(defvar *refcell-refinement-table* (make-hash-table :test 'equalp)
+  "Table where refinements of reference cells are memoized.")
+
+(defun refcell-refinement-skeleton (refcell &optional (level 1) (rule 0) reinit)
+  "Returns an LEVEL times refined skeleton of REFCELL.  It is partially
 memoized, see the documentation of *REFCELL-REFINEMENT-MEMOIZE-DEPTH*."
-    (assert (reference-cell-p refcell))
-    (setf rule (get-refinement-rule refcell rule))
-    (assert rule)
-    (when reinit  ; reinitialize the whole rule
-      (loop for key being each hash-key of refcell-refinement-table
-	   when (eql (car key) rule) do
-	   (remhash key refcell-refinement-table)))
-    (let ((key (list refcell level rule)))
-      (or (gethash key refcell-refinement-table)
-	  (let ((result
-		 (cond
-		   ((zerop level) (skeleton refcell))
-		   (t (refine (refcell-refinement-skeleton refcell (1- level) rule)
-			      :decouple nil :indicator (constantly rule) :highest t)))))
-	    (dbg :refine "Generating new refinement skeleton.~%Key=~A" key)
-	    (when (or (<= level 1)  ; is needed for refinement
-		      (and *refcell-refinement-memoize-depth*
-			   (or (eq *refcell-refinement-memoize-depth* T)
-			       (<= level *refcell-refinement-memoize-depth*))))
-	      (setf (gethash key refcell-refinement-table)
-		    result))
-	    result)))))
+  (assert (reference-cell-p refcell))
+  (setf rule (get-refinement-rule refcell rule))
+  (assert rule)
+  (when reinit				; reinitialize the whole rule
+    (loop for key being each hash-key of *refcell-refinement-table*
+       when (eql (car key) rule) do
+       (remhash key *refcell-refinement-table*)))
+  (let ((key (list refcell level rule)))
+    (or (gethash key *refcell-refinement-table*)
+	(let ((result
+	       (cond
+		 ((zerop level) (skeleton refcell))
+		 (t (refine (refcell-refinement-skeleton refcell (1- level) rule)
+			    :decouple nil :indicator (constantly rule) :highest t)))))
+	  (dbg :refine "Generating new refinement skeleton.~%Key=~A" key)
+	  (when (or (<= level 1)	; is needed for refinement
+		    (and *refcell-refinement-memoize-depth*
+			 (or (eq *refcell-refinement-memoize-depth* T)
+			     (<= level *refcell-refinement-memoize-depth*))))
+	    (setf (gethash key *refcell-refinement-table*)
+		  result))
+	  result))))
 
 (defun subcell-children (cell skeleton)
   "Returns a vector of all children of the subcells of @arg{cell} in

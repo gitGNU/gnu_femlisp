@@ -88,7 +88,7 @@ around a CMUCL enum bug."
 
 (defun load-superlu-library ()
   "Loads foreign code for accessing SuperLU."
-  (load-shared-object fl.start::*superlu-library*))
+  (load-foreign-library fl.start::*superlu-library*))
 
 (when fl.start::*superlu-library*
   (load-superlu-library)
@@ -99,7 +99,7 @@ around a CMUCL enum bug."
 
 (defun load-umfpack-library ()
   "Loads foreign code for accessing UMFPACK."
-  (load-shared-object fl.start::*umfpack-library*))
+  (load-foreign-library fl.start::*umfpack-library*))
 
 (when fl.start::*umfpack-library*
   (load-umfpack-library)

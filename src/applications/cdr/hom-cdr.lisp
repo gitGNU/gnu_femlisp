@@ -151,7 +151,7 @@ vector field whose components are plotted one after the other.  The setting
 has cubic symmetry, from which one can easily see that the effective tensor
 must be a scalar multiple of the identity."
   (let ((*output-depth* output))
-    (defparameter *result*
+    (setq *result*
       (solve
        (make-instance
 	'<stationary-fe-strategy> :fe-class (lagrange-fe order)
@@ -216,7 +216,7 @@ must be a scalar multiple of the identity."
 				     (porous-cell-problem dim) order levels :plot t)))))
     (adjoin-demo demo *effective-diffusion-demo*)))
 
-(make-effective-diffusion-porous-domain-demo 2 5 3)
+(make-effective-diffusion-porous-domain-demo 2 5 2)
 (make-effective-diffusion-porous-domain-demo 3 4 1)
 
 ;;; 3D Ordnung 4 und 5
@@ -243,8 +243,6 @@ must be a scalar multiple of the identity."
 ;;;; Testing: (cdr-hom-tests)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *result* nil)
-
 (defun cdr-hom-tests ()
 
 (cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :output :all)
@@ -256,7 +254,7 @@ must be a scalar multiple of the identity."
 	:coefficient 'FL.CDR::DIFFUSION :key (rcurry #'mref 0 0))
 
 ;; solve cell problem and compute homogenized coefficient
-(defparameter *result*
+(setq *result*
   (cell-solve (simple-ball-inlay-cell-problem 2 0.1)
 	      :level 3 :order 1))
 (effective-tensor *result*)
@@ -277,7 +275,7 @@ must be a scalar multiple of the identity."
 (plot (getbb *result* :solution) :index 0)
 
 ;; first order with full multigrid
-(defparameter *result*
+(setq *result*
   (time
    (let ((level 2) (order 1))
      (cell-solve
@@ -296,14 +294,14 @@ must be a scalar multiple of the identity."
 (plot (getbb *result* :solution) :index 0)
 (plot (getbb *result* :solution) :index 1)
 
-(defparameter *result*
+(setq *result*
   (cell-solve (inlay-cell-problem 2 0.1) :level 2
 		:order 1 :parametric (lagrange-mapping 2)))
 (plot (getbb *result* :mesh)) ; :plot :file :format "tiff")
 
 ;; higher order
 (time
- (defparameter *result*
+ (setq *result*
    (let ((dim 2) (level 1) (order 4))
      (cell-solve
       (inlay-cell-problem dim 0.1) :level level
@@ -325,7 +323,7 @@ must be a scalar multiple of the identity."
 
 ;;; an adaptive calculation (working?)
 #+(or)
-(defparameter *result*
+(setq *result*
   (time
    (let ((dim 2) (order 2))
      (solve

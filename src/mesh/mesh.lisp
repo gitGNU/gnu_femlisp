@@ -94,6 +94,7 @@ domain dimension by default."
 children.  For meshes approximating smooth boundaries, the mappings from
 interior children are abandoned and finer parametric ones for the boundary
 neighbors are generated."
+  (declare (ignore rule refined-region))
   ;; set patch
   (loop with patch = (patch-of-cell cell mesh)
 	for child across (children cell mesh) do
@@ -228,8 +229,7 @@ disection method.  Returns a list of the sorted cells."
     ;; collect the cells of the level 0 mesh in the correct order
     (doskel (cell (bottom-level-cells h-mesh)) (push cell elist))
     ;; sort the cells of the refinements
-    (loop for k from 0 upto (or level (- (nr-of-levels h-mesh) 2))
-	  for level-cells = (aref (levels h-mesh) k) do
+    (loop for k from 0 upto (or level (- (nr-of-levels h-mesh) 2)) do
 	  (setq elist
 		(loop for cell in elist appending
 		      (loop with children = (children cell h-mesh)

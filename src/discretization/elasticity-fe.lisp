@@ -123,6 +123,7 @@ is an array of rank 2 with standard-matrix entries."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod select-discretization ((problem <elasticity-problem>) blackboard)
+  (declare (ignore blackboard))
   (let* ((dim (dimension (domain problem)))
 	 (order (or *suggested-discretization-order*
 		    (if (<= dim 2) 4 3))))

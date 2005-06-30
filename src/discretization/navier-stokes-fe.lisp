@@ -156,6 +156,7 @@ dropped.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod select-discretization ((problem <navier-stokes-problem>) blackboard)
+  (declare (ignore blackboard))
   (let* ((dim (dimension (domain problem)))
 	 (order (or *suggested-discretization-order*
 		    (if (<= dim 2) 2 1))))

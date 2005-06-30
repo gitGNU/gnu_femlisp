@@ -43,8 +43,7 @@
    "SELECT-DISCRETIZATION" "*SUGGESTED-DISCRETIZATION-ORDER*")
   
   (:export				; fe.lisp
-   "<DOF>" "DOF-INDEX" "DOF-SUBCELL-INDEX" "DOF-IN-VBLOCK-INDEX"
-   "DOF-VBLOCK-LENGTH"
+   "DOF" "DOF-INDEX" "DOF-SUBCELL-INDEX" "DOF-IN-VBLOCK-INDEX"
    "DOF-FUNCTIONAL" "DOF-COORD" "DOF-GCOORD" "INTERIOR-DOF?" "DOF-COMPONENT"
    "ASSEMBLE-INTERIOR" "ESSENTIAL-BOUNDARY-CONSTRAINTS" "CONSTRAINTS-ON-LEVEL"
    "ELIMINATE-CONSTRAINTS"
@@ -138,5 +137,3 @@ In the files @path{cdr-fe.lisp}, @path{elasticity-fe.lisp} and
 different problems.  They are defined in own packages which use both the
 package @package{FL.DISCRETIZATION} and the package for the particular
 problem."))
-
-

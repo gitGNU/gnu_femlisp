@@ -78,6 +78,16 @@ not have to be copied for a call to the alien sparse solvers."))
   (:documentation "A CCS (compressed column storage) matrix.  This is an
 abstract class which is made concrete by mixing it with a store-vector."))
 
+(defmethod mref ((ccs ccs-matrix) i j)
+  "This method is at the moment very inefficient because it ignores any
+ordering."
+  (with-slots (column-starts row-indices) (pattern ccs)
+    (let ((k (position i row-indices :start (aref column-starts j)
+		       :end (aref column-starts (1+ j)))))
+      (if k
+	  (aref (slot-value ccs 'store) k)
+	  (coerce 0 (element-type ccs))))))
+
 (defmethod nrows ((ccs ccs-matrix))
   (slot-value (pattern ccs) 'nrows))
 
@@ -126,7 +136,6 @@ abstract class which is made concrete by mixing it with a store-vector."))
        (for-each-key-and-entry
 	#'(lambda (i.j value)
 	    (destructuring-bind (i . j) i.j
-	      (format t "~A ~A ~A~%" i j value)
 	      (if transposed-p
 		  (setf (aref store (+ (* i m) j)) value)
 		  (setf (aref store (+ (* j m) i)) value))))
@@ -252,7 +261,9 @@ given number of active grid points in each dimension."
 	 (ccs (make-instance
 	       (ccs-matrix 'double-float) :pattern pattern :store #d(2.0)))
 	 (rhs #m(1.0)))
-    (gesv! ccs rhs)))
+    (mref ccs 0 0)
+    (gesv! ccs rhs))
+  )
 
 ;;; (test-ccs)
 (fl.tests:adjoin-test 'test-ccs)

@@ -99,6 +99,7 @@
   (let* ((position-indices (compute-position-indices cells 0))
 	 (position-array (position-array cells position-indices 0 transformation)))
     ;; write positions
+    (dbg :plot "Positions:~%~A" position-array)
     (write-positions stream position-array)
     ;; write connections
     (format stream "object 2 class array type int rank 1 shape 2 items ~D data follows~%"

@@ -40,7 +40,10 @@
 
 (defgeneric discretization-order (disc)
   (:documentation "Returns the order of the discretization.")
-  (:method (disc) "Default value is @code{:variable}." :variable))
+  (:method (disc)
+    "Default value is @code{:variable}."
+    (declare (ignore disc))
+    :variable))
 
 (defgeneric discretize (discretization problem blackboard)
   (:documentation "Calculates matrix and right-hand side for the
@@ -57,5 +60,6 @@ depending on the parameters on the @var{blackboard}."))
 
 (defmethod select-discretization :around (problem blackboard)
   "Forces the use of a discretization on the blackboard."
+  (declare (ignore problem))
   (aif (getbb blackboard :fe-class) it (call-next-method)))
 

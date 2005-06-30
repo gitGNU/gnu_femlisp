@@ -54,6 +54,7 @@ boundary is taken from the list of lower-dimensional products supplied in
 table.  The tensor product boundary is in the order de1 x e2, e1 x de2."))
 
 (defmethod make-product-cell :before ((cell1 <mapped-cell>) (cell2 <mapped-cell>) table)
+  (declare (ignore table))
   (error "Tensorial mappings do not yet work."))
 
 (defgeneric tensor-product (x y)

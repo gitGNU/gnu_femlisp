@@ -49,15 +49,17 @@ the flag :RESIDUAL-P is set on the blackboard."))
 
 (defgeneric ensure-solution (problem blackboard)
   (:documentation "Ensures that the field :SOLUTION is set on the
-blackboard."))
+blackboard.")
+  (:method (problem blackboard)
+    "Default method throws an error."
+    (declare (ignore problem blackboard))
+    (error "No initial guess for SOLUTION.")))
 
 (defmethod ensure-solution :around (problem blackboard)
   "This :around method takes the field :SOLUTION from the blackboard."
+  (declare (ignore problem))
   (or (getbb blackboard :solution)
       (call-next-method)))
-
-(defmethod ensure-solution (problem blackboard)
-  (error "No initial guess for SOLUTION."))
 
 (defmethod ensure-residual (problem blackboard)
   "This default method handles nonlinear problems by linearizing them and
@@ -95,6 +97,7 @@ SOLUTION.  The result should be a linear problem."))
 (defmethod linearize (problem solution)
   "This default method throws an error for nonlinear problems and is the
 identity on linear problems."
+  (declare (ignore solution))
   (if (get-property problem 'linear-p)
       problem
       (error "No method LINEARIZE provided for this problem.")))

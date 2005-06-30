@@ -284,6 +284,7 @@ matrix.")
       (tensor-ref local-imat 0 1))
     (show (local-imatrix (refrule 1) (fe 3)))
     (show (local-pmatrix (refrule 1) (fe 3)))
+    (show (local-imatrix (refrule 0) (fe 2 2 0)))
     (show (local-imatrix (refrule 1) (fe 2 2)))
     (assert
      (= 28 (total-entries (local-imatrix (refrule 1) (fe 2 2)))))

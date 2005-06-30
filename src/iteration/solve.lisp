@@ -77,6 +77,7 @@ matrix or a linear problem with certain characteristics."))
 
 (defmethod select-solver :around (object blackboard)
   "If a solver is on the blackboard, use it."
+  (declare (ignore object))
   (or (getbb blackboard :solver) (call-next-method)))
 
 (defmethod select-solver ((problem <problem>) blackboard)
@@ -86,9 +87,16 @@ matrix or a linear problem with certain characteristics."))
       (select-linear-solver problem blackboard)
       (error "No solver for this problem known.")))
 
+(defvar *select-linear-solver* nil
+  "If this variable is non-nil, it is funcalled for selecting a linear
+solver.  An alternative way of handling this could be given by Pascal
+Costanza's @code{AspectL}.")
+
 (defmethod select-linear-solver :around (object blackboard)
   "If a linear solver is on the blackboard, use it."
-  (or (getbb blackboard :solver) (call-next-method)))
+  (or (and *select-linear-solver*
+	   (funcall *select-linear-solver* object blackboard))
+      (getbb blackboard :solver) (call-next-method)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Iterative solvers for discrete problems

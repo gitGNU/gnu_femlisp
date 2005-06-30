@@ -40,7 +40,7 @@
 
 (defclass <block-iteration> (<linear-iteration>)
   ((inner-iteration
-    :reader inner-iteration :initform (make-instance '<lu>)
+    :reader inner-iteration :initform nil
     :initarg :inner-iteration
     :documentation "Iteration which is used to solve for each block.")
    (ordering :accessor ordering :initform nil :initarg :ordering)
@@ -100,9 +100,6 @@ decomposition."))
   "Use the setup function."
   (funcall (slot-value blockit 'block-setup) blockit smat))
 
-(defclass <block-gauss-seidel> (<ssc>)
-  ((omega :initform 1.0)))
-
 (defun compute-block-inverse (smat keys ranges)
   (m/ (sparse-matrix->matlisp
        smat :keys keys :ranges ranges)))
@@ -113,12 +110,12 @@ decomposition."))
 	and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
 	collecting (compute-block-inverse smat keys (car ranges-tail))))
 
-(defmethod make-iterator ((psc <psc>) (smat <sparse-matrix>))
+(defmethod make-iterator ((iter <block-iteration>) (smat <sparse-matrix>))
   (multiple-value-bind (blocks ranges)
-      (setup-blocks psc smat)
+      (setup-blocks iter smat)
     (dbg :iter "blocks=~A~%ranges=~A" blocks ranges)
     (let ((diagonal-inverses
-	   (if (store-p psc)
+	   (if (store-p iter)
 	       (compute-block-inverses smat blocks ranges)
 	       (make-list (length blocks)))))
       (make-instance
@@ -128,68 +125,39 @@ decomposition."))
        :initialize nil
        :iterate
        #'(lambda (x b r)
-	   (declare (ignore b))
-	   (dbg :iter "iterate psc")
-	   (loop for block in blocks
+	   (dbg :iter "iterating ~A" iter)
+	   (let ((damp (typecase iter
+			 (<psc> (slot-value iter 'damp))
+			 (<ssc> (assert (= 1.0 (slot-value iter 'damp)))
+				(slot-value iter 'omega)))))
+	     (loop
+	      for block in blocks
 	      and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
 	      for block-ranges = (car ranges-tail)
 	      and diag-inverse in diagonal-inverses do
+	      ;; ssc: update residual on the block (disregarding ranges)
+	      (when (typep iter '<ssc>)
+		(loop for key across block do
+		      (copy! (vref b key) (vref r key))
+		      (for-each-key-and-entry-in-row
+		       #'(lambda (col-key mblock)
+			   #+(or)(gemm! -1.0 mblock (vref x col-key) 1.0 (vref r key))
+			   #-(or)(x-=Ay (vref r key) mblock (vref x col-key)))
+		       smat key)))
+	      ;; solve for local block
 	      (let ((local-r (sparse-vector->matlisp r block block-ranges))
-		    (local-x (sparse-vector->matlisp x block block-ranges)))
+		    (local-x (sparse-vector->matlisp x block block-ranges))
+		    (local-mat (sparse-matrix->ccs smat :keys block :ranges (car ranges-tail))))
 		(cond
+		  ((inner-iteration iter)
+		   (let ((bb (blackboard :problem (lse :matrix local-mat :rhs local-r))))
+		     (solve (inner-iteration iter) bb)
+		     (axpy! damp (getbb bb :solution) local-x)))
 		  (diag-inverse
-		   (gemm! (slot-value psc 'damp) diag-inverse local-r 1.0 local-x))
-		  (t (gesv! (if fl.matlisp::*default-ccs-solver*
-				(sparse-matrix->ccs smat :keys block :ranges (car ranges-tail))
-				(sparse-matrix->matlisp smat :keys block :ranges (car ranges-tail)))
-			    local-r)
-		     (axpy! (slot-value psc 'damp) local-r local-x)))
-		(set-svec-to-local-block x local-x block block-ranges))
-	      )
-	   x)
-       :residual-after nil))))
-
-(defmethod make-iterator ((ssc <ssc>) (smat <sparse-matrix>))
-  (multiple-value-bind (blocks ranges)
-      (setup-blocks ssc smat)
-    (dbg :iter "blocks=~A~%ranges=~A" blocks ranges)
-    (let ((diagonal-inverses
-	   (if (store-p ssc)
-	       (compute-block-inverses smat blocks ranges)
-	       (make-list (length blocks)))))
-      (make-instance
-       '<iterator>
-       :matrix smat
-       :residual-before nil
-       :initialize nil
-       :iterate
-       #'(lambda (x b r)
-	   (dbg :iter "iterate ssc")
-	   (loop for block in blocks
-		 and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
-		 for block-ranges = (car ranges-tail)
-		 and diag-inverse in diagonal-inverses do
-		 ;; compute residual on the block (disregarding the ranges)
-		 (loop for key across block do
-		       (copy! (vref b key) (vref r key))
-		       (for-each-key-and-entry-in-row
-			#'(lambda (col-key mblock)
-			    #+(or)(gemm! -1.0 mblock (vref x col-key) 1.0 (vref r key))
-			    #-(or)(x-=Ay (vref r key) mblock (vref x col-key)))
-			smat key))
-		 ;; now invert local system
-		 (let ((local-r (sparse-vector->matlisp r block block-ranges))
-		       (local-x (sparse-vector->matlisp x block block-ranges)))
-		   ;; ensure inverse
-		   (cond
-		     (diag-inverse
-		      (gemm! (slot-value ssc 'omega) diag-inverse local-r 1.0 local-x))
-		     (t (gesv! (if fl.matlisp::*default-ccs-solver*
-				   (sparse-matrix->ccs smat :keys block :ranges (car ranges-tail))
-				   (sparse-matrix->matlisp smat :keys block :ranges (car ranges-tail)))
-			       local-r)
-			(axpy! (slot-value ssc 'omega) local-r local-x)))
-		   (set-svec-to-local-block x local-x block block-ranges)))
+		   (gemm! damp diag-inverse local-r 1.0 local-x))
+		  (t (gesv! local-mat local-r)
+		     (axpy! damp local-r local-x)))
+		(set-svec-to-local-block x local-x block block-ranges))))
 	   x)
        :residual-after nil))))
 

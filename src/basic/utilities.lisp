@@ -180,6 +180,7 @@ partial sums."
   "Returns the last element of @arg{vec}."
   (aref vec (1- (length vec))))
 
+(declaim (inline zero-vector))  ; useful for propagating type information
 (defun zero-vector (dim element-type)
   "Returns a uniform vector for the given element type filled with zeros."
   (make-array dim :element-type element-type :initial-element (coerce 0 element-type)))

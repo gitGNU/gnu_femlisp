@@ -173,10 +173,10 @@ still a suboptimal implementation for vector functions."
 	  (when (numberp value) (setq value (make-real-matrix `((,value)))))
 	  (dotimes (i (multiplicity asv))
 	    (setf (mref local-vec (dof-index dof) i)
-		  (mref (if (typep dof '<vector-dof>)
-			       (aref value (dof-component dof))
-			       value)
-			   0 i)))))
+		  (mref (if (typep dof 'vector-dof)
+			    (aref value (dof-component dof))
+			    value)
+			0 i)))))
       (set-global-to-local-vec cell fe asv local-vec))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

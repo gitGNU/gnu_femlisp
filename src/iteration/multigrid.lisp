@@ -49,6 +49,7 @@
 iteration and matrix.")
   (:method (mg-it matrix)
     "Returns the Gauss-Seidel method as default smoother."
+    (declare (ignore mg-it matrix))
     (make-instance '<gauss-seidel>)))
 
 (defclass <mg-iteration> (<linear-iteration>)

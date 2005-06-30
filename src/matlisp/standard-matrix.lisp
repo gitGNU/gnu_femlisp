@@ -52,10 +52,12 @@
 
 (defmethod element-type (matrix)
   "Default method returns T."
+  (declare (ignore matrix))
   T)
 
 (defmethod scalar-type (matrix)
   "Default method returns NUMBER."
+  (declare (ignore matrix))
   'NUMBER)
 
 (declaim (inline indexing))
@@ -304,14 +306,6 @@ elements.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Copy
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmethod copy ((matrix standard-matrix))
-  "Copy constructor for standard-matrix."
-  (make-instance
-   (class-of matrix)
-   :nrows (slot-value matrix 'nrows)
-   :ncols (slot-value matrix 'ncols)
-   :content (slot-value matrix 'store)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Special matrices

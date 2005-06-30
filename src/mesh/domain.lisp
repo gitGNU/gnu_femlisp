@@ -96,6 +96,7 @@ compute the boundary afterwards."
 				     &key classifiers &allow-other-keys)
   "When a domain is constructed from a list of cells, we assume that its
 definition is finished and setup the boundary slot."
+  (declare (ignore slot-names))
   (setf (slot-value domain 'classifiers)
 	(list (lambda (patch classifications)
 		(declare (ignore classifications))

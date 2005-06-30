@@ -84,6 +84,7 @@ and :time."
 
 (defmethod select-linear-solver (object blackboard)
   "Default method selects LU decomposition."
+  (declare (ignore object blackboard))
   (lu-solver))
 
 (defmethod select-linear-solver ((lse <lse>) blackboard)

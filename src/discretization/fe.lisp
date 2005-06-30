@@ -35,55 +35,50 @@
 (in-package :fl.discretization)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <dof>
+;;; dof
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defstruct (<dof> (:conc-name dof-))
-  "<dof> = degree of freedom.  It is defined as a functional defined by
-integration over a sub-cell or by evaluation at a local coordinate of a
-sub-cell of a reference cell.  <dof>-constructors are provided by
-modules like lagrange.lisp, maybe later hermite.lisp.  The components
-contain the following information:
+(defclass dof ()
+  ((index :reader dof-index :initarg :index :type fixnum
+	  :documentation "index of the dof in the cell-dof array")
+   (subcell-index :reader dof-subcell-index :initarg :subcell-index :type fixnum
+		  :documentation "index of the reference subcell on which the dof is defined")
+   (in-vblock-index :reader dof-in-vblock-index :initarg :in-vblock-index :type fixnum
+		    :documentation "index of the dof in the subcell vblock")
+   (subcell :reader dof-subcell :initarg :subcell
+		  :documentation "reference subcell on which the dof is defined")
+   (coord :reader dof-coord :initarg :coord :type double-vec
+	    :documentation "local coordinate of the dof in the reference subcell")
+   (gcoord :reader dof-gcoord :initarg :gcoord :type double-vec
+	  :documentation "global coordinate of the dof on the reference cell")
+   (functional :reader dof-functional :initarg :functional
+	   :documentation "a functional for functions defined on the reference cell"))
+  (:documentation
+   "Degree of freedom in a finite element.  It is defined as a functional
+defined by integration over a sub-cell or by evaluation at a local
+coordinate of a sub-cell of a reference cell. "))
 
-index:           the index of the dof in the cell-dof array
-subcell-index:   the index of the subcell on which the dof is defined
-in-vblock-index: the index of the dof in the subcell vblock
-subcell:         the subcell (information only)
-coord:           the local coord of the dof (in the subcell)
-gcoord:          the g-coord of the dof (on the cell, not the subcell)
-functional:      an application to a function defined on the
-                 (fe) reference-cell (not the subcell)
-"
-  (index -1 :type fixnum)
-  (subcell-index -1 :type fixnum)
-  (in-vblock-index -1 :type fixnum)
-  (vblock-length -1 :type fixnum)
-  (subcell (required-argument) :type <cell>)
-  (coord (required-argument) :type double-vec)
-  (gcoord (required-argument) :type double-vec)
-  (functional nil))
-
-(defmethod evaluate ((dof <dof>) fe-func)
+(defmethod evaluate ((dof dof) fe-func)
   (evaluate (dof-functional dof) fe-func))
 
 (defun interior-dof? (dof) (zerop (dof-subcell-index dof)))
 
-(defstruct (<vector-dof> (:include <dof>) (:conc-name dof-))
-  "A dof of a vector finite element.  Has an additional component field."
-  (component 0 :type positive-fixnum))
+(defclass vector-dof (dof)
+  ((component :reader dof-component :initarg :component :documentation
+    "The component in the solution vector to which this @class{dof} belongs."))
+  (:documentation "A dof of a vector finite element."))
 
-(defun dof->vector-dof (dof component subcell-offsets)
+(defun new-vector-dof-from-dof (dof component subcell-offsets)
   "Generates a vector-dof from a scalar dof."
-  (make-<vector-dof>
-   :index (dof-index dof)
-   :subcell-index (dof-subcell-index dof)
-   :in-vblock-index (+ (aref subcell-offsets (dof-subcell-index dof))
-		       (dof-in-vblock-index dof))
-   :subcell (dof-subcell dof)
-   :coord (dof-coord dof)
-   :gcoord (dof-gcoord dof)
-   :functional (dof-functional dof)
-   :component component))
+  (make-instance 'vector-dof
+		 :index (dof-index dof)
+		 :subcell-index (dof-subcell-index dof)
+		 :in-vblock-index (+ (aref subcell-offsets (dof-subcell-index dof))
+				     (dof-in-vblock-index dof))
+		 :subcell (dof-subcell dof)
+		 :coord (dof-coord dof) :gcoord (dof-gcoord dof)
+		 :functional (dof-functional dof)
+		 :component component))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <fe>
@@ -232,7 +227,7 @@ in a sparse vector value block corresponding to the subcell."
 			 (local-off local-offset) (subcell-offset subcell-offsets))
 	       nconcing
 	       (loop+ ((dof (fe-dofs fe))) collecting
-		  (dof->vector-dof dof comp subcell-offset))))
+		  (new-vector-dof-from-dof dof comp subcell-offset))))
       )))
 
 (defmethod make-local-vec ((vecfe <vector-fe>) &optional (multiplicity 1))

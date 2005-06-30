@@ -188,7 +188,7 @@ parameter, eta is the diagonal enhancement."))
 (defclass <jacobi> (<linear-iteration>)
   ())
 
-(defmethod make-iterator ((jac <jacobi>) (mat standard-matrix))
+(defmethod make-iterator ((jac <jacobi>) (mat <matrix>))
   (with-slots (damp) jac
     (make-instance
      '<iterator>

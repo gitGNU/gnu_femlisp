@@ -176,10 +176,11 @@ from @arg{skel-2} to their counterpart in @arg{skel-1}."
 (defgeneric transform-cell! (cell transformation)
   (:documentation "Transforms the cell according to the transformation.
 Note that this will not work, if unmapped cells are transformed
-nonlinearly."))
-
-(defmethod transform-cell! (cell transformation)
-  cell)
+nonlinearly.")
+  (:method (cell transformation)
+    "Default method returns @arg{cell}."
+    (declare (ignore transformation))
+    cell))
 
 (defmethod transform-cell! :before (cell transformation)
   (unless (or (vertex-p cell) (mapped-p cell)

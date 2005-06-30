@@ -43,7 +43,7 @@ discretization for convection-diffusion-reaction problems.
 
 It can handle the following equation:
 
-@math{- \partial_i (K_{ij} (\partial_j u + g_j) + \partial_i (c u) + r u = f}
+@math{- \partial_i (K_{ij} (\partial_j u + g_j) + \partial_i (c_i u) + r u = f}
 
 Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 @math{r} is the reaction coefficient, @math{f} is the source function, and
@@ -185,6 +185,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod select-discretization ((problem <cdr-problem>) blackboard)
+  (declare (ignore blackboard))
   (let* ((dim (dimension (domain problem)))
 	 (order (or *suggested-discretization-order*
 		    (cond ((<= dim 2) 4)

@@ -34,8 +34,6 @@
 
 (in-package :fl.matlisp)
 
-(defmethod multiplicity (mat) (ncols mat))
-
 (defmethod make-analog ((arr array))
   (make-array (array-dimensions arr) :element-type (array-element-type arr)))
 
@@ -63,9 +61,6 @@
 (defun area-of-span (mat)
   "Computes the volume spanned by the columns of @arg{mat}."
   (sqrt (abs (det (m*-tn mat mat)))))
-
-(defmethod mzerop ((x number) &optional (threshold 0.0))
-  (<= (abs x) threshold))
 
 (defmethod mzerop ((mat standard-matrix) &optional (threshold 0.0))
   (every #'(lambda (x) (<= (abs x) threshold))

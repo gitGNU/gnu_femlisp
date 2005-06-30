@@ -47,11 +47,11 @@
    "*ITERATIVE-SOLVER-OBSERVE*" "<ITERATIVE-SOLVER>"
    "<SPECIAL-SOLVER>")
   (:export  ; linit.lisp
-   "<LINEAR-ITERATION>" "DAMPING-FACTOR" "COMPUTE-RESIDUAL"
+   "<LINEAR-ITERATION>" "COMPUTE-RESIDUAL"
    "<ITERATOR>" "MAKE-ITERATOR"
    "<MULTI-ITERATION>" "PRODUCT-ITERATOR"
    "<LU>" "<ILU>"
-   "<JACOBI>" "<BLOCK-JACOBI>" "*UNDAMPED-JACOBI*"
+   "<JACOBI>" "*UNDAMPED-JACOBI*"
    "<SOR>" "<GAUSS-SEIDEL>" "*GAUSS-SEIDEL*"
    "<SOLVER-ITERATION>")
   (:export  ; linsolve.lisp
@@ -64,8 +64,7 @@
   (:export  ; blockit.lisp
    "<BLOCK-ITERATION>" "SETUP-BLOCKS" "MAKE-BLOCK" "BLOCKS"
    "<PSC>" "<SSC>" "<CUSTOM-PSC>" "<CUSTOM-SSC>"
-   "<BLOCK-JACOBI>"
-   "<BLOCK-SOR>" "<BLOCK-GAUSS-SEIDEL>" "<CUSTOM-BLOCK-GAUSS-SEIDEL>")
+   "<BLOCK-SOR>" "<CUSTOM-BLOCK-GAUSS-SEIDEL>")
   (:export  ; newton.lisp
    "NEWTON")
   (:documentation "The @package{FL.ITERATION} package includes the

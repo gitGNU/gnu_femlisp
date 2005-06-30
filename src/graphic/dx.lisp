@@ -67,7 +67,7 @@
 	   :input :stream :output (dbg-when :graphic *trace-output*))))
 ;;;	   :directory *images-pathname*)))
   (unless *dx-process*
-    (format *error-output* "~&ENSURE-DX-PROCESS: could not start DX.~%"))
+    (warn "~&ENSURE-DX-PROCESS: could not start DX.~%"))
   *dx-process*)
 
 (defmethod graphic-input-stream ((program (eql :dx)))
@@ -90,9 +90,11 @@
 This is a trick to make @arg{dx} redraw the picture.")
 
 (defmethod graphic-file-name (object (program (eql :dx)) &key &allow-other-keys)
+  (declare (ignore object))
   *dx-file*)
 
 (defmethod graphic-output :after (object (program (eql :dx)) &key &allow-other-keys)
+  (declare (ignore object))
   (setq *dx-toggle* (if (zerop *dx-toggle*) 1 0)))
 
 (defmethod send-graphic-commands (object (program (eql :dx)) &rest paras

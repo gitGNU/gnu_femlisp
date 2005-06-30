@@ -465,13 +465,11 @@ means a lot of consing."
 
 (defmethod for-each-key-and-entry-in-row ((fn function) (smat <sparse-matrix>) key)
   (awhen (matrix-row smat key)
-    (loop for col-key being the hash-keys of it
-	  and mblock being the hash-values of it
+    (loop for col-key being the hash-keys of it using (hash-value mblock)
 	  do (funcall fn col-key mblock))))
 (defmethod for-each-key-and-entry-in-col ((fn function) (smat <sparse-matrix>) key)
   (awhen (matrix-column smat key)
-    (loop for row-key being the hash-keys of it
-	  and mblock being the hash-values of it
+    (loop for row-key being the hash-keys of it using (hash-value mblock)
 	  do (funcall fn row-key mblock))))
 
 (defmethod clear-row ((mat <sparse-matrix>) row-key1 &optional row-key2)
@@ -962,6 +960,22 @@ discretized with the 3-point stencil on a structured mesh."
       (when (> i 0) (setf (mref A i (1- i)) #m(-1.0)))
       (when (< i (1- n)) (setf (mref A i (1+ i)) #m(-1.0))))
     A))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; GPS choice of solver
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar *maxrows-for-direct-solving* 5000
+  "Maximum number of rows for which direct solving is applied.")
+
+(defmethod select-linear-solver :around ((asa <matrix>) blackboard)
+  "Select a suitable solver depending on size of the matrix and the pde
+problem."
+  (declare (ignore blackboard))
+  (if (<= (nrows asa) *maxrows-for-direct-solving*)
+      (make-instance '<linear-solver> :success-if `(>= :step 1)
+		     :iteration (make-instance '<lu> :store-p nil))
+      (call-next-method)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Tests

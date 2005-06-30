@@ -50,6 +50,7 @@
      (coerce (gauss-lobatto-points-on-unit-interval (1- order)) 'vector))))
   
 (defmethod lagrange-inner-coords ((vtx <vertex>) order type)
+  (declare (ignore order type))
   (list (double-vec)))
 
 (defmethod lagrange-inner-coords ((simplex <simplex>) order type)
@@ -83,16 +84,11 @@
 				  (find-if #'(lambda (coord2) (< (abs (- coord coord2)) 1.0e-10))
 					   lagrange-coords))
 			      (l2g subcell local))))
-		  (make-<dof>
-		   :index (incf dof-index)
-		   :subcell subcell
-		   :subcell-index i
-		   :in-vblock-index j
-		   :vblock-length (length subcell-coords)
-		   :coord local
-		   :gcoord g
-		   :functional
-		   #'(lambda (func) (evaluate func g))))))))
+		  (make-instance 'dof :index (incf dof-index)
+				 :subcell subcell :subcell-index i
+				 :in-vblock-index j
+				 :coord local :gcoord g
+				 :functional #'(lambda (func) (evaluate func g))))))))
 (memoize-symbol 'lagrange-dofs)
 
 (defun lagrange-basis-simplex (cell order type)
@@ -236,8 +232,7 @@ boundary lagrangian."
 					:initial-element (make-polynomial '(0))))
 	with basis = (lagrange-reference-parameters (reference-cell cell) order type)
 	with subcells = (subcells cell)
-	for dof being the hash-keys of basis
-	and phi being the hash-values of basis do
+	for dof being the hash-keys of basis using (hash-value phi) do
 	(loop for comp across (local->global (aref subcells (dof-subcell-index dof))
 					     (dof-coord dof))
 	      and i from 0 do

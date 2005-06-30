@@ -96,7 +96,7 @@ infinitely differentiable functions."))
 given degree.")
   (:method (f &optional k)
     "The default method returns @code{NIL}."
-    (declare (ignore k))
+    (declare (ignore f k))
     nil))
 
 ;;; further generics
@@ -166,6 +166,7 @@ computation are trivial."))
 	   'fixnum-vec)))
 
 (defmethod evaluate-k-jet ((f <constant-function>) k x)
+  (declare (ignore x))
   (if (<= k 1)
       (call-next-method)
       (zero-k-jet f k)))
@@ -197,8 +198,36 @@ vector b.  It represents the map @math{x -> Ax+b}."))
     (gemm 1.0 A x 1.0 b)))
 
 (defmethod evaluate-gradient ((f <linear-function>) x)
+  (declare (ignore x))
   (or (slot-value f 'A)
       (zeros (image-dimension f) (domain-dimension f))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; function composition
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod compose-2 (f g)
+  #'(lambda (x)
+      (evaluate f (evaluate g x))))
+
+(defmethod compose-2 ((func1 <function>) (func2 <function>))
+  (make-instance
+   '<special-function>
+   :domain-dimension (domain-dimension func2)
+   :image-dimension (image-dimension func1)
+   :evaluator
+   #'(lambda (x) (evaluate func1 (evaluate func2 x)))
+   :gradient
+   (and (differentiable-p func1) (differentiable-p func2)
+	#'(lambda (x)
+	    (m* (evaluate-gradient func1 (evaluate func2 x))
+		(evaluate-gradient func2 x))))))
+
+(defun compose (&rest functions)
+  "Returns the composition of @arg{functions}."
+  (cond ((null functions) #'identity)
+	((single? functions) (car functions))
+	(t (compose-2 (car functions) (apply #'compose (cdr functions))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; transformed functions
@@ -276,6 +305,14 @@ transforms also the result."))
       (aif (domain-A func)
 	   (m* result2 it)
 	   result2))))
+
+(defmethod compose-2 ((func1 <linear-function>) (func2 <function>))
+  (with-slots (A b) func1
+    (transform-function func2 :image-transform (list A b))))
+
+(defmethod compose-2 ((func1 <function>) (func2 <linear-function>))
+  (with-slots (A b) func2
+    (transform-function func1 :domain-transform (list A b))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Numerical gradient
@@ -355,33 +392,6 @@ parameter."
 		      (axpy! (- 1.0 s) (evaluate-gradient func1 xrest)
 			     (scal s (evaluate-gradient func2 xrest))))))))))
   
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; function composition
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmethod compose-2 (f g)
-  #'(lambda (x)
-      (evaluate f (evaluate g x))))
-
-(defmethod compose-2 ((func1 <function>) (func2 <function>))
-  (make-instance
-   '<special-function>
-   :domain-dimension (domain-dimension func2)
-   :image-dimension (image-dimension func1)
-   :evaluator
-   #'(lambda (x) (evaluate func1 (evaluate func2 x)))
-   :gradient
-   (and (differentiable-p func1) (differentiable-p func2)
-	#'(lambda (x)
-	    (m* (evaluate-gradient func1 (evaluate func2 x))
-		(evaluate-gradient func2 x))))))
-
-(defun compose (&rest functions)
-  "Returns the composition of @arg{functions}."
-  (cond ((null functions) #'identity)
-	((single? functions) (car functions))
-	(t (compose-2 (car functions) (apply #'compose (cdr functions))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Special functions
