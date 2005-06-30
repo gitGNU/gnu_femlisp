@@ -72,7 +72,7 @@ and @emph{contrib} packages:
 @example
 # Necessary:
 apt-get install wget gnuplot dx
-apt-get install cmucl cl-infix cl-asdf
+apt-get install cmucl cl-infix cl-asdf cl-uffi
 
 # Recommended:
 apt-get install libsuperlu3 libsuperlu3-dev
@@ -256,6 +256,17 @@ make umfpack
 from within the @path{femlisp} directory.  If these commands cannot
 figure out the path to the libraries, feel free to edit the Makefile
 in @path{femlisp/interfaces} according to your needs.
+
+For connecting to these libraries, @femlisp{} uses the UFFI library.
+If you do not have it installed, you can install it locally by the
+command
+
+@example
+make uffi
+@end example
+
+from the @path{femlisp} directory.
+
 
 @node Triangle mesh generator, Installation of MK-DEFSYSTEM/ASDF and Infix, Direct solvers, Detailed installation
 @subsection Triangle mesh generator

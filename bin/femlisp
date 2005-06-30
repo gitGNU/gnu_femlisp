@@ -2,11 +2,11 @@
 #PBS -l nodes=1:ppn=2,mem=2gb
 
 if test -z "$FEMLISP_CL"; then
-    FEMLISP_CL=/usr/bin/lisp
+    FEMLISP_CL=/usr/local/bin/sbcl
 fi
 
 if test -z "$FEMLISP_CL_TYPE"; then
-    FEMLISP_CL_TYPE=cmucl
+    FEMLISP_CL_TYPE=sbcl
 fi
 
 if test -z "$FEMLISP_DIR"; then
@@ -37,7 +37,7 @@ if test "$1" = "--save-core-and-die"; then
 fi
 
 if test -f $FEMLISP_CORE; then
-    exec $FEMLISP_CL $core $FEMLISP_CORE $noinit $eval "(fl.port:femlisp-restart)" "$@"
+    exec $FEMLISP_CL $core $FEMLISP_CORE $eval "(fl.port:femlisp-restart)" "$@"
 else
     exec $FEMLISP_CL $eval "(progn (load \"$FEMLISP_DIR/start.lisp\") (in-package :fl.application))" "$@"
 fi

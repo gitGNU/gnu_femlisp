@@ -1,8 +1,8 @@
 ###########################################################################
-###  femlisp/src/Makefile
+###  Makefile for femlisp/private
 ###########################################################################
 
-# Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+# Copyright (C) 2005 Nicolas Neuss, University of Heidelberg.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,8 +38,6 @@ linecount:
 	find . -name "*.lisp" -exec wc -l '{}' ';'
 	find . -name "*.lisp" -exec cat '{}' ';' | wc -l
 	find . -name "*.lisp" -exec cat '{}' ';' | grep ";;" -v | wc -l
-	find applications -name "*.lisp" -exec cat '{}' ';' | wc -l
 
 clean:
-	find . \( -name "*.err" -o -name "*.fas" -o -name "*.fasa" -o -name "*.fasl" -o -name "*.lib" -o -name "*.log" -o -name "*.x86f" \) -exec rm {} \;
-
+	find . \( -name "*.err" -o -name "*.fas" -o -name "*.fasa" -o -name "*.fasl" -o -name "*.x86f" \) -exec rm {} \;

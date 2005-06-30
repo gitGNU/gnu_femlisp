@@ -29,9 +29,9 @@ Common Lisp
 @alias path = file
 @alias program = file
 
-@set EDITION 0.3
-@set VERSION 0.9.5
-@set UPDATED 08 March 2005
+@set EDITION 0.4
+@set VERSION 0.9.7
+@set UPDATED 30 June 2005
 
 @c for install-info
 @dircategory Math
@@ -89,92 +89,9 @@ equations.
 * Programming techniques::      
 * Overview::                    
 * Reference manual::            
+* Copyright::                   
 * Bibliography::                
-* Concept Index::
-
-@detailmenu
- --- The Detailed Node Listing ---
-
-Installation
-
-* Software needed::             
-* Quick installation ::         
-* Detailed installation::       
-
-Quick installation
-
-* Debian GNU/Linux::            
-* Mac OS X::                    
-* Minimal installation::        
-
-Detailed installation
-
-* Obtaining Femlisp::           
-* Installation of a CL implementation::  
-* Graphics::                    
-* Direct solvers::              
-* Triangle mesh generator::     
-* Installation of MK-DEFSYSTEM/ASDF and Infix::  
-* Configuration of the startup script::  
-* Compiling Femlisp::           
-* Setup of an interactive environment::  
-* Emacs configuration::         
-
-First steps
-
-* Demos::                       
-* Solving problems::            
-* Plotting::                    
-* Common Lisp environment::     
-* Learning Common Lisp::        
-
-Solving problems
-
-* Stationary diffusion problem::  
-* Elasticity problem::          
-* Navier-Stokes problem::       
-* Heat equation::               
-
-Programming techniques
-
-* Object-oriented programming::  
-* Dynamic class generation::    
-* Memoization::                 
-* Blackboards::                 
-* Documentation::               
-
-Reference manual
-
-* Package FL.UTILITIES::        
-* Package FL.MACROS::           
-* Package FL.DEBUG::            
-* Package FL.DEMO::             
-* Package FL.TESTS::            
-* Package FL.PORT::             
-* Package FL.ALIEN::            
-* Package FL.MATLISP::          
-* Package FL.ALGEBRA::          
-* Package FL.MESH::             
-* Package FL.PROBLEM::          
-* Package FL.CDR::              
-* Package FL.ELASTICITY::       
-* Package FL.NAVIER-STOKES::    
-* Package FL.CDRSYS::           
-* Package FL.DISCRETIZATION::   
-* Package FL.CDR-FE::           
-* Package FL.ELASTICITY-FE::    
-* Package FL.NAVIER-STOKES-FE::  
-* Package FL.CDRSYS-FE::        
-* Package FL.ITERATION::        
-* Package FL.MULTIGRID::        
-* Package FL.GEOMG::            
-* Package FL.STRATEGY::         
-* Package FL.GRAPHIC::          
-* Package FL.PLOT::             
-* Package FL.DOMAINS::          
-* Package FL.APPLICATION::      
-
-@end detailmenu
+* Concept Index::               
 @end menu
 
 @include introduction.texinfo
@@ -183,6 +100,7 @@ Reference manual
 @include programming-techniques.texinfo
 @include overview.texinfo
 @include reference-manual.texinfo
+@include copyright.texinfo
 @include bibliography.texinfo
 @include concepts.texinfo
 

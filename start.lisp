@@ -4,7 +4,7 @@
 ;;; start.lisp - Femlisp start file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2005 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,7 @@ during initialization of Femlisp."))
 
 (in-package :fl.start)
 
-(defparameter *femlisp-version* "0.9.6")
+(defparameter *femlisp-version* "0.9.7")
 (defparameter *process* nil
   "This variable should be set externally for identifying a certain process.")
 
@@ -90,28 +90,55 @@ location of this file when it is loaded.")
 (load "femlisp:femlisp-config.lisp")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Implementation-dependent
+;;;; Implementation-dependent configurations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;; since Femlisp needs a lot of storage, GC messages are
+;;; annoying
+
+#+allegro (setq excl:*global-gc-behavior* :auto)
 #+cmu (setq extensions:*gc-verbose* nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Implementation-dependent loading of modules
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 #+sbcl (require 'sb-posix)
 #+sbcl (require 'sb-introspect)
 #+sbcl (require 'asdf)
+
+#+allegro (require :osi)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Ensure the presence of Common Lisp libraries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; ASDF
-#-(or asdf mk-defsystem) (load #p"femlisp:external;asdf")
+#-asdf (load #p"femlisp:external;asdf")
+
+(pushnew (probe-file #p"femlisp:systems;") asdf::*central-registry* :test #'equalp)
+
+#+(or)
+(defmethod asdf::output-files :around (operation (c asdf::cl-source-file))
+  (let ((out (call-next-method))
+	(name (asdf::component-pathname (asdf::component-system c))))
+    (when out
+      (if (member name '("femlisp" "uffi") :test #'equal)
+	  (list (merge-pathnames
+		 (make-pathname
+		  :host nil :device nil :directory nil :name nil
+		  :type "fasl")
+		 (first out)))
+	  out))))
 
 ;;; INFIX
 #-infix (load "femlisp:external;infix.cl")
 
-#+asdf 
-(pushnew *femlisp-pathname* asdf::*central-registry*)
-#+mk-defsystem
-(pushnew *femlisp-pathname* mk::*central-registry*)
+;;; UFFI
+#-uffi
+(progn
+  (asdf:operate 'asdf::load-op :uffi)
+  (pushnew :uffi *features*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Compiling and loading of Femlisp
@@ -120,15 +147,19 @@ location of this file when it is loaded.")
 ;;; we want to work generally with double float numbers
 (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
 
-(load #p"femlisp:femlisp.asd")
-
-#+asdf (asdf:operate 'asdf::load-op 'femlisp)
-#-asdf (mk:oos 'femlisp 'compile)
+(asdf:operate 'asdf::load-op 'femlisp)
 
 (pushnew :femlisp *features*)
 
-(let ((private (probe-file #p"femlisp:start-private.lisp")))
+(let ((private (probe-file #p"femlisp:private;start.lisp")))
   (when private (load private)))
 
 (femlisp-banner)
 
+#+allegro
+(setq excl:*restart-init-function*
+      #'(lambda ()
+	  (tpl:setq-default *package* (find-package :fl.application))
+	  (rplacd (assoc 'tpl::*saved-package*
+			 tpl:*default-lisp-listener-bindings*)
+		  'common-lisp:*package*)))

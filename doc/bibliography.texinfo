@@ -1,4 +1,4 @@
-@node Bibliography, Concept Index, Reference manual, Top
+@node Bibliography, Concept Index, Copyright, Top
 @unnumbered Bibliography
 
 @table @samp

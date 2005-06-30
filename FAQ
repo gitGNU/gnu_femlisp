@@ -19,11 +19,8 @@ Femlisp FAQ
 3. Q: What is the best way to get started?
 
    A: Work through the demos to see what is possible.  Then look through
-   the section "Getting started" in the manual.
-
-  With the help of your IDE find out what SOLVE is doing here, then look at
-  how the demos are done.  Try to modify the above problem by giving it a
-  different right-hand side.
+   the section "Getting started" in the manual.  With the help of your IDE
+   find out what SOLVE is doing here, then look at how the demos are done.
 
 
 * B: MESH MANAGEMENT
@@ -37,10 +34,14 @@ Femlisp FAQ
    it is not clear to me how the construction should look like in higher
    dimensions.
 
+2. Can Femlisp do more than regular refinements?
+
+   A: Yes, it can handle more or less arbitrary refinement rules.
+
 
 * C: LINEAR ALGEBRA
 
-1. Q: Why is Femlisp's linear algebra so slow?  Is this necessary?
+1. Q: Why is Femlisp's linear algebra so slow?
 
    A: Because the sparse-matrix implementation is based on hash-tables
    indexed by mesh-entities like vertices, lines, ..., and each entry is
@@ -73,6 +74,11 @@ Femlisp FAQ
    your time-stepping scheme yourself by assembling a delta-t dependent
    term in matrix and right-hand side.
 
+3. Q: Can Femlisp solve this specific problem?
+
+   A: Please ask on the femlisp-user mailing list for help.  You will have
+   to subscribe for doing so (spam protection).
+
 
 * E: DISCRETIZATION
 
@@ -87,10 +93,10 @@ Femlisp FAQ
 
 * F: SOLVERS
 
-1. Q: Is there a BiCGStab or GMRES iteration available?
+1. Q: Is there a GMRES iteration available?
 
-   A: No, not yet.  For the problems I considered up to now, pure multigrid
-   was sufficient.
+   A: No, not yet.  This would be a very welcome contribution.
+
 
 * G: PARALLELIZATION
 
@@ -104,21 +110,21 @@ Femlisp FAQ
 
 * H: GENERAL
 
-1. Q: Why was Femlisp written in CL?
+1. Q: Why was Femlisp written in Common Lisp?
 
-   A: Despite of its age CL is still the most expressive language available
-   today.  It usually comes with powerful interactive environments and
-   makes an ideal tool for both exploratory programming and production use.
+   A: Despite of its age, Common Lisp is still one of the most expressive
+   languages available.  It usually comes with powerful interactive
+   environments and makes an ideal tool for both exploratory programming
+   and production use.
 
 2. Q: How does Femlisp's compare with other programs wrt speed?
 
    A: This depends very much on the problem at hand.  Femlisp is still very
    slow for several standard problems.  On the other hand, it does also
    perform astonishingly well for other benchmark problems (compared with
-   other unstructured-mesh FEM toolboxes).  Furthermore, most often the
+   other unstructured-mesh FEM toolboxes).  Furthermore, very often the
    speed of program development is the decisive factor.  Here, Common Lisp
-   cannot be beaten by statically typed languages like C++ or Fortran and
-   differs often by an order of magnitude.
+   cannot be beaten by statically typed languages like C++ or Fortran.
 
 3. Q: Why is Femlisp slow for my problem?
 

@@ -2,6 +2,15 @@
 
 * From Femlisp-0.9.6 to Femlisp-0.9.7:
 
+There is a directory @path{femlisp:private} where users can put private
+stuff.  If a file @path{femlisp:private;start.lisp} is found it is loaded
+when Femlisp starts up.
+
+Dofs are CLOS classes now instead of structures in @arg{fe.lisp}.  Now
+Allegro compiles without warnings.  No obvious speed reduction for SBCL.
+
+Cosmetic changes for removing Allegro warnings.
+
 Femlisp now works with Allegro CL on AMD-64 and Linux.  Many thanks to
 Franz Inc. for allowing me to use an evaluation license of their product.
 

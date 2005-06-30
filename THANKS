@@ -1,39 +1,41 @@
 # -*- mode: text; -*-
 
 Femlisp owes thanks mainly to the following people, groups, and
-institutions (in something like reverse chronological order):
+institutions (in reverse chronological order):
 
-- The FSF for hosting Femlisp at savannah.nongnu.org.
+- Franz Inc. for giving me access to an evaluation copy of Allegro CL,
 
-- Professor Gabriel Wittum and the University of Heidelberg for allowing me
-  to publish Femlisp under the FreeBSD license.
+- the FSF for hosting Femlisp at savannah.nongnu.org,
 
-- Gabriel Wittum for supporting me especially during the last years when I
-  used a considerable part of my time for writing Femlisp.
+- Gabriel Wittum and the University of Heidelberg for allowing me to
+  publish Femlisp under the FreeBSD license,
 
-- The Lisp gurus and non-gurus of the comp.lang.lisp newsgroup for sharing
-  their knowledge with me in the years from 2000 onwards.
+- Gabriel Wittum for supporting me a lot,
 
-- Kent Pitman et al for giving us the CL Hyperspec.
+- the Lisp gurus and non-gurus of the comp.lang.lisp newsgroup for sharing
+  their knowledge with me in the years from 2000 onwards,
 
-- The CMUCL implementors for writing this nice Lisp implementation, and
-  them and the CMUCL users for the immediate help on the mailing lists.
+- Kent Pitman et al for giving us the CL Hyperspec,
 
-- The Matlisp crew for providing this nice LAPACK interface.
+- the CMUCL implementors for writing this nice Lisp implementation, and
+  them and the CMUCL users for the immediate help on the mailing lists,
 
-- IBM for making OpenDX free software.
+- the Matlisp crew for providing this nice LAPACK interface,
 
-- The people from the Guile mailing list which helped me in learning Scheme
-  which finally led me to Common Lisp.
+- IBM for making OpenDX free software,
 
-- Richard Stallman and all other Emacs contributors for writing Emacs.
+- the people from the Guile mailing list which helped me in learning Scheme
+  which finally led me to Common Lisp,
 
-- Christian Wieners for showing me Emacs for the first time.
+- Richard Stallman and all other Emacs contributors for writing Emacs,
 
-- The UG group in which I learned a lot about PDE software.
+- Christian Wieners for pointing me to Emacs,
+
+- the UG group in which I learned a lot about PDE software.
 
 
- Heidelberg, 12.9.2003
+ Heidelberg, 28.9.2003
+ Warwick, 29.6.2005
 
  Nicolas Neuss
 

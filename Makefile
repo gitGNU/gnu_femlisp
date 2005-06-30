@@ -31,12 +31,15 @@
 
 help:
 	echo "Options: all, configure, clean, documentation, femlisp, help,";\
-	echo "         triangle, superlu, umfpack."
+	echo "         triangle, superlu, uffi, umfpack."
 
 all: configure superlu umfpack triangle femlisp documentation
 
 configure:
 	cd bin; ./femlisp-configure
+
+documentation:
+	cd doc; make all
 
 download_superlu:
 	echo "Downloading SuperLU in femlisp/external."
@@ -47,9 +50,6 @@ download_superlu:
 superlu:
 	cd interface; make superlu
 
-umfpack:
-	cd interface; make umfpack
-
 triangle:
 	echo "Installing Triangle in femlisp/external.  Note that Triangle	\
 comes with a separate license which you should read (and accept) before		\
@@ -58,19 +58,26 @@ using it."
 	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
 	unzip triangle.zip; rm triangle.zip; make
 
+uffi:
+	cd external; rm -rf uffi-latest; \
+	wget -O - http://files.b9.com/uffi/uffi-latest.tar.gz| tar xzvf -; \
+	mv uffi-* uffi-latest; \
+	cd ../systems; rm uffi.asd; ln -s ../external/uffi-latest/uffi.asd uffi.asd
+
+umfpack:
+	cd interface; make umfpack
+
 femlisp:
 	cd bin; sh ./femlisp --save-core-and-die
-
-documentation:
-	cd doc; make all
 
 slime:
 	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
 
 clean:
-	rm -f *.x86f *.fasl
+	rm -f *.x86f *.fasl *.fas?
 	cd bin; rm -f *.core
 	cd doc; make clean;
 	cd external; make clean;
 	cd interface; make clean;
+	cd private; make clean;
 	cd src; make clean;
