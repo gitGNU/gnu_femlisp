@@ -75,6 +75,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
      and shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
      and shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
      and global in (getf fe-geometry :global-coords)
+     and Dphi in (getf fe-geometry :gradients)
      and Dphi^-1 in (getf fe-geometry :gradient-inverses)
      and weight in (getf fe-geometry :weights)
      do
@@ -82,7 +83,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	    (left-vals (if local-v (dot local-v shape-vals) shape-vals))
 	    (sol-ip (and local-sol (m*-tn shape-vals local-sol)))
 	    (coeff-input
-	     (list* :global global :solution sol-ip :cell cell
+	     (list* :global global :solution sol-ip :Dphi Dphi :cell cell
 		    (loop for (key data) on coefficient-parameters by #'cddr
 			  collect key collect (aref data i)))))
        
