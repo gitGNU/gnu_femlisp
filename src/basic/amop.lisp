@@ -33,12 +33,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.AMOP"
-  (:use "COMMON-LISP"
-	#-(OR SBCL) "MOP" #+SBCL "SB-MOP"
-	"FL.DEBUG")
+  (:use "COMMON-LISP" "FL.DEBUG")
+  (:import-from
+   #-(OR ECL SBCL) "MOP" #+SBCL "SB-MOP" #+ECL "CLOS"
+   "CLASS-DIRECT-SUPERCLASSES" "CLASS-DIRECT-SUBCLASSES"
+   "GENERIC-FUNCTION-NAME" "GENERIC-FUNCTION-METHODS"
+   "METHOD-SPECIALIZERS")
   (:export "COMPILE-AND-EVAL"
+	   "CLASS-DIRECT-SUPERCLASSES" "CLASS-DIRECT-SUBCLASSES"
 	   "FIND-PROGRAMMATIC-CLASS" "MAKE-PROGRAMMATIC-INSTANCE"
-	   "REMOVE-SUBCLASS-METHODS" "CLASS-DIRECT-SUPERCLASSES")
+	   "REMOVE-SUBCLASS-METHODS")
   (:documentation
    "This package provides some MOP functionality.  These functions are
 non-ANSI and may represent a problem when porting Femlisp."))

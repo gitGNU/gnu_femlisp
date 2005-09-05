@@ -144,10 +144,11 @@ for debugging, the source code is printed."
 				     `(,(if (listp item) (car item) item)
 					(reference ,vector ,iterator)))
 				 vectors iterators items)
-	 (loop ,@(loop for iterator in iterators and vector in vectors appending
-		      `(for ,iterator = (iterator ,vector)
-			    then (iterator-next ,vector ,iterator)
-			    until (iterator-end-p ,vector ,iterator)))
+	   (loop ,@(loop for iterator in iterators and vector in vectors appending
+			 `(for ,iterator = (iterator ,vector)
+			   then (iterator-next ,vector ,iterator)))
+		 ,@(loop for iterator in iterators and vector in vectors appending
+			 `(until (iterator-end-p ,vector ,iterator)))
 	    ,@body
 	 )))))
 

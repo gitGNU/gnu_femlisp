@@ -94,16 +94,14 @@ test suite before a release."))
 		   *tests*))))
     (setq *failed* nil))
   (flet ((run-tests ()
-	   (loop for fsym = (pop *testing*) while fsym
-	      for result =
-		#+gcl (funcall fsym)
-		#-gcl
-		(catch 'trap
-		  (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
-		    (format t "~&~%***** Testing ~A *****~%~%" fsym)
-		    (funcall fsym)
-		    nil))
-	      when result do (push (cons fsym result) *failed*)
+	   (loop for fsym = (pop *testing*) while fsym do
+		 (let ((result
+			(catch 'trap
+			  (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
+			    (format t "~&~%***** Testing ~A *****~%~%" fsym)
+			    (funcall fsym)
+			    nil))))
+		   (when result (push (cons fsym result) *failed*)))
 	      finally (return *failed*))))
     (let ((output-string
 	   (with-output-to-string (stream)

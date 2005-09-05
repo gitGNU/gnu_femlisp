@@ -85,24 +85,24 @@ Naggum (c.l.l., 4.12.2002)."
      (if it ,then-form ,else-form)))
 
 (defmacro awhen (test-form &body body)
-  "Anaphoric macro from @cite{(Graham XXX)}."
+  "Anaphoric macro from @cite{(Graham 1993)}."
   `(let ((it ,test-form))
      (when it ,@body)))
 
 (defmacro awhile (expr &body body)
-  "Anaphoric macro from @cite{(Graham XXX)}."
+  "Anaphoric macro from @cite{(Graham 1993)}."
   `(do ((it ,expr ,expr))
     ((not it))
     ,@body))
 
 (defmacro aand (&rest args)
-  "Anaphoric macro from @cite{(Graham XXX)}."
+  "Anaphoric macro from @cite{(Graham 1993)}."
   (cond ((null args) t)
 	((null (cdr args)) (car args))
 	(t `(aif ,(car args) (aand ,@(cdr args))))))
 
 (defmacro acond (&rest clauses)
-  "Anaphoric macro from @cite{(Graham XXX)}."
+  "Anaphoric macro from @cite{(Graham 1993)}."
   (if (null clauses)
       nil
       (let ((cl1 (car clauses))
@@ -115,7 +115,7 @@ Naggum (c.l.l., 4.12.2002)."
                (acond ,@(cdr clauses)))))))
 
 (defmacro _f (op place &rest args)
-  "Macro from @cite{(Graham XXX)}.  Turns the operator @arg{op} into a
+  "Macro from @cite{(Graham 1993)}.  Turns the operator @arg{op} into a
 modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}."
   (multiple-value-bind (vars forms var set access) 
                        (get-setf-expansion place)

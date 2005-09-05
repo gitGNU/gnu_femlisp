@@ -34,14 +34,6 @@
 
 (defpackage "FL.PORT"
   (:use "COMMON-LISP" "FL.UTILITIES")
-  #+(or cmu sbcl)
-  (:import-from
-   #+cmu "C-CALL" #+sbcl "SB-ALIEN"
-   "INT" "DOUBLE")
-  #+(or cmu sbcl)
-  (:import-from
-   #+cmu "SYSTEM" #+sbcl "SB-SYS"
-   "WITHOUT-GCING")
   (:export
    ;; UNIX environment
    "FIND-EXECUTABLE" "GETENV" "UNIX-CHDIR"
@@ -53,7 +45,12 @@
    ;; load alien code
    "LOAD-FOREIGN-LIBRARY" "DEF-FUNCTION"
    "INT" "DOUBLE" "LOAD-FOREIGN"
-   "VECTOR-SAP" "WITHOUT-GCING")
+   "VECTOR-SAP" "FOREIGN-CALL-WRAPPER"
+
+   ;; weak pointers and GC
+   "MAKE-WEAK-POINTER" "WEAK-POINTER-VALUE"
+   "FINALIZE" "GC"
+   )
   (:export "SAVE-FEMLISP-CORE-AND-DIE" "FEMLISP-RESTART")
   (:documentation "This package should contain the implementation-dependent
 parts of Femlisp with the exception of the MOP."))
@@ -89,6 +86,7 @@ functionality of Femlisp you should provide it in the file
 
 (defun quit ()
   #+cmu (ext:quit)
+  #+ecl (si:quit)
   #+sbcl (sb-ext:quit)
   #+allegro (excl:exit)
   #-(or allegro cmu sbcl)
@@ -114,11 +112,11 @@ functionality of Femlisp you should provide it in the file
   #+(or cmu scl)
   (cdr (assoc (string var) ext:*environment-list* :test #'equalp
               :key #'string))
-  #+gcl (si:getenv (string var))
+  #+(or ecl gcl) (si:getenv (string var))
   #+lispworks (lw:environment-variable (string var))
   #+mcl (ccl::getenv var)
   #+sbcl (sb-ext:posix-getenv var)
-  #-(or allegro clisp cmu gcl lispworks mcl sbcl scl)
+  #-(or allegro clisp cmu ecl gcl lispworks mcl sbcl scl)
   (portability-warning 'getenv var)
   )
   
@@ -126,9 +124,10 @@ functionality of Femlisp you should provide it in the file
   "Change the directory to @arg{path}."
   #+allegro (excl.osi:chdir path)
   #+cmu (unix:unix-chdir path)
+  #+(or ecl gcl) (si:chdir path)
   #+sbcl (sb-posix:chdir path)
   #+clisp (ext:cd path)
-  #-(or cmu sbcl clisp)
+  #-(or cmu clisp ecl gcl sbcl)
   (portability-warning 'unix-chdir path)
   )
 
@@ -160,6 +159,7 @@ functionality of Femlisp you should provide it in the file
   #+cmu (progn
 	  (when directory (unix-chdir (namestring directory)))
 	  (ext:run-program program args :wait wait :input input :output output))
+  ;; #+(or ecl gcl) (apply #'si:run-process prog args)
   #+sbcl (progn
 	   (when directory (unix-chdir (namestring directory)))
 	   (sb-ext:run-program program args :wait wait :input input :output output))
@@ -211,24 +211,51 @@ functionality of Femlisp you should provide it in the file
   #+cmu (lisp::dynamic-usage)
   #+sbcl (sb-kernel::dynamic-usage)
   #-(or cmu sbcl)
-  (portability-warning 'process-status))
+  (portability-warning 'memory-usage))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Foreign libraries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun load-foreign-library (file)
-  #+uffi (uffi:load-foreign-library file)
-  #-uffi
   #+allegro (cl:load file)
   #+cmu (sys::load-object-file file)
   #+sbcl (sb-alien:load-shared-object file)
-  #-(or uffi allegro cmu sbcl)
-  (portability-warning 'load-shared-object file))
+  #+(and uffi (not (or allegro cmu sbcl)))
+  (uffi:load-foreign-library file)
+  #-(or allegro cmu sbcl uffi)
+  (portability-warning 'load-foreign-library file))
+
+#+(or cmu sbcl)
+(defun convert-type (type)
+  (cond ((null type) ())
+	((atom type)
+	 (if (member type '(:int :double))
+	     (find-symbol (symbol-name type)
+			  #+cmu "C-CALL" #+sbcl "SB-ALIEN")
+	     type))
+	(t (cons (convert-type (car type)) (convert-type (cdr type))))))
+
+#+(or allegro cmu sbcl)
+(defmacro simplified-def-function ((c-name lisp-name) args &rest keys)
+  (declare (ignorable lisp-name))
+  `(#+cmu c-call::def-alien-routine
+    #+sbcl sb-alien::define-alien-routine
+    #+allegro ff:def-foreign-call
+    #+allegro (,lisp-name ,c-name)
+    #+(or cmu sbcl) ,c-name
+    #+(or cmu sbcl) ,(convert-type (getf keys :returning))
+    #+allegro ,args
+    #+(or cmu sbcl)
+    ,@(mapcar #'(lambda (pair) (cons (car pair) (convert-type (cdr pair)))) args)
+    #+allegro ,@keys))
 
 (defmacro def-function (&rest args)
-  #+uffi `(uffi:def-function ,@args)
-  #-uffi (portability-warning 'define-alien-routine args))
+  #+(or allegro cmu sbcl) `(simplified-def-function ,@args)
+  #+(and uffi (not (or allegro cmu sbcl)))
+  `(uffi:def-function ,@args)
+  #-(or allegro cmu sbcl uffi)
+  (portability-warning 'define-alien-routine args))
 
 (declaim (inline vector-sap))
 (defun vector-sap (ptr)
@@ -237,11 +264,57 @@ functionality of Femlisp you should provide it in the file
   #+sbcl (sb-sys:vector-sap ptr)
   #+clisp (ffi::foreign-pointer ptr)
   #-(or allegro cmu sbcl clisp)
-  (portability-warning 'vector-sap ptr))
+  (portability-warning 'vector-sap ptr)
+  )
 
-#+allegro
-(defmacro without-gcing (op) 
-  op)
+(defmacro foreign-call-wrapper (&rest body)
+  "Ensures a safe environment for a FF call, especially so that no GC
+changes array pointers obtained by @function{vector-sap}."
+  #+allegro `(progn ,@body)
+  #+cmu `(system:without-gcing ,@body)
+  #+sbcl `(sb-sys:without-gcing ,@body)
+  #-(or allegro cmu sbcl)
+  (portability-warning 'foreign-call-wrapper ptr)
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Weak pointers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun make-weak-pointer (obj)
+  #+allegro
+  (let ((result (excl:weak-vector 1)))
+    (setf (aref result 0) obj)
+    result)
+  #+cmu (ext:make-weak-pointer obj)
+  #+sbcl (sb-ext:make-weak-pointer obj)
+  #-(or allegro cmu sbcl)
+  (portability-warning 'make-weak-pointer obj)
+  )
+
+(defun weak-pointer-value (wp)
+  #+allegro (aref wp 0)
+  #+cmu (ext:weak-pointer-value wp)
+  #+sbcl (sb-ext:weak-pointer-value wp)
+  #-(or allegro cmu sbcl)
+  (portability-warning 'weak-pointer-value wp))
+
+(defun finalize (obj func)
+  #+allegro (excl:schedule-finalization
+	     obj #'(lambda (obj)
+		     (declare (ignore obj))
+		     (funcall func)))
+  #+cmu (ext:finalize obj func)
+  #+sbcl (sb-ext: finalize obj func)
+  #-(or allegro cmu sbcl)
+  (portability-warning 'finalize obj func))
+
+(defun gc (&rest args)
+  #+allegro (apply #'excl:gc args)
+  #+cmu (apply #'ext:gc args)
+  #+sbcl (apply #'sb-ext:gc args)
+  #-(or allegro cmu sbcl)
+  (portability-warning 'gc args))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Saving a core and restarting
@@ -265,6 +338,6 @@ functionality of Femlisp you should provide it in the file
 
 (defun femlisp-restart ()
   #+cmu (progn (ext::print-herald))
-  (fl.start:femlisp-banner))
+  (fl.start::femlisp-banner))
 
   
