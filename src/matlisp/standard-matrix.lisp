@@ -118,7 +118,7 @@ If content is a 2d array, the dimensions can be deduced."
 @arg{type} as extensions of the programmatic class @class{store-vector}."
   (assert (subtypep type 'number))
   (fl.amop:find-programmatic-class
-   (list (store-vector type) 'standard-matrix)
+   (list 'standard-matrix (store-vector type))
    (intern (format nil "~A" (list 'STANDARD-MATRIX type)) "FL.MATLISP")))
 
 (defun make-real-matrix (&rest args)
@@ -153,6 +153,33 @@ structure defining the contents matrix."
 		 :nrows dim :ncols 1
 		 :content (make-double-vec dim value)))
 
+(defun complex-to-real-vector (cvec)
+  (declare (type (simple-array (complex double-float) *) cvec))
+  (declare (optimize speed (safety 0)))
+  (let* ((n (length cvec))
+	 (n2 (* 2 n)))
+    (let ((dvec (make-double-vec n2)))
+      (dotimes (i n)
+	(let ((c (aref cvec i))
+	      (k (* 2 i)))
+	  (setf (aref dvec k) (realpart c))
+	  (setf (aref dvec (1+ k)) (imagpart c))))
+      dvec)))
+
+(defun real-to-complex-vector (dvec)
+  (declare (type double-vec dvec))
+  (declare (optimize speed (safety 0)))
+  (let ((n2 (length dvec)))
+    (assert (evenp n2))
+    (let ((n  (/ n2 2)))
+      (declare (type fixnum n))
+      (let ((cvec (make-array n :element-type '(complex double-float))))
+	(dotimes (i n)
+	  (setf (aref cvec i)
+		(let ((k (* 2 i)))
+		  (complex (aref dvec k) (aref dvec (1+ k))))))
+	cvec))))
+
 (defun extend-matlisp-function (func)
   "If @package{MATLISP} is available, and the argument @arg{func} is a
 generic function in this package, this function is extended to be
@@ -176,9 +203,12 @@ is not available, NIL is returned."
 		 (when (and (typep obj 'fl.matlisp:standard-matrix)
 			    (not (assoc obj alist)))
 		   (setf (geta alist obj)
-			 (make-instance (if (eq (element-type obj) 'double-float)
-					    real-matrix  complex-matrix)
-					:nrows (nrows obj) :ncols (ncols obj) :store (store obj)))))
+			 (if (eq (element-type obj) 'double-float)
+			     (make-instance real-matrix
+					    :nrows (nrows obj) :ncols (ncols obj) :store (store obj))
+			     (make-instance complex-matrix
+					    :nrows (nrows obj) :ncols (ncols obj) :store
+					    (complex-to-real-vector (store obj)))))))
 	    (unless alist
 	      (error "No matching method for the generic function ~S, when called with arguments ~S."
 		     gf args))
@@ -195,7 +225,10 @@ is not available, NIL is returned."
 						       ((typep obj complex-matrix) '(complex double-float))
 						       (t (error "Unknown Matlisp matrix."))))
 						:nrows (funcall nrows obj) :ncols (funcall ncols obj)
-						:store (funcall store obj))
+						:store (let ((store (funcall store obj)))
+							 (if (typep obj real-matrix)
+							     store
+							     (real-to-complex-vector store))))
 				 obj)
 			   alist)))
 	      (apply #'values (loop for obj in return-values collect
@@ -244,15 +277,6 @@ whenever possible."
     (assert (and (<= 0 i) (<= 0 j) (< i nrows) (< j ncols)))
     (setf (aref store (the fixnum (+ i (the fixnum (* j (nrows matrix))))))
 	  value)))
-
-(defmethod vref ((matrix standard-matrix) i)
-  "Note: access to matrix entries using this generic function is slow.
-Therefore, specialized BLAS routines should be used whenever possible."
-    (aref (slot-value matrix 'store) i))
-
-(defmethod (setf vref) (value (matrix standard-matrix) i)
-  "Writer for vref."
-  (setf (aref (slot-value matrix 'store) i) value))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Printing
@@ -413,6 +437,7 @@ depending on the value of ORIENTATION."
   ;; to have the #M reader macro working in its modified form this use is
   ;; wrapped in an EVAL-WHEN
   (defun test-standard-matrix ()
+    ;;(setq *print-matrix* nil)
     (make-instance (standard-matrix 'integer) :content #2a((2 3) (4 5)))
     (describe (standard-matrix 'double-float))
     (standard-matrix 'single-float)
@@ -421,10 +446,10 @@ depending on the value of ORIENTATION."
     (zeros 1)
     (make-real-matrix `((,(cos 1.0))))
     (make-real-matrix #((2.0 3.0) (4.0 5.0)))
-    (make-instance 'standard-matrix :content #((2.0 3.0) (4.0 5.0)))
     (copy (eye 5))
     (norm #m((1.0 2.0)) 1)
     )
   )
 
 ;;; (test-standard-matrix)
+(fl.tests:adjoin-test 'test-standard-matrix)

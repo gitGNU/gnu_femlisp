@@ -53,20 +53,20 @@
 	     and offset = 1 then (* offset dim) collect offset)
 	  'fixnum-vec))
 
-(defmethod initialize-instance ((tensor full-tensor) &key &allow-other-keys)
-  (call-next-method)
-  (assert (typep tensor 'store-vector))
-  (with-slots (store dimensions offsets) tensor
-    (unless (slot-boundp tensor 'store)
-      (setf store (zero-vector (reduce #'* dimensions) (element-type tensor))))
-    (unless (slot-boundp tensor 'offsets)
-      (setf offsets (dimensions->offsets dimensions)))))
-
 (defun full-tensor (type)
   "Construct a full tensor with entries of @arg{type}."
   (fl.amop:find-programmatic-class
    (list 'full-tensor (store-vector type))
    (intern (format nil "~A" (list 'FULL-TENSOR type)) "FL.MATLISP")))
+
+(defmethod initialize-instance ((tensor full-tensor) &key &allow-other-keys)
+  (call-next-method)
+  (assert (typep tensor 'static-store-vector))
+  (with-slots (store dimensions offsets) tensor
+    (unless (slot-boundp tensor 'store)
+      (setf store (zero-vector (reduce #'* dimensions) (element-type tensor))))
+    (unless (slot-boundp tensor 'offsets)
+      (setf offsets (dimensions->offsets dimensions)))))
 
 (defun make-real-tensor (dimensions)
   "Generates an instance of a tensor with DOUBLE-FLOAT entries and the

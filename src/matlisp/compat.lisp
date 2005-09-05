@@ -95,19 +95,6 @@
 	    (setf (mref result i j) (mref mat row-ind col-ind))))
     result))
 
-(defmethod matrix-slice ((mat standard-matrix) &key (from-row 0) (from-col 0) nrows ncols)
-  (unless nrows (setq nrows (- (nrows mat) from-row)))
-  (unless ncols (setq ncols (- (ncols mat) from-col)))
-  (let ((result (make-instance (standard-matrix (element-type mat))
-			       :nrows nrows :ncols ncols)))
-    (mextract mat result from-row from-col)))
-
-(defmethod vector-slice ((mat standard-matrix) offset size)
-  (assert (and offset (= 1 (ncols mat))))
-  (let ((result (make-instance (standard-matrix (element-type mat))
-			       :nrows size :ncols 1)))
-    (mextract mat result offset 0)))
-
 (defmethod vector-slice ((vec vector) offset size)
   "Provides a convenient shorthand for constructing a displaced
 double-float array."
@@ -122,20 +109,6 @@ double-float array."
 (defmethod make-domain-vector-for ((mat standard-matrix) &optional (multiplicity 1))
   (make-instance (standard-matrix (element-type mat))
 		 :nrows (ncols mat) :ncols multiplicity))
-
-(defmethod clear-row ((mat standard-matrix) (row integer)
-		      &optional row2)
-  (declare (type fixnum row)
-	   (ignore row2))
-  (dotimes (k (ncols mat))
-    (setf (mref mat row k) 0.0)))
-
-(defmethod clear-column ((mat standard-matrix) (col integer)
-			 &optional col2)
-  (declare (type fixnum col)
-	   (ignore col2))
-  (dotimes (k (ncols mat))
-    (setf (mref mat k col) 0.0)))
 
 ;;; old interface matrix-vector multiplication (deprecated)
 
@@ -172,8 +145,6 @@ double-float array."
 	(B (make-real-matrix 2 2)))
     (x<-0 A)
     (fill! B 1.0)
-    (clear-column B 1)
-    (clear-row B 0)
     (axpy 0.5 B A)
     (mzerop #(0.0))
     (mzerop #m((0.0)))

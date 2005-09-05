@@ -48,13 +48,13 @@
 (defgeneric (setf mref) (value A i j)
   (:documentation "Writes the matrix element @code{A[i,j]}."))
 
-(defmethod vref ((mat <matrix>) index-pair)
+(defmethod vref ((mat <matrix>) (index-pair cons))
   "Vector referencing on matrices is done by default by matrix referencing
 a pair of index-pair.  Some matrices may allow for other vector indexing
 schemes."
   (mref mat (car index-pair) (cdr index-pair)))
 
-(defmethod (setf vref) (value (mat <matrix>) index-pair)
+(defmethod (setf vref) (value (mat <matrix>) (index-pair cons))
   "Vector referencing on matrices is done by default by matrix referencing
 a pair of index-pair."
   (setf (mref mat (car index-pair) (cdr index-pair)) value))
@@ -111,9 +111,14 @@ ROW-OFFSET and COL-OFFSET."))
   (:documentation "Extract matrix Y out of matrix X from the position given
 by ROW-OFFSET and COL-OFFSET."))
 
-(defgeneric clear-row (mat row &optional row2))
+(defgeneric vector-slice (x offset size)
+  (:documentation "Extract a subvector of size @arg{size} out of @arg{x}
+starting from position @arg{offset}."))
 
-(defgeneric clear-column (mat col &optional col2))
+(defgeneric matrix-slice (x &key from-row from-col nrows ncols)
+  (:documentation "Extract a submatrix of size @arg{nrows} @math{times}
+@arg{ncols} out of @arg{x} starting from position
+@arg{from-row}/@arg{from-col}."))
 
 ;;; Matrix-vector routines
 

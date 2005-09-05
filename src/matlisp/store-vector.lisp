@@ -35,8 +35,8 @@
 (in-package :fl.matlisp)
 
 (defclass store-vector (<vector>)
-  ((store :reader store :initarg :store :documentation
-	  "The vector entries."))
+  ((store :reader store :initarg :store
+	  :documentation "The vector entries."))
   (:documentation "This mixin yields vector behaviour for a class
 containing a store.  The store is a unifom array with elements of a certain
 type which can be determined by the funtion @function{element-type}.  It
@@ -44,148 +44,161 @@ often is but does not have to be equal to the type of scalars for this
 vector which can be obtained by calling the function
 @function{scalar-type}."))
 
-(defun store-vector-class-name (type)
-  (intern (format nil "~A" (list 'store-vector type))
-	  "FL.MATLISP"))
+(defclass static-store-vector (store-vector) ()
+  (:documentation "Subclass of @class{dynamic-store-vector} for which fast
+BLAS operations are possible because the store is a simple and uniform
+array."))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun store-vector (type)
-    (let ((class-name (store-vector-class-name type)))
-      (or (find-class class-name nil)
-	  (prog1
-	      (eval `(defclass ,class-name (store-vector) ()))
-	    (eval `(defmethod element-type ((vector ,class-name))
-		    ',type))
-	    (eval `(defmethod scalar-type ((vector ,class-name))
-		    ',type)))))))
+(defun store-vector (type &key dynamic)
+  (let ((class-name
+	 (intern (format nil "~A" (list 'store-vector type :dynamic dynamic))
+		 "FL.MATLISP")))
+    (or (find-class class-name nil)
+	(prog1
+	    (eval `(defclass ,class-name (,(if dynamic
+					       'store-vector
+					       'static-store-vector))
+		    ()))
+	  (eval `(defmethod element-type ((vector ,class-name))
+		  ',type))
+	  (eval `(defmethod scalar-type ((vector ,class-name))
+		  ',type))))))
 
-(defmethod initialize-instance :after ((vec store-vector) &key &allow-other-keys)
-  "Coerce the store to the correct type."
+(defmethod shared-initialize :after ((vec static-store-vector) slot-names
+				     &key &allow-other-keys)
+  "Coerce the store to a static type."
+  (declare (ignore slot-names))
   (when (slot-boundp vec 'store)
-    (coerce (store vec) `(simple-array ,(element-type vec) (*)))))
+    (setf (slot-value vec 'store)
+	  (coerce (store vec) `(simple-array ,(element-type vec) (*))))))
+
+(defmethod vref ((vec store-vector) i)
+  "Note: access to entries using this generic function is slow.  Therefore,
+specialized BLAS routines should be used whenever possible."
+    (aref (slot-value vec 'store) i))
+
+(defmethod (setf vref) (value (vec store-vector) i)
+  "Writer for vref."
+  (setf (aref (slot-value vec 'store) i) value))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; BLAS macros for store-vector
+;;; BLAS macros for static-store-vector
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun symbol-store (symbol)
   "Returns a symbol of the form <symbol>-STORE."
   (symconc symbol "-STORE"))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-copy! (x y) `(setf ,y ,x)))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-scal! (alpha x) `(setf ,x (* ,alpha ,x))))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-m+! (x y) `(incf ,y ,x)))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-m+ (x y) `(+ ,y ,x)))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-m-! (x y) `(decf ,y ,x)))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-m.*! (x y) `(setf ,y (* ,y ,x))))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-m* (x y) `(* ,y ,x)))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-equal (x y) `(= ,y ,x)))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
   '(element-gemm! (alpha x y beta z)
     `(setf ,z (+ (* ,alpha ,x ,y) (* ,beta ,z)))))
 
-(define-blas-macro 'store-vector
+(define-blas-macro 'static-store-vector
     '(with-blas-data (vars &rest body)
       "Gets the stores of all vector variables."
       `(let ,(loop for var in vars collecting
 		   `(,(symbol-store var) (slot-value ,var 'store)))
-	(declare (ignorable ,@(loop for var in vars collecting (symbol-store var))))
 	(declare (type (simple-array element-type (*))
 		  ,@(mapcar #'symbol-store vars)))
 	,@body)))
 
-(define-blas-macro 'store-vector
-    '(for-each-entry (loop-vars &rest body)
-      (let ((i (gensym "I")))
-	`(symbol-macrolet
-	  ,(loop for (xc x) in loop-vars
-		 collect `(,xc (aref ,(symbol-store x) ,i)))
-	  (dotimes (,i (length ,(symbol-store (cadar loop-vars))))
-	    (declare (type fixnum ,i))
-	    ,@body)))))
+(define-blas-macro 'static-store-vector
+    '(assert-vector-operation-compatibility (x y)
+      `(unless (= (length ,(symbol-store x)) (length ,(symbol-store y)))
+	(error "Store-vectors are incompatible."))))
+
+(define-blas-macro 'static-store-vector
+  '(vec-for-each-entry (loop-vars &rest body)
+    (let ((i (gensym "I")))
+      `(with-blas-data ,loop-vars
+	,@(when (= (length loop-vars) 2)
+		`((assert-vector-operation-compatibility ,@loop-vars)))
+	(dotimes (,i (length ,(symbol-store (first loop-vars))))
+	  (macrolet ((ref (matrix) (list 'aref (symbol-store matrix) ',i)))
+	    ,@body))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; BLAS operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro assert-store-vector-compatibility (x y)
-  `(unless (= (length ,(symbol-store x)) (length ,(symbol-store y)))
-    (error "Store-vectors are incompatible.")))
 
 ;;; Copying
 
-(define-blas-template copy! ((x store-vector) (y store-vector))
-  (assert-store-vector-compatibility x y)
-  (for-each-entry ((xc x) (yc y)) (setf yc xc))
+(define-blas-template copy! ((x static-store-vector) (y static-store-vector))
+  (vec-for-each-entry (x y) (setf (ref y) (ref x)))
   y)
 
-;;; BLAS routines involving one store-vector
+;;; BLAS routines involving one static-store-vector
 
-(define-blas-template fill! ((x store-vector) (s number))
-  (for-each-entry ((xc x)) (element-copy! s xc))
+(define-blas-template fill! ((x static-store-vector) (s number))
+  (vec-for-each-entry (x) (element-copy! s (ref x)))
   x)
 
-(define-blas-template fill-random! ((x store-vector) (s number))
-  (for-each-entry ((xc x)) (element-copy! (random s) xc))
+(define-blas-template fill-random! ((x static-store-vector) (s number))
+  (vec-for-each-entry (x) (element-copy! (random s) (ref x)))
   x)
 
-(define-blas-template scal! ((alpha number) (x store-vector))
-  (for-each-entry ((xc x)) (element-scal! alpha xc))
+(define-blas-template scal! ((alpha number) (x static-store-vector))
+  (vec-for-each-entry (x) (element-scal! alpha (ref x)))
   x)
 
-;;; BLAS routines involving two store-vectors
+;;; BLAS routines involving two static-store-vectors
 
-(define-blas-template axpy! ((alpha number) (x store-vector) (y store-vector))
-  (assert-store-vector-compatibility x y)
-  (for-each-entry ((xc x) (yc y)) (element-m+! (element-m* alpha xc) yc))
+(define-blas-template axpy! ((alpha number) (x static-store-vector) (y static-store-vector))
+  (vec-for-each-entry (x y) (element-m+! (element-m* alpha (ref x)) (ref y)))
   y)
 
-(define-blas-template dot ((x store-vector) (y store-vector))
+(define-blas-template dot ((x static-store-vector) (y static-store-vector))
   (let ((sum (coerce 0 'element-type)))
     (declare (type element-type sum))
-    (for-each-entry ((xc x) (yc y))
-       (element-m+! (element-m* xc yc) sum))
+    (vec-for-each-entry (x y)
+       (element-m+! (element-m* (ref x) (ref y)) sum))
     sum))
 
-(define-blas-template mequalp ((x store-vector) (y store-vector))
-  "Exact equality test for store-vector."
-  (assert-store-vector-compatibility x y)
-  (for-each-entry ((xc x) (yc y))
-     (unless (element-equal xc yc)
+(define-blas-template mequalp ((x static-store-vector) (y static-store-vector))
+  "Exact equality test for static-store-vector."
+  (vec-for-each-entry (x y)
+     (unless (element-equal (ref x) (ref y))
        (return-from mequalp nil)))
   t)
 
-(define-blas-template dot-abs ((x store-vector) (y store-vector))
+(define-blas-template dot-abs ((x static-store-vector) (y static-store-vector))
   (let ((sum (coerce 0 'element-type)))
     (declare (type element-type sum))
-    (for-each-entry ((xc x) (yc y))
-       (element-m+! (abs (element-m* xc yc)) sum))
+    (vec-for-each-entry (x y)
+       (element-m+! (abs (element-m* (ref x) (ref y))) sum))
     sum))
 
-(define-blas-template m+! ((x store-vector) (y store-vector))
-  (assert-store-vector-compatibility x y)
-  (for-each-entry ((xc x) (yc y)) (element-m+! xc yc))
+(define-blas-template m+! ((x static-store-vector) (y static-store-vector))
+  (vec-for-each-entry (x y) (element-m+! (ref x) (ref y)))
   y)
 
-(define-blas-template m.*! ((x store-vector) (y store-vector))
-  (assert-store-vector-compatibility x y)
-  (for-each-entry ((xc x) (yc y)) (element-m.*! xc yc))
+(define-blas-template m.*! ((x static-store-vector) (y static-store-vector))
+  (vec-for-each-entry (x y) (element-m.*! (ref x) (ref y)))
   y)
 
 (defun store-vector-generator (type)
@@ -195,16 +208,19 @@ vector which can be obtained by calling the function
 
 (defun test-store-vector-blas ()
   (dbg-on :blas)
+  (dbg-on :compile)
   (let ((x (make-instance (store-vector 'double-float) :store #d(0.0)))
 	(y (make-instance (store-vector 'double-float) :store #d(1.0))))
+    (copy! x y)
     (describe x)
     (m+! y x)
-    (scal! 0.5 x)
-    (copy! x y))
+    (scal! 0.5 x))
+  (test-blas 'copy! 1 :generator (store-vector-generator '(complex double-float)))
   (test-blas 'm+! 1000 :generator (store-vector-generator 'single-float))
   (test-blas 'm.*! 10 :generator (store-vector-generator 'double-float))
   (test-blas 'dot 1 :generator (store-vector-generator 'single-float))
-  (dbg-off :blas)
+  (dbg-off)
   )
 
-
+;;; (test-store-vector-blas)
+(fl.tests:adjoin-test 'test-store-vector-blas)

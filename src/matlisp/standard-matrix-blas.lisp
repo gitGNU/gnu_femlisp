@@ -36,10 +36,6 @@
 ;;; BLAS building-blocks for standard-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun msym-store (matrix-symbol)
-  "Returns a symbol of the form <matrix-symbol>-STORE."
-  (symconc matrix-symbol "-STORE"))
-
 (defun msym-pos (matrix-symbol)
   "Returns a symbol of the form <matrix-symbol>-POS."
   (symconc matrix-symbol "-POS"))
@@ -61,66 +57,22 @@
       "Sets body in an environment with local variables that access store,
 nrows and ncols of the given matrices."
       `(let (,@(loop for matrix in matrices nconcing
-		    `((,(msym-store matrix) (slot-value ,matrix 'store))
-		      (,(msym-nrows matrix) (slot-value ,matrix 'nrows))
-		      (,(msym-ncols matrix) (slot-value ,matrix 'ncols))
-		      (,(msym-pos matrix) 0))))
-	 (declare (ignorable
-		   ,@(loop for matrix in matrices nconcing
-			  (list (msym-store matrix) (msym-nrows matrix)
+		     `((,(symbol-store matrix) (slot-value ,matrix 'store))
+		       (,(msym-nrows matrix) (slot-value ,matrix 'nrows))
+		       (,(msym-ncols matrix) (slot-value ,matrix 'ncols))
+		       (,(msym-pos matrix) 0))))
+	(declare (ignorable
+		  ,@(loop for matrix in matrices nconcing
+			  (list (symbol-store matrix) (msym-nrows matrix)
 				(msym-ncols matrix) (msym-pos matrix)))))
-	 (declare
-	  (type (simple-array element-type (*)) ,@(mapcar #'msym-store matrices))
-	  (type fixnum ,@(loop for matrix in matrices nconcing
+	(declare
+	 (type (simple-array element-type (*)) ,@(mapcar #'symbol-store matrices))
+	 (type fixnum ,@(loop for matrix in matrices nconcing
 			      (list (msym-nrows matrix)
 				    (msym-ncols matrix) (msym-pos matrix)))))
-	 (macrolet ((ref (matrix) `(aref ,(msym-store matrix) ,(msym-pos matrix))))
-	   ,@body))))
-
-#+(or)
-(macroexpand-1 '(with-blas-information (x y) double-float
-		 (setf (ref x) (ref y))))
-  
-(define-blas-macro 'standard-matrix
-  '(vec-for-each-entry (loop-vars &rest body)
-    (let ((i (gensym "I")))
-      `(dotimes (,i (length ,(msym-store (first loop-vars))))
-	(macrolet ((ref (matrix) (list 'aref (msym-store matrix) ',i)))
-	  ,@body)))))
-
-(defmacro vec-for-each-entry (loop-vars &rest body)
-  (let ((i (gensym "I")))
-    `(macrolet ((ref (matrix) (list 'aref (msym-store matrix) ',i)))
-      (dotimes (,i (length ,(msym-store (first loop-vars))))
-	,@body))))
-
-(define-blas-macro 'standard-matrix
-  '(element-copy! (x y) `(setf ,y ,x)))
-
-(define-blas-macro 'standard-matrix
-  '(element-scal! (alpha x) `(setf ,x (* ,alpha ,x))))
-
-(define-blas-macro 'standard-matrix
-  '(element-m+! (x y) `(incf ,y ,x)))
-
-(define-blas-macro 'standard-matrix
-  '(element-m+ (x y) `(+ ,y ,x)))
-
-(define-blas-macro 'standard-matrix
-  '(element-m-! (x y) `(decf ,y ,x)))
-
-(define-blas-macro 'standard-matrix
-  '(element-m.*! (x y) `(setf ,y (* ,y ,x))))
-
-(define-blas-macro 'standard-matrix
-  '(element-m* (x y) `(* ,y ,x)))
-
-(define-blas-macro 'standard-matrix
-  '(element-equal (x y) `(= ,y ,x)))
-
-(define-blas-macro 'standard-matrix
-  '(element-gemm! (alpha x y beta z)
-    `(setf ,z (+ (* ,alpha ,x ,y) (* ,beta ,z)))))
+	(macrolet ((ref (matrix) `(aref ,(symbol-store matrix) ,(msym-pos matrix))))
+	  (let ()
+	    ,@body)))))
 
 (defun matrix-loop-expansion (bindings body)
   (let* ((sym1 (car (first bindings)))
@@ -154,21 +106,16 @@ nrows and ncols of the given matrices."
   '(matrix-loop (bindings &rest body)
     (matrix-loop-expansion bindings body)))
 
-;;(declaim (inline standard-matrix-compatible-p))
-(defmacro standard-matrix-compatible-p (x y)
-  `(and (= ,(msym-nrows x) ,(msym-nrows y))
-    (= ,(msym-ncols x) ,(msym-ncols y))))
-
-;;;(declaim (inline assert-standard-matrix-compatibility))
-(defmacro assert-standard-matrix-compatibility (x y)
-  `(unless (standard-matrix-compatible-p ,x ,y)
-    (error "Matrices do not have the same format nrows*ncols.")))
+(define-blas-macro 'standard-matrix
+    '(assert-vector-operation-compatibility (x y)
+      `(unless (and (= ,(msym-nrows x) ,(msym-nrows y))
+		(= ,(msym-ncols x) ,(msym-ncols y)))
+	(error "Matrices do not have the same format nrows*ncols."))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Implementation of the BLAS for the standard-matrix class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;; >>>>
 
 ;;; The following routines could be replaced by the BLAS for store-vector.
 ;;; Unfortunately, this would mean that no matrix compatibility check is
@@ -178,8 +125,8 @@ nrows and ncols of the given matrices."
 
 (declaim (inline assert-same-size))
 (defun assert-same-size (x y)
-  (unless (and (= (nrows x) (nrows y)) (= (ncols x) (ncols y))))
-    (error "Matrices do not have the same format nrows*ncols."))
+  (unless (and (= (nrows x) (nrows y)) (= (ncols x) (ncols y)))
+    (error "Matrices do not have the same format nrows*ncols.")))
 
 #+(or)
 (defmethod copy! :before ((x standard-matrix) (y standard-matrix))
@@ -188,32 +135,40 @@ nrows and ncols of the given matrices."
 ;;;; <<<<
 
 (define-blas-template copy! ((x standard-matrix) (y standard-matrix))
-  (declare (optimize (speed 3) (debug 0) (safety 0)))
-  (assert-standard-matrix-compatibility x y)
-  (vec-for-each-entry (x y) (element-copy! (ref x) (ref y)))
+  (vec-for-each-entry (x y) (setf (ref y) (ref x)))
   y)
 
 (define-blas-template axpy! ((alpha number) (x standard-matrix) (y standard-matrix))
-  (declare (optimize speed))
-  (assert-standard-matrix-compatibility x y)
   (vec-for-each-entry (x y) (element-m+! (element-m* alpha (ref x)) (ref y)))
   y)
 
+(define-blas-template dot ((x standard-matrix) (y standard-matrix))
+  (let ((sum (coerce 0 'element-type)))
+    (declare (type element-type sum))
+    (vec-for-each-entry (x y)
+       (element-m+! (element-m* (ref x) (ref y)) sum))
+    sum))
+
+(define-blas-template mequalp ((x standard-matrix) (y standard-matrix))
+  (vec-for-each-entry (x y)
+     (unless (element-equal (ref x) (ref y))
+       (return-from mequalp nil)))
+  t)
+
+(define-blas-template dot-abs ((x standard-matrix) (y standard-matrix))
+  (let ((sum (coerce 0 'element-type)))
+    (declare (type element-type sum))
+    (vec-for-each-entry (x y)
+       (element-m+! (abs (element-m* (ref x) (ref y))) sum))
+    sum))
+
 (define-blas-template m+! ((x standard-matrix) (y standard-matrix))
-  (declare (optimize speed))
-  (assert-standard-matrix-compatibility x y)
   (vec-for-each-entry (x y) (element-m+! (ref x) (ref y)))
   y)
 
-(define-blas-template mequalp ((x standard-matrix) (y standard-matrix))
-  "Exact equality test for standard-matrix."
-  (or (and (or (zerop x-nrows) (zerop x-ncols))
-	   (or (zerop x-nrows) (zerop x-ncols)))
-      (when (and (= x-nrows y-nrows) (= x-ncols y-ncols))
-	(vec-for-each-entry (x y)
-          (unless (element-equal (ref x) (ref y))
-	    (return-from mequalp nil)))
-	t)))
+(define-blas-template m.*! ((x standard-matrix) (y standard-matrix))
+  (vec-for-each-entry (x y) (element-m.*! (ref x) (ref y)))
+  y)
 
 ;;; Matrix-matrix multiplication
 
@@ -234,82 +189,95 @@ nrows and ncols of the given matrices."
     (eval
      `(define-blas-template ,gemm-job
        ((alpha number) (x standard-matrix) (y standard-matrix) (beta number) (z standard-matrix))
-       (declare (optimize (speed 3) (space 0) (debug 0) (safety 0)))
-       (unless (and (= ,x-length-1 z-nrows)
-		    (= ,x-length-2 ,y-length-1)
-		    (= ,y-length-2 z-ncols))
-	 (error "Size of arguments does not fit for matrix-matrix multiplication."))
-       (matrix-loop ((z :col-index) (y ,y-index-2))
-	 (matrix-loop ((z :row-index) (x ,x-index-1))
-	   (let ((sum (coerce 0 'element-type)))
-	     (declare (type element-type sum))
-	     (matrix-loop ((x ,x-index-2) (y ,y-index-1))
-	       (element-m+! (element-m* (ref x) (ref y)) sum))
-	     (setf (ref z) (element-m+ (element-m* alpha sum)
-				       (element-m* beta (ref z)))))))
+       (with-blas-data (x y z)
+	 (unless (and (= ,x-length-1 z-nrows)
+		      (= ,x-length-2 ,y-length-1)
+		      (= ,y-length-2 z-ncols))
+	   (error "Size of arguments does not fit for matrix-matrix multiplication."))
+	 (matrix-loop ((z :col-index) (y ,y-index-2))
+	  (matrix-loop ((z :row-index) (x ,x-index-1))
+		       (let ((sum (coerce 0 'element-type)))
+			 (declare (type element-type sum))
+			 (matrix-loop ((x ,x-index-2) (y ,y-index-1))
+				      (element-m+! (element-m* (ref x) (ref y)) sum))
+			 (setf (ref z) (element-m+ (element-m* alpha sum)
+						   (element-m* beta (ref z))))))))
        z))))
 
 ;;; activate all of the GEMM-XX! routines
 (mapc #'generate-standard-matrix-gemm!-template '(:nn :nt :tn :tt))
 
 (define-blas-template transpose! ((x standard-matrix) (y standard-matrix))
-  (declare (optimize (speed 3) (space 0) (debug 0) (safety 0)))
-  (unless (and (= x-nrows y-ncols) (= x-ncols y-nrows))
-    (error "Size of arguments does not fit for destructive transposition."))
-  (matrix-loop ((x :col-index) (y :row-index))
-    (matrix-loop ((x :row-index) (y :col-index))
-      (setf (ref y) (ref x))))
+  (with-blas-data (x y)
+    (unless (and (= x-nrows y-ncols) (= x-ncols y-nrows))
+      (error "Size of arguments does not fit for destructive transposition."))
+    (matrix-loop ((x :col-index) (y :row-index))
+		 (matrix-loop ((x :row-index) (y :col-index))
+			      (setf (ref y) (ref x)))))
   y)
 
 (define-blas-template join-horizontal! ((x standard-matrix) (y standard-matrix)
 					(z standard-matrix))
-  (declare (optimize (speed 3) (space 0) (debug 0) (safety 0)))
-  (unless (and (= x-nrows y-nrows z-nrows) (= z-ncols (+ x-ncols y-ncols)))
-    (error "Size of arguments does not fit for horizontal join."))
-  (matrix-loop ((x :col-index) (z :col-index))
-    (matrix-loop ((x :row-index) (z :row-index))
-      (setf (ref z) (ref x))))
-  (matrix-loop ((y :col-index) (z :col-index (length x-store)))
-    (matrix-loop ((y :row-index) (z :row-index))
-      (setf (ref z) (ref y))))
+  (with-blas-data (x y z)
+    (unless (and (= x-nrows y-nrows z-nrows) (= z-ncols (+ x-ncols y-ncols)))
+      (error "Size of arguments does not fit for horizontal join."))
+    (matrix-loop ((x :col-index) (z :col-index))
+		 (matrix-loop ((x :row-index) (z :row-index))
+			      (setf (ref z) (ref x))))
+    (matrix-loop ((y :col-index) (z :col-index (length x-store)))
+		 (matrix-loop ((y :row-index) (z :row-index))
+			      (setf (ref z) (ref y)))))
   z)
   
 (define-blas-template join-vertical! ((x standard-matrix) (y standard-matrix)
 				      (z standard-matrix))
-  (declare (optimize (speed 3) (space 0) (debug 0) (safety 0)))
-  (unless (and (= x-ncols y-ncols z-ncols) (= z-nrows (+ x-nrows y-nrows)))
-    (error "Size of arguments does not fit for vertical join."))
-  (matrix-loop ((x :col-index) (y :col-index) (z :col-index))
-    (matrix-loop ((x :row-index) (z :row-index))
-      (setf (ref z) (ref x)))
-    (matrix-loop ((y :row-index) (z :row-index x-nrows))
-      (setf (ref z) (ref y))))
+  (with-blas-data (x y z)
+    (unless (and (= x-ncols y-ncols z-ncols) (= z-nrows (+ x-nrows y-nrows)))
+      (error "Size of arguments does not fit for vertical join."))
+    (matrix-loop ((x :col-index) (y :col-index) (z :col-index))
+		 (matrix-loop ((x :row-index) (z :row-index))
+			      (setf (ref z) (ref x)))
+		 (matrix-loop ((y :row-index) (z :row-index x-nrows))
+			      (setf (ref z) (ref y)))))
   z)
 
 (define-blas-template minject ((x standard-matrix) (y standard-matrix)
 			       row-off col-off)
   (declare (type fixnum row-off col-off))
-  (declare (optimize (speed 3) (space 0) (debug 0) (safety 0)))
-  (unless (and (<= 0 row-off) (<= 0 col-off)
-	       (<= (+ row-off x-nrows) y-nrows)
-	       (<= (+ col-off x-ncols) y-ncols))
-    (error "Illegal arguments."))
-  (matrix-loop ((x :col-index) (y :col-index (* col-off y-nrows)))
-    (matrix-loop ((x :row-index) (y :row-index row-off))
-      (setf (ref y) (ref x))))
+  (with-blas-data (x y)
+    (unless (and (<= 0 row-off) (<= 0 col-off)
+		 (<= (+ row-off x-nrows) y-nrows)
+		 (<= (+ col-off x-ncols) y-ncols))
+      (error "Illegal arguments."))
+    (matrix-loop ((x :col-index) (y :col-index (* col-off y-nrows)))
+		 (matrix-loop ((x :row-index) (y :row-index row-off))
+			      (setf (ref y) (ref x)))))
   y)
 
 (define-blas-template mextract ((x standard-matrix) (y standard-matrix) row-off col-off)
   (declare (type fixnum row-off col-off))
-  (declare (optimize (speed 3) (space 0) (debug 0) (safety 0)))
-  (unless (and (<= 0 row-off) (<= 0 col-off)
-	       (<= (+ row-off y-nrows) x-nrows)
-	       (<= (+ col-off y-ncols) x-ncols))
-    (error "Illegal arguments."))
-  (matrix-loop ((y :col-index) (x :col-index (* col-off x-nrows)))
-    (matrix-loop ((y :row-index) (x :row-index row-off))
-      (setf (ref y) (ref x))))
+  (with-blas-data (x y)
+    (unless (and (<= 0 row-off) (<= 0 col-off)
+		 (<= (+ row-off y-nrows) x-nrows)
+		 (<= (+ col-off y-ncols) x-ncols))
+      (error "Illegal arguments."))
+    (matrix-loop ((y :col-index) (x :col-index (* col-off x-nrows)))
+		 (matrix-loop ((y :row-index) (x :row-index row-off))
+			      (setf (ref y) (ref x)))))
   y)
+
+(defmethod vector-slice ((mat standard-matrix) offset size)
+  (let ((result (make-instance (standard-matrix (element-type mat))
+			       :nrows size :ncols (ncols mat))))
+    (mextract mat result offset 0)))
+
+(defmethod matrix-slice ((mat standard-matrix) &key (from-row 0) (from-col 0)
+			 (nrows (- (nrows mat) from-row))
+			 (ncols (- (ncols mat) from-col)))
+  (let ((result (make-instance (standard-matrix (element-type mat))
+			       :nrows nrows :ncols ncols)))
+    (mextract mat result from-row from-col)))
+
 
 #+(or)
 (time
@@ -341,6 +309,10 @@ nrows and ncols of the given matrices."
 (defun test-standard-matrix-blas ()
   (dbg-on :blas)
   (dbg-on :compile)
+  (copy! #m(1.0) #m(0.0))
+  (copy! (funcall (standard-matrix-generator 'single-float) 1)
+	 (funcall (standard-matrix-generator 'single-float) 1))
+  (test-blas 'copy! 1 :generator (standard-matrix-generator '(complex double-float)))
   (test-blas 'm+! 7992 :generator (standard-matrix-generator '(complex double-float)))
   (scal! 0.5 #m((1.0 2.0)))
   (copy! (eye 2) (eye 2))
@@ -381,7 +353,6 @@ nrows and ncols of the given matrices."
   (join #m((1.0 2.0)) #m((3.0 4.0)) :vertical)
   (join #m((1.0) (2.0)) #m((3.0) (4.0)))
   (join #m((1.0) (2.0)) #m((3.0) (4.0)) :vertical)
-  (mequalp #m() #m(()))
   (let* ((x #m((2.0 1.0) (-1.0 2.0)))
 	 (y #m(0.0))
 	 (z (copy x)))
@@ -400,7 +371,7 @@ nrows and ncols of the given matrices."
     (assert (mequalp x z)))
   (dbg-off :blas)
   (dbg-off :compile)
-   )
+  )
 
-;;; (time (fl.matlisp::test-standard-matrix-blas))
+;;; (fl.matlisp::test-standard-matrix-blas)
 (fl.tests:adjoin-test 'test-standard-matrix-blas)

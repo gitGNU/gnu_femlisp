@@ -36,24 +36,34 @@
 ;;; BLAS macros
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun clear-blas-macros (class)
-  (setf (get class 'BLAS-MACROS) ()))
+(defvar *blas-macro-table* (make-hash-table)
+  "Table of all BLAS macros.")
+
+
+(defgeneric blas-macro (object name)
+  (:documentation "Interns a BLAS macro for instances of @arg{object} with
+name being the symbol @arg{name}.")
+  (:method (object name)
+    "The default is no macro for this class."
+    nil))
 
 (defun define-blas-macro (class macro-definition)
-  (setf (geta (get class 'BLAS-MACROS) (first macro-definition))
-	macro-definition))
+  (let ((symbol (first macro-definition)))
+    (eval `(defmethod blas-macro ((z ,class) (sym (eql ',symbol)))
+	    ',macro-definition))
+    (setf (gethash symbol *blas-macro-table*) t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; define-blas-template
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun new-blas-method-code (name class-name template-args actual-args body)
+(defun new-blas-method-code (name class-name template-args actual-args blas-macros body)
   (flet ((matrix-p (template-arg)
-		   (and (consp template-arg)
-			(eq class-name (second template-arg))))
+	   (and (consp template-arg)
+		(eq class-name (second template-arg))))
 	 (number-p (template-arg)
-		   (and (consp template-arg)
-			(eq 'number (second template-arg)))))
+	   (and (consp template-arg)
+		(eq 'number (second template-arg)))))
     (let* ((pos (or (position-if #'(lambda (x)
 				     (member x '(&optional &key &allow-other-keys)))
 				 template-args)
@@ -65,22 +75,22 @@
 	      and actual-arg in actual-args
 	      for arg = (if (consp template-arg)
 			    (car template-arg)
-			  template-arg)
+			    template-arg)
 	      do
 	      (cond
-	       ((matrix-p template-arg)
-		(cond (specialized-class
-		       (unless (eq specialized-class (class-of actual-arg))
-			 (error "Template depends on different classes.")))
-		      (t
-		       (setq specialized-class (class-of actual-arg))
-		       (setq element-type (element-type actual-arg))))
-		(push arg matrices))
-	       ((number-p template-arg)
-		(push arg number-args)
-		(push actual-arg numbers))
-	       ;; otherwise: do nothing
-	       ))
+		((matrix-p template-arg)
+		 (cond (specialized-class
+			(unless (eq specialized-class (class-of actual-arg))
+			  (error "Template depends on different classes.")))
+		       (t
+			(setq specialized-class (class-of actual-arg))
+			(setq element-type (element-type actual-arg))))
+		 (push arg matrices))
+		((number-p template-arg)
+		 (push arg number-args)
+		 (push actual-arg numbers))
+		;; otherwise: do nothing
+		))
 	(dolist (number numbers)
 	  (unless (subtypep (type-of number) element-type)
 	    (error "Type of number does not fit with element-type.")))
@@ -92,35 +102,40 @@
 		       arg))
 	   ,@rest-args)
 	  (declare (type ,element-type ,@number-args))
-	   (declare (optimize (speed 3) (safety 0) (debug 0)))
-	   ,(subst element-type 'element-type
-		  `(macrolet ,(mapcar #'cdr (get class-name 'BLAS-MACROS))
-		    (with-blas-data ,matrices
-		      ,@body))))))))
+	  (declare (optimize (speed 3) (safety 0) (debug 0)))
+	  ,(subst element-type 'element-type
+		  `(macrolet ,blas-macros
+		    ,@body)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
   (defun new-dispatcher-code (name template-args body)
     "Generates a method which generates code for a type-specialized method."
-    (let ((class-name  ; find out class-name
-	   (loop for arg in template-args
-		 for second = (and (listp arg) (second arg))
-		 when (and second (not (eq second 'number)))
-		 do (return second))))
+    (let* ((class-pos (position-if
+		       #'(lambda (x) (and (consp x)
+					  (not (eq (second x) 'number))))
+		       template-args))
+	   (class-name (second (elt template-args class-pos)))
+	   (instance-name (first (elt template-args class-pos))))
       (whereas ((gf (and (fboundp name) (symbol-function name))))
 	(fl.amop:remove-subclass-methods gf template-args))
-      (let* ((actual-args (gensym "ACTUAL-ARGS")))
+      (let* ((actual-args (gensym "ACTUAL-ARGS"))
+	     (blas-macros (gensym "BLAS-MACROS")))
 	`(defmethod ,name ,template-args
 	  ,@(when (stringp (car body)) (list (car body)))
 	  (let ((,actual-args
 		 (list ,@(loop for arg in template-args
 			       unless (member arg '(&optional))
 			       collect (if (consp arg) (car arg) arg)
-			       do (assert (not (member arg '(&key &allow-other-keys))))))))
+			       do (assert (not (member arg '(&key &allow-other-keys)))))))
+		(,blas-macros
+		 (loop for sym being each hash-key of *blas-macro-table*
+		       when (blas-macro ,instance-name sym)
+		       collect it)))
 	    ;; define specialized method
 	    (fl.amop:compile-and-eval
 	     (new-blas-method-code
-	      ',name ',class-name ',template-args ,actual-args
+	      ',name ',class-name ',template-args ,actual-args ,blas-macros
 	      ',(if (stringp (car body)) (cdr body) body)))
 	    ;; retry call
 	    (apply #',name ,actual-args)))))))
@@ -129,10 +144,6 @@
   (new-dispatcher-code name args body))
 
 ;;;; Performance test
-
-(defun typed-vector-generator (type)
-  #'(lambda (n)
-      (make-instance (standard-matrix type) :nrows n :ncols 1)))
 
 (defvar *test-blas-vector-generator* nil
   "Function of an argument @arg{N} which returns a vector of size @arg{N}

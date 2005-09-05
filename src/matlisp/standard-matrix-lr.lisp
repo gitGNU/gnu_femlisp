@@ -82,68 +82,68 @@
 	 (ipiv (or ipiv (make-array k :element-type 'fixnum :initial-element -1))))
     (declare (type fixnum m n k)
 	     (type (simple-array fixnum (*)) ipiv))
-    (declare (optimize (speed 3) (safety 0)))
-    (loop
-     for j of-type fixnum from 0 below k
-     for offset-jj of-type fixnum = (indexing j j m n) do
-     ;; column pivoting
-     (let ((pivot-index j)
-	   (pivot-value (abs (aref mat-store offset-jj))))
-       (declare (type fixnum pivot-index))
-       ;; find pivot
-       (loop for i from (1+ j) below m
-	     for off = (indexing i j m n)
-	     for value of-type element-type = (abs (aref mat-store off))
-	     do (when (> value pivot-value)
-		  (setq pivot-index i
-			pivot-value value)))
-       (when (zerop pivot-value)
-	 (return-from getrf! (values mat ipiv pivot-index)))
-       (setf (aref ipiv j) pivot-index)
-       (unless (= pivot-index j)
-	 (swap-rows j pivot-index mat-store m n)))
+    (with-blas-data (mat)
+      (loop
+       for j of-type fixnum from 0 below k
+       for offset-jj of-type fixnum = (indexing j j m n) do
+       ;; column pivoting
+       (let ((pivot-index j)
+	     (pivot-value (abs (aref mat-store offset-jj))))
+	 (declare (type fixnum pivot-index))
+	 ;; find pivot
+	 (loop for i from (1+ j) below m
+	       for off = (indexing i j m n)
+	       for value of-type element-type = (abs (aref mat-store off))
+	       do (when (> value pivot-value)
+		    (setq pivot-index i
+			  pivot-value value)))
+	 (when (zerop pivot-value)
+	   (return-from getrf! (values mat ipiv pivot-index)))
+	 (setf (aref ipiv j) pivot-index)
+	 (unless (= pivot-index j)
+	   (swap-rows j pivot-index mat-store m n)))
 
-     ;; compute elements of column J of L
-     (loop with factor = (/ (aref mat-store offset-jj))
-	   for off of-type fixnum
-	   from (1+ offset-jj) below (indexing n j m n) do
-	   (setf (aref mat-store off) (* (aref mat-store off) factor)))
+       ;; compute elements of column J of L
+       (loop with factor = (/ (aref mat-store offset-jj))
+	     for off of-type fixnum
+	     from (1+ offset-jj) below (indexing n j m n) do
+	     (setf (aref mat-store off) (* (aref mat-store off) factor)))
       
-     ;; update trailing submatrix of R
-     (loop
-      for off of-type fixnum
-      from (indexing j (1+ j) m n) below (indexing j n m n) by m
-      for factor of-type element-type = (aref mat-store off)
-      unless (zerop factor) do
-      (loop for pos1 of-type fixnum
-	    from (1+ off) below (+ off (- n j))
-	    and pos2 of-type fixnum from (1+ offset-jj) do
-	    (decf (aref mat-store pos1)
-		  (* factor (aref mat-store pos2))))))
+       ;; update trailing submatrix of R
+       (loop
+	for off of-type fixnum
+	from (indexing j (1+ j) m n) below (indexing j n m n) by m
+	for factor of-type element-type = (aref mat-store off)
+	unless (zerop factor) do
+	(loop for pos1 of-type fixnum
+	      from (1+ off) below (+ off (- n j))
+	      and pos2 of-type fixnum from (1+ offset-jj) do
+	      (decf (aref mat-store pos1)
+		    (* factor (aref mat-store pos2)))))))
     (values mat ipiv t)))
 
 (define-blas-template getrs! ((LR standard-matrix) (b standard-matrix) &optional ipiv)
   "Uses the LR decomposition computed by getrf! to solve a linear system
 with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
   (declare (type (or null (simple-array fixnum (*))) ipiv))
-  (declare (optimize (speed 3) (safety 0)))
-  (unless (= b-nrows LR-nrows LR-ncols)
-    (error "Matrix LR is not quadratic or does not fit to right-hand side."))
-  (when ipiv
-    (unless (= b-nrows (length ipiv))
-      (error "Matrix and pivot vector do not fit.")))
-  
-  (when ipiv    ; swap rhs according to ipiv
-    (dotimes (i b-nrows)
-      (declare (type fixnum i))
-      (let ((k (aref ipiv i)))
-	(unless (= i k)
-	  (swap-rows i k b-store b-nrows b-ncols)))))
-  
-  ;; solve Lx'=b
-  (trsm LR-store b-store b-nrows b-ncols :side :lower :unit-diagonal t)
-  ;; solve Rx=x'
-  (trsm LR-store b-store b-nrows b-ncols :side :upper :unit-diagonal nil)
+  (with-blas-data (LR b)
+    (unless (= b-nrows LR-nrows LR-ncols)
+      (error "Matrix LR is not quadratic or does not fit to right-hand side."))
+    (when ipiv
+      (unless (= b-nrows (length ipiv))
+	(error "Matrix and pivot vector do not fit.")))
+    
+    (when ipiv    ; swap rhs according to ipiv
+      (dotimes (i b-nrows)
+	(declare (type fixnum i))
+	(let ((k (aref ipiv i)))
+	  (unless (= i k)
+	    (swap-rows i k b-store b-nrows b-ncols)))))
+    
+    ;; solve Lx'=b
+    (trsm LR-store b-store b-nrows b-ncols :side :lower :unit-diagonal t)
+    ;; solve Rx=x'
+    (trsm LR-store b-store b-nrows b-ncols :side :upper :unit-diagonal nil))
   b)
 
 #+(or)
