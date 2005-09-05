@@ -157,7 +157,8 @@ already assembled.  Works only for uniformly refined meshes."
        for l-mat = (if (galerkin-p mgit)
 		       (galerkin-product (transpose imat) (aref a-vec (1+ level)) imat)
 		       (let ((l-mat (make-ansatz-space-automorphism ansatz-space)))
-			 (assemble-interior ansatz-space :matrix l-mat :level level :where :refined)
+			 (assemble-interior ansatz-space :matrix l-mat :level level :where :refined
+					    :solution (get-property mat :solution))
 			 l-mat))
        do
 	 (multiple-value-bind (constraints-P constraints-Q constraints-r)
