@@ -39,7 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #+umfpack
-(fl.port:def-function "c_umfpack"
+(fl.port:def-function ("c_umfpack" c-umfpack)
     ((m :int) (n :int) (nnz :int)
      (colptr (* :int))
      (rowind (* :int))
@@ -52,10 +52,10 @@
 #+umfpack
 (defun umfpack (m n nnz cs ri store nrhs rhs sol)
   "Calls UMFPACK."
-  (without-gcing
-      (c-umfpack m n nnz (vector-sap cs) (vector-sap ri)
-		 (vector-sap store) nrhs (vector-sap rhs)
-		 (vector-sap sol))))
+  (fl.port:foreign-call-wrapper
+   (c-umfpack m n nnz (vector-sap cs) (vector-sap ri)
+	      (vector-sap store) nrhs (vector-sap rhs)
+	      (vector-sap sol))))
 
 ;;; Testing
 

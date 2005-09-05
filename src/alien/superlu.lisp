@@ -68,10 +68,10 @@
 #+superlu
 (defun superlu (m n nnz cs ri store nrhs rhs sol)
   "Calls SuperLU."
-  (without-gcing
-      (c-superlu m n nnz (vector-sap cs) (vector-sap ri)
-		 (vector-sap store) nrhs (vector-sap rhs)
-		 (vector-sap sol))))
+  (fl.port:foreign-call-wrapper
+   (c-superlu m n nnz (vector-sap cs) (vector-sap ri)
+	      (vector-sap store) nrhs (vector-sap rhs)
+	      (vector-sap sol))))
 
 ;;; Testing
 
