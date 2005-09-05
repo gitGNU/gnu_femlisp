@@ -472,21 +472,6 @@ means a lot of consing."
     (loop for row-key being the hash-keys of it using (hash-value mblock)
 	  do (funcall fn row-key mblock))))
 
-(defmethod clear-row ((mat <sparse-matrix>) row-key1 &optional row-key2)
-  (for-each-entry-in-row
-   #'(lambda (mblock)
-       (if row-key2
-	   (clear-row mblock row-key2)
-	   (x<-0 mblock)))
-   mat row-key1))
-
-(defmethod clear-column ((mat <sparse-matrix>) col-key1 &optional col-key2)
-  (for-each-entry-in-col
-   #'(lambda (mblock)
-       (if col-key2
-	   (clear-column mblock col-key2)
-	   (x<-0 mblock)))
-   mat col-key1))
 
 (defmethod row-keys ((mat <sparse-matrix>))
   (let ((row-keys ()))

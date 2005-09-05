@@ -130,12 +130,12 @@ its actual offsets in the sparse graph."))
 ;;; crs-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass crs-matrix (store-vector <matrix>)
+(defclass crs-matrix (<matrix>)
   ((pattern :reader pattern :initarg :pattern :type crs-pattern
 	    :documentation "The pattern of the CRS matrix.  This is kept
 separate such that the same pattern can be used for many matrices."))
-  (:documentation "The class @class{crs-matrix} combines a crs-pattern and
-a value vector."))
+  (:documentation "This is an abstract class @class{crs-matrix} which is
+made concrete by combining it with a store-vector."))
 
 (defmethod nrows ((A crs-matrix))
   (slot-value (pattern A) 'nrows))
