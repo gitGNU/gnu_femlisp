@@ -105,7 +105,7 @@ location of this file when it is loaded.")
 
 #+sbcl (require 'sb-posix)
 #+sbcl (require 'sb-introspect)
-#+sbcl (require 'asdf)
+#+(or ecl sbcl) (require 'asdf)
 
 #+allegro (require :osi)
 
@@ -116,14 +116,14 @@ location of this file when it is loaded.")
 ;;; ASDF
 #-asdf (load #p"femlisp:external;asdf")
 
-(pushnew (probe-file #p"femlisp:systems;") asdf::*central-registry* :test #'equalp)
+(pushnew (probe-file #p"femlisp:") asdf::*central-registry* :test #'equalp)
 
 #+(or)
 (defmethod asdf::output-files :around (operation (c asdf::cl-source-file))
   (let ((out (call-next-method))
 	(name (asdf::component-pathname (asdf::component-system c))))
     (when out
-      (if (member name '("femlisp" "uffi") :test #'equal)
+      (if (member name '("femlisp") :test #'equal)
 	  (list (merge-pathnames
 		 (make-pathname
 		  :host nil :device nil :directory nil :name nil
@@ -134,11 +134,12 @@ location of this file when it is loaded.")
 ;;; INFIX
 #-infix (load "femlisp:external;infix.cl")
 
-;;; UFFI
-#-uffi
-(progn
-  (asdf:operate 'asdf::load-op :uffi)
-  (pushnew :uffi *features*))
+;;; try to get UFFI
+#+(or)
+(ignore-errors
+  (when (asdf:find-system :uffi nil)
+    (asdf:operate 'asdf::load-op :uffi)
+    (pushnew :uffi *features*)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Compiling and loading of Femlisp

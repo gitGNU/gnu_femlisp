@@ -1,5 +1,9 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.7 to Femlisp-0.9.8:
+
+Removed the dependency on UFFI introduced in Femlisp-0.9.7.
+
 * From Femlisp-0.9.6 to Femlisp-0.9.7:
 
 There is a directory @path{femlisp:private} where users can put private

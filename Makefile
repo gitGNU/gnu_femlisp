@@ -31,7 +31,7 @@
 
 help:
 	echo "Options: all, configure, clean, documentation, femlisp, help,";\
-	echo "         triangle, superlu, uffi, umfpack."
+	echo "         triangle, superlu, umfpack."
 
 all: configure superlu umfpack triangle femlisp documentation
 
@@ -57,12 +57,6 @@ using it."
 	cd external; mkdir triangle; cd triangle;\
 	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
 	unzip triangle.zip; rm triangle.zip; make
-
-uffi:
-	cd external; rm -rf uffi-latest; \
-	wget -O - http://files.b9.com/uffi/uffi-latest.tar.gz| tar xzvf -; \
-	mv uffi-* uffi-latest; \
-	cd ../systems; rm uffi.asd; ln -s ../external/uffi-latest/uffi.asd uffi.asd
 
 umfpack:
 	cd interface; make umfpack
