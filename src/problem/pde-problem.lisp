@@ -64,14 +64,10 @@ keyword parameters which should correspond to the list in DEMANDS.")
 (defmethod demands ((coeffs list))
   "Returns unified demands for all coefficients in the list."
   (let ((demands nil))
-    (loop for coeff in coeffs do
-	  (loop for (demand value) on (demands coeff) by #'cddr do
-		(aif (getf demands demand)
-		     (unless (eql it value)
-		       (error "coefficient demands contradict"))
-		     (setf (getf demands demand) value))))
+    (dolist (coeff coeffs)
+      (dolist (demand (demands coeff))
+	(pushnew demand demands)))
     demands))
-
 
 (defun filter-applicable-coefficients (coeffs cell patch &key (constraints t))
   "Filters out the applicable coefficients for the respective cell with the
