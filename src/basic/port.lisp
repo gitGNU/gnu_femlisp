@@ -87,6 +87,7 @@ functionality of Femlisp you should provide it in the file
 (defun quit ()
   #+cmu (ext:quit)
   #+ecl (si:quit)
+  #+gcl (lisp:quit)
   #+sbcl (sb-ext:quit)
   #+allegro (excl:exit)
   #-(or allegro cmu sbcl)
@@ -112,7 +113,8 @@ functionality of Femlisp you should provide it in the file
   #+(or cmu scl)
   (cdr (assoc (string var) ext:*environment-list* :test #'equalp
               :key #'string))
-  #+(or ecl gcl) (si:getenv (string var))
+  #+ecl (si:getenv (string var))
+  #+gcl (system:getenv (string var))
   #+lispworks (lw:environment-variable (string var))
   #+mcl (ccl::getenv var)
   #+sbcl (sb-ext:posix-getenv var)
@@ -124,7 +126,8 @@ functionality of Femlisp you should provide it in the file
   "Change the directory to @arg{path}."
   #+allegro (excl.osi:chdir path)
   #+cmu (unix:unix-chdir path)
-  #+(or ecl gcl) (si:chdir path)
+  #+ecl (si:chdir path)
+  #+gcl (system:chdir path)
   #+sbcl (sb-posix:chdir path)
   #+clisp (ext:cd path)
   #-(or cmu clisp ecl gcl sbcl)
