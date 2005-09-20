@@ -308,7 +308,7 @@ changes array pointers obtained by @function{vector-sap}."
 		     (declare (ignore obj))
 		     (funcall func)))
   #+cmu (ext:finalize obj func)
-  #+sbcl (sb-ext: finalize obj func)
+  #+sbcl (sb-ext:finalize obj func)
   #-(or allegro cmu sbcl)
   (portability-warning 'finalize obj func))
 
