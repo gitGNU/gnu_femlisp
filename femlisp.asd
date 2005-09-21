@@ -38,10 +38,9 @@
 
 (in-package :asdf)
 
-(#+asdf defsystem #-asdf mk::defsystem
- "femlisp"
- #+asdf :pathname #-asdf :source-pathname
- (translate-logical-pathname "femlisp:src;")
+(defsystem
+ :femlisp
+ :pathname (translate-logical-pathname "femlisp:src;")
  :depends-on ()
  :components
  (
@@ -90,9 +89,7 @@
     (:file "standard-matrix-lr" :depends-on ("standard-matrix-blas"))
     (:file "compat" :depends-on ("standard-matrix"))
     (:file "ccs" :depends-on ("store-vector" "standard-matrix"))
-    (:file "tensor" :depends-on ("store-vector"))
-    ))
-;;)) #+(or)((  ; insert for ECL debugging
+    (:file "tensor" :depends-on ("store-vector"))))
   (:module
    "algebra"
    :depends-on ("basic" "matlisp")
@@ -102,6 +99,7 @@
     (:file "crs" :depends-on ("algebra-defp"))
     (:file "sparse" :depends-on ("crs"))
     (:file "sparselu" :depends-on ("sparse"))))
+;;)) #+(or)((  ; insert for ECL/GCL debugging
   (:module
    "function"
    :depends-on ("basic" "matlisp" "algebra")
@@ -200,9 +198,7 @@
   (:module
    "special-iteration"
    #+asdf :pathname #-asdf :source-pathname
-   #-gcl
    #.(translate-logical-pathname #p"femlisp:src;iteration;")
-   #+gcl (concatenate 'string *femlisp-directory* "src/iteration/")
    :depends-on ("mesh" "problem" "discretization" "iteration")
    :components
    ((:file "geomg-defp")
@@ -296,6 +292,7 @@
       (:file "amg-cdr" :depends-on ("tools"))
       (:file "bratu")
       (:file "evp-cdr")
+      (:file "heat")
       ))
     (:module
      "elasticity"
@@ -337,5 +334,4 @@
  )
 
 ;;; (let ((*compile-print* nil)) (asdf:operate 'asdf::load-op 'femlisp))
-;;; (asdf:operate 'asdf::load-op 'femlisp)
-;;; (mk:oos 'femlisp 'compile)
+;;; (operate 'load-op "femlisp")
