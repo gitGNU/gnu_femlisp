@@ -34,6 +34,15 @@
 
 (in-package :fl.strategy)
 
+(defparameter *rothe-observe*
+  (list (list "Step" "~4D"
+	      #'(lambda (blackboard) (getbb blackboard :step)))
+	*time-observe*
+	(list "    Time" "~8,2F"
+	      #'(lambda (blackboard)
+		  (getbb blackboard :model-time))))
+  "Standard observe quantities for Rothe.")
+
 (defclass <rothe> (<iteration>)
   ((model-time :accessor model-time :initarg :model-time :documentation
 	       "Current time in the time-stepping scheme.")
@@ -41,7 +50,9 @@
    ;; maybe we'll find something more automatic than the following later
    (stationary-success-if :initform nil :initarg :stationary-success-if)
    (stationary-failure-if :initform nil :initarg :stationary-failure-if)
-   (plot :initform t :initarg :plot))
+   (plot :initform nil :initarg :plot)
+   (fl.iteration::observe :initform *rothe-observe* :initarg :observe
+    :documentation "Providing initform for <iteration> slot."))
   (:documentation "Rothe strategy for time-dependent problems.  The idea of
 the Rothe method for solving $$U_t +A U =f$$ is to do an ODE time-stepping
 scheme in an infinite-dimensional function space.  Therefore, in every
@@ -123,9 +134,6 @@ each time step."
 (defmethod time-step-problem ((rothe <rothe>) (problem <cdr-problem>))
   "Returns a stationary problem corresponding to a step of the Rothe
 method."
-  ;; At the moment, we can do safely only the linear case. Otherwise, the
-  ;; solution from the previous time-step should be stored separately and a
-  ;; nonlinear solver should be used.
   (assert (linear-p problem))
   (make-instance
    '<cdr-problem>
@@ -153,6 +161,7 @@ method."
 
 (defmethod intermediate ((rothe <rothe>) blackboard)
   "Plots the solution initially and after each time step."
+  (setf (getbb blackboard :model-time) (model-time rothe))
   (when (slot-value rothe 'plot)
     (plot (getbb blackboard :solution)))
   (call-next-method))
@@ -173,6 +182,7 @@ method."
       (copy! (getbb blackboard :solution) solution)
       (solve time-step-blackboard)
       (copy! solution (getbb blackboard :solution))
+      (incf (model-time rothe) (time-step rothe))
       )))
 
 (defun test-rothe ()
@@ -186,7 +196,17 @@ method."
 		 '<rothe> :model-time 0.0 :time-step 0.01
 		 :stationary-success-if `(> :nr-levels ,levels)
 		 :success-if '(>= :step 20)
-		 :output t)))
-    (iterate rothe (blackboard :problem problem :fe-class (lagrange-fe order)
-			       :plot-mesh nil)))
+		 :output t :plot t)))
+    (let ((result
+	   (iterate rothe (blackboard
+			   :problem problem :fe-class (lagrange-fe order)
+			   :plot-mesh nil :output t))))
+      (assert (< (abs (- 0.3833184697778781  ; value computed by CMUCL
+			 (vref (aref (fe-value (getbb result :solution) #d(0.5))
+				     0) 0)))
+		 1.0e-12)))
+    )
   )
+
+;;; (test-rothe)
+(fl.tests:adjoin-test 'test-rothe)
