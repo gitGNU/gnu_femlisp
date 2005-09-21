@@ -74,7 +74,7 @@ oscillating domain."
   "Observe list for Cbl.")
 
 (defun cdr-bl-computation (dim/domain order max-levels &rest rest
-			   &key output plot &allow-other-keys)
+			   &key output plot solver &allow-other-keys)
   "Performs the bl-diffusion demo."
   (let ((domain (if (numberp dim/domain)
 		    (apply #'sinusoidal-bl-cell dim/domain rest)
@@ -91,6 +91,7 @@ oscillating domain."
 	      #+(or)(make-instance '<uniform-refinement-indicator>)
 	      (make-instance '<largest-eta-indicator> :pivot-factor 0.01
 			     :from-level 1 :block-p t)
+	      :solver solver
 	      :plot-mesh t
 	      :observe (append *stationary-fe-strategy-observe*
 			       (list *cbl-observe* *eta-observe*))
@@ -100,7 +101,8 @@ oscillating domain."
   *result*)
 
 #+(or) (cdr-bl-computation
-	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil :output :all)
+	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil
+	:solver (lu-solver) :output :all)
 
 #|
 (profile:unprofile)

@@ -37,7 +37,7 @@
 (defvar *amg-cdr-demo*
   (make-demo :name "amg-cdr"
 	     :short "AMG solving of C-D-R eqns"))
-(adjoin-demo *amg-cdr-demo* *laplace-demo*)
+(adjoin-demo *amg-cdr-demo* *cdr-demo*)
 
 (defun amg-cdr-solver ()
   "The standard AMG solver for the demos in this file."
