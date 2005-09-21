@@ -202,13 +202,15 @@ is not available, NIL is returned."
 	    (loop for obj in args do
 		 (when (and (typep obj 'fl.matlisp:standard-matrix)
 			    (not (assoc obj alist)))
-		   (setf (geta alist obj)
-			 (if (eq (element-type obj) 'double-float)
-			     (make-instance real-matrix
-					    :nrows (nrows obj) :ncols (ncols obj) :store (store obj))
-			     (make-instance complex-matrix
-					    :nrows (nrows obj) :ncols (ncols obj) :store
-					    (complex-to-real-vector (store obj)))))))
+		   (push
+		    (cons obj
+			  (if (eq (element-type obj) 'double-float)
+			      (make-instance real-matrix
+					     :nrows (nrows obj) :ncols (ncols obj) :store (store obj))
+			      (make-instance complex-matrix
+					     :nrows (nrows obj) :ncols (ncols obj) :store
+					     (complex-to-real-vector (store obj)))))
+		    alist)))
 	    (unless alist
 	      (error "No matching method for the generic function ~S, when called with arguments ~S."
 		     gf args))
@@ -243,6 +245,12 @@ is not available, NIL is returned."
     (vector
      (let ((element-type (array-element-type vec)))
        (assert (subtypep element-type 'number)) ; preliminary
+       #+ecl
+       (progn
+	 (when (eq element-type 'long-float)
+	   (setq element-type 'double-float))
+	 (when (eq element-type 'short-float)
+	   (setq element-type 'single-float)))
        (make-instance
 	(standard-matrix element-type)
 	:store vec
@@ -407,27 +415,27 @@ depending on the value of ORIENTATION."
 
 ;;; this old interface will probably soon be replaced by BLAS macros.
 
-(defmethod for-each-entry ((func function) (mat standard-matrix))
+(defmethod for-each-entry (fn (mat standard-matrix))
   (dotimes (i (nrows mat))
     (dotimes (j (ncols mat))
-      (funcall func (mref mat i j)))))
-(defmethod for-each-row-key ((fn function) (mat standard-matrix))
+      (funcall fn (mref mat i j)))))
+(defmethod for-each-row-key (fn (mat standard-matrix))
   "Loop through row keys."
   (dotimes (i (nrows mat))
     (funcall fn i)))
-(defmethod for-each-key-in-row ((fn function) (mat standard-matrix) row-key)
+(defmethod for-each-key-in-row (fn (mat standard-matrix) row-key)
   "Loop through column keys in row."
   (declare (ignore row-key))
   (dotimes (i (ncols mat))
     (funcall fn i)))
-(defmethod for-each-col-key ((fn function) (mat standard-matrix))
+(defmethod for-each-col-key (fn (mat standard-matrix))
   "Loop through column keys."
   (dotimes (i (ncols mat))
     (funcall fn i)))
-(defmethod for-each-key-and-entry ((func function) (mat standard-matrix))
+(defmethod for-each-key-and-entry (fn (mat standard-matrix))
   (dotimes (i (nrows mat))
     (dotimes (j (ncols mat))
-      (funcall func i j (mref mat i j)))))
+      (funcall fn i j (mref mat i j)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing
@@ -451,5 +459,5 @@ depending on the value of ORIENTATION."
     )
   )
 
-;;; (test-standard-matrix)
+;;; (fl.matlisp::test-standard-matrix)
 (fl.tests:adjoin-test 'test-standard-matrix)

@@ -148,16 +148,18 @@ double-float array."
     (axpy 0.5 B A)
     (mzerop #(0.0))
     (mzerop #m((0.0)))
-    (area-of-span (mrandom 5 3))
-    (let* ((dim 2)
-	   (x (make-double-vec dim))
-	   (y (make-double-vec dim 1.0)))
-      (m* (ensure-matlisp x)
-	  (transpose (ensure-matlisp y)))
-      (gemm 1.0 (eye 2) (ensure-matlisp x) 1.0 (ensure-matlisp y))    )
-  ))
+    (area-of-span (mrandom 5 3)))
+  (let* ((dim 2)
+	 (x (make-double-vec dim))
+	 (y (make-double-vec dim 1.0)))
+    (m* (ensure-matlisp x)
+	(transpose (ensure-matlisp y)))
+    (mapcar #'class-of
+	    (list (eye 2) (ensure-matlisp y) (ensure-matlisp x)))
+    (gemm 1.0 (eye 2) (ensure-matlisp x) 1.0 (ensure-matlisp y)))
+  )
 
-;;; (test-matlisp-vector-combination)
+;;; (fl.matlisp::test-matlisp-vector-combination)
 (fl.tests:adjoin-test 'test-matlisp-vector-combination)
 
 

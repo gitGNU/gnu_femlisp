@@ -39,6 +39,20 @@
  "Introduce some data types for interfacing with foreign code.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; canonical type
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun canonical-number-type (type)
+  "Returns the canonical type name, for example it might return
+SINGLE-FLOAT or SHORT-FLOAT for an argument SINGLE-FLOAT."
+  (type-of (coerce 0 type)))
+
+(defun equal-type (type1 type2)
+  "Tests if @arg{type1} and @arg{type2} designate the same type."
+  (and (subtypep type1 type2)
+       (subtypep type2 type1)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; double-vec
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
