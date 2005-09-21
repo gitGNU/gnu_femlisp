@@ -546,6 +546,7 @@ function of one argument."
   "An analog to @code{GETF} for association lists."
   (cdr (assoc key alist)))
 
+#-gcl
 (define-setf-expander geta (alist key &environment env)
   "An analog to @code{(SETF GETF)} for association lists."
   (multiple-value-bind (temps vals stores store-form access-form)
@@ -579,7 +580,7 @@ function of one argument."
 function @code{GETBB}."))
 
 (defun blackboard (&rest items)
-  "Make the property list supplied in @arg{items} into an blackboard.
+  "Make the property list supplied in @arg{items} into a blackboard.
 Copies @arg{items} to make sure that no literal list is modified."
   (make-instance 'blackboard :items (copy-seq items)))
 
