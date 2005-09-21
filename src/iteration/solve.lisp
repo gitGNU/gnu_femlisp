@@ -71,14 +71,14 @@ strategies."))
   (:documentation "Selects a solver for OBJECT.  OBJECT is usually a
 problem with certain characteristics."))
 
-(defgeneric select-linear-solver (object blackboard)
-  (:documentation "Selects a linear solver for OBJECT.  OBJECT is usually a
-matrix or a linear problem with certain characteristics."))
-
 (defmethod select-solver :around (object blackboard)
   "If a solver is on the blackboard, use it."
   (declare (ignore object))
   (or (getbb blackboard :solver) (call-next-method)))
+
+(defgeneric select-linear-solver (object blackboard)
+  (:documentation "Selects a linear solver for OBJECT.  OBJECT is usually a
+matrix or a linear problem with certain characteristics."))
 
 (defmethod select-solver ((problem <problem>) blackboard)
   "This method does a more specific search for linear problems by calling
@@ -86,6 +86,9 @@ matrix or a linear problem with certain characteristics."))
   (if (linear-p problem)
       (select-linear-solver problem blackboard)
       (error "No solver for this problem known.")))
+
+(defmethod select-solver ((lse <lse>) blackboard)
+  (select-linear-solver lse blackboard))
 
 (defvar *select-linear-solver* nil
   "If this variable is non-nil, it is funcalled for selecting a linear

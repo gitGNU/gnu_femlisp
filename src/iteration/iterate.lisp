@@ -80,7 +80,7 @@
 	       args))))
 
 (defparameter *time-observe*
-  (list "  TIME" "~6,1F"
+  (list "   CPU" "~6,1F"
 	#'(lambda (blackboard) (getbb blackboard :time)))
   "Observe time during an iteration.  This should be used as element in the
 observe list of an iteration.")
