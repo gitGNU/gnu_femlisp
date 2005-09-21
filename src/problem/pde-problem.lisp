@@ -163,15 +163,16 @@ function, this mapping can also be given as a list describing the
 association of patch classifications to coefficient functions."
   (call-next-method)
   (with-slots (domain coefficients) problem
-    (doskel (patch domain)
-      (setf (gethash patch coefficients)
-	    (typecase patch->coefficients
-	      (function (funcall patch->coefficients patch))
-	      (list (loop with classifications = (patch-classification patch domain)
-		       for (id coeffs) in patch->coefficients
-		       when (subsetp (if (consp id) id (list id)) classifications)
-		       do (return coeffs)))
-	      (t (error "Unknown mapping.")))))))
+    (when patch->coefficients
+      (doskel (patch domain)
+	(setf (gethash patch coefficients)
+	      (typecase patch->coefficients
+		(function (funcall patch->coefficients patch))
+		(list (loop with classifications = (patch-classification patch domain)
+			    for (id coeffs) in patch->coefficients
+			    when (subsetp (if (consp id) id (list id)) classifications)
+			    do (return coeffs)))
+		(t (error "Unknown mapping."))))))))
 
 (defmethod domain-dimension ((problem <domain-problem>))
   (dimension (domain problem)))
