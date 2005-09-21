@@ -39,6 +39,11 @@
 	     :short "Several problems involving Laplace equation"))
 (adjoin-demo *laplace-demo* *equation-demo*)
 
+(defvar *heat-demo*
+  (make-demo :name "heat"
+	     :short "Problems involving the heat equation"))
+(adjoin-demo *heat-demo* *equation-demo*)
+
 (defvar *cdr-demo*
   (make-demo
    :name "cdr"
