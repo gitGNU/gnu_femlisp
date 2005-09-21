@@ -158,7 +158,7 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
   (setq ranges (and ranges (coerce ranges 'vector)))
   (let ((multiplicity (multiplicity svec)))
     (loop for key across keys and k from 0
-	  and offset fixnum = 0 then (+ offset (- end-comp start-comp))
+	  and offset of-type fixnum = 0 then (+ offset (- end-comp start-comp))
 	  for start-comp of-type fixnum = (if ranges (car (aref ranges k)) 0)
 	  for end-comp of-type fixnum = (if ranges
 					    (cdr (aref ranges k))
@@ -323,7 +323,7 @@ indexed by general keys."))
   (aand (matrix-column mat key) (hash-table-keys it)))
 
 (defun make-full-block-analog (sm)
-  (declare (type <sparse-matrix> sm))
+  #-gcl (declare (type <sparse-matrix> sm))
   (make-sparse-matrix
    :print-row-key (print-row-key sm)
    :print-col-key (print-col-key sm)

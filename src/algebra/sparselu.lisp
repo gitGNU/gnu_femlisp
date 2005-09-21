@@ -35,9 +35,9 @@
 (in-package :fl.algebra)
 
 (defclass <ldu-sparse> ()
-  ((lower-left :reader lower-left :initarg :lower-left :type <sparse-matrix>)
-   (diagonal :reader diagonal :initarg :diagonal :type <sparse-matrix>)
-   (upper-right :reader upper-right :initarg :upper-right :type <sparse-matrix>)
+  ((lower-left :reader lower-left :initarg :lower-left)
+   (diagonal :reader diagonal :initarg :diagonal)
+   (upper-right :reader upper-right :initarg :upper-right)
    (ordering :reader ordering :initarg :ordering :type vector)))
 
 (defun modify-diagonal (D R omega)
@@ -67,7 +67,7 @@
   (let ((L (make-full-block-analog A))
 	(D (make-full-block-analog A))
 	(U (make-full-block-analog A)))
-    (declare (type <sparse-matrix> L D U))
+    #-gcl (declare (type <sparse-matrix> L D U))
     
     ;; Extract part out of A into U.  Entries are transformed into matlisp
     ;; matrices.  Zero entries are dropped.
