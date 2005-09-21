@@ -116,6 +116,9 @@ location of this file when it is loaded.")
 ;;; ASDF
 #-asdf (load #p"femlisp:external;asdf")
 
+;;; it seems that ASDF does not work for GCL
+#+gcl (load #p"femlisp:external;trivial-asdf")
+
 (pushnew (probe-file #p"femlisp:") asdf::*central-registry* :test #'equalp)
 
 #+(or)
@@ -148,7 +151,7 @@ location of this file when it is loaded.")
 ;;; we want to work generally with double float numbers
 (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
 
-(asdf:operate 'asdf::load-op 'femlisp)
+(asdf:operate 'asdf::load-op :femlisp)
 
 (pushnew :femlisp *features*)
 
