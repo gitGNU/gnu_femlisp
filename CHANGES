@@ -2,6 +2,17 @@
 
 * From Femlisp-0.9.7 to Femlisp-0.9.8:
 
+Coefficient functions may depend on other finite element functions now.
+This is used also for nonlinear time-dependent problems for incorporating a
+dependency on the previous solution.
+
+Introduced a demo and a test for solving the heat equation.
+
+Some changes in several files for making ECL and GCL run with Femlisp.
+Especially, a trivial asdf replacement is now available as
+@path{external/trivial-asdf.lisp}, since standard asdf did not work with
+GCL.
+
 Removed the dependency on UFFI introduced in Femlisp-0.9.7.
 
 * From Femlisp-0.9.6 to Femlisp-0.9.7:

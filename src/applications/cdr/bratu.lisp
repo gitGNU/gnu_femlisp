@@ -69,6 +69,7 @@ It reports the value in the midpoint of the domain."))
 
 (defun bratu-tests ()
   (bratu-computation 1 :output :all)
+  (bratu-computation 2 :output :all)
   )
 
 ;;; (fl.application::bratu-tests)

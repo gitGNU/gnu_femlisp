@@ -122,6 +122,18 @@ to EVALUATE and EVALUATE-GRADIENT, respectively."
   (:documentation "A <special-function> provides its own evaluation and gradient
 computation."))
 
+(defun special-1d-function (f &optional Df)
+  "Constructs a special function between 1D-spaces from ordinary Lisp
+functions."
+  (make-instance
+   '<special-function>
+   :domain-dimension 1 :image-dimension 1
+   :evaluator (and f (lambda (x)
+		       (ensure-matlisp (funcall f (vref x 0)))))
+   :gradient (and Df
+		 (lambda (x)
+		   (ensure-matlisp (funcall Df (vref x 0)))))))
+
 (defmethod evaluate ((f <special-function>) x)
   (funcall (evaluator f) x))
 

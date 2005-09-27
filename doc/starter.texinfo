@@ -27,12 +27,14 @@ use your Common Lisp environment before trying these examples.
 
 @menu
 * Stationary diffusion problem::  
+* Nonlinear diffusion problem::  
 * Elasticity problem::          
 * Navier-Stokes problem::       
 * Heat equation::               
+* Eigenvalue problems::         
 @end menu
 
-@node Stationary diffusion problem, Elasticity problem, Solving problems, Solving problems
+@node Stationary diffusion problem, Nonlinear diffusion problem, Solving problems, Solving problems
 @subsection Stationary diffusion problem
 
 Assume that we want to solve the Poisson equation @math{\Delta u(x,y)
@@ -58,7 +60,28 @@ plotting the solution:
 (plot (getbb *result* :solution))
 @end lisp
 
-@node Elasticity problem, Navier-Stokes problem, Stationary diffusion problem, Solving problems
+@node  Nonlinear diffusion problem, Elasticity problem, Stationary diffusion problem, Solving problems
+@subsection Nonlinear diffusion problem
+
+Assume that we want to solve the Bratu equation @math{-\Delta u = e^u}
+on the unit square @math{\Omega=(0,1)^2} with Dirichlet boundary
+conditions @math{u(x,y)=0} for @math{(x,y) \in \partial \Omega}.  The
+following command solves this equation approximately on a uniformly
+refined mesh using as termination criterion that the time for
+approximating the solution has increased beyond 20 seconds.
+
+@lisp
+(defparameter *result*
+   (solve (blackboard :problem (bratu-problem 2) 
+                      :success-if '(> :time 20) :output :all)))
+@end lisp
+
+Again, the result of the call to @function{solve} is a blackboard
+which we saved in the global variable @var{*result*} for later
+reference.  It is interesting to study the actual definition of the
+Bratu problem in the function @function{bratu-problem}.
+
+@node Elasticity problem, Navier-Stokes problem, Nonlinear diffusion problem, Solving problems
 @subsection Elasticity problem
 
 Assume that we want to solve an elasticity problem with an isotropic
@@ -76,7 +99,8 @@ for approximating the solution has increased beyond 20 seconds.
          (n-cube-domain 2) :lambda 1.0 :mu 1.0
          :force (constant-coefficient (vector #m(1.0) #m(0.0)))))
        (blackboard
-        (blackboard :problem problem :output t :success-if '(> :time 20.0))))
+        (blackboard :problem problem :output t
+                    :success-if '(> :time 20.0))))
   (solve blackboard)
   (plot (getbb blackboard :solution) :component 0)
   (plot (getbb blackboard :solution) :component 1))
@@ -92,41 +116,66 @@ number 10.  During the approximation the velocity components at the
 midpoint @math{(0.5,0.5)} are printed.
 
 @verbatim
-  (let ((dim 2) (reynolds 10.0))
-    (solve 
-     (blackboard
-      :problem (driven-cavity 2 :reynolds reynolds) :base-level 0
-      :success-if '(> :time 20.0) :output t :observe
-      (append *stationary-fe-strategy-observe*
-              (list
-               (list (format nil "~{                 u~1D~}" '(1 2))
-                     "~{~19,10,2E~}"
-                     #'(lambda (blackboard)
-                         (let ((val (fe-value (getbb blackboard :solution)
-                                              (make-double-vec 2 0.5))))
-                           (loop for i below dim collect (vref (aref val i) 0))))))))))
+(solve 
+ (blackboard
+  :problem (driven-cavity 2 :reynolds 10.0) :base-level 0
+  :success-if '(> :time 20.0) :output t :observe
+  (append *stationary-fe-strategy-observe*
+          (list
+           (list (format nil "~{                 u~1D~}" '(1 2))
+                 "~{~19,10,2E~}"
+                 #'(lambda (blackboard)
+                     (let ((val (fe-value (getbb blackboard :solution)
+                                          #d(0.5 0.5))))
+                       (loop for i below dim collect
+                             (vref (aref val i) 0)))))))))
 @end verbatim
 
-@node Heat equation,  , Navier-Stokes problem, Solving problems
+@node Heat equation, Eigenvalue problems, Navier-Stokes problem, Solving problems
 @subsection Heat equation
 
-The solution of time-dependent problem is working, but it has not yet
-been included into this version of @femlisp{}, because it does still
-need some polishing.
+The support for time-dependent problems is still rudimentary.
+Especially, it is not yet incorporated in the solution strategy using
+@code{solve}.  For setting up a Rothe method by hand, you may use code
+like the following which solves a one-dimensional heat equation with
+zero right-hand side and some initial values:
+@verbatim
+(let* ((dim 1) (levels 4) (order 2)
+       (problem (cdr-model-problem
+                 dim :initial #'(lambda (x) #I(sin(2*pi*x[0]^^2)))
+                 :reaction (constant-coefficient 0.0)
+                 :source (constant-coefficient #m(0.0))))
+       (rothe (make-instance
+               '<rothe> :model-time 0.0 :time-step 0.01
+               :stationary-success-if `(> :nr-levels ,levels)
+               :success-if '(>= :step 20)
+               :output t :plot t)))
+  (defparameter *result*
+    (iterate rothe (blackboard
+                    :problem problem :fe-class (lagrange-fe order)
+                    :plot-mesh nil :output t))))
+@end verbatim
 
+First, the mesh is built up to approximate the initial values until
+given criteria are met (here the number of levels is prescribed).
+Then a time-stepping scheme with the implicit Euler method and uniform
+time-steps is used to approximate the solution in time.
+
+@node Eigenvalue problems,  , Heat equation, Solving problems
 @subsection Eigenvalue problems
 
 There is some preliminary support for solving eigenvalue problems by
 Wielandt's iteration.  For example, the first eigenvalue of the
 Laplace operator on a unit square can be approximated with
 @lisp
-  (let ((problem (cdr-model-problem 2 :evp (list :lambda (box 20.0) :mu (box 1.0)))))
-    (defparameter *result*
-      (solve (blackboard :problem problem
-                         :success-if '(or (>= :time 5) (>= :nr-levels 5))
-                         :output 1))))
-  (slot-value (getbb *result* :problem) 'lambda)
-  (plot (getbb *result* :solution))
+(let ((problem (cdr-model-problem 2 :evp (list :lambda (box 20.0)
+                                               :mu (box 1.0)))))
+  (defparameter *result*
+    (solve (blackboard :problem problem
+                       :success-if '(or (>= :time 5) (>= :nr-levels 5))
+                       :output 1))))
+(slot-value (getbb *result* :problem) 'lambda)
+(plot (getbb *result* :solution))
 @end lisp
 
 Note that the multigrid algorithm has not yet been adapted for

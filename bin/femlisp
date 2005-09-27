@@ -2,11 +2,11 @@
 #PBS -l nodes=1:ppn=2,mem=2gb
 
 if test -z "$FEMLISP_CL"; then
-    FEMLISP_CL=/usr/bin/lisp
+    FEMLISP_CL=/usr/local/bin/ecl
 fi
 
 if test -z "$FEMLISP_CL_TYPE"; then
-    FEMLISP_CL_TYPE=cmucl
+    FEMLISP_CL_TYPE=ecl
 fi
 
 if test -z "$FEMLISP_DIR"; then

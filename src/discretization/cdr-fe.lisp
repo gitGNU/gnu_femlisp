@@ -56,9 +56,8 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod discretize-locally ((problem <cdr-problem>) coeffs fe qrule fe-geometry
-			       &key local-mat local-rhs local-sol local-u local-v
-			       mass-factor stiffness-factor
-			       coefficient-parameters)
+			       &key matrix rhs local-u local-v mass-factor stiffness-factor
+			       fe-parameters)
   "Local discretization for a convection-diffusion-reaction equation."
   ;; extract active coefficient functions
   (let ((diffusion (getf coeffs 'FL.CDR::DIFFUSION))
@@ -81,15 +80,14 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
      do
      (let* ((right-vals (if local-u (dot local-u shape-vals) shape-vals))
 	    (left-vals (if local-v (dot local-v shape-vals) shape-vals))
-	    (sol-ip (and local-sol (m*-tn shape-vals local-sol)))
 	    (coeff-input
-	     (list* :global global :solution sol-ip :Dphi Dphi :cell cell
-		    (loop for (key data) on coefficient-parameters by #'cddr
-			  collect key collect (aref data i)))))
+	     (list* :global global :Dphi Dphi :cell cell
+		    (loop for (key data) on fe-parameters by #'cddr
+			  collect key collect (m*-tn shape-vals data)))))
        
-       (when (or (and local-mat (or diffusion convection)
+       (when (or (and matrix (or diffusion convection)
 		      (not (zerop stiffness-factor)))
-		 (and local-rhs diffusion gamma))
+		 (and rhs diffusion gamma))
 	 (let* ((gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
 		(right-gradients (if local-u (m*-tn local-u gradients) gradients))
 		(left-gradients (if local-v (m*-tn local-v gradients) gradients)))
@@ -97,40 +95,42 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	   (when diffusion
 	     (let* ((diff-tensor (ensure-matlisp (evaluate diffusion coeff-input)))
 		    (fluxes (m* left-gradients diff-tensor))) ; (n-basis x dim)-matrix
-	       (when local-mat
-		 (gemm! weight fluxes right-gradients 1.0 local-mat :NT))
+	       (when matrix
+		 (gemm! weight fluxes right-gradients 1.0 matrix :NT))
 	       ;; gamma
-	       (when (and gamma local-rhs)
+	       (when (and gamma rhs)
 		 (gemm! weight fluxes (evaluate gamma coeff-input)
-			1.0 local-rhs))
+			1.0 rhs))
 	       ))
 	   ;; convection
-	   (when (and convection local-mat)
+	   (when (and convection matrix)
 	     (let* ((velocity-vector (evaluate convection coeff-input)))
-	       (gemm! (- weight) (m* left-gradients velocity-vector) right-vals 1.0 local-mat :NT)))
+	       (gemm! (- weight) (m* left-gradients velocity-vector) right-vals 1.0 matrix :NT)))
 	   ))
 	    
        ;; reaction
-       (when (and local-mat reaction (not (zerop stiffness-factor)))
+       (when (and matrix reaction (not (zerop stiffness-factor)))
 	 (let* ((reaction (evaluate reaction coeff-input))
-		(factor (* weight reaction)))
-	   (gemm! factor left-vals right-vals 1.0 local-mat :NT)))
+		(factor (* weight (if (numberp reaction)
+				      reaction
+				      (mref reaction 0 0)))))
+	   (gemm! factor left-vals right-vals 1.0 matrix :NT)))
        
        ;; mass matrix
-       (when (and local-mat (not (zerop mass-factor)))
+       (when (and matrix (not (zerop mass-factor)))
 	 (let* ((factor (* weight mass-factor)))
-	   (gemm! factor left-vals right-vals 1.0 local-mat :NT)))
+	   (gemm! factor left-vals right-vals 1.0 matrix :NT)))
        
        ;; source
-       (when (and source local-rhs)
+       (when (and source rhs)
 	 (let ((source (evaluate source coeff-input)))
 	   (when (numberp source) (setq source (make-real-matrix `((,source)))))
-	   (gemm! weight left-vals source 1.0 local-rhs)))))
+	   (gemm! weight left-vals source 1.0 rhs)))))
     
     ;; custom fe rhs
-    (whereas ((fe-rhs (and local-rhs (getf coeffs 'FL.CDR::FE-RHS))))
+    (whereas ((fe-rhs (and rhs (getf coeffs 'FL.CDR::FE-RHS))))
       (m+! (evaluate fe-rhs (list :cell cell :fe fe))
-	   local-rhs))
+	   rhs))
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

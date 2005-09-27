@@ -113,8 +113,8 @@ already assembled.  Works only for uniformly refined meshes."
 	 (top-level (top-level h-mesh))
 	 (a-vec (make-array (nr-of-levels h-mesh)))
 	 (i-vec (make-array (nr-of-levels h-mesh)))
-	 (interior-mat (getf (properties mat) :interior-matrix))
-	 (solution (getf (properties mat) :solution)))
+	 (interior-mat (get-property mat :interior-matrix))
+	 (solution (get-property mat :solution)))
     
     ;; set the matrix vector
     (multiple-value-bind (essential-P essential-Q essential-r)
@@ -136,7 +136,7 @@ already assembled.  Works only for uniformly refined meshes."
 	 (extend-by-identity imat (row-table (aref a-vec level))
 			     :ignore (column-table imat))
 	 (fl.discretization::eliminate-hanging-node-constraints-from-matrix
-	  imat (getf (properties ansatz-space) :hanging-Q))
+	  imat (get-property ansatz-space :hanging-Q))
 	 (setf (aref i-vec level) imat))
     ;; return result
     (blackboard :a-vec a-vec :i-vec i-vec)))
@@ -157,8 +157,7 @@ already assembled.  Works only for uniformly refined meshes."
        for l-mat = (if (galerkin-p mgit)
 		       (galerkin-product (transpose imat) (aref a-vec (1+ level)) imat)
 		       (let ((l-mat (make-ansatz-space-automorphism ansatz-space)))
-			 (assemble-interior ansatz-space :matrix l-mat :level level :where :refined
-					    :solution (get-property mat :solution))
+			 (assemble-interior ansatz-space :matrix l-mat :level level :where :refined)
 			 l-mat))
        do
 	 (multiple-value-bind (constraints-P constraints-Q constraints-r)

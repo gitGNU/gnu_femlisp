@@ -47,8 +47,8 @@ is an array of rank 2 with standard-matrix entries."))
 
 (defmethod discretize-locally
     ((problem <elasticity-problem>) coeffs vecfe qrule fe-geometry
-     &key local-mat local-rhs local-sol local-u local-v
-     coefficient-parameters &allow-other-keys)
+     &key matrix rhs solution local-u local-v
+     fe-parameters &allow-other-keys)
   "Local discretization for an elasticity problem."
   ;; we want isotropic ansatz spaces...
   (assert (same-p (components vecfe)))
@@ -72,14 +72,14 @@ is an array of rank 2 with standard-matrix entries."))
      and Dphi^-1 in (getf fe-geometry :gradient-inverses)
      and weight in (getf fe-geometry :weights)
      do
-     (let* ((sol-ip (and local-sol (map 'vector (curry #'m*-tn shape-vals) local-sol)))
+     (let* ((sol-ip (and solution (map 'vector (curry #'m*-tn shape-vals) solution)))
 	    (coeff-input
 	     (list* :global global :solution sol-ip :cell cell
-		    (loop for (key data) on coefficient-parameters by #'cddr
-			  collect key collect (aref data k))))
+		    (loop for (key data) on fe-parameters by #'cddr
+			  collect key collect (map 'vector (curry #'m*-tn shape-vals) data))))
 	    (ip-tensor (and elasticity-tensor
 			    (evaluate elasticity-tensor coeff-input)))
-	    (gamma (and gamma-function local-rhs
+	    (gamma (and gamma-function rhs
 			(evaluate gamma-function coeff-input)))
 	    (reaction (and reaction-function
 			   (evaluate reaction-function coeff-input)))
@@ -97,24 +97,24 @@ is an array of rank 2 with standard-matrix entries."))
 		    (D (aref ip-tensor i j)))
 	       (unless (mzerop D)
 		 (gemm! 1.0 left-gradients D 0.0 fluxes)
-		 (when local-mat
-		   (gemm! weight fluxes right-gradients 1.0 (aref local-mat i j) :NT))
+		 (when matrix
+		   (gemm! weight fluxes right-gradients 1.0 (aref matrix i j) :NT))
 		 ;; gamma
-		 (when (and gamma local-rhs)
-		   (gemm! weight fluxes (aref gamma j) 1.0 (aref local-rhs i))))))))
+		 (when (and gamma rhs)
+		   (gemm! weight fluxes (aref gamma j) 1.0 (aref rhs i))))))))
        ;; reaction
-       (when (and reaction local-mat)
+       (when (and reaction matrix)
 	 (dotimes (i nr-comps)
 	   (dotimes (j nr-comps)
 	     (let ((R (aref reaction i j)))
 	       (unless (mzerop R)
 		 (gemm! (* weight R)
-			left-vals right-vals 1.0 local-mat :NT))))))
+			left-vals right-vals 1.0 matrix :NT))))))
        ;; rhs-part / force
-       (when (and force local-rhs)
+       (when (and force rhs)
 	 (dotimes (i nr-comps)
 	   (gemm! weight left-vals (aref force i)
-		  1.0 (aref local-rhs i))))))))
+		  1.0 (aref rhs i))))))))
 
 ;;; Assembly of boundary conditions -> system-fe.lisp
 

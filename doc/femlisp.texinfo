@@ -31,7 +31,7 @@ Common Lisp
 
 @set EDITION 0.4
 @set VERSION 0.9.7
-@set UPDATED 30 June 2005
+@set UPDATED 27 September 2005
 
 @c for install-info
 @dircategory Math

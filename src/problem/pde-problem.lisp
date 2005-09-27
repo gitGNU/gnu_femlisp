@@ -44,10 +44,12 @@
 active.  The value T means that it is active on all cells lying on the
 patch.")
    (demands :reader demands :initform () :initarg :demands
-    :documentation "A list of keywords indicating which information the
-evaluation function needs.  Possible choices depend on problem and
-discretization, e.g. :local, :global, :solution are choices which will
-probably be understood.")
+    :documentation "A list indicating which information the evaluation
+function needs.  Possible choices depend on problem and discretization,
+e.g. @code{:local}, @code{:global}, @code{:fe}, @code{:cell} are possible
+choices.  One element can also be a list starting with the keyword
+@code{:fe-parameters} and followed by symbols indicating names of finite
+element functions on the discretization blackboard.")
    (eval :accessor coeff-eval :initarg :eval :type function
     :documentation "The evaluation funtion.  It accepts a list of
 keyword parameters which should correspond to the list in DEMANDS.")
@@ -56,6 +58,15 @@ keyword parameters which should correspond to the list in DEMANDS.")
    (jacobian :initform t :initarg :jacobian
     :documentation "T means evaluation for computing the Jacobian."))
   (:documentation "The coefficient class."))
+
+(defun solution-dependent (coeff)
+  "Tests if the coefficient is solution-dependent, i.e. if the
+corresponding problem is nonlinear."
+  (member :solution
+	  (cdr (find-if #'(lambda (demand)
+			    (and (consp demand)
+				 (eq :fe-parameters (car demand))))
+			(demands coeff)))))
 
 (defmethod evaluate ((coeff <coefficient>) (input list))
   "The pairing between coefficient and input."
@@ -66,7 +77,7 @@ keyword parameters which should correspond to the list in DEMANDS.")
   (let ((demands nil))
     (dolist (coeff coeffs)
       (dolist (demand (demands coeff))
-	(pushnew demand demands)))
+	(pushnew demand demands :test #'equalp)))
     demands))
 
 (defun filter-applicable-coefficients (coeffs cell patch &key (constraints t))
@@ -82,6 +93,26 @@ given patch."
 		   (not (equal (symbol-name symbol) "CONSTRAINT"))))
      collect symbol and collect coeff))
 
+(defun fe-parameter-p (demand)
+  (and (consp demand)
+       (eq :fe-parameters (car demand))))
+
+(defun required-fe-functions (coeffs)
+  "Returns a list of finite element functions required by the coefficients
+in the property list @arg{coeffs}."
+  (let ((fe-functions ()))
+    (loop for (symbol coeff) on coeffs by #'cddr do
+	  (dolist (demand (demands coeff))
+	    (when (fe-parameter-p demand)
+	      (_f union fe-functions (cdr demand)))))
+    fe-functions))
+
+(defun add-fe-parameters-demand (demands new-paras)
+  "Adds a list of fe-functions to the demands."
+  (let ((old-paras (cdr (find-if #'fe-parameter-p demands))))
+    (cons (cons :fe-parameters (union old-paras new-paras))
+	  (remove-if #'fe-parameter-p demands))))
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; some coefficient functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -107,14 +138,14 @@ depending on global coordinates."
 (defun f[u]->coefficient (func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on the solution."
-  (make-instance '<coefficient> :demands '(:solution)
+  (make-instance '<coefficient> :demands '((:fe-parameters :solution))
 		 :eval #'(lambda (&key solution &allow-other-keys)
 			   (funcall func solution))))
 
 (defun f[xu]->coefficient (func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on position and solution."
-  (make-instance '<coefficient> :demands '(:global :solution)
+  (make-instance '<coefficient> :demands '(:global (:fe-parameters :solution))
 		 :eval #'(lambda (&key global solution &allow-other-keys)
 			   (funcall func global solution))))
 
@@ -290,9 +321,9 @@ space."
   (unless (property-set-p problem 'linear-p)
     (setf (get-property problem 'linear-p) t)
     (dohash ((coeffs) (coefficients problem))
-      (loop for (nil coeff) on coeffs by #'cddr
-	    when (member :solution (demands coeff)) do
-	    (setf (get-property problem 'linear-p) nil))))
+      (when (loop for (nil coeff) on coeffs by #'cddr
+		  thereis (solution-dependent coeff))
+	(setf (get-property problem 'linear-p) nil))))
   ;; very coarse test which will be often false for systems
   (let ((constraint-id (constraint-identifier problem)))
     (unless (property-set-p problem 'coercive)

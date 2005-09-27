@@ -43,8 +43,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defgeneric discretize-locally (problem coeffs fe qrule fe-geometry
-				&key local-mat local-rhs local-sol local-u local-v
-				mass-factor stiffness-factor coefficient-parameters)
+				&key matrix rhs local-u local-v
+				mass-factor stiffness-factor fe-parameters)
   (:documentation "Computes a local stiffness matrix and right-hand side.
 The algorithm will usually work as follows:
 
@@ -53,7 +53,9 @@ The algorithm will usually work as follows:
 @item Compute geometry information for all ips (values and gradients of the shape functions).
 @item Loop over integration points ip:
   @enumerate
-    @item If necessary, compute input for the coefficient functions.  This input can be another finite element function in the property list @arg{coefficient-parameters}.
+    @item If necessary, compute input for coefficient functions.
+          This input may contain values of finite element function in the
+          property list @arg{fe-parameters}.
     @item Evaluate coefficient functions at ips.
     @item Add the contributions for matrix and right-hand side to @arg{local-mat} and @arg{local-rhs}.
   @end enumerate
@@ -100,9 +102,8 @@ system should be completely equivalent to the original one."
      mat)))
 
 (defun assemble-interior (ansatz-space &key level (where :surface)
-			  matrix rhs solution ; left right
-			  (mass-factor 0.0) (stiffness-factor 1.0)
-			  &allow-other-keys)
+			  matrix rhs
+			  (mass-factor 0.0) (stiffness-factor 1.0))
   "Assemble the interior, i.e. ignore constraints arising from boundaries
 and hanging nodes.  Discretization is done using the ansatz space
 @arg{ansatz-space} on level @arg{level}.  The level argument will usually
@@ -110,12 +111,12 @@ be @code{NIL} when performing a global assembly, and be equal to some
 number when assembling coarse level matrices for multigrid.  The argument
 @arg{where} is a flag indicating where assembly is to be done.  It should
 be one of the keywords @code{:surface}, @code{:refined}, @code{:all}.  The
-arguments @arg{solution}, @arg{matrix}, @arg{rhs} should contain
-vectors/matrices where the local assembly is accumulated.  The numbers
-@arg{mass-factor} and @arg{stiffness-factor} determine weights for mass and
-stiffness matrix which is used when solving time-dependent and eigenvalue
-problems.  Boundary conditions and constraints are not taken into account
-within this routine.
+arguments @arg{matrix}, @arg{rhs} should contain vectors/matrices where the
+local assembly is accumulated.  The numbers @arg{mass-factor} and
+@arg{stiffness-factor} determine weights for mass and stiffness matrix
+which is used when solving time-dependent and eigenvalue problems.
+Boundary conditions and constraints are not taken into account within this
+routine.
 
 In general, this function does most of the assembly work.  Other steps like
 handling constraints are intricate, but usually of lower complexity."
@@ -145,11 +146,15 @@ handling constraints are intricate, but usually of lower complexity."
 			      :volume (getf patch-properties 'FL.MESH::VOLUME)))
 		   (local-mat (and matrix (make-local-mat fe)))
 		   (local-rhs (and rhs (make-local-vec fe (multiplicity ansatz-space))))
-		   (local-sol (and solution (get-local-from-global-vec cell fe solution))))
+		   (fe-paras (loop for sym in (required-fe-functions coeffs)
+				   collect sym collect
+				   (get-local-from-global-vec
+				    cell fe (get-property problem sym)))))
 	      (discretize-locally
 	       problem coeffs fe qrule geometry
-	       :local-mat local-mat :local-rhs local-rhs :local-sol local-sol
-	       :mass-factor mass-factor :stiffness-factor stiffness-factor)
+	       :matrix local-mat :rhs local-rhs
+	       :mass-factor mass-factor :stiffness-factor stiffness-factor
+	       :fe-parameters fe-paras)
 	      ;; accumulate to global matrix and rhs (if not nil)
 	      (when rhs (increment-global-by-local-vec cell fe rhs local-rhs))
 	      (when matrix (increment-global-by-local-mat cell fe matrix local-mat))))))))
@@ -158,6 +163,7 @@ handling constraints are intricate, but usually of lower complexity."
     (static-condensation matrix rhs))
   )
 
+#+(or)  ; new, not yet active
 (defun compute-interior-level-matrix (interior-mat sol level)
   "This function is needed for the multilevel decomposition of geometric
 multigrid."
@@ -208,9 +214,8 @@ of a nonlinear problem."
 		     (list interior-matrix interior-rhs solution)))
       ;; interior assembly
       (assert (null cells) () "TBI: assembly on cells")
-      (assemble-interior ansatz-space :solution solution
-			 :matrix interior-matrix :rhs interior-rhs
-			 :where :surface
+      (assemble-interior ansatz-space
+			 :matrix interior-matrix :rhs interior-rhs :where :surface
 			 :mass-factor (force mass-factor)
 			 :stiffness-factor (force stiffness-factor))
       (when assemble-constraints-p (assemble-constraints ansatz-space))
@@ -257,6 +262,7 @@ blackboard."
 	  (setf (getbb blackboard :discretized-problem)
 		(let ((linearization
 		       #'(lambda (sol)
+			   (setf (get-property problem :solution) sol)
 			   (getbb (fe-discretize-linear-problem
 				   (blackboard :problem problem :ansatz-space ansatz-space :solution sol))
 				  :discretized-problem))))

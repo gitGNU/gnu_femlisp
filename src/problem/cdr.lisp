@@ -34,11 +34,12 @@
 
 (in-package :cl-user)
 (defpackage "FL.CDR"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP" "FL.FUNCTION"
 	"FL.MESH" "FL.PROBLEM")
   (:export "<CDR-PROBLEM>" "MAP-DOMAIN-TO-CDR-PROBLEM"
 	   "SCALAR-DIFFUSION" "IDENTITY-DIFFUSION-TENSOR"
-	   "CDR-MODEL-PROBLEM" "BRATU-PROBLEM")
+	   "CDR-MODEL-PROBLEM" "CDR-NONLINEAR-RHS-PROBLEM"
+	   "BRATU-PROBLEM")
   (:documentation "Defines convection-diffusion-reaction problems"))
 (in-package "FL.CDR")
 
@@ -155,25 +156,36 @@ cube."
 			(list :lambda lambda :mu mu))))
 	   )))
 
+;;; nonlinear cdr problem
+
+(defun cdr-nonlinear-rhs-problem (dim/domain f &rest args &key source reaction &allow-other-keys)
+  "Returns the Newton linearization @math{-\Delta u + F'(u) u = F'(u) u -
+F(u)} for the nonlinear problem @math{-\Delta u +F(u) =0}."
+  (assert (not (or source reaction)))
+  (let ((domain (if (numberp dim/domain)
+		    (n-cube-domain dim/domain)
+		    dim/domain)))
+    (apply #'cdr-model-problem
+	   domain
+	   :reaction
+	   (make-instance '<coefficient> :demands '((:fe-parameters :solution)) :residual nil
+			  :eval #'(lambda (&key solution &allow-other-keys)
+				    (evaluate-gradient f solution)))
+	   :source
+	   (make-instance '<coefficient> :demands '((:fe-parameters :solution))
+			  :eval #'(lambda (&key solution &allow-other-keys)
+				    (gemm 1.0 (evaluate-gradient f solution) solution
+					  -1.0 (evaluate f solution))))
+	   args)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Bratu problem
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun bratu-problem (dim)
-  "Returns the Newton linearization (-Delta + e^u) u = e^u (u-1) for the
-Bratu problem -Delta u +e^u =0."
-  (cdr-model-problem
-   (n-cube-domain dim)
-   :diffusion (identity-diffusion-tensor dim)
-   :reaction
-   (make-instance '<coefficient> :demands '(:solution) :residual nil
-		  :eval #'(lambda (&key solution &allow-other-keys)
-			    (exp (vref solution 0))))
-   :source
-   (make-instance '<coefficient> :demands '(:solution)
-		  :eval #'(lambda (&key solution &allow-other-keys)
-			    (let ((u (vref solution 0)))
-			      (* (exp u) (- u 1.0)))))))
+  "Returns a linearization for the Bratu problem @math{-Delta u +e^u =0}."
+  (cdr-nonlinear-rhs-problem
+   dim (special-1d-function  #'exp #'exp)))
 
 ;;; Testing: (test-cdr)
 

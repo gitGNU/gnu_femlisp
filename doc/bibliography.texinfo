@@ -42,8 +42,8 @@ Math. Software, 21:26--62, 1995.
 @item (Femlisp)
 Femlisp Homepage. @url{http://www.femlisp.org}.
 
-@item (Graham XXX)
-P. Graham: @emph{On Lisp}.  Prentice Hall, XXX.
+@item (Graham 1993)
+P. Graham: @emph{On Lisp}.  Prentice Hall, 1993.
 
 @item (Graham 1996)
 P. Graham: @emph{ANSI Common Lisp}.  Prentice Hall, 1996.
@@ -78,16 +78,16 @@ S. F. McCormick, editor, @emph{Multigrid Methods}, volume 3 of
 @emph{Frontiers in Applied Mathematics}, pages 73--130. SIAM,
 Philadelphia, PA, 1987.
 
+@item (Seibel 2005)
+P. Seibel: @emph{Practical Common Lisp}.  Apress, 2005.  Available
+online at @url{http://www.gigamonkeys.com/book}.
+
 @item (Shewchuk 1997)
 J. R. Shewchuk: @emph{Triangle: Engineering a 2D Quality Mesh
 Generator and Delaunay Triangulator}. In Ming C. Lin Dinesh Manocha
 (eds): @emph{Applied Computational Geometry: Towards Geometric
 Engineering}, Lecture Notes in Computer Science 1148, Springer-Verlag,
 1997, pp. 203-222.
-
-@item (Seibel 2005)
-P. Seibel: @emph{Practical Common Lisp}.  Apress, 2005.  Available
-online at @url{http://www.gigamonkeys.com/book}.
 
 @item (Stueben 2001)
 K. Stueben: @emph{A review of algebraic multigrid}.

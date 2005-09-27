@@ -107,19 +107,23 @@ be solved at the beginning."
   "Return a coefficient list for the stationary problem to be solved at
 each time step."
   ;; source and reaction modification
-  (whereas ((coeff (getf coeffs 'FL.CDR::REACTION)))
+  (whereas ((reaction (getf coeffs 'FL.CDR::REACTION)))
     (setf (getf coeffs 'FL.CDR::REACTION)
 	  (make-instance
-	   '<coefficient> :dimension (dimension coeff) :demands (demands coeff) :eval
+	   '<coefficient> :dimension (dimension reaction) :demands (demands reaction) :eval
 	   #'(lambda (&rest args)
-	       (+ (evaluate coeff args) (/ (time-step rothe))))))
-    (let ((coeff (getf coeffs 'FL.CDR::SOURCE)))
+	       (let ((reaction (evaluate reaction args)))
+		 (if (numberp reaction)
+		     (+ reaction (/ (time-step rothe)))
+		     (m+ reaction (ensure-matlisp (/ (time-step rothe)))))))))
+    (let ((source (getf coeffs 'FL.CDR::SOURCE)))
       (setf (getf coeffs 'FL.CDR::SOURCE)
 	    (make-instance
-	     '<coefficient> :dimension (dimension coeff)
-	     :demands (adjoin :solution  (demands coeff)) :eval
-	     #'(lambda (&rest args &key solution &allow-other-keys)
-		 (axpy (/ (time-step rothe)) solution (evaluate coeff args)))))))
+	     '<coefficient> :dimension (dimension source)
+	     :demands (add-fe-parameters-demand (demands source) '(:old-solution))
+	     :eval
+	     #'(lambda (&rest args &key old-solution &allow-other-keys)
+		 (axpy (/ (time-step rothe)) old-solution (evaluate source args)))))))
   ;; inclusion of time variable
   (loop for (coeff-name coeff) on coeffs by #'cddr
 	for demands = (demands coeff)
@@ -134,7 +138,6 @@ each time step."
 (defmethod time-step-problem ((rothe <rothe>) (problem <cdr-problem>))
   "Returns a stationary problem corresponding to a step of the Rothe
 method."
-  (assert (linear-p problem))
   (make-instance
    '<cdr-problem>
    :domain (domain problem)
@@ -143,8 +146,7 @@ method."
    (map-hash-table
     #'(lambda (patch coeffs)
 	(values patch (cdr-time-step-coefficients rothe coeffs)))
-    (coefficients problem))
-   :linear-p t))
+    (coefficients problem))))
 
 (defmethod initially ((rothe <rothe>) blackboard)
   (with-items (&key iv-ip-blackboard fe-class) blackboard
@@ -178,8 +180,9 @@ method."
       (transfer-bb blackboard time-step-blackboard '(:mesh :fe-class :plot-mesh))
       (setf problem (time-step-problem rothe (getbb blackboard :problem)))
       (setf ansatz-space (make-fe-ansatz-space fe-class problem mesh))
+      (setf (get-property problem :old-solution) (getbb blackboard :solution))
       (setf solution (make-ansatz-space-vector ansatz-space))
-      (copy! (getbb blackboard :solution) solution)
+      (copy! (getbb blackboard :solution) solution)  ; initial value
       (solve time-step-blackboard)
       (copy! solution (getbb blackboard :solution))
       (incf (model-time rothe) (time-step rothe))
