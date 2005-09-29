@@ -47,6 +47,9 @@
   ((model-time :accessor model-time :initarg :model-time :documentation
 	       "Current time in the time-stepping scheme.")
    (time-step :accessor time-step :initarg :time-step)
+   (scheme :reader time-stepping-scheme :initform :crank-nicolson :initarg :scheme
+	   :documentation "Time-stepping scheme,
+e.g. @code{:implicit-euler} or @code{:crank-nicolson}.")
    ;; maybe we'll find something more automatic than the following later
    (stationary-success-if :initform nil :initarg :stationary-success-if)
    (stationary-failure-if :initform nil :initarg :stationary-failure-if)
@@ -106,34 +109,39 @@ be solved at the beginning."
 (defun cdr-time-step-coefficients (rothe coeffs)
   "Return a coefficient list for the stationary problem to be solved at
 each time step."
-  ;; source and reaction modification
-  (whereas ((reaction (getf coeffs 'FL.CDR::REACTION)))
-    (setf (getf coeffs 'FL.CDR::REACTION)
-	  (make-instance
-	   '<coefficient> :dimension (dimension reaction) :demands (demands reaction) :eval
-	   #'(lambda (&rest args)
-	       (let ((reaction (evaluate reaction args)))
-		 (if (numberp reaction)
-		     (+ reaction (/ (time-step rothe)))
-		     (m+ reaction (ensure-matlisp (/ (time-step rothe)))))))))
-    (let ((source (getf coeffs 'FL.CDR::SOURCE)))
-      (setf (getf coeffs 'FL.CDR::SOURCE)
+  (let ((coeffs (copy-seq coeffs)))
+    ;; source and reaction modification
+    (whereas ((reaction (getf coeffs 'FL.CDR::REACTION)))
+      (setf (getf coeffs 'FL.CDR::REACTION)
 	    (make-instance
-	     '<coefficient> :dimension (dimension source)
-	     :demands (add-fe-parameters-demand (demands source) '(:old-solution))
-	     :eval
-	     #'(lambda (&rest args &key old-solution &allow-other-keys)
-		 (axpy (/ (time-step rothe)) old-solution (evaluate source args)))))))
-  ;; inclusion of time variable
-  (loop for (coeff-name coeff) on coeffs by #'cddr
-	for demands = (demands coeff)
-	collect coeff-name collect
-	(if (find :time demands)
-	    (make-instance
-	     '<coefficient> :dimension (dimension coeff) :demands demands
-	     :eval #'(lambda (&rest args)
-		       (evaluate coeff (list* :time (model-time rothe) args))))
-	    coeff)))
+	     '<coefficient> :dimension (dimension reaction) :demands (demands reaction) :eval
+	     #'(lambda (&rest args)
+		 (let ((reaction (evaluate reaction args))
+		       (increment (/ (ecase (time-stepping-scheme rothe)
+				       (:implicit-euler 1.0)
+				       (:crank-nicolson 2.0))
+				     (time-step rothe))))
+		   (if (numberp reaction)
+		       (+ reaction increment)
+		       (m+ reaction (ensure-matlisp increment)))))))
+      (let ((source (getf coeffs 'FL.CDR::SOURCE)))
+	(setf (getf coeffs 'FL.CDR::SOURCE)
+	      (make-instance
+	       '<coefficient> :dimension (dimension source)
+	       :demands (add-fe-parameters-demand (demands source) '(:old-solution))
+	       :eval
+	       #'(lambda (&rest args &key old-solution &allow-other-keys)
+		   (axpy (/ (time-step rothe)) old-solution (evaluate source args)))))))
+    ;; inclusion of time variable
+    (loop for (coeff-name coeff) on coeffs by #'cddr
+	  for demands = (demands coeff)
+	  collect coeff-name collect
+	  (if (find :time demands)
+	      (make-instance
+	       '<coefficient> :dimension (dimension coeff) :demands demands
+	       :eval #'(lambda (&rest args)
+			 (evaluate coeff (list* :time (model-time rothe) args))))
+	      coeff))))
 
 (defmethod time-step-problem ((rothe <rothe>) (problem <cdr-problem>))
   "Returns a stationary problem corresponding to a step of the Rothe
@@ -173,7 +181,7 @@ method."
   (with-items (&key step time-step-blackboard) blackboard
     (ensure time-step-blackboard (blackboard))
     (with-items (&key success-if failure-if fe-class problem mesh
-		      ansatz-space solution)
+		      interior-mat interior-rhs matrix rhs ansatz-space solution)
 	time-step-blackboard
       (ensure success-if (slot-value rothe 'stationary-success-if))
       (ensure failure-if (slot-value rothe 'stationary-failure-if))
@@ -188,27 +196,38 @@ method."
       (incf (model-time rothe) (time-step rothe))
       )))
 
+(defvar *u_1/4-observe*
+  (list (format nil "~19@A" "u(midpoint)") "~19,10,2E"
+	#'(lambda (blackboard)
+	    (let* ((sol (getbb blackboard :solution))
+		   (dim (dimension (mesh (ansatz-space sol))))
+		   (val (fe-value sol (make-double-vec dim 0.25))))
+	      (vref (aref val 0) 0)))))
+
 (defun test-rothe ()
 
-  (let* ((dim 1) (levels 4) (order 2)
+  (let* ((dim 1) (levels 1) (order 4) (end-time 0.1) (steps 64)
 	 (problem (cdr-model-problem
-		   dim :initial #'(lambda (x) #I(sin(2*pi*x[0]^^2)))
+		   dim :initial #'(lambda (x) #I(sin(2*pi*x[0])))
 		   :reaction (constant-coefficient 0.0)
 		   :source (constant-coefficient #m(0.0))))
 	 (rothe (make-instance
-		 '<rothe> :model-time 0.0 :time-step 0.01
+		 '<rothe> :model-time 0.0 :time-step (/ end-time steps)
 		 :stationary-success-if `(> :nr-levels ,levels)
-		 :success-if '(>= :step 20)
-		 :output t :plot t)))
+		 :success-if `(>= :step ,steps)
+		 :output t :plot t
+		 :observe (append *rothe-observe* (list *u_1/4-observe*)))))
     (let ((result
 	   (iterate rothe (blackboard
 			   :problem problem :fe-class (lagrange-fe order)
-			   :plot-mesh nil :output t))))
-      (assert (< (abs (- 0.3833184697778781  ; value computed by CMUCL
-			 (vref (aref (fe-value (getbb result :solution) #d(0.5))
+			   :plot-mesh nil :output t
+			   ))))
+      ;; the correct value is #I(exp(-0.1*4*pi*pi))=0.019296302911016777
+      ;; but implicit Euler is extremely bad
+      (assert (< (abs (- 2.1669732216e-02  ; value computed by CMUCL
+			 (vref (aref (fe-value (getbb result :solution) #d(0.25))
 				     0) 0)))
-		 1.0e-12)))
-    )
+		 1.0e-12))))
   )
 
 ;;; (test-rothe)
