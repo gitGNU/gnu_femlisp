@@ -47,7 +47,7 @@
   ((model-time :accessor model-time :initarg :model-time :documentation
 	       "Current time in the time-stepping scheme.")
    (time-step :accessor time-step :initarg :time-step)
-   (scheme :reader time-stepping-scheme :initform :crank-nicolson :initarg :scheme
+   (scheme :reader time-stepping-scheme :initform :implicit-euler :initarg :scheme
 	   :documentation "Time-stepping scheme,
 e.g. @code{:implicit-euler} or @code{:crank-nicolson}.")
    ;; maybe we'll find something more automatic than the following later
