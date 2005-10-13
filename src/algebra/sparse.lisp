@@ -323,7 +323,7 @@ indexed by general keys."))
   (aand (matrix-column mat key) (hash-table-keys it)))
 
 (defun make-full-block-analog (sm)
-  #-gcl (declare (type <sparse-matrix> sm))
+  (declare (type <sparse-matrix> sm))
   (make-sparse-matrix
    :print-row-key (print-row-key sm)
    :print-col-key (print-col-key sm)

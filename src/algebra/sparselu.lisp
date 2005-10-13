@@ -67,7 +67,7 @@
   (let ((L (make-full-block-analog A))
 	(D (make-full-block-analog A))
 	(U (make-full-block-analog A)))
-    #-gcl (declare (type <sparse-matrix> L D U))
+    (declare (type <sparse-matrix> L D U))
     
     ;; Extract part out of A into U.  Entries are transformed into matlisp
     ;; matrices.  Zero entries are dropped.
