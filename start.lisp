@@ -151,7 +151,7 @@ location of this file when it is loaded.")
 ;;; we want to work generally with double float numbers
 (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
 
-(asdf:operate 'asdf::load-op :femlisp)
+(asdf:operate 'asdf::load-op :femlisp-src)
 
 (pushnew :femlisp *features*)
 
