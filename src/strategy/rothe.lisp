@@ -111,7 +111,7 @@ be solved at the beginning."
 each time step."
   (let ((coeffs (copy-seq coeffs)))
     ;; source and reaction modification
-    (whereas ((reaction (getf coeffs 'FL.CDR::REACTION)))
+    (whereas ((reaction (get-coefficient coeffs 'FL.CDR::REACTION)))
       (setf (getf coeffs 'FL.CDR::REACTION)
 	    (make-instance
 	     '<coefficient> :dimension (dimension reaction) :demands (demands reaction) :eval
@@ -124,7 +124,7 @@ each time step."
 		   (if (numberp reaction)
 		       (+ reaction increment)
 		       (m+ reaction (ensure-matlisp increment)))))))
-      (let ((source (getf coeffs 'FL.CDR::SOURCE)))
+      (let ((source (get-coefficient coeffs 'FL.CDR::SOURCE)))
 	(setf (getf coeffs 'FL.CDR::SOURCE)
 	      (make-instance
 	       '<coefficient> :dimension (dimension source)
@@ -217,6 +217,7 @@ method."
 		 :success-if `(>= :step ,steps)
 		 :output t :plot t
 		 :observe (append *rothe-observe* (list *u_1/4-observe*)))))
+    ;;(time-step-problem rothe problem))
     (let ((result
 	   (iterate rothe (blackboard
 			   :problem problem :fe-class (lagrange-fe order)

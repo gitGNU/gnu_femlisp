@@ -47,11 +47,11 @@ discretization for systems of convection-diffusion-reaction type."))
 			       &key local-mat local-rhs local-sol local-u local-v
 			       coefficient-parameters &allow-other-keys)
   "Local discretization for a convection-diffusion-reaction system."
-  (let ((diffusion-function (getf coeffs 'FL.CDRSYS::DIFFUSION))
-	(convection-function (getf coeffs 'FL.CDRSYS::CONVECTION))
-	(gamma-function (getf coeffs 'FL.CDRSYS::GAMMA))
-	(source-function (getf coeffs 'FL.CDRSYS::SOURCE))
-	(reaction-function (getf coeffs 'FL.CDRSYS::REACTION)))
+  (let ((diffusion-function (get-coefficient coeffs 'FL.CDRSYS::DIFFUSION))
+	(convection-function (get-coefficient coeffs 'FL.CDRSYS::CONVECTION))
+	(gamma-function (get-coefficient coeffs 'FL.CDRSYS::GAMMA))
+	(source-function (get-coefficient coeffs 'FL.CDRSYS::SOURCE))
+	(reaction-function (get-coefficient coeffs 'FL.CDRSYS::REACTION)))
     (error "NYI")))
 
 ;;; Testing

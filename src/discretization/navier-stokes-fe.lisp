@@ -63,32 +63,32 @@ generalized Taylor hood elements."))
 dropped.")
 
 (defmethod discretize-locally ((problem <navier-stokes-problem>) coeffs vecfe qrule fe-geometry
-			       &key matrix rhs solution local-u local-v
+			       &key matrix rhs local-u local-v
 			       fe-parameters &allow-other-keys)
   "Local discretization for a Navier-Stokes problem."
   (assert (and (null local-u) (null local-v)))
   
   (let* ((nr-comps (nr-of-components vecfe))
 	 (dim (1- nr-comps))
-	 (cell-dim (dimension (getf fe-geometry :cell)))
-	 (viscosity (getf coeffs 'FL.NAVIER-STOKES::VISCOSITY))
-	 (reynolds (getf coeffs 'FL.NAVIER-STOKES::REYNOLDS))
-	 (force (getf coeffs 'FL.NAVIER-STOKES::FORCE))
-	 (cell (getf fe-geometry :cell)))
+	 (cell-dim (dimension (get-coefficient fe-geometry :cell)))
+	 (viscosity (get-coefficient coeffs 'FL.NAVIER-STOKES::VISCOSITY))
+	 (reynolds (get-coefficient coeffs 'FL.NAVIER-STOKES::REYNOLDS))
+	 (force (get-coefficient coeffs 'FL.NAVIER-STOKES::FORCE))
+	 (cell (get-coefficient fe-geometry :cell))
+	 (solution (getf fe-parameters :solution)))
     ;; loop over quadrature points
     (loop
      for k from 0
      for shape-vals across (ip-values vecfe qrule) ; nr-comps x (n-basis x 1)
      and shape-grads across (ip-gradients vecfe qrule) ; nr-comps x (n-basis x dim)
-     and global in (getf fe-geometry :global-coords)
-     and Dphi^-1 in (getf fe-geometry :gradient-inverses)
-     and weight in (getf fe-geometry :weights)
+     and global in (get-coefficient fe-geometry :global-coords)
+     and Dphi^-1 in (get-coefficient fe-geometry :gradient-inverses)
+     and weight in (get-coefficient fe-geometry :weights)
      do
-     (let* ((sol-ip (and solution (map 'vector #'m*-tn solution shape-vals)))
-	    (coeff-input
-	     (list* :global global :solution sol-ip :cell cell
-		    (loop for (key data) on fe-parameters by #'cddr
-			  collect key collect (map 'vector #'m*-tn data shape-vals)))))
+     (let* ((fe-vecs (loop for (key data) on fe-parameters by #'cddr
+			    collect key collect (map 'vector #'m*-tn data shape-vals)))
+	    (coeff-input (list* :global global :cell cell fe-vecs))
+	    (sol-ip (getf fe-vecs :solution)))
        (when viscosity (setq viscosity (evaluate viscosity coeff-input)))
        (when reynolds (setq reynolds (evaluate reynolds coeff-input)))
        (when force	     ; makes sense also for lower-dimensional cells

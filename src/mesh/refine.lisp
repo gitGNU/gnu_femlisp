@@ -282,7 +282,7 @@ levels 0 and 1 are always memoized, becuause these are needed for
 refinement operations.  NIL indicates no additional memoization beyond
 levels 0 and 1, T indicates infinite depth.")
 
-(defvar *refcell-refinement-table* (make-hash-table :test 'equalp)
+(defvar *refcell-refinement-table* (make-hash-table :test 'equal)
   "Table where refinements of reference cells are memoized.")
 
 (defun refcell-refinement-skeleton (refcell &optional (level 1) (rule 0) reinit)

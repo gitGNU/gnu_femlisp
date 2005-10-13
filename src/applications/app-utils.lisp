@@ -49,7 +49,7 @@
 	 (fe-class (fe-class asv)))
     (doskel (cell mesh :dimension :highest :where :surface)
       (let* ((coeffs (coefficients-of-cell cell mesh problem))
-	     (diffusion-function (getf coeffs 'FL.CDR::DIFFUSION))
+	     (diffusion-function (get-coefficient coeffs 'FL.CDR::DIFFUSION))
 	     (fe (get-fe fe-class cell))
 	     (qrule (quadrature-rule fe))
 	     (values (transpose (get-local-from-global-vec cell fe asv))))  ; (dim x n-basis)
@@ -73,7 +73,7 @@
 	 (result nil))
     (doskel (cell mesh :dimension :highest :where :surface)
       (let* ((coeffs (coefficients-of-cell cell mesh problem))
-	     (coeff-function (getf coeffs coefficient))
+	     (coeff-function (get-coefficient coeffs coefficient))
 	     (factor-dims (mapcar #'dimension (factor-simplices cell)))
 	     (qrule (gauss-rule factor-dims (1+ order))))
 	(loop for ip in (integration-points qrule) do

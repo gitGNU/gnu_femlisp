@@ -67,7 +67,7 @@ maintenance of this file should become too difficult.")
 ;;;; Utility
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *portability-problem-handling* :error
+(defparameter *portability-problem-handling* :warn
   "Determines which action should be taken if we encounter a portability
 problem for a Lisp.")
 

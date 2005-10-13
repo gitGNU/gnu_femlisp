@@ -69,14 +69,14 @@ coefficient."
 
 (defmethod self-adjoint-p ((problem <cdr-problem>))
   (doskel (patch (domain problem))
-    (when (getf (coefficients-of-patch patch problem)
+    (when (get-coefficient (coefficients-of-patch patch problem)
 		'FL.CDR::CONVECTION)
       (return-from self-adjoint-p (values NIL T))))
   (values T T))
 
 (defmethod dual-problem ((problem <cdr-problem>) cell->rhs)
-  "Dual problem of a cdr problem.  To be improved, at the moment only for
-selfadjoint problems with functional of interest being the load
+  "Dual problem of a cdr problem.  At the moment it works only for
+selfadjoint problems with the functional of interest being the load
 functional."
   (make-instance
    '<cdr-problem> :domain (domain problem)
@@ -84,14 +84,18 @@ functional."
    #'(lambda (cell)
        ;; check that problem is self adjoint
        (let ((coeffs (copy-seq (coefficients-of-patch cell problem))))
-	 (when (getf coeffs 'FL.CDR::CONSTRAINT)
-	   (setf (getf coeffs 'FL.CDR::CONSTRAINT) (constant-coefficient 0.0)))
-	 (assert (not (getf coeffs 'FL.CDR::CONVECTION)))  ; better: change to negative
+	 (when (get-coefficient coeffs 'FL.CDR::CONSTRAINT)
+	   (setf (getf coeffs 'FL.CDR::CONSTRAINT)
+		 (constant-coefficient 0.0)))
+	 (assert (not (get-coefficient coeffs 'FL.CDR::CONVECTION)))  ; better: change to negative
 	 (unless (eq cell->rhs :load-functional)
 	   (let ((dual-rhs (funcall cell->rhs cell)))
-	     (setf (getf coeffs 'FL.CDR::SOURCE) (getf dual-rhs 'FL.CDR::SOURCE))
-	     (setf (getf coeffs 'FL.CDR::GAMMA) (getf dual-rhs 'FL.CDR::GAMMA))
-	     (setf (getf coeffs 'FL.CDR::FE-RHS) (getf dual-rhs 'FL.CDR::FE-RHS))))
+	     (setf (getf coeffs 'FL.CDR::SOURCE)
+		   (getf dual-rhs 'FL.CDR::SOURCE))
+	     (setf (getf coeffs 'FL.CDR::GAMMA)
+		   (getf dual-rhs 'FL.CDR::GAMMA))
+	     (setf (getf coeffs 'FL.CDR::FE-RHS)
+		   (getf dual-rhs 'FL.CDR::FE-RHS))))
 	 coeffs))
    :multiplicity (multiplicity problem)))
 
@@ -120,8 +124,7 @@ cube."
   (let* ((domain (if (numberp dim/domain)
 		     (n-cube-domain dim/domain)
 		     dim/domain))
-	 (dim (dimension domain))
-	 (bdry (skeleton-boundary domain)))
+	 (dim (dimension domain)))
     ;; set default values
     (unless diffusion-p (setq diffusion (eye dim)))
     (unless source-p (setq source (if evp 0.0 1.0)))
@@ -132,25 +135,23 @@ cube."
 		 (t '<cdr-problem>))
 	   :properties properties
 	   :domain domain :patch->coefficients
-	   #'(lambda (cell)
-	     (let ((coeffs ()))
-	       (when (member-of-skeleton? cell bdry)
-		 (when dirichlet
-		   (setf (getf coeffs 'FL.CDR::CONSTRAINT) (ensure-coefficient dirichlet))))
-	       (when (= (dimension cell) dim)
-		 (when diffusion
-		   (setf (getf coeffs 'FL.CDR::DIFFUSION) (ensure-coefficient diffusion)))
-		 (when source
-		   (setf (getf coeffs 'FL.CDR::SOURCE) (ensure-coefficient source)))
-		 (when convection
-		   (setf (getf coeffs 'FL.CDR::CONVECTION) (ensure-coefficient convection)))
-		 (when reaction
-		   (setf (getf coeffs 'FL.CDR::REACTION) (ensure-coefficient reaction)))
-		 (when gamma
-		   (setf (getf coeffs 'FL.CDR::GAMMA) (ensure-coefficient gamma)))
-		 (when initial
-		   (setf (getf coeffs 'FL.CDR::INITIAL) (ensure-coefficient initial))))
-	       coeffs))
+	   `((:external-boundary
+	      ,(when dirichlet
+		     `(FL.CDR::CONSTRAINT ,(ensure-coefficient dirichlet))))
+	     (:d-dimensional
+	      ,(append
+		(when diffusion
+		  `(FL.CDR::DIFFUSION ,(ensure-coefficient diffusion)))
+		(when source
+		  `(FL.CDR::SOURCE ,(ensure-coefficient source)))
+		(when convection
+		  `(FL.CDR::CONVECTION ,(ensure-coefficient convection)))
+		(when reaction
+		  `(FL.CDR::REACTION ,(ensure-coefficient reaction)))
+		(when gamma
+		  `(FL.CDR::GAMMA ,(ensure-coefficient gamma)))
+		(when initial
+		  `(FL.CDR::INITIAL ,(ensure-coefficient initial))))))
 	   (append
 	    (when evp (destructuring-bind (&key lambda mu) evp
 			(list :lambda lambda :mu mu))))
@@ -191,6 +192,7 @@ F(u)} for the nonlinear problem @math{-\Delta u +F(u) =0}."
 
 (defun test-cdr ()
   (assert (get-property (cdr-model-problem 1) 'linear-p))
+  (coefficients (cdr-model-problem 1))
   (assert (not (get-property (bratu-problem 2) 'linear-p)))
   (check (domain (cdr-model-problem 2)))
   (let* ((domain (n-cell-domain 1))

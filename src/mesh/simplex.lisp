@@ -290,9 +290,9 @@ the zero-vector.  The others are equal to (unit-vector dim 1-i)."
     (cond (class (if mapped (mapped-cell-class class distorted) class))
 	  (t
 	   (prog1
-		(eval `(defclass ,class-name (<simplex> <standard-cell>) ()))
-	      (let ((refcell (make-reference-simplex dim)))
-		(initialize-cell-class refcell (list refcell))))))))
+	       (eval `(defclass ,class-name (<simplex> <standard-cell>) ()))
+	     (let ((refcell (make-reference-simplex dim)))
+	       (initialize-cell-class refcell (list refcell))))))))
 
 (defun ensure-simplex (dim)
   "Returns the reference simplex of the given dimension."

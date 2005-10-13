@@ -60,11 +60,11 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 			       fe-parameters)
   "Local discretization for a convection-diffusion-reaction equation."
   ;; extract active coefficient functions
-  (let ((diffusion (getf coeffs 'FL.CDR::DIFFUSION))
-	(convection (getf coeffs 'FL.CDR::CONVECTION))
-	(gamma (getf coeffs 'FL.CDR::GAMMA))
-	(source (getf coeffs 'FL.CDR::SOURCE))
-	(reaction (getf coeffs 'FL.CDR::REACTION))
+  (let ((diffusion (get-coefficient coeffs 'FL.CDR::DIFFUSION))
+	(convection (get-coefficient coeffs 'FL.CDR::CONVECTION))
+	(gamma (get-coefficient coeffs 'FL.CDR::GAMMA))
+	(source (get-coefficient coeffs 'FL.CDR::SOURCE))
+	(reaction (get-coefficient coeffs 'FL.CDR::REACTION))
 	(cell (getf fe-geometry :cell)))
     (dbg :fe "Local discretization on cell ~A" cell)
     
@@ -128,7 +128,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	   (gemm! weight left-vals source 1.0 rhs)))))
     
     ;; custom fe rhs
-    (whereas ((fe-rhs (and rhs (getf coeffs 'FL.CDR::FE-RHS))))
+    (whereas ((fe-rhs (and rhs (get-coefficient coeffs 'FL.CDR::FE-RHS))))
       (m+! (evaluate fe-rhs (list :cell cell :fe fe))
 	   rhs))
     ))
@@ -155,7 +155,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 			    (member-of-skeleton? cell interface)))
 	      (:all t))
 	(let* ((coeffs (coefficients-of-cell cell h-mesh problem))
-	       (dirichlet-function (getf coeffs 'FL.CDR::CONSTRAINT))
+	       (dirichlet-function (get-coefficient coeffs 'FL.CDR::CONSTRAINT))
 	       (cell-key (cell-key cell h-mesh)))
 	  (when dirichlet-function
 	    (let ((fe (get-fe fe-class cell)))

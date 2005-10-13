@@ -72,6 +72,10 @@ corresponding problem is nonlinear."
   "The pairing between coefficient and input."
   (apply (slot-value coeff 'eval) input))
 
+(defun get-coefficient (coeffs name)
+  "Get coefficient @arg{name} from the list @arg{coeffs}."
+  (getf coeffs name))
+
 (defmethod demands ((coeffs list))
   "Returns unified demands for all coefficients in the list."
   (let ((demands nil))
@@ -321,8 +325,7 @@ space."
   (unless (property-set-p problem 'linear-p)
     (setf (get-property problem 'linear-p) t)
     (dohash ((coeffs) (coefficients problem))
-      (when (loop for (nil coeff) on coeffs by #'cddr
-		  thereis (solution-dependent coeff))
+      (when (member :solution (required-fe-functions coeffs))
 	(setf (get-property problem 'linear-p) nil))))
   ;; very coarse test which will be often false for systems
   (let ((constraint-id (constraint-identifier problem)))

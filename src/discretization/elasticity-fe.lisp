@@ -47,8 +47,7 @@ is an array of rank 2 with standard-matrix entries."))
 
 (defmethod discretize-locally
     ((problem <elasticity-problem>) coeffs vecfe qrule fe-geometry
-     &key matrix rhs solution local-u local-v
-     fe-parameters &allow-other-keys)
+     &key matrix rhs local-u local-v fe-parameters &allow-other-keys)
   "Local discretization for an elasticity problem."
   ;; we want isotropic ansatz spaces...
   (assert (same-p (components vecfe)))
@@ -57,10 +56,10 @@ is an array of rank 2 with standard-matrix entries."))
   
   (let ((fe (aref (components vecfe) 0))
 	(nr-comps (nr-of-components vecfe))
-	(elasticity-tensor (getf coeffs 'FL.ELASTICITY::ELASTICITY))
-	(gamma-function (getf coeffs 'FL.ELASTICITY::GAMMA))
-	(reaction-function (getf coeffs 'FL.ELASTICITY::REACTION))
-	(force-function (getf coeffs 'FL.ELASTICITY::FORCE))
+	(elasticity-tensor (get-coefficient coeffs 'FL.ELASTICITY::ELASTICITY))
+	(gamma-function (get-coefficient coeffs 'FL.ELASTICITY::GAMMA))
+	(reaction-function (get-coefficient coeffs 'FL.ELASTICITY::REACTION))
+	(force-function (get-coefficient coeffs 'FL.ELASTICITY::FORCE))
 	(cell (getf fe-geometry :cell)))
 
     ;; loop over quadrature points
@@ -72,9 +71,8 @@ is an array of rank 2 with standard-matrix entries."))
      and Dphi^-1 in (getf fe-geometry :gradient-inverses)
      and weight in (getf fe-geometry :weights)
      do
-     (let* ((sol-ip (and solution (map 'vector (curry #'m*-tn shape-vals) solution)))
-	    (coeff-input
-	     (list* :global global :solution sol-ip :cell cell
+     (let* ((coeff-input
+	     (list* :global global :cell cell
 		    (loop for (key data) on fe-parameters by #'cddr
 			  collect key collect (map 'vector (curry #'m*-tn shape-vals) data))))
 	    (ip-tensor (and elasticity-tensor
