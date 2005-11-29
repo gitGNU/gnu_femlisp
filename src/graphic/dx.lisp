@@ -63,9 +63,9 @@
   (setq *dx-process*
 	(when *dx-pathname*
 	  (fl.port:run-program
-	   *dx-pathname* `("-script" "-cache" "off" "-log" "on") :wait nil
-	   :input :stream :output (dbg-when :graphic *trace-output*))))
-;;;	   :directory *images-pathname*)))
+	   *dx-pathname* '("-script" "-cache" "off" "-log" "on") :wait nil
+	   :input :stream :output (dbg-when :graphic *trace-output*)
+	   :directory *images-pathname*)))
   (unless *dx-process*
     (warn "~&ENSURE-DX-PROCESS: could not start DX.~%"))
   *dx-process*)
@@ -104,6 +104,7 @@ This is a trick to make @arg{dx} redraw the picture.")
   (whereas ((stream (dx-input-stream)))
     (when (dbg-p :graphic)
       (setq stream (make-broadcast-stream stream *trace-output*)))
+    (dbg :graphic "~A" *dx-file*)
     (let ((dx-file (namestring (probe-file (graphic-file-name object :dx)))))
       (format stream "data = Import(~S);~%" dx-file)
       (format stream "data = Options(data, \"cache\", ~D);~%" *dx-toggle*)

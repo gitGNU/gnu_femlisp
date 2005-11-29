@@ -286,10 +286,13 @@ by interpolating the boundary map via Lagrange interpolation."
   (lagrange-dofs *unit-tetrahedron* 3 :uniform)
   (lagrange-basis *unit-triangle* 1 :uniform)
   (lagrange-dofs *unit-cube* 2 :uniform)
+  ;; the following works for order 15 with CMUCL, SBCL, Allegro.
+  ;; however, it breaks for gcl (control stack overflow).
   (time (let ()
-	  (lagrange-basis-simplex *unit-triangle* 15 :uniform)
-	  nil))  ; 1.0-1.2s (toba)
+	  (lagrange-basis-simplex *unit-triangle* 5 :uniform)
+	  nil))
   (lagrange-inner-coords *unit-quadrangle* 3 :uniform)
+  ;; the following 
   (time (lagrange-reference-parameters *unit-quadrangle* 7 :uniform))
 
   ;; Isoparametric stuff

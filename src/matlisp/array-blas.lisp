@@ -66,6 +66,11 @@
 (defmethod (setf vref) (val (vec array) index)
   (setf (row-major-aref vec index) val))
 
+(defmethod mref ((mat array) i j)
+  (aref mat i j))
+(defmethod (setf mref) (val (mat array) i j)
+  (setf (aref mat i j) val))
+
 (defmethod for-each-key (func (x vector))
   (dotimes (i (length x)) (funcall func i)))
 
@@ -173,9 +178,10 @@ to be freshly consed, because @func{scal!} is a function, not a macro."
     (setf (row-major-aref array i)
 	  (scal! val (row-major-aref array i)))))
 
-(define-vector-blas-method axpy! ((alpha number) (x vector) (y vector))
+(defmethod axpy! ((alpha number) (x vector) (y vector))
   (dotimes (i (length x) y)
-    (incf (aref y i) (* alpha (aref x i)))))
+    (setf (aref y i)
+	  (axpy! alpha (aref x i) (aref y i)))))
 
 (defmethod dot ((x list) (y list))
   (loop for xc in x and yc in y summing (* xc yc)))

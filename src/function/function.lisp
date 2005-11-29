@@ -434,7 +434,7 @@ A."
 		(Qz (dot z Az))
 		(norm-z (sqrt Qz)))
 	   #-(or)(gemm-nt! (/ -1 norm-z Qz) z Az
-		     (/ norm-z) (eye dim))
+			   (/ norm-z) (eye dim))
 	   #+(or)(m- (scal (/ norm-z) (eye dim))
 	       (scal (/ 1 norm-z Qz) (m* z (transpose Az)))))))))
 

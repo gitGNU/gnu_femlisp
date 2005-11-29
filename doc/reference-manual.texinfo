@@ -8,6 +8,7 @@
 * Package FL.DEMO::             
 * Package FL.TESTS::            
 * Package FL.PORT::             
+* Package FL.AMOP::             
 * Package FL.ALIEN::            
 * Package FL.MATLISP::          
 * Package FL.ALGEBRA::          
@@ -82,6 +83,12 @@ Checks if all of the @arg{properties} are in the property list
 @findex COMMON-LISP-SPEED
 Returns the speed which should be characteristic for the setting
 determined by the keyword arguments.
+@end deffn
+
+@anchor{fun-fl.utilities-concept-documentation}
+@deffn Function CONCEPT-DOCUMENTATION 
+@findex CONCEPT-DOCUMENTATION
+Documents a certain concept.
 @end deffn
 
 @anchor{fun-fl.utilities-copy-hash-table}
@@ -406,6 +413,12 @@ is characterized by a vector containing the indices from 0,...,
 @function{length}(@arg{perm})-1 in some order.
 @end deffn
 
+@anchor{fun-fl.utilities-permutation-signum}
+@deffn Function PERMUTATION-SIGNUM 
+@findex PERMUTATION-SIGNUM
+Returns the sign of @arg{perm}.
+@end deffn
+
 @anchor{fun-fl.utilities-permute}
 @deffn Function PERMUTE 
 @findex PERMUTE
@@ -483,10 +496,10 @@ Range of numbers for iteration.
 
 Direct slots:
 @itemize
-@item FROM: NIL
-@item TO: NIL
-@item BELOW: NIL
-@item BY: NIL
+@item FROM: Start of range, defaults to 0.
+@item TO: Inclusive end of range, defaults to infinity.
+@item BELOW: Exclusive end of range, defaults to infinity.
+@item BY: Step size.
 @end itemize
 @end deftp
 
@@ -881,17 +894,36 @@ Runs the Femlisp test suite.  The result is printed to
 *standard-output*.
 @end deffn
 
-@node Package FL.PORT, Package FL.ALIEN, Package FL.TESTS, Reference manual
+@node Package FL.PORT, Package FL.AMOP, Package FL.TESTS, Reference manual
 @section Package FL.PORT
 
 This package should contain the implementation-dependent
 parts of Femlisp with the exception of the MOP.
 
+@anchor{macro-fl.port-def-function}
+@deffn Macro DEF-FUNCTION 
+@findex DEF-FUNCTION
+Defines a foreign function.  See examples in
+@path{alien;src;superlu.lisp}.
+@end deffn
+
+@anchor{fun-fl.port-finalize}
+@deffn Function FINALIZE 
+@findex FINALIZE
+Sets up @arg{func} as finalizer for @arg{obj}.
+@end deffn
+
+@anchor{fun-fl.port-find-executable}
+@deffn Function FIND-EXECUTABLE 
+@findex FIND-EXECUTABLE
+Finds an executable in the current path.
+@end deffn
+
 @anchor{macro-fl.port-foreign-call-wrapper}
 @deffn Macro FOREIGN-CALL-WRAPPER 
 @findex FOREIGN-CALL-WRAPPER
-Ensures a safe environment for a FF call, especially so that no GC
-changes array pointers obtained by @function{vector-sap}.
+Ensures a safe environment for a foreign function call, especially so
+that no GC changes array pointers obtained by @function{vector-sap}.
 @end deffn
 
 @anchor{fun-fl.port-getenv}
@@ -900,34 +932,52 @@ changes array pointers obtained by @function{vector-sap}.
 Return the value of the environment variable.
 @end deffn
 
+@anchor{fun-fl.port-load-foreign-library}
+@deffn Function LOAD-FOREIGN-LIBRARY 
+@findex LOAD-FOREIGN-LIBRARY
+Loads the foreign library @arg{file}.
+@end deffn
+
+@anchor{fun-fl.port-make-weak-pointer}
+@deffn Function MAKE-WEAK-POINTER 
+@findex MAKE-WEAK-POINTER
+Creates a weak pointer pointing to @arg{obj}.
+@end deffn
+
 @anchor{fun-fl.port-process-close}
 @deffn Function PROCESS-CLOSE 
 @findex PROCESS-CLOSE
-Interface to process-close.
+Closes @arg{process}.
 @end deffn
 
 @anchor{fun-fl.port-process-input}
 @deffn Function PROCESS-INPUT 
 @findex PROCESS-INPUT
-Interface to process-input.
+Process-input for @arg{process}.
 @end deffn
 
 @anchor{fun-fl.port-process-output}
 @deffn Function PROCESS-OUTPUT 
 @findex PROCESS-OUTPUT
-Interface to process-output.
+Process-output for @arg{process}.
 @end deffn
 
 @anchor{fun-fl.port-process-status}
 @deffn Function PROCESS-STATUS 
 @findex PROCESS-STATUS
-Interface to process-status.
+Returns the status of @arg{process}.
 @end deffn
 
 @anchor{fun-fl.port-run-program}
 @deffn Function RUN-PROGRAM 
 @findex RUN-PROGRAM
-Interface to run-program.
+Runs @arg{program} with arguments @arg{args}.
+@end deffn
+
+@anchor{fun-fl.port-save-femlisp-core-and-die}
+@deffn Function SAVE-FEMLISP-CORE-AND-DIE 
+@findex SAVE-FEMLISP-CORE-AND-DIE
+Saves Femlisp core and quits.
 @end deffn
 
 @anchor{fun-fl.port-unix-chdir}
@@ -936,7 +986,52 @@ Interface to run-program.
 Change the directory to @arg{path}.
 @end deffn
 
-@node Package FL.ALIEN, Package FL.MATLISP, Package FL.PORT, Reference manual
+@anchor{fun-fl.port-vector-sap}
+@deffn Function VECTOR-SAP 
+@findex VECTOR-SAP
+Returns an array pointer which can be used in a foreign call.
+@end deffn
+
+@anchor{fun-fl.port-weak-pointer-value}
+@deffn Function WEAK-POINTER-VALUE 
+@findex WEAK-POINTER-VALUE
+Returns the value of the weak pointer @arg{wp}.
+@end deffn
+
+@node Package FL.AMOP, Package FL.ALIEN, Package FL.PORT, Reference manual
+@section Package FL.AMOP
+
+This package provides some MOP functionality.  These functions are
+non-ANSI and may represent a problem when porting Femlisp.
+
+@anchor{fun-fl.amop-compile-and-eval}
+@deffn Function COMPILE-AND-EVAL 
+@findex COMPILE-AND-EVAL
+Compiles and evaluates the given @arg{source}.  This should be an ANSI
+compatible way of ensuring method compilation.
+@end deffn
+
+@anchor{fun-fl.amop-find-programmatic-class}
+@deffn Function FIND-PROGRAMMATIC-CLASS 
+@findex FIND-PROGRAMMATIC-CLASS
+Finds and, if necessary, generates a class from the given superclasses.
+@end deffn
+
+@anchor{fun-fl.amop-make-programmatic-instance}
+@deffn Function MAKE-PROGRAMMATIC-INSTANCE 
+@findex MAKE-PROGRAMMATIC-INSTANCE
+Makes an instance of a class denoted by a list of the names of its
+superclasses.  This class is generated automatically, if necessary.
+@end deffn
+
+@anchor{fun-fl.amop-remove-subclass-methods}
+@deffn Function REMOVE-SUBCLASS-METHODS 
+@findex REMOVE-SUBCLASS-METHODS
+Removes all methods dispatching on subclasses of the template
+arguments.
+@end deffn
+
+@node Package FL.ALIEN, Package FL.MATLISP, Package FL.AMOP, Reference manual
 @section Package FL.ALIEN
 
 This package loads some foreign libraries and does set
@@ -1232,9 +1327,11 @@ Mixin for full tensors.
 
 Direct slots:
 @itemize
-@item DIMENSIONS: NIL
-@item OFFSET0: NIL
-@item OFFSETS: NIL
+@item DIMENSIONS: The dimensions of the tensor.
+@item OFFSET0: An initial offset into the store-vector which
+defaults to 0.
+@item OFFSETS: The offsets for the different dimensions.  This
+is internal information computed at tensor construction time.
 @end itemize
 @end deftp
 
@@ -2973,6 +3070,12 @@ The function argument @arg{func} is transformed into a coefficient
 depending on global coordinates.
 @end deffn
 
+@anchor{fun-fl.problem-get-coefficient}
+@deffn Function GET-COEFFICIENT 
+@findex GET-COEFFICIENT
+Get coefficient @arg{name} from the list @arg{coeffs}.
+@end deffn
+
 @anchor{fun-fl.problem-get-property}
 @deffn Function GET-PROPERTY 
 @findex GET-PROPERTY
@@ -3009,6 +3112,15 @@ SOLUTION.  The result should be a linear problem.
 @deffn Function LSE 
 @findex LSE
 Constructs a standard LSE.
+@end deffn
+
+@anchor{fun-fl.problem-map-coefficients}
+@deffn Function MAP-COEFFICIENTS 
+@findex MAP-COEFFICIENTS
+Maps a given coefficient list @arg{coeffs} into a new coefficient list.
+@arg{func} takes coefficient name and coefficient and returns two values
+for new coefficient name and coefficient.  If the first value returned is
+@code{NIL}, this coefficient is not collected.
 @end deffn
 
 @anchor{fun-fl.problem-mass}
@@ -3170,7 +3282,8 @@ Superclasses: <PDE-PROBLEM>
 @section Package FL.CDRSYS
 
 This package contains the problem definition of systems
-of convection-diffusion-reaction equations.
+of convection-diffusion-reaction equations.  All coefficients are vectors
+with entries corresponding to the scalar case.
 
 @anchor{class-fl.cdrsys-<cdrsys-problem>}
 @deftp Class <CDRSYS-PROBLEM>
@@ -3182,14 +3295,19 @@ Superclasses: <PDE-PROBLEM>
 
 Direct slots:
 @itemize
-@item N: NIL
+@item NCOMPS: NIL
 @end itemize
 @end deftp
 
-@anchor{fun-fl.cdrsys-system-diffusion-tensor}
-@deffn Function SYSTEM-DIFFUSION-TENSOR 
-@findex SYSTEM-DIFFUSION-TENSOR
-Returns a tensor for a system of separate diffusion equations.
+@anchor{fun-fl.cdrsys-cdrsys-model-problem}
+@deffn Function CDRSYS-MODEL-PROBLEM 
+@findex CDRSYS-MODEL-PROBLEM
+Generates a system of convection-diffusion-reaction equations.  Defaults
+are identity diffusion, right-hand-side equal 1, and Dirichlet zero
+boundary conditions for each component.  Ordinary function are converted
+into coefficient functions depending on a global coordinate.  The first
+argument can be either a domain or an integer n which is interpreted as the
+n-dimensional unit cube.
 @end deffn
 
 @node Package FL.DISCRETIZATION, Package FL.CDR-FE, Package FL.CDRSYS, Reference manual
@@ -3445,6 +3563,16 @@ Choose a reasonable start vector for some strategy.
 @findex CONSTRAINED-INTERPOLATION-MATRIX
 The multigrid algorithm needs an interpolation which satisfies the
 constraints like essential or periodic boundary conditions.
+@end deffn
+
+@anchor{fun-fl.discretization-construct-coeff-input}
+@deffn Function CONSTRUCT-COEFF-INPUT 
+@findex CONSTRUCT-COEFF-INPUT
+Constructs a coefficient input list from FE data @arg{cell} is the cell,
+@arg{global} is the global coordinate of the integration point,
+@arg{values} and @arg{gradients} the values and gradients of the shape
+functions at the ip, and @arg{fe-parameters} are the corresponding data of
+fe-functions to be evalutated.
 @end deffn
 
 @anchor{fun-fl.discretization-discretization-order}
@@ -4559,6 +4687,8 @@ Direct slots:
 @itemize
 @item MODEL-TIME: Current time in the time-stepping scheme.
 @item TIME-STEP: NIL
+@item SCHEME: Time-stepping scheme,
+e.g. @code{:implicit-euler} or @code{:crank-nicolson}.
 @item STATIONARY-SUCCESS-IF: NIL
 @item STATIONARY-FAILURE-IF: NIL
 @item PLOT: NIL

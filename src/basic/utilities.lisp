@@ -817,6 +817,7 @@ according to @math{result[i] = v[perm[i]]}."
 	finally (return inv-vec)))
 
 (defun permutation-signum (perm)
+  "Returns the sign of @arg{perm}."
   (let ((perm (copy-seq perm))
 	(result 1))
     (dotimes (i (length perm) result)

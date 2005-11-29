@@ -115,22 +115,22 @@ class precedence."))
 (defmacro post-smoother_ (level) `(aref (getbb mg-data :post-smoother-vec) ,level))
 (defmacro residual-p_ (level) `(aref (getbb mg-data :residual-p-vec) ,level))
 
-(define-symbol-macro current-level (getbb mg-data :current-level))
-(define-symbol-macro A_l (A_ current-level))
-(define-symbol-macro I_l (I_ current-level))
-(define-symbol-macro R_l (R_ current-level))
-(define-symbol-macro sol_l (sol_ current-level))
-(define-symbol-macro rhs_l (rhs_ current-level))
-(define-symbol-macro res_l (res_ current-level))
-(define-symbol-macro pre-smoother_l (pre-smoother_ current-level))
-(define-symbol-macro post-smoother_l (post-smoother_ current-level))
-
-(define-symbol-macro residual-p_l (residual-p_ current-level))
 
 ;;; The FAS scheme needs an additional restriction or projection of the
 ;;; solution vector.
 (defmacro FAS-R_ (level) `(aref (getbb mg-data :fas-r-vec) ,level))
-(define-symbol-macro FAS-R_l (FAS-R_ current-level))
+
+(defmacro with-current-level-data (symbols mg-data &body body)
+  "Anaphoric, because it works with the MG-DATA symbol."
+  `(let ((mg-data ,mg-data))
+    (symbol-macrolet ((current-level (getbb mg-data :current-level))
+		      ,@(loop for sym in symbols
+			      for l-name = (symbol-name sym)
+			      for name = (subseq l-name 0 (1- (length l-name)))
+			      collect
+			      `(,(intern l-name :fl.multigrid)
+				(,(intern name :fl.multigrid) current-level))))
+	,@body)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generic function interface for customization
@@ -171,19 +171,22 @@ to be performed."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod ensure-mg-residual ((mg-it <mg-iteration>) mg-data)
-  (unless residual-p_l
-    (compute-residual A_l sol_l rhs_l res_l)
-    (setq residual-p_l t)))
+  (with-current-level-data (residual-p_l A_l sol_l rhs_l res_l) mg-data
+    (unless residual-p_l
+      (compute-residual A_l sol_l rhs_l res_l)
+      (setq residual-p_l t))))
 
 (defmethod smooth ((mg-it <mg-iteration>) mg-data which)
-  (let ((smoother (ecase which
-		    (:pre pre-smoother_l)
-		    (:post post-smoother_l))))
-    (when smoother
-      (when (slot-value smoother 'fl.iteration::residual-before)
-	(ensure-mg-residual mg-it mg-data))
-      (funcall (slot-value smoother 'fl.iteration::iterate) sol_l rhs_l res_l)
-      (setq residual-p_l (slot-value smoother 'fl.iteration::residual-after)))))
+  (with-current-level-data (pre-smoother_l post-smoother_l sol_l rhs_l res_l residual-p_l)
+      mg-data
+    (let ((smoother (ecase which
+		      (:pre pre-smoother_l)
+		      (:post post-smoother_l))))
+      (when smoother
+	(when (slot-value smoother 'fl.iteration::residual-before)
+	  (ensure-mg-residual mg-it mg-data))
+	(funcall (slot-value smoother 'fl.iteration::iterate) sol_l rhs_l res_l)
+	(setq residual-p_l (slot-value smoother 'fl.iteration::residual-after))))))
 
 (defmethod ensure-sol-rhs-res ((mg-it <mg-iteration>) mg-data level)
   (unless (sol_ level)
@@ -199,81 +202,89 @@ to be performed."))
 (defmethod restrict ((mg-it <mg-iteration>) mg-data)
   "The basic method for restriction restricts the residual, decrements the
 level and clears the residual-p flag."
-  (let ((l-1 (1- current-level)))
-    (ensure-mg-residual mg-it mg-data)
-    (ensure-sol-rhs-res mg-it mg-data l-1)
-    (if (getbb mg-data :r-vec)
-	(gemm! 1.0 (R_ l-1) res_l 0.0 (res_ l-1))
-	(gemm! 1.0 (I_ l-1) res_l 0.0 (res_ l-1) :tn))
-	))
+  (with-current-level-data (res_l) mg-data
+    (let* ((l-1 (1- current-level)))
+      (ensure-mg-residual mg-it mg-data)
+      (ensure-sol-rhs-res mg-it mg-data l-1)
+      (if (getbb mg-data :r-vec)
+	  (gemm! 1.0 (R_ l-1) res_l 0.0 (res_ l-1))
+	  (gemm! 1.0 (I_ l-1) res_l 0.0 (res_ l-1) :tn)))))
 
 (defmethod restrict :after ((mg-it <mg-iteration>) mg-data)
-  (decf current-level)
-  (setq residual-p_l nil))
+  (with-current-level-data (residual-p_l) mg-data
+    (decf current-level)
+    (setq residual-p_l nil)))
 
 (defmethod restrict :after ((mg-it <correction-scheme>) mg-data)
-  (x<-0 sol_l)
-  (copy! res_l rhs_l)
-  (setq residual-p_l t))
+  (with-current-level-data (sol_l res_l rhs_l residual-p_l)
+      mg-data
+    (x<-0 sol_l)
+    (copy! res_l rhs_l)
+    (setq residual-p_l t)))
 
 (defmethod restrict :after ((mg-it <fas>) mg-data)
-  (copy! res_l rhs_l)
-  (gemm! 1.0 FAS-R_l (sol_ (1+ current-level)) 0.0 sol_l)
-  (gemm! 1.0 A_l sol_l 1.0 rhs_l)
-  (setf residual-p_l t))
+  (with-current-level-data (sol_l res_l rhs_l A_l residual-p_l FAS-R_l)
+      mg-data
+    (copy! res_l rhs_l)
+    (gemm! 1.0 FAS-R_l (sol_ (1+ current-level)) 0.0 sol_l)
+    (gemm! 1.0 A_l sol_l 1.0 rhs_l)
+    (setf residual-p_l t)))
 
 ;;; Note that no primary method for prolongate is defined for
 ;;; <mg-iteration>.  Thus, this class has to be merged with
 ;;; <correction-scheme> or <fas>.
 (defmethod prolongate ((mg-it <correction-scheme>) mg-data)
-  (let ((l+1 (1+ current-level)))
-    (gemm! 1.0  I_l sol_l 1.0 (sol_ l+1) :nn)))
+  (with-current-level-data (sol_l I_l) mg-data
+    (gemm! 1.0 I_l sol_l 1.0 (sol_ (1+ current-level)) :nn)))
 
 (defmethod prolongate ((mg-it <fas>) mg-data)
   "This version of FAS prolongation uses the res_ field on the coarser
 level for computing the correction to be prolongated."
-  (let ((l+1 (1+ current-level)))
+  (with-current-level-data (sol_l res_l I_l FAS-R_l) mg-data
     (copy! sol_l res_l)
-    (gemm! -1.0 FAS-R_l (sol_ l+1) 1.0 res_l)
-    (gemm! 1.0 I_l res_l 1.0 (sol_ l+1)) :nn))
+    (gemm! -1.0 FAS-R_l (sol_ (1+ current-level)) 1.0 res_l)
+    (gemm! 1.0 I_l res_l 1.0 (sol_ (1+ current-level)) :nn)))
 
 (defmethod prolongate :after ((mg-it <mg-iteration>) mg-data)
-  (incf current-level)
-  (setq residual-p_l nil))
+  (with-current-level-data (residual-p_l) mg-data
+    (incf current-level)
+    (setf (residual-p_ current-level) nil)))
 
 (defmethod lmgc ((mg-it <mg-iteration>) mg-data)
-  (with-items (&key current-level base-level coarse-grid-it) mg-data
-    (cond
-      ((= current-level base-level)
-       (funcall (slot-value coarse-grid-it 'iterate) sol_l rhs_l res_l)
-       (setq residual-p_l (slot-value coarse-grid-it 'fl.iteration::residual-after)))
-      (t
-       (ecase (combination-type mg-it)
-	 (:multiplicative
-	  (smooth mg-it mg-data :pre)
-	  (restrict mg-it mg-data))
-	 (:additive
-	  (restrict mg-it mg-data)
-	  (incf current-level)
-	  (smooth mg-it mg-data :pre)
-	  (decf current-level)))
-       (loop for i from (cond ((zerop (slot-value mg-it 'gamma)) 0)
-			      ((= current-level base-level) 1)
-			      (t (slot-value mg-it 'gamma)))
-	     downto 1 do
-	     (lmgc mg-it mg-data)
-	     (unless (= i 1)
-	       (ensure-mg-residual mg-it mg-data)))
-       (ecase (combination-type mg-it)
-	 (:additive
-	  (incf current-level)
-	  (smooth mg-it mg-data :post)
-	  (decf current-level)
-	  (prolongate mg-it mg-data))
-	 (:multiplicative
-	  (prolongate mg-it mg-data)
-	  (smooth mg-it mg-data :post)))
-       ))))
+  (with-items (&key base-level coarse-grid-it) mg-data
+    (with-current-level-data (sol_l res_l rhs_l residual-p_l)
+	mg-data
+      (cond
+	((= current-level base-level)
+	 (funcall (slot-value coarse-grid-it 'iterate) sol_l rhs_l res_l)
+	 (setq residual-p_l (slot-value coarse-grid-it 'fl.iteration::residual-after)))
+	(t
+	 (ecase (combination-type mg-it)
+	   (:multiplicative
+	    (smooth mg-it mg-data :pre)
+	    (restrict mg-it mg-data))
+	   (:additive
+	    (restrict mg-it mg-data)
+	    (incf current-level)
+	    (smooth mg-it mg-data :pre)
+	    (decf current-level)))
+	 (loop for i from (cond ((zerop (slot-value mg-it 'gamma)) 0)
+				((= current-level base-level) 1)
+				(t (slot-value mg-it 'gamma)))
+	       downto 1 do
+	       (lmgc mg-it mg-data)
+	       (unless (= i 1)
+		 (ensure-mg-residual mg-it mg-data)))
+	 (ecase (combination-type mg-it)
+	   (:additive
+	    (incf current-level)
+	    (smooth mg-it mg-data :post)
+	    (decf current-level)
+	    (prolongate mg-it mg-data))
+	   (:multiplicative
+	    (prolongate mg-it mg-data)
+	    (smooth mg-it mg-data :post)))
+	 )))))
 
 (defmethod f-cycle ((mg-it <mg-iteration>) mg-data)
   (with-items (&key base-level top-level) mg-data

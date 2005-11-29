@@ -81,24 +81,11 @@ functionality of Femlisp you should provide it in the file
       (:warn (warn message)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Quitting
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun quit ()
-  #+cmu (ext:quit)
-  #+ecl (si:quit)
-  #+gcl (lisp:quit)
-  #+sbcl (sb-ext:quit)
-  #+allegro (excl:exit)
-  #-(or allegro cmu sbcl)
-  (portability-warning 'quit)
-  )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; UNIX environment access
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun find-executable (name)
+  "Finds an executable in the current path."
   #-(or allegro cmu sbcl)
   (portability-warning 'find-executable name)
   #+allegro (excl.osi:find-in-path name)
@@ -139,8 +126,9 @@ functionality of Femlisp you should provide it in the file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun run-program (program args &key wait input output error-output directory)
-  "Interface to run-program."
-  #+(or clisp cmu sbcl) (declare (ignore error-output))
+  "Runs @arg{program} with arguments @arg{args}."
+  #+(or clisp ecl cmu sbcl) (declare (ignore error-output))
+  #+(or ecl gcl) (declare (ignore wait))
   #+allegro
   (let ((program (namestring program)))
     (cond
@@ -159,46 +147,50 @@ functionality of Femlisp you should provide it in the file
 	 (declare (ignore ostream estream))
 	 (list :process istream output error-output proc-id)))))
   #+clisp (ext:run-program program :arguments args :wait wait :input input :output output)
-  #+cmu (progn
-	  (when directory (unix-chdir (namestring directory)))
-	  (ext:run-program program args :wait wait :input input :output output))
-  ;; #+(or ecl gcl) (apply #'si:run-process prog args)
-  #+sbcl (progn
-	   (when directory (unix-chdir (namestring directory)))
-	   (sb-ext:run-program program args :wait wait :input input :output output))
-  #-(or allegro clisp cmu sbcl)
+  #+(or cmu ecl gcl sbcl)
+  (when directory (unix-chdir (namestring directory)))
+  #+cmu (ext:run-program program args :wait wait :input input :output output)
+  #+(or gcl) (si:run-process (namestring program) args)
+  #+ecl (si:run-program (namestring program) args)
+  #+sbcl (sb-ext:run-program program args :wait wait :input input :output output)
+  #-(or allegro clisp cmu ecl gcl sbcl)
   (portability-warning 'run-program args wait input output error-output directory)
   )
 
 (defun process-input (process)
-  "Interface to process-input."
+  "Process-input for @arg{process}."
   #+allegro (second process)
   #+cmu (ext:process-input process)
+  #+ecl process
+  #+gcl (si::fp-output-stream process)
   #+sbcl (sb-ext:process-input process)
-  #-(or allegro cmu sbcl)
+  #-(or allegro cmu ecl gcl sbcl)
   (portability-warning 'process-input process)
   )
 
 (defun process-output (process)
-  "Interface to process-output."
+  "Process-output for @arg{process}."
   #+allegro (third process)
   #+cmu (ext:process-output process)
+  #+ecl process
+  #+gcl (si::fp-input-stream process)
   #+sbcl (sb-ext:process-output process)
-  #-(or allegro cmu sbcl)
+  #-(or allegro cmu ecl gcl sbcl)
   (portability-warning 'process-output process)
   )
 
 (defun process-close (process)
-  "Interface to process-close."
+  "Closes @arg{process}."
   #+allegro (close (second process))
   #+cmu (ext:process-close process)
+  #+(or ecl gcl) (close process)
   #+sbcl (sb-ext:process-close process)
-  #-(or allegro cmu sbcl)
+  #-(or allegro cmu ecl gcl sbcl)
   (portability-warning 'process-close process)
   )
 
 (defun process-status (process)
-  "Interface to process-status."
+  "Returns the status of @arg{process}."
   #+cmu (ext:process-status process)
   #+sbcl (sb-ext:process-status process)
   #-(or cmu sbcl)
@@ -210,7 +202,7 @@ functionality of Femlisp you should provide it in the file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun memory-usage ()
-  "Returns an approixmation to the memory used at this moment."
+  "Returns an approximation to the memory used at this moment."
   #+cmu (lisp::dynamic-usage)
   #+sbcl (sb-kernel::dynamic-usage)
   #-(or cmu sbcl)
@@ -221,12 +213,15 @@ functionality of Femlisp you should provide it in the file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun load-foreign-library (file)
+  "Loads the foreign library @arg{file}."
   #+allegro (cl:load file)
   #+cmu (sys::load-object-file file)
+  #+ecl (ffi:load-foreign-library
+	 (if (stringp file) file (namestring file)))
   #+sbcl (sb-alien:load-shared-object file)
-  #+(and uffi (not (or allegro cmu sbcl)))
+  #+(and uffi (not (or allegro cmu ecl sbcl)))
   (uffi:load-foreign-library file)
-  #-(or allegro cmu sbcl uffi)
+  #-(or allegro cmu ecl sbcl uffi)
   (portability-warning 'load-foreign-library file))
 
 #+(or cmu sbcl)
@@ -254,29 +249,34 @@ functionality of Femlisp you should provide it in the file
     #+allegro ,@keys))
 
 (defmacro def-function (&rest args)
+  "Defines a foreign function.  See examples in
+@path{alien;src;superlu.lisp}."
   #+(or allegro cmu sbcl) `(simplified-def-function ,@args)
-  #+(and uffi (not (or allegro cmu sbcl)))
+  #+ecl `(ffi:def-function ,@args)
+  #+(and uffi (not (or allegro cmu ecl sbcl)))
   `(uffi:def-function ,@args)
-  #-(or allegro cmu sbcl uffi)
+  #-(or allegro cmu ecl sbcl uffi)
   (portability-warning 'define-alien-routine args))
 
 (declaim (inline vector-sap))
 (defun vector-sap (ptr)
+  "Returns an array pointer which can be used in a foreign call."
   #+allegro ptr
   #+cmu (system:vector-sap ptr)
+  #+ecl (ffi:c-inline (ptr) (:object) :pointer-void "(#0)->array.self.ch" :one-liner t)
   #+sbcl (sb-sys:vector-sap ptr)
   #+clisp (ffi::foreign-pointer ptr)
-  #-(or allegro cmu sbcl clisp)
+  #-(or allegro cmu ecl sbcl clisp)
   (portability-warning 'vector-sap ptr)
   )
 
 (defmacro foreign-call-wrapper (&rest body)
-  "Ensures a safe environment for a FF call, especially so that no GC
-changes array pointers obtained by @function{vector-sap}."
-  #+allegro `(progn ,@body)
+  "Ensures a safe environment for a foreign function call, especially so
+that no GC changes array pointers obtained by @function{vector-sap}."
+  #+(or allegro ecl) `(progn ,@body)
   #+cmu `(system:without-gcing ,@body)
   #+sbcl `(sb-sys:without-gcing ,@body)
-  #-(or allegro cmu sbcl)
+  #-(or allegro cmu ecl sbcl)
   (portability-warning 'foreign-call-wrapper ptr)
   )
 
@@ -285,6 +285,7 @@ changes array pointers obtained by @function{vector-sap}."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun make-weak-pointer (obj)
+  "Creates a weak pointer pointing to @arg{obj}."
   #+allegro
   (let ((result (excl:weak-vector 1)))
     (setf (aref result 0) obj)
@@ -296,6 +297,7 @@ changes array pointers obtained by @function{vector-sap}."
   )
 
 (defun weak-pointer-value (wp)
+  "Returns the value of the weak pointer @arg{wp}."
   #+allegro (aref wp 0)
   #+cmu (ext:weak-pointer-value wp)
   #+sbcl (sb-ext:weak-pointer-value wp)
@@ -303,6 +305,7 @@ changes array pointers obtained by @function{vector-sap}."
   (portability-warning 'weak-pointer-value wp))
 
 (defun finalize (obj func)
+  "Sets up @arg{func} as finalizer for @arg{obj}."
   #+allegro (excl:schedule-finalization
 	     obj #'(lambda (obj)
 		     (declare (ignore obj))
@@ -320,27 +323,41 @@ changes array pointers obtained by @function{vector-sap}."
   (portability-warning 'gc args))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Quitting
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun quit ()
+  "Quits Femlisp."
+  #+cmu (ext:quit)
+  #+ecl (si:quit)
+  #+gcl (lisp:quit)
+  #+sbcl (sb-ext:quit)
+  #+allegro (excl:exit)
+  #-(or allegro cmu sbcl)
+  (portability-warning 'quit)
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Saving a core and restarting
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun save-femlisp-core-and-die (core-file-name)
-  #+allegro
-  (progn
-    (excl:dumplisp :name core-file-name)
-    (excl:exit 0))
-  #+cmu
-  (progn
-    (ext:save-lisp core-file-name :print-herald nil)
-    (ext:quit))
-  #+sbcl
-  (sb-ext:save-lisp-and-die core-file-name)
-  #+clisp
-  (EXT:SAVEINITMEM corefilename)
-  #-(or cmu sbcl clisp)  ; do nothing
-  (portability-warning 'save-femlisp-core-and-die core-file-name))
+  "Saves Femlisp core and quits."
+  #+allegro (excl:dumplisp :name core-file-name)
+  #+clisp   (EXT:SAVEINITMEM corefilename)
+  #+cmu     (ext:save-lisp core-file-name :print-herald nil)
+  #+gcl     (si:save-system core-file-name)
+  #+ecl     (quit)
+  #+sbcl    (sb-ext:save-lisp-and-die core-file-name)
+  #-(or allegro clisp cmu ecl gcl sbcl)  ; do nothing
+  (portability-warning 'save-femlisp-core-and-die core-file-name)
+  ;; we quit in any case
+  (quit))
 
 (defun femlisp-restart ()
   #+cmu (progn (ext::print-herald))
-  (fl.start::femlisp-banner))
+  (fl.start::femlisp-banner)
+  (in-package :fl.application)
+  )
 
   

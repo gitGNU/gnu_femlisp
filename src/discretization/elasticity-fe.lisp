@@ -71,10 +71,9 @@ is an array of rank 2 with standard-matrix entries."))
      and Dphi^-1 in (getf fe-geometry :gradient-inverses)
      and weight in (getf fe-geometry :weights)
      do
-     (let* ((coeff-input
-	     (list* :global global :cell cell
-		    (loop for (key data) on fe-parameters by #'cddr
-			  collect key collect (map 'vector (curry #'m*-tn shape-vals) data))))
+     (let* ((gradients (and Dphi^-1 (m* shape-grads Dphi^-1)))
+	    (coeff-input (construct-coeff-input
+			  cell global shape-vals gradients fe-parameters))
 	    (ip-tensor (and elasticity-tensor
 			    (evaluate elasticity-tensor coeff-input)))
 	    (gamma (and gamma-function rhs
@@ -83,23 +82,22 @@ is an array of rank 2 with standard-matrix entries."))
 			   (evaluate reaction-function coeff-input)))
 	    (force (and force-function (evaluate force-function coeff-input)))
 	    (right-vals shape-vals)
-	    (left-vals shape-vals))
+	    (left-vals shape-vals)
+	    (right-gradients gradients)
+	    (left-gradients gradients))
        (when ip-tensor
 	 (dotimes (i nr-comps)
 	   (dotimes (j nr-comps)
 	     ;; diffusion 
-	     (let* ((gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
-		    (right-gradients gradients)
-		    (left-gradients gradients)
-		    (fluxes (make-analog gradients))
-		    (D (aref ip-tensor i j)))
+	     (let ((D (aref ip-tensor i j)))
 	       (unless (mzerop D)
-		 (gemm! 1.0 left-gradients D 0.0 fluxes)
-		 (when matrix
-		   (gemm! weight fluxes right-gradients 1.0 (aref matrix i j) :NT))
-		 ;; gamma
-		 (when (and gamma rhs)
-		   (gemm! weight fluxes (aref gamma j) 1.0 (aref rhs i))))))))
+		 (let ((fluxes (make-analog gradients)))
+		   (gemm! 1.0 left-gradients D 0.0 fluxes)
+		   (when matrix
+		     (gemm! weight fluxes right-gradients 1.0 (aref matrix i j) :NT))
+		   ;; gamma
+		   (when (and gamma rhs)
+		     (gemm! weight fluxes (aref gamma j) 1.0 (aref rhs i)))))))))
        ;; reaction
        (when (and reaction matrix)
 	 (dotimes (i nr-comps)

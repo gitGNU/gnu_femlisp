@@ -146,10 +146,11 @@ handling constraints are intricate, but usually of lower complexity."
 			      :volume (getf patch-properties 'FL.MESH::VOLUME)))
 		   (local-mat (and matrix (make-local-mat fe)))
 		   (local-rhs (and rhs (make-local-vec fe (multiplicity ansatz-space))))
-		   (fe-paras (loop for sym in (required-fe-functions coeffs)
-				   collect sym collect
+		   (fe-paras (loop for obj in (required-fe-functions coeffs)
+				   collect obj collect
 				   (get-local-from-global-vec
-				    cell fe (get-property problem sym)))))
+				    cell fe (get-property
+					     problem (if (symbolp obj) obj (car obj)))))))
 	      (discretize-locally
 	       problem coeffs fe qrule geometry
 	       :matrix local-mat :rhs local-rhs

@@ -149,10 +149,11 @@ corresponding index."))
 		(dll-front-insert obj (aref table index))))))
 
 (defun adapt-fill-pointer (table)
-  (loop while (plusp (fill-pointer table))
-	for dll = (aref table (1- (fill-pointer table)))
-	while (or (null dll) (dll-empty-p dll))
-	do (decf (fill-pointer table))))
+  (loop
+   while (and (plusp (fill-pointer table))
+	      (let ((dll (aref table (1- (fill-pointer table)))))
+		(or (null dll) (dll-empty-p dll))))
+   do (decf (fill-pointer table))))
 
 (defmethod pt-remove ((pt priority-table) obj)
   "Removes a node from the priority table."

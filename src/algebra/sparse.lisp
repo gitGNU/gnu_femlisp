@@ -284,7 +284,7 @@ indexed by general keys."))
 (defmethod mzerop ((smat <sparse-matrix>) &optional (threshold 0.0))
   (declare (ignore threshold))
   (or (zerop (nr-nonempty-rows smat))
-      (call-next-method)))
+      #-ecl(call-next-method)))
 
 (defmethod make-analog ((smat <sparse-matrix>))
   (make-sparse-matrix

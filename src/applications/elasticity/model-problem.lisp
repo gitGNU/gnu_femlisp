@@ -82,33 +82,6 @@ uniform refinement."))
        :output t :success-if '(> :nr-levels 2))))))
 (plot (getbb *result* :solution) :component 0)
 
-#|
-;;; Test for diffusion problem
-(defparameter *result*
-  (time
-   (let ((dim 2) (nr-comps 1))
-     (solve
-      (blackboard
-       :problem
-       (system-diffusion-problem
-	(n-cube-domain dim) :nr-comps 1 :D #(1.0)
-	:force (constant-coefficient
-		(make-array nr-comps :initial-element (eye 1))))
-       :fe-class (lagrange-fe 3 :nr-comps 1)
-       :output t :success-if '(> :nr-levels 2))))))
-(plot (getbb *result* :solution) :component 0)
-
-;;; comparison with scalar case
-(defparameter *result*
-  (time
-   (let* ((dim 2))
-     (solve
-      (blackboard
-       :problem (cdr-model-problem dim)
-       :output t :success-if '(> :nr-levels 2))))))
-(plot (getbb *result* :solution) :component 0)
-|#
-
 )
 
 ;;; (fl.application::test-elasticity-model-problem)

@@ -85,10 +85,9 @@ dropped.")
      and Dphi^-1 in (get-coefficient fe-geometry :gradient-inverses)
      and weight in (get-coefficient fe-geometry :weights)
      do
-     (let* ((fe-vecs (loop for (key data) on fe-parameters by #'cddr
-			    collect key collect (map 'vector #'m*-tn data shape-vals)))
-	    (coeff-input (list* :global global :cell cell fe-vecs))
-	    (sol-ip (getf fe-vecs :solution)))
+     (let* ((coeff-input (construct-coeff-input
+			  cell global shape-vals nil fe-parameters))
+	    (sol-ip (getf coeff-input :solution)))
        (when viscosity (setq viscosity (evaluate viscosity coeff-input)))
        (when reynolds (setq reynolds (evaluate reynolds coeff-input)))
        (when force	     ; makes sense also for lower-dimensional cells

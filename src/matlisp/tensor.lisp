@@ -42,9 +42,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass full-tensor ()
-  ((dimensions :reader dimensions :initarg :dimensions :type fixnum-vec)
-   (offset0 :reader offset0 :initform 0 :initarg :offset0 :type fixnum)
-   (offsets :reader offsets :initarg :offsets :type fixnum-vec))
+  ((dimensions :reader dimensions :initarg :dimensions :type fixnum-vec
+	       :documentation "The dimensions of the tensor.")
+   (offset0 :reader offset0 :initform 0 :initarg :offset0 :type fixnum
+	    :documentation "An initial offset into the store-vector which
+defaults to 0.")
+   (offsets :reader offsets :initarg :offsets :type fixnum-vec
+	    :documentation "The offsets for the different dimensions.  This
+is internal information computed at tensor construction time."))
   (:documentation "Mixin for full tensors."))
 
 (defun dimensions->offsets (dims)

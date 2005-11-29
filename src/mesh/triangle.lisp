@@ -1,4 +1,3 @@
-
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -222,4 +221,5 @@ should not cover any 2-dimensinal patches."
 		     (if (< (norm (midpoint patch)) 0.8) 1 20))))
   )
 
+#-gcl
 (fl.tests:adjoin-test 'test-triangle)

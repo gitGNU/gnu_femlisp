@@ -38,13 +38,17 @@
 ;;; automatically or if you are not satisfied with the standard directory
 ;;; where images or meshes are written to.
 
-(defparameter *dx-path* nil          ; Example: "/usr/local/bin/dx"
+(defparameter *dx-path*
+  #+(or ecl gcl) "/usr/bin/dx"
+  #-(or ecl gcl) nil          ; Example: "/usr/local/bin/dx"
   "Path to the @program{DX} executable.")
 
 (defparameter *gnuplot-path* nil     ; Example: "/usr/local/bin/gnuplot"
   "Path to the @program{Gnuplot} executable.")
   
-(defparameter *triangle-path* nil     ; Example: "/usr/local/bin/gnuplot"
+(defparameter *triangle-path*
+  #+(or ecl gcl) #p"femlisp:external;triangle;triangle"
+  #-(or ecl gcl) nil
   "Path to the @program{triangle} executable.")
   
 (defparameter *images-directory* nil ; Example: "/home/xxx/CL-HOME/femlisp/images/"

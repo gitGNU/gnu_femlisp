@@ -45,6 +45,7 @@
 name being the symbol @arg{name}.")
   (:method (object name)
     "The default is no macro for this class."
+    (declare (ignore object name))
     nil))
 
 (defun define-blas-macro (class macro-definition)

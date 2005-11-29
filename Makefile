@@ -62,7 +62,7 @@ umfpack:
 	cd interface; make umfpack
 
 femlisp:
-	cd bin; sh ./femlisp --save-core-and-die
+	sh ./bin/femlisp --save-core-and-die
 
 slime:
 	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -

@@ -245,7 +245,7 @@ is not available, NIL is returned."
     (vector
      (let ((element-type (array-element-type vec)))
        (assert (subtypep element-type 'number)) ; preliminary
-       #+ecl
+       #+(or ecl gcl)
        (progn
 	 (when (eq element-type 'long-float)
 	   (setq element-type 'double-float))

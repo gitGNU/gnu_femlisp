@@ -44,7 +44,7 @@ support native code compilation.
 
 Consequently, using Lisp for problems outside its original realm of
 artificial intelligence is a very natural choice today, see
-@cite{(Fateman et al,_1995)}, @cite{(Fateman 2001)}, @cite{(Neuss
+@cite{(Fateman et al, 1995)}, @cite{(Fateman 2001)}, @cite{(Neuss
 2002)}.  Comparing @femlisp{} with other PDE toolboxes, we observe the
 following advantages which cannot be easily obtained using
 conventional languages like Fortran, C, or C++:
@@ -59,11 +59,11 @@ language appears, which is not easy to maintain.
 
 @item The editor is integrated in a way that is very difficult to achieve
 for conventional languages.  For example, argument lists of functions
-appear when typing, and the documentation of functions and variables is
-available at a keystroke.  Also, the debug cycle is as short as can
-possibly be: changing a function, recompiling it separately, and testing
-it in the running environment is usually a matter of only a few
-keystrokes and fractions of a second runtime.
+appear when typing, and the documentation of functions and variables
+is available at a keystroke.  Also, the debug cycle is as short as it
+can possibly be: changing a function, recompiling it separately, and
+testing it in the running environment is usually a matter of only a
+few keystrokes and fractions of a second runtime.
 
 @item Lisp is very expressive, and programming techniques can be used which
 would introduce a large overhead in conventional languages.  This leads

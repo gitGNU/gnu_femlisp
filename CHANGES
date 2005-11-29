@@ -2,9 +2,22 @@
 
 * From Femlisp-0.9.7 to Femlisp-0.9.8:
 
+The Femlisp test suite is now run every night with Allegro CL, CMUCL, and
+SBCL.
+
+ECL now can compile Femlisp.  Many thanks to Juan Jose Garcia Ripoll for
+his help.  Unfortunately, the performance of the Femlisp/ECL is still
+abysmal.
+
+Removed uses of DEFINE-SYMBOL-MACRO in @path{iteration;multigrid.lisp}
+because, first, GCL does not have it yet, and second, it lead to somewhat
+obscure code.
+
+Mario Mommer contributed a change which makes Femlisp loadable with ASDF.
+
 Coefficient functions may depend on other finite element functions now.
 This is used also for nonlinear time-dependent problems for incorporating a
-dependency on the previous solution.
+dependency on the solution from the old timestep.
 
 Introduced a demo and a test for solving the heat equation.
 

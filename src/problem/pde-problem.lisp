@@ -38,6 +38,7 @@
 ;;; coefficient
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;; Q: would it be reasonable to include problem and name?
 (defclass <coefficient> ()
   ((dimension :reader dimension :initform nil :initarg :dimension :documentation
 	      "The dimension of the cell on which this coefficient is
@@ -58,15 +59,6 @@ keyword parameters which should correspond to the list in DEMANDS.")
    (jacobian :initform t :initarg :jacobian
     :documentation "T means evaluation for computing the Jacobian."))
   (:documentation "The coefficient class."))
-
-(defun solution-dependent (coeff)
-  "Tests if the coefficient is solution-dependent, i.e. if the
-corresponding problem is nonlinear."
-  (member :solution
-	  (cdr (find-if #'(lambda (demand)
-			    (and (consp demand)
-				 (eq :fe-parameters (car demand))))
-			(demands coeff)))))
 
 (defmethod evaluate ((coeff <coefficient>) (input list))
   "The pairing between coefficient and input."
@@ -97,26 +89,69 @@ given patch."
 		   (not (equal (symbol-name symbol) "CONSTRAINT"))))
      collect symbol and collect coeff))
 
+(defun map-coefficients (func coeffs)
+  "Maps a given coefficient list @arg{coeffs} into a new coefficient list.
+@arg{func} takes coefficient name and coefficient and returns two values
+for new coefficient name and coefficient.  If the first value returned is
+@code{NIL}, this coefficient is not collected."
+  (loop
+   for (coeff-name coeff) on coeffs by #'cddr
+   for (new-name new-coeff) = (multiple-value-list (funcall func coeff-name coeff))
+   when new-name collect new-name and collect new-coeff))
+
+
+;;; fe-parameters
+
+(concept-documentation
+ "fe-parameters is an element in the demand list of coefficient functions
+which is a pair consisting of :fe-parameters followed by a list of symbols
+denoting the ansatz-space functions on the blackboard to be evaluated at
+each integration point.  Instead of a symbol, an entry may also be of the
+form (symbol . k). which means that a k-jet has to be evaluated.
+Examples:
+@code{(:fe-parameters :solution :flow-field)}
+@code{(:fe-parameters (:solution . 1))}")
+ 
 (defun fe-parameter-p (demand)
   (and (consp demand)
        (eq :fe-parameters (car demand))))
 
+(defun compress-fe-parameters (paras)
+  (let ((result ()))
+    (dolist (para paras)
+      (cond
+	((symbolp para)
+	 (unless (or (member para result)
+		     (member para result :key #'car))
+	   (push para result)))
+	(t (when (member (car para) result)
+	     (setq result (delete (car para) result)))
+	   (aif (find (car para) result :key #'car)
+		(setf (cdr it) (max (cdr it) (cdr para)))
+		(push para result)))))
+    result))
+
 (defun required-fe-functions (coeffs)
   "Returns a list of finite element functions required by the coefficients
 in the property list @arg{coeffs}."
-  (let ((fe-functions ()))
-    (loop for (symbol coeff) on coeffs by #'cddr do
-	  (dolist (demand (demands coeff))
-	    (when (fe-parameter-p demand)
-	      (_f union fe-functions (cdr demand)))))
-    fe-functions))
+  (compress-fe-parameters
+   (loop for (nil coeff) on coeffs by #'cddr appending
+	 (loop for demand in (demands coeff)
+	       when (fe-parameter-p demand)
+	       appending (cdr demand)))))
 
 (defun add-fe-parameters-demand (demands new-paras)
   "Adds a list of fe-functions to the demands."
   (let ((old-paras (cdr (find-if #'fe-parameter-p demands))))
-    (cons (cons :fe-parameters (union old-paras new-paras))
+    (cons (cons :fe-parameters
+		(compress-fe-parameters (union old-paras new-paras)))
 	  (remove-if #'fe-parameter-p demands))))
-  
+
+(defun solution-dependent (coeffs)
+  (loop for para in (required-fe-functions coeffs)
+	thereis (eq (if (consp para) (car para) para)
+		    :solution)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; some coefficient functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -325,7 +360,7 @@ space."
   (unless (property-set-p problem 'linear-p)
     (setf (get-property problem 'linear-p) t)
     (dohash ((coeffs) (coefficients problem))
-      (when (member :solution (required-fe-functions coeffs))
+      (when (solution-dependent coeffs)
 	(setf (get-property problem 'linear-p) nil))))
   ;; very coarse test which will be often false for systems
   (let ((constraint-id (constraint-identifier problem)))

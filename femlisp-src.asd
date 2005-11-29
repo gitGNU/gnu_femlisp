@@ -35,7 +35,7 @@
 (in-package :asdf)
 
 (defsystem :femlisp-src
-  :pathname (translate-logical-pathname "femlisp:src;")
+  :pathname #.(translate-logical-pathname "femlisp:src;")
   :depends-on ()
   :components
   (
@@ -94,7 +94,6 @@
      (:file "crs" :depends-on ("algebra-defp"))
      (:file "sparse" :depends-on ("crs"))
      (:file "sparselu" :depends-on ("sparse"))))
-   ;;)) #+(or)((  ; insert for ECL/GCL debugging
    (:module
     "function"
     :depends-on ("basic" "matlisp" "algebra")
@@ -244,6 +243,8 @@
      (:file "fe-stationary" :depends-on ("fe-approximation"))
      (:file "fe-evp" :depends-on ("fe-stationary"))
      (:file "rothe" :depends-on ("fe-stationary"))
+     (:file "rothe-cdr" :depends-on ("rothe"))
+     (:file "rothe-cdrsys" :depends-on ("rothe" "rothe-cdr"))
      (:file "gps" :depends-on ("fe-stationary"))
      ))
    ;;

@@ -2,11 +2,11 @@
 #PBS -l nodes=1:ppn=2,mem=2gb
 
 if test -z "$FEMLISP_CL"; then
-    FEMLISP_CL=/usr/local/bin/ecl
+    FEMLISP_CL=/home/neuss/CL-HOME/acl70/alisp
 fi
 
 if test -z "$FEMLISP_CL_TYPE"; then
-    FEMLISP_CL_TYPE=ecl
+    FEMLISP_CL_TYPE=acl
 fi
 
 if test -z "$FEMLISP_DIR"; then
@@ -20,25 +20,31 @@ case $FEMLISP_CL_TYPE in
     cmucl) core="-core"; load="-load"; eval="-eval"; noinit="-nositeinit -noinit";;
     sbcl) core="--core"; load="--load"; eval="--eval"; noinit="--sysinit /dev/null --userinit /dev/null";;
     ecl) core=""; load="-load"; eval="-eval"; noinit="-norc";;
+    gcl) core=""; load="-load"; eval="-eval";;
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
 esac
 
+cd $FEMLISP_DIR
 if test "$1" = "--save-core-and-die"; then
-    cd $FEMLISP_DIR/bin
     rm -f $FEMLISP_CORE
-    sh ./femlisp $eval "(fl.port:save-femlisp-core-and-die \"$FEMLISP_CORE\")"
+    sh ./bin/femlisp $eval "(fl.port:save-femlisp-core-and-die \"$FEMLISP_CORE\")"
     if test -e $FEMLISP_CORE
 	then
 	echo "Built core in $FEMLISP_CORE"
-	exit 0
 	else
-	echo "Not succeeded building core file"
-	exit -1
+	echo "Building core file was not successful"
     fi
+    exit 0
 fi
 
-if test -n "$core" -a -f $FEMLISP_CORE; then
-    exec $FEMLISP_CL $core $FEMLISP_CORE $eval "(fl.port:femlisp-restart)" "$@"
+case $FEMLISP_CL_TYPE in
+    ecl) corecall="";;
+    gcl) corecall="";;
+    *) corecall="$FEMLISP_CL $core";;
+esac
+
+if test -f $FEMLISP_CORE; then
+    exec $corecall $FEMLISP_CORE $eval "(fl.port:femlisp-restart)" "$@"
 else
-    exec $FEMLISP_CL $eval "(progn (load \"$FEMLISP_DIR/start.lisp\") (in-package :fl.application))" "$@"
+    exec $FEMLISP_CL $eval "(progn (load \"$FEMLISP_DIR/start.lisp\") (in-package :fl.application))"  $eval "(in-package :fl.application)" "$@"
 fi

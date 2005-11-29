@@ -90,7 +90,7 @@ block vectors and block matrices over arbitrary index sets.  This is very
 convenient for functions and linear operators defined on unstructured grids
 because the geometric grid objects themselves can index their degrees of
 freedom.  It also allows for local updates when advanced adaptive schemes
-like the one proposed in @cite{URuede_1993b} are used.
+like the one proposed in @cite{(Ruede 1993)} are used.
 
 At the moment, the classes @class{<sparse-matrix>} and
 @class{<sparse-matrix>} which are defined in @file{sparse.lisp} are used

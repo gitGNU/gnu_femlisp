@@ -94,7 +94,7 @@ non-structured meshes and/or on domains with curved boundary."
   ;; 3D tests
   (format t "~%3d Laplace test on a tetrahedron~%")
   (time
-   (let ((problem (cdr-model-problem (n-simplex-domain 2))))
+   (let ((problem (cdr-model-problem (n-simplex-domain 3))))
      (check-h-convergence
       problem 2 3 :order 1 :position #d(0.25 0.25 0.25)
      :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t :base-level 2)

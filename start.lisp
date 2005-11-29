@@ -79,7 +79,7 @@ location of this file when it is loaded.")
 
 (let ((directory (pathname-directory *femlisp-pathname*)))
   (setf (logical-pathname-translations "FEMLISP")
-	`(("**;*.*.*" 
+	`((#-gcl "**;*.*.*" #+gcl "**;*.*" 
 	   ,(make-pathname :directory `(,@directory :wild-inferiors)
 			   :name :wild :type :wild :version :wild)))))
 
@@ -109,6 +109,17 @@ location of this file when it is loaded.")
 
 #+allegro (require :osi)
 
+#+gcl
+(mapcar #'(lambda (name)
+	    (unless (find-package name)
+	      (make-package name)))
+	'("ASDF" "FL.DEBUG" "FL.TESTS" "FL.MACROS" "FL.ALIEN"
+ "FL.AMOP" "FL.TESTS" "FL.PORT" "FL.MULTIPROCESSING"
+ "FL.DEMO" "FL.PATCHES" "FL.DEBUG" "FL.CDR-FE" "FL.ELASTICITY-FE"
+ "FL.CDRSYS-FE" "FL.NAVIER-STOKES-FE" "FL.ELASTICITY"
+"FL.CDR" "FL.CDRSYS" "FL.NAVIER-STOKES"))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Ensure the presence of Common Lisp libraries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -119,7 +130,7 @@ location of this file when it is loaded.")
 ;;; it seems that ASDF does not work for GCL
 #+gcl (load #p"femlisp:external;trivial-asdf")
 
-(pushnew (probe-file #p"femlisp:") asdf::*central-registry* :test #'equalp)
+(pushnew #p"femlisp:" asdf::*central-registry* :test #'equalp)
 
 #+(or)
 (defmethod asdf::output-files :around (operation (c asdf::cl-source-file))
@@ -155,6 +166,7 @@ location of this file when it is loaded.")
 
 (pushnew :femlisp *features*)
 
+#-(or ecl gcl)
 (let ((private (probe-file #p"femlisp:private;start.lisp")))
   (when private (load private)))
 
@@ -167,3 +179,4 @@ location of this file when it is loaded.")
 	  (rplacd (assoc 'tpl::*saved-package*
 			 tpl:*default-lisp-listener-bindings*)
 		  'common-lisp:*package*)))
+

@@ -97,12 +97,6 @@ overwriting b."))
   (:documentation "Joins X and Y horizontally or vertically depending on the
 value of orientation."))
 
-(defgeneric matrix-slice (matrix &key from-row from-col nrows ncols)
-  (:documentation "Return the specified submatrix of MATRIX."))
-
-(defgeneric vector-slice (vector offset size)
-  (:documentation "Returns the specified subvector."))
-
 (defgeneric minject (x y row-offset col-offset)
   (:documentation "Inject matrix X in matrix Y at the position given by
 ROW-OFFSET and COL-OFFSET."))

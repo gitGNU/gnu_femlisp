@@ -101,7 +101,7 @@ oscillating domain."
   *result*)
 
 #+(or) (cdr-bl-computation
-	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil
+	2 4 3 :plot nil :amplitude 0.15 :shift 1.0 :extensible nil
 	:solver (lu-solver) :output :all)
 
 #|

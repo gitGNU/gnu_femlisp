@@ -74,22 +74,19 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
      and shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
      and shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
      and global in (getf fe-geometry :global-coords)
-     and Dphi in (getf fe-geometry :gradients)
      and Dphi^-1 in (getf fe-geometry :gradient-inverses)
      and weight in (getf fe-geometry :weights)
      do
      (let* ((right-vals (if local-u (dot local-u shape-vals) shape-vals))
 	    (left-vals (if local-v (dot local-v shape-vals) shape-vals))
-	    (coeff-input
-	     (list* :global global :Dphi Dphi :cell cell
-		    (loop for (key data) on fe-parameters by #'cddr
-			  collect key collect (m*-tn shape-vals data)))))
+	    (gradients (and Dphi^-1 (m* shape-grads Dphi^-1)))
+	    (coeff-input (construct-coeff-input
+			  cell global shape-vals gradients fe-parameters)))
        
        (when (or (and matrix (or diffusion convection)
 		      (not (zerop stiffness-factor)))
 		 (and rhs diffusion gamma))
-	 (let* ((gradients (m* shape-grads Dphi^-1)) ; (n-basis x dim)-matrix
-		(right-gradients (if local-u (m*-tn local-u gradients) gradients))
+	 (let* ((right-gradients (if local-u (m*-tn local-u gradients) gradients))
 		(left-gradients (if local-v (m*-tn local-v gradients) gradients)))
 	   ;; diffusion
 	   (when diffusion
@@ -107,7 +104,7 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	     (let* ((velocity-vector (evaluate convection coeff-input)))
 	       (gemm! (- weight) (m* left-gradients velocity-vector) right-vals 1.0 matrix :NT)))
 	   ))
-	    
+       
        ;; reaction
        (when (and matrix reaction (not (zerop stiffness-factor)))
 	 (let* ((reaction (evaluate reaction coeff-input))

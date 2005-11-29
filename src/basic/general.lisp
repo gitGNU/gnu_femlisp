@@ -45,6 +45,10 @@
 describes the use of the respective file."
   (declare (ignore docstring)))
 
+(defun concept-documentation (docstring)
+  "Documents a certain concept."
+  (declare (ignore docstring)))
+
 (defclass property-mixin ()
   ((properties :accessor properties :initform () :initarg :properties
 	       :type list :documentation
@@ -86,10 +90,14 @@ for debugging, the source code is printed."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass range ()
-  ((from :initform 0 :initarg :from)
-   (to :initform nil :initarg :to)
-   (below :initform nil :initarg :below)
-   (by :initform 1 :initarg :by))
+  ((from :initform 0 :initarg :from :documentation
+	 "Start of range, defaults to 0.")
+   (to :initform nil :initarg :to :documentation
+       "Inclusive end of range, defaults to infinity.")
+   (below :initform nil :initarg :below :documentation
+       "Exclusive end of range, defaults to infinity.")
+   (by :initform 1 :initarg :by :documentation
+       "Step size."))
   (:documentation "Range of numbers for iteration."))
 
 (defun range (&rest args &key to below)

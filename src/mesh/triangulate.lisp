@@ -90,8 +90,7 @@ skeleton starting from the 0-dimensional patches."
 (defmethod extend-triangulation (mesh (dim (eql 0)) &rest args)
   (let* ((domain (domain mesh))
 	 (patches (cells-of-dim domain 0)))
-    (loop
-     while patches for patch = (first patches) do
+    (loop for patch = (first patches) while patch do
      (let* ((identified-patches (identified-cells patch domain))
 	    (identified-cells (mapcar #'(lambda (patch)
 					  (make-vertex (vertex-position patch)))

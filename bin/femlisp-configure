@@ -28,11 +28,13 @@ then
 fi
 
 case "`basename $FEMLISP_CL`" in
-    acl) FEMLISP_CL_TYPE=acl;;
+    alisp) FEMLISP_CL_TYPE=acl;;
+    mlisp) FEMLISP_CL_TYPE=acl;;
     lisp) FEMLISP_CL_TYPE=cmucl;;
     cmucl) FEMLISP_CL_TYPE=cmucl;;
     sbcl) FEMLISP_CL_TYPE=sbcl;;
     ecl) FEMLISP_CL_TYPE=ecl;;
+    gcl) FEMLISP_CL_TYPE=gcl;;
 esac
 
 echo "Enter the type of your Lisp [$FEMLISP_CL_TYPE]: "
@@ -48,6 +50,7 @@ case $FEMLISP_CL_TYPE in
     cmucl) echo -e "using CMUCL\n";;
     sbcl) echo -e "... using SBCL\n";;
     ecl) echo -e "... using ECL\n";;
+    gcl) echo -e "... using GCL\n";;
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
 esac
 
