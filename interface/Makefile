@@ -30,21 +30,23 @@
 ###########################################################################
 
 SUPERLU_INCLUDE=/usr/include/superlu
-SUPERLU_LIB=/usr/lib/libsuperlu.so
+SUPERLU_LIB=/usr/lib  #/libsuperlu.so
 
 UMFPACK_INCLUDE=/usr/include/umfpack
-UMFPACK_LIB=/usr/lib/libumfpack.so
-AMD_LIB=/usr/lib/libamd.so
+UMFPACK_LIB=/usr/lib #/libumfpack.so
+AMD_LIB=/usr/lib #/libamd.so
 
 all: superlu umfpack
 
 superlu:
 	gcc -c -fPIC -I$(SUPERLU_INCLUDE) superlu.c;
-	ld -shared $(SUPERLU_LIB) superlu.o -o superlu.so
+	ld -shared -L$(SUPERLU_LIB) -lsuperlu superlu.o -o superlu.so
+#	ld -shared $(SUPERLU_LIB) superlu.o -o superlu.so
 
 umfpack:
 	gcc -I$(UMFPACK_INCLUDE) -Wall -fPIC -c umfpack.c;
-	ld -shared $(UMFPACK_LIB) $(AMD_LIB) umfpack.o -o umfpack.so
+	ld -shared -L$(UMFPACK_LIB) -L$(AMD_LIB) -lumfpack -lamd umfpack.o -o umfpack.so
+#	ld -shared $(UMFPACK_LIB) $(AMD_LIB) umfpack.o -o umfpack.so
 
 clean:
-	rm -f superlu superlu.o superlu.so umfpack.o umfpack.so
+	rm -f superlu superlu.o superlu.so umfpack.o umfpack.so a.out

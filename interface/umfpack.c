@@ -42,33 +42,37 @@
 #include "umfpack.h"
 
 int c_umfpack (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
-			   int nrhs, double *B, double *X)
+               int nrhs, double *B, double *X)
 {
-	int i, status;
-	double Control [UMFPACK_CONTROL], Info [UMFPACK_INFO];
-	void *Symbolic = 0, *Numeric = 0;
+    int i, status;
+    double Control [UMFPACK_CONTROL], Info [UMFPACK_INFO];
+    void *Symbolic = 0, *Numeric = 0;
 
-	if (X==B)
-	{
-		/* UMFPACK can't handle this case, so we fix it by copying B */
-		if (!(B = malloc(nrhs*m*sizeof(double))))
-			return UMFPACK_ERROR_out_of_memory;
-		for (i=0; i<nrhs*m; i++) B[i] = X[i];
-	}
-	
-	umfpack_di_defaults (Control);
-	
-	status = umfpack_di_symbolic (m, n, Ap, Ai, Ax, &Symbolic, Control, Info);
-	if (status!=UMFPACK_OK) goto cleanup_and_return;
-	status = umfpack_di_numeric (Ap, Ai, Ax, Symbolic, &Numeric, Control, Info);
-	if (status!=UMFPACK_OK) goto cleanup_and_return;
-	status = umfpack_di_solve (UMFPACK_A, Ap, Ai, Ax, X, B, Numeric, Control, Info);
-	
-	cleanup_and_return:
-	if (Symbolic) umfpack_di_free_symbolic (&Symbolic);
-	if (Numeric) umfpack_di_free_numeric (&Numeric);
-	
-	return status;
+    if (X==B)
+    {
+        /* UMFPACK can't handle this case, so we fix it by copying B */
+        if (!(B = malloc(nrhs*m*sizeof(double))))
+            return UMFPACK_ERROR_out_of_memory;
+        for (i=0; i<nrhs*m; i++) B[i] = X[i];
+    }
+    
+    umfpack_di_defaults (Control);
+    
+    status = umfpack_di_symbolic (m, n, Ap, Ai, Ax, &Symbolic, Control, Info);
+    if (status!=UMFPACK_OK) goto cleanup_and_return;
+    status = umfpack_di_numeric (Ap, Ai, Ax, Symbolic, &Numeric, Control, Info);
+    if (status!=UMFPACK_OK) goto cleanup_and_return;
+    for (i=0; i<nrhs; i++)
+    {
+        status = umfpack_di_solve (UMFPACK_A, Ap, Ai, Ax, X+i*n, B+i*m, Numeric, Control, Info);
+        if (status!=UMFPACK_OK) goto cleanup_and_return;
+    }
+    
+ cleanup_and_return:
+    if (Symbolic) umfpack_di_free_symbolic (&Symbolic);
+    if (Numeric) umfpack_di_free_numeric (&Numeric);
+    
+    return status;
 }
 
 #ifdef __TESTING__
@@ -95,13 +99,13 @@ int main(int argc, char *argv[])
     xa[0] = 0; xa[1] = 3; xa[2] = 6; xa[3] = 8; xa[4] = 10; xa[5] = 12;
 
     nrhs = 1;
-    if (!(rhs = malloc(m*nrhs*sizeof(double))))	return -1;
+    if (!(rhs = malloc(m*nrhs*sizeof(double)))) return -1;
     for (i = 0; i < m*nrhs; ++i) rhs[i] = 1.0;
-	sol = rhs;  /* rhs is overwritten */
-	
-	c_umfpack (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+    sol = rhs;  /* rhs is overwritten */
+    
+    c_umfpack (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
 
-	for (i=0; i<m; i++)	printf("%lf\n", sol[i]);
-	return 0;
+    for (i=0; i<m; i++)    printf("%lf\n", sol[i]);
+    return 0;
 }
 #endif
