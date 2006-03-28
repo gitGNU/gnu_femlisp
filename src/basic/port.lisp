@@ -133,19 +133,23 @@ functionality of Femlisp you should provide it in the file
   (let ((program (namestring program)))
     (cond
       (wait (excl:run-shell-command (apply #'vector program program args) :wait t
-				    :directory directory))
+				    :directory directory :show-window :hide))
       (t
        ;; for now, process-close expects that only input is a newly generated stream
-       (assert (and (eq input :stream)
-		    (not (eq output :stream))
-		    (not (eq error-output :stream))))
-       (multiple-value-bind (istream ostream estream proc-id)
+       #+(or)(assert (and (eq input :stream)
+			  (not (eq output :stream))
+			  (not (eq error-output :stream))))
+       (multiple-value-bind (stream null proc-id)
 	   (excl:run-shell-command
 	    (apply #'vector program program args)
-	    :wait nil :separate-streams t :input input :output output
-	    :error-output error-output :directory directory)
-	 (declare (ignore ostream estream))
-	 (list :process istream output error-output proc-id)))))
+	    :wait nil :input input :output output
+	    :error-output error-output :directory directory
+	    :show-window :hide)
+	 (declare (ignore null))
+	 (list :allegro-process
+	       (if (eq input :stream) stream input)
+	       (if (eq output :stream) stream output)
+	       error-output proc-id)))))
   #+clisp (ext:run-program program :arguments args :wait wait :input input :output output)
   #+(or cmu ecl gcl sbcl)
   (when directory (unix-chdir (namestring directory)))
