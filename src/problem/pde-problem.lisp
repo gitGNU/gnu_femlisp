@@ -249,7 +249,7 @@ association of patch classifications to coefficient functions."
 
 (defmethod describe-object :after ((problem <domain-problem>) stream)
   (doskel ((patch properties) (domain problem))
-    (format stream "~&Cell ~A  [Mapping ~A]~%Properties: ~A~%Coeffs: ~A~2%"
+    (format stream "~&Cell ~A  [Mapping ~A]~%Properties: ~S~%Coeffs: ~A~2%"
 	    patch (mapping patch) properties
 	    (coefficients-of-patch patch problem))))
 
