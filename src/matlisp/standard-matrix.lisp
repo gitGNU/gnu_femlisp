@@ -287,7 +287,7 @@ whenever possible."
 	  value)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Printing
+;;; Printing matrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar *print-matrix* 5
@@ -295,7 +295,8 @@ whenever possible."
 elements.")
 
 (defgeneric print-element (matrix element stream)
-  (:documentation "Prints a matrix element to stream."))
+  (:documentation "Prints the element @arg{element} of @arg{matrix} to the
+stream @arg{stream}."))
 
 (defmethod print-element ((matrix standard-matrix) element stream)
   (format stream "~a" element))
@@ -303,33 +304,28 @@ elements.")
 (defun print-matrix (matrix stream)
   (if *print-matrix*
       (let ((*print-circle* nil))
-	  (cond
-	    ((and (slot-boundp matrix 'nrows)
-		  (slot-boundp matrix 'ncols)
-		  (slot-boundp matrix 'store))
-	     (with-slots (nrows ncols store)
-		 matrix
-	       (loop with m = nrows and n = ncols
-		  initially
-		  (princ "#M(" stream)
-		  (when (numberp *print-matrix*)
-		    (setq m (min nrows *print-matrix*))
-		    (setq n (min ncols *print-matrix*)))
-		  for i below m do
+	(if (and (slot-boundp matrix 'nrows)
+		 (slot-boundp matrix 'ncols)
+		 (slot-boundp matrix 'store))
+	    (with-slots (nrows ncols) matrix
+	      (let ((m nrows) (n ncols))
+		(when (numberp *print-matrix*)
+		  (setq m (min m *print-matrix*))
+		  (setq n (min n *print-matrix*)))
+		(princ "#M(" stream)
+		(dotimes (i m)  
 		  (princ "(" stream)
-		  (loop for j below n do
-		       (print-element matrix (mref matrix i j) stream)
-		       (unless (= j (1- n)) (format stream " "))
-		       finally
-		       (when (> ncols n)
-			 (format stream " ...")))
-		  (princ ")" stream)
-		  (unless (= i (1- m)) (format stream " "))
-		  finally
-		  (when (> nrows m)
-		    (format stream " ..."))
-		  (princ ")" stream))))
-	    (t (princ "#M(??)" stream))))
+		  (dotimes (j n)
+		    (print-element matrix (mref matrix i j) stream)
+		    (unless (= j (1- n)) (format stream " ")))
+		  (if (> ncols n)
+		      (princ " ...)" stream)
+		      (princ ")" stream))
+		  (unless (= i (1- m)) (format stream " ")))
+		(if (> nrows m)
+		    (princ " ...)" stream)
+		    (princ ")" stream))))
+	    (princ "#M(??)" stream)))
       (print-unreadable-object (matrix stream :type t :identity t))))
 
 (defmethod print-object ((matrix standard-matrix) stream)
