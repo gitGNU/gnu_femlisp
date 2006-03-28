@@ -58,6 +58,14 @@ using it."
 	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
 	unzip triangle.zip; rm triangle.zip; make
 
+tetgen:
+	echo "Installing Tetgen in femlisp/external.  Note that Tetgen	\
+comes with a separate license which you should read (and accept) before		\
+using it."
+	cd external; mkdir tetgen; cd tetgen;\
+	wget http://www.wias-berlin.de/people/si/tetgen1.4.0.zip;\
+	unzip tetgen1.4.0.zip; rm tetgen1.4.0.zip; 
+
 umfpack:
 	cd interface; make umfpack
 
@@ -68,7 +76,7 @@ slime:
 	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
 
 clean:
-	rm -f *.x86f *.fasl *.fas?
+	rm -f *.x86f *.fasl *.fas? *.fas *.o
 	cd bin; rm -f *.core
 	cd doc; make clean;
 	cd external; make clean;

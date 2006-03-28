@@ -1,5 +1,21 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.8 to Femlisp-0.9.9:
+
+In contrast to SuperLU, the current version of UMFPACK can't handle
+multiple right-hand sides with one call.  Thus, for this case I introduced
+multiple calls in @path{interface;umfpack.c}.
+
+Femlisp has been ported to Windows using Allegro CL.  Many thanks go to
+Franz Inc. for providing me with an evaluation license of Allegro for this
+purpose.
+
+The communication of Femlisp with the external graphics engines DX and
+Gnuplot was changed.  It should be much more rubust now.
+
+Corrected a bug in the function PRINT-MATRIX (again an incorrect use of
+LOOP).
+
 * From Femlisp-0.9.7 to Femlisp-0.9.8:
 
 The Femlisp test suite is now run every night with Allegro CL, CMUCL, and
