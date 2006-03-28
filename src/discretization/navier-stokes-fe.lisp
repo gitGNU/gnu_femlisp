@@ -82,11 +82,12 @@ dropped.")
      for shape-vals across (ip-values vecfe qrule) ; nr-comps x (n-basis x 1)
      and shape-grads across (ip-gradients vecfe qrule) ; nr-comps x (n-basis x dim)
      and global in (get-coefficient fe-geometry :global-coords)
+     and Dphi in (getf fe-geometry :gradients)
      and Dphi^-1 in (get-coefficient fe-geometry :gradient-inverses)
      and weight in (get-coefficient fe-geometry :weights)
      do
      (let* ((coeff-input (construct-coeff-input
-			  cell global shape-vals nil fe-parameters))
+			  cell global Dphi shape-vals nil fe-parameters))
 	    (sol-ip (getf coeff-input :solution)))
        (when viscosity (setq viscosity (evaluate viscosity coeff-input)))
        (when reynolds (setq reynolds (evaluate reynolds coeff-input)))

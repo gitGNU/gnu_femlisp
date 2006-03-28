@@ -66,13 +66,14 @@ the future."
      for shape-vals across (ip-values vecfe qrule) ; nr-comps x (n-basis x 1)
      and shape-grads across (ip-gradients vecfe qrule) ; nr-comps x (n-basis x dim)
      and global in (getf fe-geometry :global-coords)
+     and Dphi in (getf fe-geometry :gradients)
      and Dphi^-1 in (getf fe-geometry :gradient-inverses)
      and weight in (getf fe-geometry :weights)
      do
      (let* ((gradients
 	     (and Dphi^-1 (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
 	    (coeff-input (construct-coeff-input
-			  cell global shape-vals gradients fe-parameters))
+			  cell global Dphi shape-vals gradients fe-parameters))
 	    (right-vals shape-vals)
 	    (left-vals shape-vals)
 	    (right-gradients gradients)

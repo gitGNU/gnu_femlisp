@@ -427,13 +427,13 @@ depends only on the type of the reference cell."))
 ;;; Coefficient input construction for fes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun construct-coeff-input (cell global values gradients fe-parameters)
+(defun construct-coeff-input (cell global Dphi values gradients fe-parameters)
   "Constructs a coefficient input list from FE data @arg{cell} is the cell,
 @arg{global} is the global coordinate of the integration point,
 @arg{values} and @arg{gradients} the values and gradients of the shape
 functions at the ip, and @arg{fe-parameters} are the corresponding data of
 fe-functions to be evalutated."
-  (list* :global global :cell cell
+  (list* :global global :cell cell :Dphi Dphi
 	 (loop for (obj data) on fe-parameters by #'cddr
 	       collect (if (symbolp obj) obj (car obj))
 	       collect

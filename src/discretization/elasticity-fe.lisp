@@ -68,12 +68,13 @@ is an array of rank 2 with standard-matrix entries."))
      and shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
      and shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
      and global in (getf fe-geometry :global-coords)
+     and Dphi in (getf fe-geometry :gradients)
      and Dphi^-1 in (getf fe-geometry :gradient-inverses)
      and weight in (getf fe-geometry :weights)
      do
      (let* ((gradients (and Dphi^-1 (m* shape-grads Dphi^-1)))
 	    (coeff-input (construct-coeff-input
-			  cell global shape-vals gradients fe-parameters))
+			  cell global Dphi shape-vals gradients fe-parameters))
 	    (ip-tensor (and elasticity-tensor
 			    (evaluate elasticity-tensor coeff-input)))
 	    (gamma (and gamma-function rhs
