@@ -51,11 +51,6 @@
 		:directory (pathname-directory *images-pathname*))
   "The output file for @program{Gnuplot}.")
 
-;;; something went wrong last time, because this file is still there
-(when (probe-file *gnuplot-file*)
-  (delete-file *gnuplot-file*)
-  (warn "Deleted Gnuplot image file."))
-
 (defun ensure-gnuplot-process ()
   (when *gnuplot-process* ; and: (eq (fl.port:process-status *gnuplot-process*) :running) ?
     (return-from ensure-gnuplot-process *gnuplot-process*))
@@ -63,7 +58,7 @@
 	(when *gnuplot-pathname*
 	  (fl.port:run-program
 	   *gnuplot-pathname* '() :wait nil
-	   :input :stream :output (dbg-when :graphic *trace-output*))))
+	   :input :stream :output :stream)))
   (unless *gnuplot-process*
     (format *error-output* "~&ENSURE-GNUPLOT-PROCESS: could not start GNUPLOT.~%"))
   *gnuplot-process*)
@@ -97,10 +92,17 @@
   (declare (ignore object))
   *gnuplot-file*)
 
+(defun wait-for-gnuplot ()
+  (whereas ((stream (gnuplot-output-stream)))
+    (loop for line = (read-line stream)
+	  until (equalp line "Femlisp request processed")
+	  do (when (dbg-p :graphic)
+	       (format *trace-output* "~A~%" line)))))
+
 (defmethod send-graphic-commands (object (program (eql :gnuplot)) &rest paras
 				  &key left right top bottom
 				  (border t) (tics t) (terminal "x11")
-				  (output "gnuplot.out") &allow-other-keys)
+				  (output "gnuplot.ps") &allow-other-keys)
   (let ((stream (if (dbg-p :graphic)
 		    (make-broadcast-stream (gnuplot-input-stream) *trace-output*)
 		    (gnuplot-input-stream)))
@@ -124,7 +126,6 @@
 	    (concatenate 'string (namestring *images-pathname*) output))
     (loop for script-command in (apply #'graphic-commands object program paras) do
 	  (format stream "~A~%" script-command))
-    (format stream "! mv -f ~A ~A~%"
-	    gnuplot-file (concatenate 'string gnuplot-file ".bak"))
+    (format stream "print \"\\nFemlisp request processed\";~%")
     (force-output stream)))
 

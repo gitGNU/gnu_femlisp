@@ -51,11 +51,6 @@
 		:directory (pathname-directory *images-pathname*))
   "The output file for @program{dx}.")
 
-;;; something went wrong last time, because this file is still there
-(when (probe-file *dx-file*)
-  (delete-file *dx-file*)
-  (warn "Deleted DX image file."))
-
 (defun ensure-dx-process ()
   (when *dx-process*  ; (eq (fl.port:process-status *dx-process*) :running) ?
     (return-from ensure-dx-process *dx-process*))
@@ -97,6 +92,13 @@ This is a trick to make @arg{dx} redraw the picture.")
   (declare (ignore object))
   (setq *dx-toggle* (if (zerop *dx-toggle*) 1 0)))
 
+(defun wait-for-dx ()
+  (whereas ((stream (dx-output-stream)))
+    (loop for line = (read-line stream)
+	  until (equalp line " 0:  ECHO:  Femlisp request processed")
+	  do (when (dbg-p :graphic)
+	       (format *trace-output* "~A~%" line)))))
+
 (defmethod send-graphic-commands (object (program (eql :dx)) &rest paras
 				  &key (plot t) dimension (background :black)
 				  (resolution 480) (width 480) (height 480)
@@ -127,8 +129,8 @@ This is a trick to make @arg{dx} redraw the picture.")
 	   (format stream "WriteImage (image,~S,~S);~%"
 		   (concatenate 'string (namestring *images-pathname*) filename)
 		   format))))
-      (format stream "System(\"mv -f ~A ~A\");~%"
-	      dx-file (concatenate 'string dx-file ".bak"))
+      (format stream "Echo (\"Femlisp request processed\");~%")
       (force-output stream)
+      (wait-for-dx)
       )))
 

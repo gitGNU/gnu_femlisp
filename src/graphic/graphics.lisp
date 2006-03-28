@@ -72,13 +72,11 @@ program."))
 (defmethod graphic-output (object program &rest rest &key &allow-other-keys)
   "Calls the generic graphic interface in appropriate order."
   (let* ((pathname (apply #'graphic-file-name object program rest)))
-    ;; wait until the file is moved by the graphics program
-    (loop while (probe-file pathname) do (sleep 0.1))
     ;; write output to a standard file
     (with-open-file (stream pathname :direction :output :if-exists :supersede)
       (apply #'graphic-write-data stream object program rest))
     ;; wait until the file is there
-    (loop until (probe-file pathname) do (sleep 0.1))
+    (loop until (probe-file pathname) do (sleep 0.01))
     ;; send script commands to plot program
     (apply #'send-graphic-commands object program rest)
     ))
