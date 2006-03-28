@@ -108,7 +108,8 @@ skeleton starting from the 0-dimensional patches."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun compute-raster (patch &key (threshold 0.08) meshsize indicator
-		       patch->raster (minimal-depth 0) &allow-other-keys)
+		       patch->raster (minimal-depth 0) (maximal-depth nil)
+		       &allow-other-keys)
   "Computes a curvature-adapted raster on a curved line.  @arg{threshold}
 is controlling the allowed deviation from linearity, @arg{meshsize} is a
 maximally allowed mesh width.  The user may also pass an @arg{indicator}
@@ -129,7 +130,10 @@ function @arg{patch->raster} mapping patches to complete rasters."
 		    (h (norm (m- x y)))
 		    (eps (* threshold h)))
 	       (when (block nil
-		       (when (< depth minimal-depth) (return t))
+		       (when (< depth minimal-depth)
+			 (return t))
+		       (when (and maximal-depth (> depth maximal-depth))
+			 (return nil))
 		       (whereas ((result (and indicator (funcall indicator patch z h))))
 			 (ecase result
 			   (:yes (return t))
