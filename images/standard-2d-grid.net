@@ -25,8 +25,8 @@ macro main(
 ) {
     // 
     // node FileSelector[1]: x = 62, y = 110, inputs = 0, label = FileSelector
-    // output[1]: visible = 1, type = 32, value = "output.dx.bak"
-    // output[2]: visible = 1, type = 32, value = "output.dx.bak"
+    // output[1]: visible = 1, type = 32, value = "output.dx"
+    // output[2]: visible = 1, type = 32, value = "output.dx"
     // page group: import
     //
     // 
@@ -224,7 +224,7 @@ main_Image_5_out_3 =
 // network: end of macro body
 CacheScene(main_Image_5_in_1, main_Image_5_out_1, main_Image_5_out_2);
 }
-main_FileSelector_1_out_1 = "output.dx.bak";
+main_FileSelector_1_out_1 = "output.dx";
 main_String_1_out_1 = "dx";
 main_Import_1_in_2 = NULL;
 main_Import_1_in_4 = NULL;
