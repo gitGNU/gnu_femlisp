@@ -62,8 +62,7 @@ rhs.")
 (defun heuveline-rannacher-dual-problem-rhs (&key cell fe &allow-other-keys)
   "Distributional rhs for the dual problem of the article by
 Heuveline&Rannacher.  We distribute it to several points to
-ensure that all surrounding cells contribute.  Warning: This
-function assumes that a structured cube mesh is used!"
+ensure that all surrounding cells contribute."
   (let ((rhs (make-local-vec fe))
 	(local (global->local cell *HR-evaluation-point*))
 	(delta *HR-delta*))
