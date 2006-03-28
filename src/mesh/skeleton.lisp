@@ -148,41 +148,34 @@ identified with @arg{cell}."))
   (whereas ((cell (get-arbitrary-key-from-hash-table (etable skel 0))))
     (embedded-dimension cell)))
 
-(defun skel-for-each (func skel &key direction dimension where (with-cell t) with-properties)
+(defun skel-for-each (func skel &key direction dimension where with-properties)
   "Loops through a skeleton applying func.  When direction is :down then loops
 with dimension of the cells decreasing, otherwise increasing."
   (flet ((etable-for-each (etable)
 	   (maphash #'(lambda (cell props)
 			(unless (and (eq where :surface)
 				     (refined-p cell skel))
-			  (if with-cell
-			      (if with-properties
-				  (funcall func cell props)
-				  (funcall func cell))
-			      (if with-properties
-				  (funcall func props)
-				  (funcall func)))))
+			  (if with-properties
+			      (funcall func cell props)
+			      (funcall func cell))))
 		    etable)))
-    (let ((dim (if (eq dimension :highest)
-		   (dimension skel)
-		   dimension))
-	  (etables (if (eq direction :down)
-		       (reverse (etables skel))
-		       (etables skel))))
-    (cond (dim (unless (minusp dim)
-		 (etable-for-each (etable skel dim))))
-	  (t (loop for etable across etables do
-		   (etable-for-each etable)))))))
+    (when (eq dimension :highest)
+      (setf dimension (dimension skel)))
+    (multiple-value-bind (first-dim last-dim)
+	(cond (dimension (values (max dimension 0) dimension))
+	      ((eq direction :down) (values (dimension skel) 0))
+	      (t (values 0 (dimension skel))))
+      (loop for dim from first-dim to last-dim do
+	    (etable-for-each (etable skel dim))))))
 
 (defmacro doskel ((looping-var skel &key (direction :up) where dimension) &body body)
   "Loop through a skeleton.  If looping-var is an atom, it loops through
 all cells, otherwise it loops through cells and properties."
-  (let ((with-cell (or (atom looping-var) (= (length looping-var) 2)))
-	(with-properties (consp looping-var))
-	(arguments (if (listp looping-var) looping-var (list looping-var))))
+  (let* ((with-properties (listp looping-var))
+	 (arguments (if with-properties looping-var (list looping-var))))
     `(skel-for-each #'(lambda ,arguments ,@body)
       ,skel :direction ,direction :dimension ,dimension :where ,where
-      :with-cell ,with-cell :with-properties ,with-properties)))
+      :with-properties ,with-properties)))
 
 (defun skel-map (func skel)
   (let ((new-skel (make-analog skel)))
