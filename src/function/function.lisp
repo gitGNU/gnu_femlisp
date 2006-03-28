@@ -122,6 +122,11 @@ to EVALUATE and EVALUATE-GRADIENT, respectively."
   (:documentation "A <special-function> provides its own evaluation and gradient
 computation."))
 
+(defmethod initialize-instance :after ((f <special-function>) &key &allow-other-keys)
+  (with-slots (evaluator gradient) f
+    (when (eq gradient :numerical)
+      (setf gradient (numerical-gradient evaluator)))))
+
 (defun special-1d-function (f &optional Df)
   "Constructs a special function between 1D-spaces from ordinary Lisp
 functions."
