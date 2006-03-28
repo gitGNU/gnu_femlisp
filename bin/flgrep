@@ -1,9 +1,9 @@
 #!/bin/sh
 
 for file in `find $CL_HOME/femlisp/src/$2 -name "*.lisp" -print`; do
-    if test -n "`egrep -i $1 $file`"
+    if test -n "`egrep -i \"$1\" $file`"
     then
 	echo "$file:"
-	egrep -i $1 $file
+	egrep -i "$1" $file
     fi
 done
