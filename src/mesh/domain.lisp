@@ -44,7 +44,7 @@
 classification of patches.")
    (classifiers :documentation
     "A list of functions of two arguments -patch and classifications so
-far- which are called from the right to classify of the patch."))
+far- which are called from the right to classify the patch."))
   (:documentation "A @class{<domain>} is a special @class{<skeleton>}.  We
 call its cells @emph{patches}, and the properties of a patch carries
 geometric information.  Properties supported up to now are:
@@ -108,6 +108,8 @@ definition is finished and setup the boundary slot."
 		  (when (= dim (1- (dimension domain))) (push :d-1-dimensional result))
 		  (when (= dim 0) (push :0-dimensional result))
 		  (when (= dim 1) (push :1-dimensional result))
+		  (awhen (get-cell-property patch domain 'classification)
+		    (setf result (append result it)))
 		  result))))
   (loop for classifier in classifiers do
        (pushnew classifier (slot-value domain 'classifiers))))
