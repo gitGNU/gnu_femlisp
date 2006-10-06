@@ -1,4 +1,0 @@
-@node Concept Index, , Bibliography, Top
-@unnumbered Concept Index
-
-@printindex cp

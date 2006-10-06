@@ -31,21 +31,25 @@
 ************************************************************************/
 
 /************************************************************************
- Compiling:
+ Compiling the interface file:
   gcc -c -fPIC -I/usr/include/superlu superlu.c
   ld -lsuperlu -shared superlu.o -o superlu.so
    
  Compiling for obtaining a filter:
   gcc -D__FILTER__ -g  -I/usr/include/superlu -lsuperlu -o superlu superlu.c
 
- For testing purposes:
+ For testing the direct call:
   gcc -D__TESTING__  -I/usr/include/superlu -lsuperlu superlu.c
+
+ For testing the filter:
+  gcc -D__TEST_FILTER__ -g superlu.c
 ************************************************************************/
 
+#ifndef  __TEST_FILTER__
 #include "dsp_defs.h"
 
 int c_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
-			   int nrhs, double *rhs, double *sol)
+               int nrhs, double *rhs, double *sol)
 {
     SuperMatrix A, B, L, U;
     int *perm_r; /* row permutations from partial pivoting */
@@ -54,10 +58,10 @@ int c_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
     superlu_options_t options;
     SuperLUStat_t stat;
 
-	/* copy rhs to solution */
-	if (sol!=rhs)
-		for (i=0; i<m*nrhs; i++) sol[i] = rhs[i];
-	
+    /* copy rhs to solution */
+    if (sol!=rhs)
+        for (i=0; i<m*nrhs; i++) sol[i] = rhs[i];
+    
     /* Create matrix A in the format expected by SuperLU. */
     dCreate_CompCol_Matrix(&A, m, n, nnz, Ax, Ai, Ap, SLU_NC, SLU_D, SLU_GE);
     /* Create right-hand side matrix B (same as X). */
@@ -76,10 +80,47 @@ int c_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
     Destroy_SuperNode_Matrix(&L);
     Destroy_CompCol_Matrix(&U);
 	
-	return info;
+    return info;
 }
+#else
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int call_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
+                  int nrhs, double *rhs, double *sol)
+{
+    FILE *file;
+    char command[255];
+
+    // write lgs
+    file=fopen("superlu.lgs","w");
+    if (file==0) return -1;
+    
+    /* write matrix and rhs to file */
+    fwrite (Ap, sizeof(int), n+1, file);
+    fwrite (Ai, sizeof(int), nnz, file);
+    fwrite (Ax, sizeof(double), nnz, file);
+    fwrite (rhs, sizeof(double), m*nrhs, file);
+    fclose(file);
+
+    // call solve
+    sprintf(command, "cat superlu.lgs | superlu %d %d %d %d | cat > superlu.solution",
+            m, n, nnz, nrhs);
+    system(command);
+
+    // read solution
+    file=fopen("superlu.solution","r");
+    if (file==0) return -2;
+    fread (sol, sizeof(double), m*nrhs, file);
+    fclose(file);
+
+    return 0;
+}
+#endif
 
 #ifdef __FILTER__
+
 #include <stdio.h>
 
 int main(int argc, char *argv[])
@@ -88,36 +129,34 @@ int main(int argc, char *argv[])
     int *asub, *xa;
     double *a, *rhs, *sol;
 	
-	if (argc!=5) return -1;
-	if (sscanf (argv[1], "%d", &m)!=1) return -2;
-	if (sscanf (argv[2], "%d", &n)!=1) return -3;
-	if (sscanf (argv[3], "%d", &nnz)!=1) return -4;
-	if (sscanf (argv[4], "%d", &nrhs)!=1) return -5;
+    if (argc!=5) return -1;
+    if (sscanf (argv[1], "%d", &m)!=1) return -2;
+    if (sscanf (argv[2], "%d", &n)!=1) return -3;
+    if (sscanf (argv[3], "%d", &nnz)!=1) return -4;
+    if (sscanf (argv[4], "%d", &nrhs)!=1) return -5;
 
     if (!(xa = malloc ((n+1)*sizeof(int)))) return -6;
     if (!(asub = malloc (nnz*sizeof(int)))) return -7;
     if (!(a = malloc (nnz*sizeof(double)))) return -8;
     if (!(rhs = malloc (m*nrhs*sizeof(double)))) return -9;
 
-	/* read matrix and rhs from stdin */
-	fread (xa, sizeof(int), n+1, stdin);
-	fread (asub, sizeof(int), nnz, stdin);
-	fread (xa, sizeof(double), nnz, stdin);
-	fread (rhs, sizeof(double), m*nrhs, stdin);
+    /* read matrix and rhs from stdin */
+    fread (xa, sizeof(int), n+1, stdin);
+    fread (asub, sizeof(int), nnz, stdin);
+    fread (a, sizeof(double), nnz, stdin);
+    fread (rhs, sizeof(double), m*nrhs, stdin);
 	
-	sol = rhs;  /* rhs is overwritten */
-	
-	c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+    sol = rhs;  /* rhs is overwritten */
 
-	/* write out solution */
-	fwrite (rhs, sizeof(double), m*nrhs, stdin);
+    c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+    
+    /* write out solution */
+    fwrite (rhs, sizeof(double), m*nrhs, stdout);
 	
-	return 0;
+    return 0;
 }
-#endif
 
-#ifdef __TESTING__
-#include <stdio.h>
+#else
 
 int main(int argc, char *argv[])
 {
@@ -142,11 +181,15 @@ int main(int argc, char *argv[])
     nrhs = 1;
     if (!(rhs = malloc(m*nrhs*sizeof(double))))	return -1;
     for (i = 0; i < m*nrhs; ++i) rhs[i] = 1.0;
-	sol = rhs;  /* rhs is overwritten */
+    sol = rhs;  /* rhs is overwritten */
 	
-	c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+#ifdef __TEST_FILTER__
+    call_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+#else
+    c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+#endif
 
-	for (i=0; i<m; i++)	printf("%lf\n", sol[i]);
-	return 0;
+    for (i=0; i<m; i++)	printf("%lf\n", sol[i]);
+    return 0;
 }
 #endif

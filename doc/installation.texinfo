@@ -11,10 +11,10 @@
 @section Software needed
 
 @itemize
-@item A Common Lisp implementation which conforms to the ANSI standard.
+@item A Common Lisp implementation which is sufficiently ANSI conformant.
 @femlisp{} is known to work with Allegro CL, CMUCL and SBCL.  However,
 it should be easy to port it to other ANSI Common Lisp implementations
-as well.
+as well (especially Lispworks).
 
 @item Some Common Lisp software, namely:
 @itemize
@@ -23,9 +23,9 @@ as well.
 @end itemize
 
 @item A Common Lisp environment.  I would recommend the combination Emacs/SLIME.  Emacs/Ilisp or CMUCL/Hemlock would be alternatives,
-however both Ilisp and Hemlock seem to be not actively maintained
-anymore.  Allegro CL has its own Emacs interface and (on Windows) an
-own IDE with enhanced capabilities.
+however both of them seem to be not actively maintained anymore.
+Allegro CL has its own Emacs interface and (on Windows) an own IDE
+with enhanced capabilities.
 
 @item Graphics software.  If you want to have graphics available, you
 should have installed the following packages in such a way that they are
@@ -60,7 +60,7 @@ such an environment.  More precisely, let us assume that you have one
 of Allegro CL, CMUCL or SBCL installed, and that you have downloaded
 Femlisp using either
 @example
-cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
+cvs -z3 -d:pserver:anonymous@@cvs.savannah.nongnu.org:/sources/femlisp co femlisp
 @end example
 or
 @example
@@ -81,6 +81,7 @@ installation}.
 @menu
 * Debian GNU/Linux::            
 * Mac OS X::                    
+* Windows/Cygwin::              
 @end menu
 
 @node Debian GNU/Linux, Mac OS X, Quick installation , Quick installation
@@ -117,7 +118,7 @@ make umfpack        # compiles the UMFPACK interface
 make triangle       # gets and compiles the Triangle mesh generator
 
 # compile Femlisp
-make configure      # interactive setup (choose cmucl or sbcl) 
+make configure      # interactive setup (choose cmucl)
 make femlisp        # compiles Femlisp and creates an executable
 
 # we are done
@@ -126,7 +127,7 @@ make documentation  # generate the Femlisp documentation
 
 Now you can continue as described in @ref{Emacs configuration}.
 
-@node Mac OS X,  , Debian GNU/Linux, Quick installation
+@node Mac OS X, Windows/Cygwin, Debian GNU/Linux, Quick installation
 @subsection Mac OS X
 
 The following approach should work if you are on Mac OS X, and have
@@ -151,6 +152,21 @@ make documentation  # generate the Femlisp documentation
 @end example
 
 Now you can continue as described in @ref{Emacs configuration}.
+
+@node  Windows/Cygwin,  , Mac OS X, Quick installation
+@subsection Windows/Cygwin
+
+Femlisp works on Windows using Allegro CL.  Simply start up Allegro
+and load the file @path{femlisp/start.lisp} from the Femlisp
+directory.  For graphics output, you need Gnuplot which you can get
+via Cygwin, and OpenDX which you can download from
+@url{http://www.opendx.org}.
+
+A known bug (maybe within OpenDX or Cygwin/X, since also @code{dx
+-script} in an xterm window did not work for me) is that the
+communication with OpenDX does not yet work.  A remedy is to use
+OpenDX as a separate application on the output file
+@path{femlisp/images/output.dx}.
 
 @c ----------------------------------------------------------------
 
@@ -310,7 +326,7 @@ lines in the file @file{.emacs} in your home directory:
 
 @lisp
 (setq *femlisp-root* "PLEASE_INSERT_CORRECT_PATH/femlisp/")
-(add-to-list *femlisp-root* load-path)
+(add-to-list 'load-path (concat *femlisp-root* "elisp"))
 (require 'femlisp)
 
 ;;; for showing the SLIME buffer if it is hidden

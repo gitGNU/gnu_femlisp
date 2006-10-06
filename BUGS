@@ -3,9 +3,14 @@
 This is a list of known bugs:
 -----------------------------
 
-* Geometric multigrid with local refinement is not working yet.  However,
-  algebraic multigrid of Ruge-Stueben type works for equations also in the
-  case of local refinement.
+* Geometric multigrid with local refinement is not working yet.  Algebraic
+  multigrid of Ruge-Stueben type works for equations also in the case of
+  local refinement.
 
-* I observed problems with DX Graphics within multithreaded SBCL.
+* On Windows/Cygwin, the communication with OpenDX does not yet work.  A
+  remedy is to use OpenDX as a separate application on the output file
+  @path{femlisp/images/output.dx}.  This bug may well lie outside of
+  Femlisp, since also "dx -script" in an xterm window does not work.
+
+* Parallelization on multithreaded architectures is not yet complete.
 

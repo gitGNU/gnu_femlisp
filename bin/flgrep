@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 for file in `find $CL_HOME/femlisp/src/$2 -name "*.lisp" -print`; do
     if test -n "`egrep -i \"$1\" $file`"

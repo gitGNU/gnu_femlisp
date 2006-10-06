@@ -47,16 +47,16 @@
     :depends-on ()
     :components
     ((:file "debug")
+     (:file "amop" :depends-on ("debug"))
      (:file "tests")
      (:file "patches")
      (:file "macros")
+     (:file "port" :depends-on ())
      (:file "utilities-defp" :depends-on ("macros" "debug"))
      (:file "utilities" :depends-on ("utilities-defp" "macros" "tests"))
-     (:file "general" :depends-on ("utilities"))
-     (:file "port" :depends-on ("general"))
-     (:file "amop" :depends-on ("debug"))
-     (:file "multi-processing")
+     (:file "multiprocessing" :depends-on ("utilities" "port" "debug"))
      (:file "mflop" :depends-on ("utilities"))
+     (:file "general" :depends-on ("multiprocessing"))
      (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))
      ))
    (:module
@@ -116,8 +116,8 @@
      (:file "refine" :depends-on ("identify"))
      (:file "vertex" :depends-on ("refine"))
      (:file "simplex" :depends-on ("vertex"))
-     (:file "tensorial" :depends-on ("simplex"))
-     (:file "skeleton-build" :depends-on ("tensorial" "identify"))
+     (:file "product-cell" :depends-on ("simplex"))
+     (:file "skeleton-build" :depends-on ("product-cell" "identify"))
      (:file "domain" :depends-on ("skeleton-build"))
      (:file "mesh" :depends-on ("domain"))
      (:file "meshgen" :depends-on ("mesh"))
@@ -138,6 +138,7 @@
      (:file "evp" :depends-on ("pde-problem"))
      (:file "time" :depends-on ("pde-problem"))
      (:file "cdr" :depends-on ("evp" "time"))
+     (:file "ellsys" :depends-on ("evp" "time"))
      (:file "cdrsys" :depends-on ("cdr"))
      (:file "elasticity" :depends-on ("pde-problem"))
      (:file "navier-stokes" :depends-on ("pde-problem"))
@@ -169,7 +170,7 @@
    ;;
    (:module
     "discretization"
-    :depends-on ("algebra" "function" "mesh" "problem" "iteration")
+    :depends-on ("basic" "algebra" "function" "mesh" "problem" "iteration")
     :components
     ((:file "discretization-defp")
      (:file "discretization" :depends-on ("discretization-defp"))
@@ -185,6 +186,7 @@
      ;;
      (:file "cdr-fe" :depends-on ("fedisc"))
      (:file "system-fe" :depends-on ("fedisc"))
+     (:file "ellsys-fe" :depends-on ("fedisc"))
      (:file "elasticity-fe" :depends-on ("system-fe"))
      (:file "navier-stokes-fe" :depends-on ("system-fe"))
      (:file "cdrsys-fe" :depends-on ("system-fe"))
@@ -328,6 +330,3 @@
     )					; applications module
    )					; femlisp modules
   )
-
-
-

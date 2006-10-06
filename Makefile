@@ -79,7 +79,9 @@ clean:
 	rm -f *.x86f *.fasl *.fas? *.fas *.o
 	cd bin; rm -f *.core
 	cd doc; make clean;
-	cd external; make clean;
-	cd interface; make clean;
 	cd private; make clean;
 	cd src; make clean;
+
+cleanall: clean
+	cd external; make clean;
+	cd interface; make clean;

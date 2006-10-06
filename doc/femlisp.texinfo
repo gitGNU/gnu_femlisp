@@ -1,6 +1,7 @@
 \input texinfo   @c -*-texinfo-*-
 @c %**start of header
 @setfilename femlisp.info
+@setcontentsaftertitlepage
 @settitle Femlisp User Manual
 @afourpaper
 @setchapternewpage odd
@@ -29,9 +30,9 @@ Common Lisp
 @alias path = file
 @alias program = file
 
-@set EDITION 0.5
-@set VERSION 0.9.8
-@set UPDATED 28 November 2005
+@set EDITION 0.6
+@set VERSION 0.9.9
+@set UPDATED 26 August 2006
 
 @c for install-info
 @dircategory Math
@@ -43,7 +44,7 @@ Common Lisp
 @femlisp{} User Manual @value{EDITION} (documenting @femlisp{}
 @value{VERSION})
 
-Copyright @copyright{} 2005 Nicolas Neuss, University of Heidelberg.
+Copyright @copyright{} 2006 Nicolas Neuss, University of Karlsruhe.
 @end ifinfo
 
 @copying
@@ -72,6 +73,9 @@ Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
 @insertcopying
 @end titlepage
 
+@c Does not work at the beginning?!
+@contents
+
 @ifnottex
 @node Top, Introduction, (dir), (dir)
 @top Femlisp
@@ -92,6 +96,96 @@ equations.
 * Copyright::                   
 * Bibliography::                
 * Concept Index::               
+
+@detailmenu
+ --- The Detailed Node Listing ---
+
+Installation
+
+* Software needed::             
+* Quick installation ::         
+* Detailed installation::       
+
+Quick installation
+
+* Debian GNU/Linux::            
+* Mac OS X::                    
+* Windows/Cygwin::              
+
+Detailed installation
+
+* Obtaining Femlisp::           
+* Installation of a CL implementation::  
+* Graphics::                    
+* Direct solvers::              
+* Triangle mesh generator::     
+* Installation of ASDF and Infix::  
+* Configuration of the startup script::  
+* Compiling Femlisp::           
+* Setup of an interactive environment::  
+* Emacs configuration::         
+
+First steps
+
+* Demos::                       
+* Solving problems::            
+* Plotting::                    
+* Common Lisp environment::     
+* Learning Common Lisp::        
+
+Solving problems
+
+* Stationary diffusion problem::  
+* Nonlinear diffusion problem::  
+* Elasticity problem::          
+* Navier-Stokes problem::       
+* Heat equation::               
+* Eigenvalue problems::         
+
+Programming techniques
+
+* Object-oriented programming::  
+* Dynamic class generation::    
+* Memoization::                 
+* Blackboards::                 
+* Documentation::               
+
+Reference manual
+
+* Package FL.UTILITIES::        
+* Package FL.MACROS::           
+* Package FL.DEBUG::            
+* Package FL.DEMO::             
+* Package FL.TESTS::            
+* Package FL.PORT::             
+* Package FL.AMOP::             
+* Package FL.ALIEN::            
+* Package FL.MULTIPROCESSING::  
+* Package FL.MATLISP::          
+* Package FL.ALGEBRA::          
+* Package FL.FUNCTION::         
+* Package FL.MESH::             
+* Package FL.PROBLEM::          
+* Package FL.CDR::              
+* Package FL.ELLSYS::           
+* Package FL.ELASTICITY::       
+* Package FL.NAVIER-STOKES::    
+* Package FL.CDRSYS::           
+* Package FL.DISCRETIZATION::   
+* Package FL.CDR-FE::           
+* Package FL.ELLSYS-FE::        
+* Package FL.ELASTICITY-FE::    
+* Package FL.NAVIER-STOKES-FE::  
+* Package FL.ITERATION::        
+* Package FL.MULTIGRID::        
+* Package FL.GEOMG::            
+* Package FL.STRATEGY::         
+* Package FL.GRAPHIC::          
+* Package FL.PLOT::             
+* Package FL.DOMAINS::          
+* Package FL.APPLICATION::      
+
+@end detailmenu
 @end menu
 
 @include introduction.texinfo
@@ -102,10 +196,6 @@ equations.
 @include reference-manual.texinfo
 @include copyright.texinfo
 @include bibliography.texinfo
-@include concepts.texinfo
-
-@c Does not work at the beginning?!
-@contents
-
+@include indices.texinfo
 
 @bye

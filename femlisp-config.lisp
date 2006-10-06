@@ -39,22 +39,26 @@
 ;;; where images or meshes are written to.
 
 (defparameter *dx-path*
-  #+(or ecl gcl) "/usr/bin/dx"
-  #-(or ecl gcl) nil          ; Example: "/usr/local/bin/dx"
+  (or nil ; default: search in path
+      #+(or ecl gcl) "/usr/bin/dx")
   "Path to the @program{DX} executable.")
 
-(defparameter *gnuplot-path* nil     ; Example: "/usr/local/bin/gnuplot"
+(defparameter *gnuplot-path*
+  (or nil ; default: search in path
+      #+(or ecl gcl) "/usr/bin/gnuplot"
+      #+(and acl mswindows) "C:\\cygwin\\bin\\gnuplot.exe")
   "Path to the @program{Gnuplot} executable.")
   
 (defparameter *triangle-path*
-  #+(or ecl gcl) #p"femlisp:external;triangle;triangle"
-  #-(or ecl gcl) nil
+  nil ; default: search in path then try #p"femlisp:external;triangle;triangle"
   "Path to the @program{triangle} executable.")
   
-(defparameter *images-directory* nil ; Example: "/home/xxx/CL-HOME/femlisp/images/"
+(defparameter *images-directory*
+  nil ; default: #p"femlisp:images"
   "Directory where images are put by default.")
 
-(defparameter *meshes-directory* nil ; Example: "/home/xxx/CL-HOME/femlisp/meshes/"
+(defparameter *meshes-directory*
+  nil ; default: #p"femlisp:meshes"
   "Directory where meshes are put by default.")
 
 (defparameter *superlu-library*

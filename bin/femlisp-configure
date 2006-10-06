@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 FEMLISP_CL=`which lisp`
 if test -z "$FEMLISP_CL"
@@ -55,16 +55,16 @@ case $FEMLISP_CL_TYPE in
 esac
 
 current_dir=`pwd`
-FEMLISP_DIR=`dirname $current_dir` 
+FEMLISP_DIR=`dirname "$current_dir"` 
 echo "Check the path to the Femlisp directory [$FEMLISP_DIR]: "
 read input
 if test -n "$input"
 then
-    FEMLISP_DIR=$input
+    FEMLISP_DIR="$input"
 fi
 
 if ! test -d "$FEMLISP_DIR"; then
-    echo "Directory $FEMLISP_DIR not found"
+    echo "Directory \"$FEMLISP_DIR\" not found"
     exit 1
 fi
 
@@ -94,7 +94,3 @@ mv -f femlisp2 femlisp
 
 # mark the script as executable 
 chmod +x femlisp
-
-
-
-

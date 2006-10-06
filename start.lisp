@@ -53,7 +53,7 @@ during initialization of Femlisp."))
   (format
    t "~&~%*** Femlisp-~A ***
 
-Copyright (C) 2003-2005
+Copyright (C) 2003-2006
 Nicolas Neuss, University of Heidelberg.
 
 Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
@@ -63,7 +63,7 @@ conditions.
 
 You can enter \"(femlisp-demo)\" to get a guided tour through
 Femlisp, and enter \"(quit)\" to leave the program.~%~%"
-*femlisp-version*))
+   *femlisp-version*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Setup the logical host "FEMLISP"
@@ -105,7 +105,7 @@ location of this file when it is loaded.")
 
 #+sbcl (require 'sb-posix)
 #+sbcl (require 'sb-introspect)
-#+(or ecl sbcl) (require 'asdf)
+#-(or ecl sbcl) (require 'asdf)
 
 #+allegro (require :osi)
 
@@ -171,12 +171,4 @@ location of this file when it is loaded.")
   (when private (load private)))
 
 (femlisp-banner)
-
-#+allegro
-(setq excl:*restart-init-function*
-      #'(lambda ()
-	  (tpl:setq-default *package* (find-package :fl.application))
-	  (rplacd (assoc 'tpl::*saved-package*
-			 tpl:*default-lisp-listener-bindings*)
-		  'common-lisp:*package*)))
 

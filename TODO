@@ -3,22 +3,27 @@
 Femlisp needs the following more or less urgently:
 --------------------------------------------------
 
-* Removal of known bugs, see the file BUGS.
+* Removal of known bugs, see the file BUGS
 
-* Discretization:
- - keep only vector finite elements
+* Discretization
+ - scalar fe as special case of vector fe
+ - tensor-product fe and associated quadrature rules
  - sparse interpolation/projection matrices
 
-* Mesh refinement:
+* Mesh
+ - interface to 3D mesh generator 
  - anisotropic refinement rules
 
-* Improved linear algebra for sparse matrices, see the FAQ.
- - switch to CCS for speed?
+* Linear algebra
+ - switch from sparse-matrix to CCS (?)
+ - more Krylov-type methods
 
-* More time-stepping schemes.
+* Problem solving
+ - more time-stepping schemes
+ - better solution of eigenvalue problems
 
-* Improved solution of eigenvalue problems.
-
-* Parallelization.
+* Parallelization
+ - does not work well on SMP machines at the moment (no good speedup)
+ - not yet started on clusters
 
 

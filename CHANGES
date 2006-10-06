@@ -2,9 +2,41 @@
 
 * From Femlisp-0.9.8 to Femlisp-0.9.9:
 
+@class{<tensorial>} was renamed to @class{<product-cell>},
+@function{ensure-tensorial} to @function{ensure-simplex-product}, and
+@function{tensorial-domain} to @function{simplex-product-domain}.
+
+Vector plotting has been implemented.  Multi-component solutions are
+plotted by default with vectors.
+
+I could get rid of spurious black lines in the solution plots by switching
+to hardware rendering in DX (a tip from the DX forum).  Unfortunately, this
+caused system breakdown in several circumstances.  Thus, I consider it too
+fragile to be on by default.  It can be activated with @code{(setq
+fl.graphic::*dx-bug-workaround* t)}.
+
+Memoization was improved, which became necessary especially for allowing
+multiple parallel threads.  Now there is a combination of a macro
+@macro{with-memoization} and an internal macro @macro{memoizing-let} which
+allows for more flexibility and improves also the error reporting (use
+@lisp{(dbg-on :memoize)}).
+
+The shell scripts in @path{femlisp/bin} now call @path{/bin/bash} instead
+of @path{/bin/sh}.  This distinction was necessary on Solaris.
+
+A problem definition and fe discretization for quite general quasilinear
+elliptic systems was introduced.  Elasticity and
+convection-diffusion-reaction systems appear as special cases now.
+
+There is some SMP support now in @path{basic/multiprocessing.lisp}.  It can
+be used to split assembly work between several threads (see the use of the
+WITH-WORKERS macro in @path{discretization/fedisc.lisp}).  Because solving
+is not yet distributed, it does not reduce overall computational times very
+much.
+
 In contrast to SuperLU, the current version of UMFPACK can't handle
-multiple right-hand sides with one call.  Thus, for this case I introduced
-multiple calls in @path{interface;umfpack.c}.
+multiple right-hand sides with one call.  In this case, the LR system is
+now solved multiple times in @path{interface/umfpack.c}.
 
 Femlisp has been ported to Windows using Allegro CL.  Many thanks go to
 Franz Inc. for providing me with an evaluation license of Allegro for this
@@ -13,17 +45,15 @@ purpose.
 The communication of Femlisp with the external graphics engines DX and
 Gnuplot was changed.  It should be much more rubust now.
 
-Corrected a bug in the function PRINT-MATRIX (again an incorrect use of
-LOOP).
+Corrected a bug in @function{print-matrix} (a non-standard use of LOOP).
 
 * From Femlisp-0.9.7 to Femlisp-0.9.8:
 
-The Femlisp test suite is now run every night with Allegro CL, CMUCL, and
-SBCL.
+The Femlisp test suite is now run daily with Allegro CL, CMUCL, and SBCL.
 
-ECL now can compile Femlisp.  Many thanks to Juan Jose Garcia Ripoll for
-his help.  Unfortunately, the performance of the Femlisp/ECL is still
-abysmal.
+ECL can now compile Femlisp.  Many thanks to Juan Jose Garcia Ripoll for
+his help.  Unfortunately, the performance of Femlisp/ECL is still abysmal,
+and apparently not all tests pass.
 
 Removed uses of DEFINE-SYMBOL-MACRO in @path{iteration;multigrid.lisp}
 because, first, GCL does not have it yet, and second, it lead to somewhat
@@ -78,10 +108,8 @@ single-float before output.
 
 * From Femlisp-0.9.5 to Femlisp-0.9.6:
 
-Femlisp runs successfully on an AMD-64 platform using SBCL (however, mine
-was a parallel machine in Warwick/UK, and I could not test any graphics).
-Many thanks especially to Dan Barlow and Juho Snellman for making SBCL work
-on AMD.
+Femlisp runs successfully on an AMD-64 platform using SBCL.  Many thanks
+especially to Dan Barlow and Juho Snellman for making SBCL work on AMD.
 
 The installation procedure was improved with a configure script.
 
@@ -117,9 +145,9 @@ definitions.
 
 Checked the demos for reasonable results.
 
-Removed a bug in multigrid (lmgc) which made iterations certain iterations
-return wrong results (those iterations which needed the residual before,
-but did not recompute it afterwards (e.g. Jacobi)).
+Removed a bug in multigrid (lmgc) which made certain iterations return
+wrong results (those iterations which needed the residual before, but did
+not recompute it afterwards (e.g. Jacobi)).
 
 Refinement rules have been reworked to allow for arbitrary refinements of
 reference cells.  This can be used for multiscale discretizations.
