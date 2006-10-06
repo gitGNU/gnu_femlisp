@@ -93,21 +93,24 @@ can be described by its dimensions nrows=2, ncols=5 together with the pattern
 	      col-inds (map 'fixnum-vec #'cdr flattened-pattern)
 	      (slot-value crs-pat 'offsets) (coerce offsets 'fixnum-vec))))))
 
-(defun full-crs-pattern (nrows ncols)
-  "Returns trivial rectangular crs-patterns."
-  (let ((N (* nrows ncols)))
-    (make-instance
-     'crs-pattern
-     :nrows nrows :ncols ncols
-     :nr-of-entries N
-     :store-size N
-     :row-starts (coerce (loop for i from 0 upto nrows
-			       collect (* i ncols))
-			 'fixnum-vec)
-     :offsets (coerce (range< 0 N) 'fixnum-vec)
-     :col-inds (coerce (loop for i from 0 below N
-			     collect (mod i ncols))
-		       'fixnum-vec))))
+(with-memoization (:id 'full-crs-pattern)
+  (defun full-crs-pattern (nrows ncols)
+    "Returns trivial rectangular crs-patterns."
+    (memoizing-let ((nrows nrows)
+		    (ncols ncols))
+      (let ((N (* nrows ncols)))
+	(make-instance
+	 'crs-pattern
+	 :nrows nrows :ncols ncols
+	 :nr-of-entries N
+	 :store-size N
+	 :row-starts (coerce (loop for i from 0 upto nrows
+				   collect (* i ncols))
+			     'fixnum-vec)
+	 :offsets (coerce (range< 0 N) 'fixnum-vec)
+	 :col-inds (coerce (loop for i from 0 below N
+				 collect (mod i ncols))
+			   'fixnum-vec))))))
 
 (defun pattern->full-pattern (pattern)
   (full-crs-pattern (nrows pattern) (ncols pattern)))

@@ -63,8 +63,12 @@
   (setf (aref vec index) val))
 (defmethod vref ((vec array) index)
   (row-major-aref vec index))
+(defmethod vref ((vec array) (index list))
+  (apply #'aref vec index))
 (defmethod (setf vref) (val (vec array) index)
   (setf (row-major-aref vec index) val))
+(defmethod (setf vref) (val (vec array) (index list))
+  (setf (apply #'aref vec index) val))
 
 (defmethod mref ((mat array) i j)
   (aref mat i j))
@@ -73,10 +77,12 @@
 
 (defmethod for-each-key (func (x vector))
   (dotimes (i (length x)) (funcall func i)))
+(defmethod for-each-key (func (array array))
+  (dotimes (i (array-total-size array))
+    (funcall func i)))
 
 (defmethod for-each-entry (func (seq sequence))
   (map nil func seq))
-
 (defmethod for-each-entry (func (array array))
   (dotimes (i (array-total-size array))
     (funcall func (row-major-aref array i))))
@@ -86,20 +92,8 @@
     (funcall func i (aref x i))))
 
 (defmethod for-each-key-and-entry (func (array array))
-  (dotimes (i (array-total-size array))
-    (funcall func i (row-major-aref array i))))
-
-;;; These do not correspond exactly to their name 
-(defmethod for-each-entry-of-vec1 (func (x sequence) (y sequence))
-  (map nil func x y))
-(defmethod for-each-entry-of-vec2 (func (x sequence) (y sequence))
-  (map nil func x y))
-
-(defmethod for-each-entry-of-vec1 (func (x array) (y array))
-  (array-for-each func x y))
-(defmethod for-each-entry-of-vec2 (func (x array) (y array))
-  (array-for-each func x y))
-
+  (dotuple (index (array-dimensions array))
+    (funcall func index (apply #'aref array index))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Matlisp operations for arrays
@@ -150,6 +144,9 @@
   (dotimes (i (length x) y)
     (setf (aref y i) (aref x i))))
 
+;; destroys addition of vector of Matlisp matrices (e.g. fe-integrate)
+;; performance of general routine?
+#+(or)
 (define-vector-blas-method m+! ((x vector) (y vector))
   (dotimes (i (length x) y)
     (incf (aref y i) (aref x i))))
@@ -168,12 +165,13 @@
     (setf (aref x k) (fill-random! (aref x k) s))))
 
 (defmethod scal! (val (lst list))
-  "Call @func{scal!} on each entry of @var{lst}.  Note that the result has
-to be freshly consed, because @func{scal!} is a function, not a macro."
+  "Call @function{scal!} on each entry of @var{lst}.  Note that the result
+has to be freshly consed, because @function{scal!} is a function, not a
+macro."
   (mapcar #'(lambda (entry) (scal! val entry)) lst))
 
 (defmethod scal! (val (array array))
-  "Call @func{scal!} on each entry of @var{array}."
+  "Call @function{scal!} on each entry of @var{array}."
   (dotimes (i (array-total-size array) array)
     (setf (row-major-aref array i)
 	  (scal! val (row-major-aref array i)))))

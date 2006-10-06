@@ -49,33 +49,52 @@
 	     "A vector of boundary cells."))
   (:documentation "The standard cell in Femlisp is defined via its boundary."))
 
-(defgeneric local->global (cell local-pos)
-  (:documentation "local->global checks if a mapping is given for the cell.
-If yes, then this mapping is evaluated.  If no, then the function l2g is called
-which should do a multilinear interpolation from the cell's corners."))
+(defclass <mapped-cell> ()
+  ((mapping :accessor mapping :initarg :mapping))
+  (:documentation "A mixin which distinguishes cells which are mapped by a
+special mapping."))
 
-(defgeneric local->Dglobal (cell local-pos)
-  (:documentation "local->Dglobal checks if a mapping is given for the cell.
-If yes, then the gradient of this mapping is evaluated (if available).  If no,
-then the function l2Dg is called which gives the gradient for a multilinear
-interpolation from the cell's corners."))
+(defclass <distorted-cell> () ()
+  (:documentation "A mixin which distinguishes if the cell mapping is a
+distortion of the multilinear mapping."))
 
-(defgeneric midpoint (cell)
-  (:documentation "Returns cell midpoint in global coordinates.")
-  (:method (cell) "Default method"
-	   (local->global cell (local-coordinates-of-midpoint cell))))
+(definline mapped-p (cell) (subtypep (class-of cell) '<mapped-cell>))
 
-(defgeneric origin (cell)
-  (:documentation "Returns cell origin in global coordinates.")
-  (:method (cell) "Default method"
-	   (local->global cell (make-double-vec (dimension cell)))))
+(defun mapped-cell-class (class &optional distorted)
+  "Constructs a cell class with <mapped-cell> mixin."
+  (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
+	      (find-package "FL.MESH")))
+  (if (subtypep class '<mapped-cell>)
+      class
+      (let* ((unmapped-class (class-name class))
+	     (mapped-class
+	      (intern (concatenate 'string "<MAPPED-"
+				   (subseq (symbol-name unmapped-class) 1))
+		      "FL.MESH")))
+	(or (find-class mapped-class nil)
+	    (let ((new-class (eval `(defclass ,mapped-class
+				     (,@(when distorted 'fl.mesh::<distorted-cell>)
+					fl.mesh::<mapped-cell>
+					,unmapped-class) ()))))
+	      (setf (cell-class-information new-class)
+		    (cell-class-information class))
+	      new-class)))))
 
-(defparameter *print-cell* :midpoint
-  "If set to :MIDPOINT, prints the midpoint of a cell.")
+(defun unmapped-cell-class (class)
+  "Returns the cell class without mapping mixin."
+  (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
+	      (find-package "FL.MESH")))
+  (if (subtypep class '<mapped-cell>)
+      (let* ((mapped-class (class-name class))
+	     (unmapped-class
+	      (intern (concatenate 'string "<" (subseq (symbol-name mapped-class) 8))
+		      "FL.MESH")))
+	(find-class unmapped-class nil))
+      class))
 
-(defmethod print-object :after ((cell <cell>) stream)
-  (case *print-cell*
-    (:midpoint (format stream "{MP=~A}" (midpoint cell)))))
+(defmethod mapping ((cell <cell>))
+  "No mapping for ordinary cells."
+  nil)
 
 ;;; Specializing for vertices is needed very soon.  Therefore, we specify
 ;;; the vertex class without initializing its class information
@@ -87,6 +106,202 @@ interpolation from the cell's corners."))
 (declaim (inline vertex? vertex-p))
 (defun vertex? (cell) (typep cell '<vertex>))
 (defun vertex-p (cell) (typep cell '<vertex>))
+
+(defgeneric embedded-dimension (object)
+  (:documentation "Dimension of the embedding space for object.")
+  (:method ((cell <cell>))
+    "Recursive definition, anchored at the definition for vertices."
+    (embedded-dimension (aref (boundary cell) 0)))
+  (:method ((vtx <vertex>))
+    "Anchor for recursive definition."
+    (length (vertex-position vtx))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Vertices and corners
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(concept-documentation "Vertices are the 0-dimensional cells in a cell
+skeleton.  Corners are the coordinates of the vertices of a cell.")
+
+(defgeneric vertices (cell)
+  (:documentation "Returns a list of all vertices of the cell."))
+
+(with-memoization (:type :local :size 2 :debug nil :id 'g-corners)
+  (defun g-corners (cell)
+    "The g-corners are the vertex positions of the cell's vertices."
+    (memoizing-let ((cell cell))
+      (mapcar #'vertex-position (vertices cell)))))
+
+(with-memoization (:type :local :size 1 :debug nil :id 'g-corner-matrix)
+  (defun g-corner-matrix (cell)
+    "Returns a matrix whose columns are the vertex positions of the cell's
+vertices."
+    (memoizing-let ((cell cell))
+      (let ((corners (g-corners cell)))
+	(make-instance
+	 (standard-matrix 'double-float)
+	 :nrows (length (car corners)) :ncols (length corners)
+	 :store (apply #'concatenate 'double-vec corners))))))
+
+(defgeneric corners (cell)
+  (:documentation "Returns a list of corners of the cell, i.e. the global
+positions of the cell's vertices.")
+  (:method (cell)
+    "Default method."
+    (mapcar (rcurry #'local->global (double-vec))
+	    (vertices cell))))
+
+(defgeneric diameter (cell)
+  (:documentation "Returns the diameter of a cell.")
+  (:method (cell)
+    "The default method maximizes the distance between the cell's corners."
+    (loop for c1 in (corners cell) maximizing
+	  (loop for c2 in (corners cell)
+		maximizing (norm (m- c1 c2))))))
+  
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; element maps and derivatives
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric local->global (cell local-pos)
+  (:documentation "local->global checks if a mapping is given for the cell.
+If yes, then this mapping is evaluated.  If no, then the function l2g is called
+which should do a multilinear interpolation from the cell's corners."))
+
+(defgeneric local->Dglobal (cell local-pos)
+  (:documentation "local->Dglobal checks if a mapping is given for the cell.
+If yes, then the gradient of this mapping is evaluated (if available).  If no,
+then the function l2Dg is called which gives the gradient for a multilinear
+interpolation from the cell's corners."))
+
+;;; Only these functions (specialized to multilinear mappings) are
+;;; different for each cell class.
+
+(defgeneric l2g (cell local-pos)
+  (:documentation "Computes the global position by interpolation from the
+vertices."))
+
+(defgeneric multiple-l2g (cell local-positions)
+  (:documentation "Computes the associated global positions by
+interpolation from the vertices of @arg{cell}."))
+
+(defgeneric l2Dg (cell local-pos)
+  (:documentation "Computes the gradient for a multilinear
+interpolation from the vertices."))
+
+(defgeneric multiple-l2Dg (cell local-positions)
+  (:documentation "Computes the gradients at the local positions for
+@arg{cell}."))
+
+;;; For simplices and product-cells, the following functions are
+;;; specialized...
+
+(defgeneric barycentric-coordinates (refcell local-pos)
+  (:documentation "Computes barycentric coordinates for @arg{refcell} at
+@arg{local-pos}."))
+
+(defgeneric barycentric-gradients (refcell local-pos)
+  (:documentation "Computes the gradients of the barycentric coordinates
+for @arg{refcell} at @arg{local-pos}."))
+
+;;; ... and the following derived functions work on vectors of positions
+;;; and are memoized.
+
+(with-memoization (:id 'multiple-barycentric-coordinates)
+  (defun multiple-barycentric-coordinates (cell local-positions)
+    "Returns a vector of weight-vectors for the reference cell
+@arg{refcell} at @arg{local-positions}."
+    (memoizing-let ((refcell (reference-cell cell))
+		    (local-positions local-positions))
+      (map 'vector (curry #'barycentric-coordinates refcell)
+	   local-positions))))
+
+(with-memoization (:id 'multiple-barycentric-gradients)
+  (defun multiple-barycentric-gradients (cell local-positions)
+    "Returns a vector of weight-vectors for the reference cell
+@arg{refcell} at @arg{local-positions}."
+    (memoizing-let ((refcell (reference-cell cell))
+		    (local-positions local-positions))
+      (map 'vector (curry #'barycentric-gradients refcell)
+	   local-positions))))
+
+(defgeneric local-coordinates-of-midpoint (cell)
+  (:documentation "Returns the local coordinates of the cell midpoint."))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; element map implementation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; evaluation
+
+(with-memoization (:type :local :size 2 :debug nil :id 'l2g-evaluator)
+  (defun l2g-evaluator (cell)
+    "Returns an evaluator for @arg{cell} which maps barycentric coordinates
+to g-coordinates."
+    (memoizing-let ((cell cell))
+      (let ((dim (embedded-dimension cell))
+	    (g-corners (g-corners cell)))
+	(declare (type fixnum dim))
+	;; return value is a function
+	(lambda (weights)
+	  (declare (type double-vec weights))
+	  (let ((result (make-double-vec dim)))
+	    (declare (type double-vec result))
+	    (declare (optimize (speed 3) (safety 0)))
+	    (loop for weight of-type double-float across weights
+		  and corner of-type double-vec in g-corners do
+		  (dotimes (i dim)
+		    (incf (aref result i) (* weight (aref corner i))))
+		  finally (return result))))))))
+
+(defmethod l2g (cell local-pos)
+  "This default method uses a barycentric average of the vertex positions."
+  (funcall (l2g-evaluator cell)
+	   (barycentric-coordinates cell local-pos)))
+
+(with-memoization (:type :local :size 1 :debug nil :id 'multiple-l2g)
+  (defmethod multiple-l2g (cell local-positions)
+    "This default method uses a barycentric average of the vertex positions."
+    (memoizing-let ((cell cell) (local-positions local-positions))
+      (map 'vector (l2g-evaluator cell)
+	   (multiple-barycentric-coordinates cell local-positions)))))
+
+;;; gradient evaluation
+
+(defmethod l2Dg (cell local-pos)
+  "This default method computes an average of the barycentric coordinate
+gradients."
+  (m* (g-corner-matrix cell)
+      (barycentric-gradients cell local-pos)))
+
+(defmethod multiple-l2Dg (cell local-positions)
+  "This default method uses a barycentric average of the vertex positions."
+  (map 'vector (curry #'m* (g-corner-matrix cell))
+       (multiple-barycentric-gradients cell local-positions)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Derived functionality
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric midpoint (cell)
+  (:documentation "Returns cell midpoint in global coordinates.")
+  (:method (cell)
+    "Default method"
+    (local->global cell (local-coordinates-of-midpoint cell))))
+
+(defgeneric origin (cell)
+  (:documentation "Returns cell origin in global coordinates.")
+  (:method (cell)
+    "Default method."
+    (local->global cell (make-double-vec (dimension cell)))))
+
+(defparameter *print-cell* :midpoint
+  "If set to :MIDPOINT, prints the midpoint of a cell.")
+
+(defmethod print-object :after ((cell <cell>) stream)
+  "Printing cells."
+  (case *print-cell*
+    (:midpoint (format stream "{MP=~A}" (midpoint cell)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; class information for cells
@@ -182,62 +397,8 @@ of the class symbol."
   (with-cell-class-information (reference-cell) class reference-cell))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Parametrized cell classes
+;;; Derived functionality
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <mapped-cell> ()
-  ((mapping :accessor mapping :initarg :mapping))
-  (:documentation "A mixin which distinguishes cells which are mapped by a
-special mapping."))
-
-(defclass <distorted-cell> () ()
-  (:documentation "A mixin which distinguishes if the cell mapping is a
-distortion of the multilinear mapping."))
-
-(definline mapped-p (cell) (subtypep (class-of cell) '<mapped-cell>))
-
-(defun mapped-cell-class (class &optional distorted)
-  "Constructs a cell class with <mapped-cell> mixin."
-  (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
-	      (find-package "FL.MESH")))
-  (if (subtypep class '<mapped-cell>)
-      class
-      (let* ((unmapped-class (class-name class))
-	     (mapped-class
-	      (intern (concatenate 'string "<MAPPED-"
-				   (subseq (symbol-name unmapped-class) 1))
-		      "FL.MESH")))
-	(or (find-class mapped-class nil)
-	    (let ((new-class (eval `(defclass ,mapped-class
-				     (,@(when distorted 'fl.mesh::<distorted-cell>)
-					fl.mesh::<mapped-cell>
-					,unmapped-class) ()))))
-	      (setf (cell-class-information new-class)
-		    (cell-class-information class))
-	      new-class)))))
-
-(defun unmapped-cell-class (class)
-  "Returns the cell class without mapping mixin."
-  (assert (eq (symbol-package (if (symbolp class) class (class-name class)))
-	      (find-package "FL.MESH")))
-  (if (subtypep class '<mapped-cell>)
-      (let* ((mapped-class (class-name class))
-	     (unmapped-class
-	      (intern (concatenate 'string "<" (subseq (symbol-name mapped-class) 8))
-		      "FL.MESH")))
-	(find-class unmapped-class nil))
-      class))
-
-(defmethod mapping ((cell <cell>))
-  "No mapping for ordinary cells."
-  nil)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Further routines
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defgeneric vertices (cell)
-  (:documentation "Returns a list of all vertices of the cell."))
 
 (defgeneric copy-cell (cell)
   (:documentation "Copy constructor for cells.  It is guaranteed that the
@@ -334,40 +495,6 @@ cell class is initialized."
   (assert (reference-cell-p refcell))
   (fl.amop:compile-and-eval (generate-subcells-method-source refcell)))
 
-(let (previous-cell previous-corners)
-  (defmethod corners ((cell <cell>))
-    "Returns the corners of the cell.  The last value is cached because it
-is called often repeatedly on the same cell in l2g."
-    (cond
-      ((eq previous-cell cell) previous-corners)
-      (t (setq previous-cell cell)
-	 (setq previous-corners
-	       (mapcar #'(lambda (vtx) (local->global vtx (double-vec)))
-		       (vertices cell)))))))
-
-(let (previous-cell previous-matrix)
-  (defun corner-matrix (cell)
-    "Returns a matrix whose columns are the corners of the cell."
-    (cond
-      ((eq previous-cell cell) previous-matrix)
-      (t (setq previous-cell cell)
-	 (setq previous-matrix
-	       (let ((corners (corners cell)))
-		 (make-instance
-		  (standard-matrix 'double-float)
-		  :nrows (length (car corners)) :ncols (length corners)
-		  :store (apply #'concatenate 'double-vec corners))))))))
-
-(defmethod g-corners ((cell <cell>))
-  (mapcar #'(lambda (vtx) (l2g vtx (double-vec)))
-	  (vertices cell)))
-
-(defgeneric embedded-dimension (object)
-  (:documentation "Dimension of the embedding space for object.")
-  (:method ((cell <cell>))
-    "Recursive definition, anchored at the definition for vertices."
-    (embedded-dimension (aref (boundary cell) 0))))
-
 (defmethod cell-mapping ((cell <cell>))
   "For non-mapped cells, this method returns a <special-function> which can
 be called instead of @function{l2g} and @function{l2Dg}."
@@ -386,8 +513,7 @@ be called instead of @function{l2g} and @function{l2Dg}."
 	 :evaluator (curry #'l2g cell) :gradient (curry #'l2Dg cell)))))
 
 (defmethod cell-mapping ((cell <mapped-cell>))
-  "Return the mappingFor non-mapped cells, this returns a <special-function> which is
-equivalent to calling l2g and l2Dg."
+  "Return the mapping of the mapped @arg{cell}."
   (slot-value cell 'mapping))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -401,6 +527,14 @@ equivalent to calling l2g and l2Dg."
 (defmethod local->global ((cell <distorted-cell>) local-pos)
   (evaluate (slot-value cell 'mapping) (l2g cell local-pos)))
 
+(defmethod multiple-local->global ((cell <cell>) local-positions)
+  (multiple-l2g cell local-positions))
+(defmethod multiple-local->global ((cell <mapped-cell>) local-positions)
+  (multiple-evaluate (slot-value cell 'mapping) local-positions))
+(defmethod multiple-local->global ((cell <distorted-cell>) local-positions)
+  (multiple-evaluate (slot-value cell 'mapping)
+		     (multiple-l2g cell local-positions)))
+
 (defmethod local->Dglobal ((cell <cell>) local-pos)
   (l2Dg cell local-pos))
 (defmethod local->Dglobal ((cell <mapped-cell>) local-pos)
@@ -410,38 +544,28 @@ equivalent to calling l2g and l2Dg."
 	(Dg (l2Dg cell local-pos)))
     (m* (evaluate-gradient (slot-value cell 'mapping) g) Dg)))
 
-;;; Only these functions (specialized to multilinear mappings) are
-;;; different for each cell class.
+(defmethod multiple-local->Dglobal ((cell <cell>) local-positions)
+  (multiple-l2Dg cell local-positions))
+(defmethod multiple-local->Dglobal ((cell <mapped-cell>) local-positions)
+  (multiple-evaluate-gradient (slot-value cell 'mapping) local-positions))
+(defmethod multiple-local->Dglobal ((cell <distorted-cell>) local-positions)
+  (multiple-evaluate-gradient (slot-value cell 'mapping)
+			      (multiple-l2g cell local-positions)))
 
-(defgeneric l2g (cell local-pos)
-  (:documentation "Computes the global position by interpolation from
-the vertices."))
-
-(defgeneric l2Dg (cell local-pos)
-  (:documentation "Computes the gradient for a multilinear
-interpolation from the vertices."))
-
-;;; It may be faster to evaluate function/derivatives in one sweep.  The
-;;; following interface is a trial version to provide this functionality.  For
-;;; higher order problems and Hermite ansatz functions, it will probably be
-;;; necessary to generalize this to return the k-jet of a function.
-
-(defgeneric l2jet (cell coords k)
-  (:documentation "Returns the k-jet of the multilinear interpolation from
-vertices, i.e. multiple values g, Dg, ..., D^k g."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; global->local
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defgeneric global->local (cell global-pos)
-  (:documentation "Mainly useful for fe evaluation: from the local position, the
-value of a fe function can be obtained by interpolation.  This is done by a
-Newton iteration, which converges in one step for linear mappings."))
+  (:documentation "Mainly useful for finite element evaluation: from the
+local position, the value of a fe function can be obtained by
+interpolation.  This is done by a Newton iteration, which converges in one
+step for linear mappings."))
 
 (defvar *g2l-newton-steps* 20
-  "Limit for the number of Newton steps for global->local.  Small numbers
-should work for reasonable geometries and initial values.")
+  "Limit for the number of Newton steps for @function{global->local}.
+Small numbers should work for reasonable geometries and initial values.")
 
 (defun simple-newton (f x-start &key approximate-gradient)
   "A simple Newton iteration for converting global to local coordinates."
@@ -466,7 +590,7 @@ increase *g2l-newton-steps*."))))
 global-pos by the cell mapping."
   (if (= (dimension cell) (length global-pos))
       (simple-newton #'(lambda (x) (m- (local->global cell x) global-pos))
-		     (make-double-vec (dimension cell))
+		     (local-coordinates-of-midpoint cell)
 		     :approximate-gradient #'(lambda (x) (local->Dglobal cell x)))
       (let* ((A (local->Dglobal cell (make-double-vec (dimension cell))))
 	     (At (transpose A))
@@ -486,9 +610,6 @@ reference cell."))
 (defmethod inside-cell? ((cell <cell>) position)
   (let ((local (global->local cell position)))
     (coordinates-inside? cell local)))
-
-(defgeneric local-coordinates-of-midpoint (cell)
-  (:documentation "Returns local coordinates of the cell midpoint."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; global->embedded-local

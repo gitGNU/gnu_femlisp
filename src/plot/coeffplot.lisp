@@ -34,72 +34,66 @@
 
 (in-package :fl.plot)
 
-(defmethod graphic-commands ((problem <pde-problem>) (program (eql :dx))
-			     &key (foreground :white) &allow-other-keys)
-  (let ((axis-color (ecase foreground (:black "black")(:white "white")))
-	(graph-color (ecase foreground (:black "black")(:white "yellow"))))
-    (case (dimension (domain problem))
-      (1 (list
-	  "data = Options(data, \"mark\", \"circle\");"
-	  (format nil "data = Color(data,~S);" graph-color)
-	  (format nil "image = Plot(data, colors=~S);" axis-color)
-	  ;;"xyplot = Plot(data);"
-	  ;;"camera = AutoCamera(xyplot);"
-	  ;;"image = Render (xyplot, camera);"
-	  ))
-      (2 (list
-	  "colored = AutoColor(data);"
-	  "surface = Isosurface(data, number=20);"
-	  "image = Collect(surface,colored);"
-	  ;;"camera = AutoCamera(image);"
-	  ;;"image = Render(image, camera);"
-	  ))
-      (3 (list
-	  "connections = ShowConnections(data);"
-	  "tubes = Tube(connections, 0.01);"
-	  "image = AutoColor(tubes);"
-	  ;;"camera = AutoCamera(tubes, \"off diagonal\");"
-	  ;;"image = Render(tubes, camera);"
-	  )))))
+(defmethod graphic-commands ((asv <pde-problem>) (program (eql :dx))
+			     &rest rest)
+  (apply 'fl.graphic::dx-commands-data rest))
 
-(defmethod plot ((problem <pde-problem>) &rest rest &key
-		 (depth 0) (key #'identity) (refinements 0) parametric coefficient
-		 &allow-other-keys)
-  "Plots a coefficient function for problem.  It generates a temporary
-mesh, refines it as often as given in the keyword parameter refinements and
-plots the coefficient function on this mesh where each cell is resolved as
-given by the additional parameter depth."
-  (let* ((mesh (uniformly-refined-mesh (domain problem)	refinements
-				       :parametric parametric))
-	 (cells (cells-of-highest-dim mesh)))
-    (apply #'graphic-output problem :dx
-	   :dimension (dimension mesh)
-	   :cells cells
-	   :cell->values 
-	   #'(lambda (cell)
-	       (whereas ((coeff-func (getf (coefficients-of-cell cell mesh problem)
-					   coefficient)))
-		 (let* ((local-vertices (refcell-refinement-vertices
-					 (reference-cell cell) depth))
-			(values (make-double-vec (length local-vertices))))
-		   (dotimes (i (length local-vertices))
-		     (let* ((lcoords (vertex-position (aref local-vertices i)))
-			    (ci (list :local lcoords :global (local->global cell lcoords))))
-		       (setf (aref values i)
-			     (funcall key (evaluate coeff-func ci)))))
-		   values)))
-	   rest)))
+(defmethod plot ((problem <pde-problem>) &rest rest &key mesh (refinements 0)
+		 (depth 0) (key #'identity) parametric coefficient
+		 (rank 0) (shape 1) &allow-other-keys)
+  "Plots a coefficient function for the problem on the given mesh.  Does
+handle coefficients depending on finite element functions."
+  (ensure mesh (uniformly-refined-mesh
+		(domain problem) refinements :parametric parametric))
+  (apply #'graphic-output problem :dx
+	 :dimension (dimension mesh)
+	 :cells (plot-cells mesh)
+	 :rank rank :shape shape
+	 :cell->values
+	 (lambda (cell)
+	   (whereas ((coeff-func (getf (coefficients-of-cell cell mesh problem)
+				       coefficient)))
+	     (let* ((sample-points
+		     (refcell-refinement-vertex-positions cell depth))
+		    (geometry (fe-cell-geometry cell sample-points))
+		    (fe-paras (loop for obj in (required-fe-functions
+						(list coefficient coeff-func))
+				    for asv = (get-property problem
+							    (if (symbolp obj) obj (car obj)))
+				    for fe = (get-fe (fe-class asv) cell)
+				    collect obj
+				    collect (cons fe (get-local-from-global-vec cell fe asv))))
+		    (fe (when fe-paras
+			  (assert (<= (length fe-paras) 2))
+			  (prog1 (car (second fe-paras))
+			    (setf (second fe-paras) (cdr (second fe-paras))))))
+		    (dummy (unless fe
+			     (make-array (length sample-points) :initial-element nil))))
+	       (map 'vector
+		    (lambda (global Dphi Dphi^-1 shape-vals shape-grads)
+		      (let* ((gradients (and shape-grads
+					     (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
+			     (coeff-input (construct-coeff-input
+					   cell global Dphi shape-vals gradients fe-paras)))
+			(funcall key (evaluate coeff-func coeff-input))))
+		    (getf geometry :global-coords)
+		    (getf geometry :gradients)
+		    (getf geometry :gradient-inverses)
+		    (or dummy (local-evaluation-matrix fe depth))
+		    (or dummy (local-evaluation-matrix fe depth :gradient))))))
+	 rest))
 
 ;;; Testing: (test-coeffplot)
 
 (defun test-coeffplot ()
-  (let* ((dim 1) (domain (n-cell-domain dim))
-	 (my-problem
+  (let* ((dim 1)
+	 (domain (n-cell-domain dim))
+	 (problem
 	  (make-instance
 	   '<pde-problem> :domain domain :patch->coefficients
 	   (constantly (list 'MY-COEFFICIENT
 			     (ensure-coefficient #'(lambda (x) (aref x 0))))))))
-    (plot my-problem :refinements 0 :coefficient 'MY-COEFFICIENT))
+    (plot problem :refinements 2 :coefficient 'MY-COEFFICIENT))
   )
 
 (fl.tests:adjoin-test 'test-coeffplot)

@@ -78,7 +78,7 @@ the diffusion tensor."
 	    (list 'FL.CDR::DIFFUSION (ensure-coefficient diffusion-function)
 		  'FL.CDR::GAMMA (constant-coefficient (eye dim))))
 	   ((mzerop (midpoint patch))
-	    (list 'FL.CDR::CONSTRAINT (constant-coefficient 0.0)))))
+	    (list 'CONSTRAINT (constant-coefficient 0.0)))))
 	 )))
 
 (defun simple-square-inlay-cell-problem (dim)
@@ -193,8 +193,8 @@ must be a scalar multiple of the identity."
 	(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t))
 #+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 2)
 #+(or)
-(let ((A (FL.algebra::ellipse-matrix 0.25 0.3 0.7854)))
-  (cdr-interior-effective-coeff-demo (porous-cell-problem 2 :A A) 4 2 :plot t))
+(let ((A (ellipse-matrix 0.25 0.3 0.7854)))
+  (cdr-interior-effective-coeff-demo (porous-cell-problem 2 :A A) 4 4 :plot t))
 
 (defparameter *effective-diffusion-demo*
   (make-demo

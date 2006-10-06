@@ -41,7 +41,7 @@ be solved at the beginning."
   (map-coefficients
    #'(lambda (coeff-name coeff)
        (case coeff-name
-	 (FL.CDR::CONSTRAINT (values coeff-name coeff))
+	 (CONSTRAINT (values coeff-name coeff))
 	 (FL.CDR::INITIAL (values 'FL.CDR::SOURCE coeff))
 	 (FL.CDR::REACTION (values coeff-name (constant-coefficient 1.0)))
 	 (t (values nil nil))))

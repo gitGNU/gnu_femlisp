@@ -66,7 +66,7 @@ represented as nested lists."))
 (defmethod degree ((poly polynomial))
   (- (length (coefficients poly)) 1))
 
-(defmethod multi-degree ((poly polynomial))
+(defmethod total-degree ((poly polynomial))
   (labels ((tensorial-degree (coeff-lst)
 	     (apply #'max
 		    (mapcar #'(lambda (coeff deg)

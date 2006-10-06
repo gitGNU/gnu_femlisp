@@ -108,15 +108,16 @@ added to the visited demos."
 (defun fuzzy-match-strings (string1 string2)
   "Match two strings allowing abbreviations of the form `h-2'
 for `homogenization-2d'."
+  (declare (optimize debug))
   (loop for pos1 below (length string1)
 	and pos2 below (length string2) do
 	;;until (or (= pos1 (length string1)) (= pos2 (length string2)))
 	(when (eql (aref string1 pos1) #\-)
-	  (setq pos2 (position #\- string2 :start pos2))
-	  (unless pos2 (return nil)))
+	  (setq pos2 (or (position #\- string2 :start pos2)
+			 (return nil))))
 	(when (eql (aref string2 pos2) #\-)
-	  (setq pos1 (position #\- string1 :start pos1))
-	  (unless pos1 (return nil)))
+	  (setq pos1 (or (position #\- string1 :start pos1)
+			 (return nil))))
 	(unless (char-equal (aref string1 pos1) (aref string2 pos2))
 	  (return nil))
 	finally (return t)))
@@ -318,6 +319,7 @@ generating function."
     buggy-demos))
   
 (defun test-demo ()
+  (assert (not (fuzzy-match-strings "unit-interval" "--2")))
   ;; generate and delete a demo
   (let ((demo (make-demo :name "hello" :short "Hello, world!" :long "Simple test"
 			 :execute (lambda () (princ "Hello, world!~%")))))

@@ -47,8 +47,18 @@
 	      (format stream "~G " (float coord 1.0))
 	    finally (terpri stream)))))
 
+(defparameter *dx-bug-transformation*
+  (make-instance '<linear-function>
+		 :A (let ((eps 1.0d-5))
+		      (make-real-matrix `((,(cos eps) ,(- (sin eps)))
+					  (,(sin eps) ,(cos eps))))))
+  "Transformation which drops the ugly line occuring for me due to some bug
+either in DX or Mesa.")
+
 (defmethod graphic-write-data (stream object (program (eql :dx))
-			       &key cells cell->values (depth 0) transformation)
+			       &key cells cell->values
+			       (rank 0) shape
+			       (depth 0) transformation)
   "Rather general plotting procedure writing data to a file.  Plots in
 Gnuplot format in 1D, to DX format in 2D and 3D.  Can plot data either
 discontinuous or continuous at the cell boundaries when coefficient
@@ -91,10 +101,16 @@ data-- or some function mapping cells to a list of corner values."
     
     ;; write data
     (when values
-      (format stream "object 4 class array type float rank 0 items ~A data follows~%"
-	      (length values))
-      (loop for value across values do (format stream "~10,8,,,,,'eG~%"
-					       (coerce value 'single-float)))
+      (format stream "object 4 class array type float rank ~D" rank)
+      (when shape (format stream " shape ~D" shape))
+      (format stream " items ~D data follows~%" (length values))
+      (loop for value across values do
+	    (setq value (etypecase value
+			  (number (list value))
+			  (vector (coerce value 'list))))
+	    (loop for num in value do
+		  (format stream "~10,8,,,,,'eG " (coerce num 'single-float))
+		  finally (terpri stream)))
       (format stream "attribute \"dep\" string \"positions\"~%"))
 
     ;; epilogue

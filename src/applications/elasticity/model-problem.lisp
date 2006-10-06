@@ -38,7 +38,7 @@
   "Performs the model problem demo."
   (defparameter *result*
     (solve (blackboard
-	    :problem (standard-elasticity-problem domain)
+	    :problem (elasticity-model-problem domain)
 	    :plot-mesh t :output output :success-if `(> :time ,fl.demo:*demo-time*))))
   (when plot
     (plot (getbb *result* :solution))))
@@ -58,29 +58,30 @@ uniform refinement."))
 (make-elasticity-model-problem-demo (n-simplex-domain 2) "unit-triangle")
 (make-elasticity-model-problem-demo (n-cube-domain 2) "unit-quadrangle")
 (make-elasticity-model-problem-demo (n-simplex-domain 3) "unit-tetrahedron")
-(make-elasticity-model-problem-demo (tensorial-domain '(1 2)) "unit-wedge-1-2")
-(make-elasticity-model-problem-demo (tensorial-domain '(2 1)) "unit-wedge-2-1")
+(make-elasticity-model-problem-demo (simplex-product-domain '(1 2)) "unit-wedge-1-2")
+(make-elasticity-model-problem-demo (simplex-product-domain '(2 1)) "unit-wedge-2-1")
 (make-elasticity-model-problem-demo (n-cube-domain 3) "unit-cube")
 
 (defun test-elasticity-model-problem ()
 
-;;; Linear elasticity problem
-(defparameter *result*
-  (time
-   (let ((dim 2))
-     (solve
-      (blackboard
-       :problem
-       (standard-elasticity-problem
-	(n-cube-domain dim) :lambda 1.0 :mu 1.0
-	:force (constant-coefficient (make-array dim :initial-element (ones 1))))
+  ;; Linear elasticity problem
+  (defparameter *result*
+    (time
+     (let ((dim 2))
+       (solve
+	(blackboard
+	 :problem
+	 (elasticity-model-problem
+	  (n-cube-domain dim) :lambda 1.0 :mu 1.0
+	  :force (constant-coefficient (make-array dim :initial-element (ones 1))))
        
-;;        :fe-class (lagrange-fe 1 :nr-comps dim)
-;;        :solver (make-instance '<linear-solver> :iteration (make-instance '<stueben>
-;; 									 :cg-max-size 10 :output t)
-;; 			      :success-if '(and (> :step 1) (< :defnorm 1.0e-10)))
-       :output t :success-if '(> :nr-levels 2))))))
-(plot (getbb *result* :solution) :component 0)
+	 ;;        :fe-class (lagrange-fe 1 :nr-comps dim)
+	 ;;        :solver (make-instance '<linear-solver> :iteration (make-instance '<stueben>
+	 ;; 									 :cg-max-size 10 :output t)
+	 ;; 			      :success-if '(and (> :step 1) (< :defnorm 1.0e-10)))
+	 :output t :success-if '(> :nr-levels 2))))))
+  (plot (getbb *result* :solution))
+  (plot (getbb *result* :solution) :component 1)
 
 )
 

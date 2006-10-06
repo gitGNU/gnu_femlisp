@@ -49,6 +49,18 @@ element approximation."))
 ;;; Adaption of the fe-approximation strategy
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun interpolate-function (as func &optional solution)
+  "Interpolates @arg{func} with the ansatz-space @arg{as}."
+  (ensure solution (make-ansatz-space-vector as))
+  (with-slots (mesh fe-class) as
+    (doskel (cell mesh)
+      (let ((fe (get-fe fe-class cell)))
+	(unless (zerop (nr-of-inner-dofs fe))
+	  (setf (vref solution (cell-key cell mesh))
+		(interpolate-on-refcell
+		 fe (compose func (curry #'local->global cell)))))))
+    solution))
+
 (defmethod approximate ((fe-strategy <fe-interpolation>) blackboard)
   "Interpolates a given function.  Does only Lagrange interpolation at the
 moment."

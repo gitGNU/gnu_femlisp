@@ -41,6 +41,7 @@
 
 (defmethod total-entries ((obj number)) 1)
 
+(defmethod make-analog ((x number)) (coerce 0 (type-of x)))
 (defmethod copy ((x number)) x)
 
 (defmethod m* ((x number) (y number))
@@ -67,6 +68,9 @@
 
 (defmethod axpy! (alpha (x number) (y number))
   (+ (* alpha x) y))
+
+(defmethod gemm-nn! (alpha (x number) (y number) beta (z number))
+  (+ (* alpha x y) (* beta z)))
 
 (defmethod l2-norm ((x number)) (abs x))
 (defmethod lp-norm ((x number) p)

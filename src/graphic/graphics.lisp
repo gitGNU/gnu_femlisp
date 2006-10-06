@@ -37,10 +37,12 @@
 (defparameter *default-graphic-program* :dx
   "Default graphics program.")
 
-(defparameter *images-pathname*
-  (or (aand fl.start::*images-directory* (pathname it))
-      (translate-logical-pathname #p"femlisp:images;"))
-  "Pathname of the directory for @femlisp{} images.")
+(defun images-pathname ()
+  "Pathname of the directory for @femlisp{} images."
+  (or (aand (or (fl.port::getenv "FEMLISP_IMAGES")
+		fl.start::*images-directory*)
+	    (pathname it))
+      (translate-logical-pathname #p"femlisp:images;")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Public interface
@@ -69,7 +71,7 @@ program."))
 ;;;; General graphics output
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod graphic-output (object program &rest rest &key &allow-other-keys)
+(defmethod graphic-output (object program &rest rest)
   "Calls the generic graphic interface in appropriate order."
   (let* ((pathname (apply #'graphic-file-name object program rest)))
     ;; write output to a standard file

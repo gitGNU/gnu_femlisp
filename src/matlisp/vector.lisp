@@ -124,25 +124,23 @@ than @arg{threshold}."))
 ;;; The following is the old interface and will be replaced rather soon by
 ;;; a macro based approach which allows suitable inlining.
 
-(defgeneric for-each-key (func vec))
-(defgeneric for-each-entry (func vec))
-(defgeneric for-each-key-and-entry (func vec))
-(defgeneric for-each-entry-of-vec1 (func vec1 vec2)
-  (:documentation "Calls @arg{func} on all entries of @arg{vec1} with this
-entry and the corresponding entry of @arg{vec2}.  Deprecated, use
-@function{for-each-key-and-entry} instead.")
-  (:method ((fn function) vec1 vec2)
-  (for-each-key-and-entry  #'(lambda (key entry)
-			       (funcall fn entry (vref vec2 key)))
-			   vec1)))
+(defgeneric for-each-key (func vec)
+  (:documentation "Calls @arg{func} on all indices/keys of @arg{vec}."))
 
-(defgeneric for-each-entry-of-vec2 (func vec1 vec2)
-  (:documentation "Calls @arg{func} on all entries of @arg{vec2} with the
-corresponding entry of @arg{vec1} and that entry.  Deprecated.")
-  (:method ((fn function) vec1 vec2)
-  (for-each-key-and-entry  #'(lambda (key entry)
-			       (funcall fn (vref vec1 key) entry))
-			   vec2)))
+(defgeneric for-each-entry (func vec)
+  (:documentation "Calls @arg{func} on all entries of @arg{vec}.")
+  (:method (func vec)
+    "Default method defined with @function{for-each-key}.  Probably slower
+than a special implementation."
+    (for-each-key #'(lambda (key) (funcall func (vref vec key))) vec)))
+
+(defgeneric for-each-key-and-entry (func vec)
+  (:documentation "Calls @arg{func} on all keys and associated entries of
+@arg{vec}.")
+  (:method (func vec)
+    "Default method defined with @function{for-each-key}.  Probably slower
+than a special implementation."
+    (for-each-key #'(lambda (key) (funcall func key (vref vec key))) vec)))
 
 (defmacro dovec ((loop-vars vec) &body body)
   "Loops on indices and entries of a vector.  Examples:
@@ -271,10 +269,13 @@ corresponding entry of @arg{vec1} and that entry.  Deprecated.")
 
 (defmethod axpy! (alpha x y)
   "Recursive definition for AXPY! usable for sparse block vectors."
-  (for-each-entry-of-vec1
-   #'(lambda (x y)
-       (axpy! (coerce alpha (scalar-type x)) x y))
-   x y)
+  (for-each-key
+   #'(lambda (key)
+       (let ((xc (vref x key)))
+	 (setf (vref y key)
+	       (axpy! (coerce alpha (scalar-type xc)) xc
+		      (vref y key)))))
+   x)
   y)
 
 (defmethod l2-norm (vec)
@@ -302,23 +303,25 @@ corresponding entry of @arg{vec1} and that entry.  Deprecated.")
 
 (defmethod dot (x y)
   (let ((sum 0))
-    (for-each-entry-of-vec1 #'(lambda (x y) (incf sum (dot x y)))
-			    x y)
+    (for-each-key
+     #'(lambda (key)
+	 (incf sum (dot (vref x key) (vref y key))))
+     x)
     sum))
 
 (defmethod dot-abs (x y)
   (let ((sum 0))
-    (for-each-entry-of-vec1 #'(lambda (x y) (incf sum (dot-abs x y)))
-			    x y)
+    (for-each-key #'(lambda (key) (incf sum (dot-abs (vref x key) (vref y key))))
+		  x)
     sum))
 
 (defmethod mequalp (x y)
   (when (= (total-entries x) (total-entries y))
-    (for-each-entry-of-vec1
-     #'(lambda (x y)
-	 (unless (mequalp x y)
+    (for-each-key
+     #'(lambda (key)
+	 (unless (mequalp (vref x key) (vref y key))
 	   (return-from mequalp nil)))
-     x y)
+     x)
     t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -326,6 +329,7 @@ corresponding entry of @arg{vec1} and that entry.  Deprecated.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-vector ()
+  (assert (mequalp (m+! (vector (vector 3.0)) (vector (vector 4.0))) #(#(7.0))))
   )
 
 ;;; (test-vector)

@@ -57,10 +57,10 @@ e.g. @code{:implicit-euler} or @code{:crank-nicolson}.")
    (fl.iteration::observe :initform *rothe-observe* :initarg :observe
     :documentation "Providing initform for <iteration> slot."))
   (:documentation "Rothe strategy for time-dependent problems.  The idea of
-the Rothe method for solving $$U_t +A U =f$$ is to do an ODE time-stepping
-scheme in an infinite-dimensional function space.  Therefore, in every
-time-step, the solution has to be approximated sufficiently well in the
-space variable."))
+the Rothe method for solving @math{U_t +A U =f} is to do an ODE
+time-stepping scheme in an infinite-dimensional function space.  Therefore,
+in every time-step, the solution has to be approximated sufficiently well
+in the space variable."))
 
 (concept-documentation
  "Projection to the initial value is done by defining a problem performing

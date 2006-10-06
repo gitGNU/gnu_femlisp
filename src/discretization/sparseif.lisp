@@ -115,6 +115,7 @@ and fe to the values of local-mat."))
 	   (type <scalar-fe> fe)
 	   (type symbol operation)
 	   (type (or null fixnum-vec) subcell-offset))
+  ;; this loop ordering is good only for the single-valued case 
   (dotimes (i (ncols local-vec))
     (do-dof (dof fe)
       ;;(declare (optimize (speed 3) (safety 1)))
@@ -135,18 +136,20 @@ and fe to the values of local-mat."))
 
 (defmethod do-fe-dofs ((cell <cell>) (fe <scalar-fe>) (svec <sparse-vector>)
 		       local-vec (operation symbol))
-  (let ((vblocks (cell->value-blocks cell fe svec)))
-    (do-fe-dofs-vblocks vblocks fe local-vec operation)))
-
+  (with-mutual-exclusion (svec)
+    (let ((vblocks (cell->value-blocks cell fe svec)))
+      (do-fe-dofs-vblocks vblocks fe local-vec operation))))
+  
 (defmethod do-fe-dofs ((cell <cell>) (vecfe <vector-fe>) (svec <sparse-vector>)
 		       (local-vec array) (operation symbol))
-  (let ((vblocks (cell->value-blocks cell vecfe svec))
-	(components (components vecfe))
-	(subcell-offsets (subcell-offsets vecfe)))
-    (dotimes (i (length components))
-      (do-fe-dofs-vblocks vblocks (aref components i)
-			  (aref local-vec i) operation
-			  (aref  subcell-offsets i)))))
+  (with-mutual-exclusion (svec)
+    (let ((vblocks (cell->value-blocks cell vecfe svec))
+	  (components (components vecfe))
+	  (subcell-offsets (subcell-offsets vecfe)))
+      (dotimes (i (length components))
+	(do-fe-dofs-vblocks vblocks (aref components i)
+			    (aref local-vec i) operation
+			    (aref  subcell-offsets i))))))
 
 (defmethod fill-local-from-global-vec ((cell <cell>) fe (svec <sparse-vector>) local-vec)
   (do-fe-dofs cell fe svec local-vec :local<-global))
@@ -184,15 +187,19 @@ still a suboptimal implementation for vector functions."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod cell->matrix-value-blocks ((cell <cell>) fe (smat <sparse-matrix>))
-  (let* ((mesh (mesh smat))
-	 (subcells (vector-map (rcurry #'cell-key mesh) (subcells cell)))
-	 (result (make-array (twice (nr-of-subcells cell)) :initial-element nil)))
-    (loop for subcell-index-1 in (subcell-indices fe) do
-	  (loop for subcell-index-2 in (subcell-indices fe) do
-		(setf (aref result subcell-index-1 subcell-index-2)
-		      (mref smat (aref subcells subcell-index-1)
-			       (aref subcells subcell-index-2)))))
-    result))
+  (?1
+   (let* ((mesh (mesh smat))
+	  (subcells (vector-map (rcurry #'cell-key mesh) (subcells cell)))
+	  (result (make-array (twice (nr-of-subcells cell)) :initial-element nil)))
+     (loop for subcell-index-1 in (subcell-indices fe) do
+	   (loop for subcell-index-2 in (subcell-indices fe) do
+		 (setf (aref result subcell-index-1 subcell-index-2)
+		       (mref smat (aref subcells subcell-index-1)
+			     (aref subcells subcell-index-2)))))
+     result)
+   (let* ((mesh (mesh smat))
+	  (subcell-keys (vector-map (rcurry #'cell-key mesh) (subcells cell))))
+     (fl.algebra::extract-value-blocks smat subcell-keys subcell-keys))))
 
 (defun do-fe-dofs-mblocks (mblocks fe1 fe2 local-mat operation
 			   &optional subcell-offset1 subcell-offset2)
@@ -227,19 +234,22 @@ still a suboptimal implementation for vector functions."
 
 (defmethod do-fe-dofs-mat ((cell <cell>) (fe <scalar-fe>) (smat <sparse-matrix>)
 			   local-mat (operation symbol))
-  (let ((mblocks (cell->matrix-value-blocks cell fe smat)))
-    (do-fe-dofs-mblocks mblocks fe fe local-mat operation)))
+  (with-mutual-exclusion (smat)
+    (let ((mblocks (cell->matrix-value-blocks cell fe smat)))
+      (do-fe-dofs-mblocks mblocks fe fe local-mat operation))))
+
 
 (defmethod do-fe-dofs-mat ((cell <cell>) (vecfe <vector-fe>) (smat <sparse-matrix>)
 			   (local-mat array) (operation symbol))
-  (let ((mblocks (cell->matrix-value-blocks cell vecfe smat))
-	(components (components vecfe))
-	(subcell-offsets (subcell-offsets vecfe)))
-    (dotimes (i (length components))
-      (dotimes (j (length components))
-	(do-fe-dofs-mblocks mblocks (aref components i) (aref components j)
-			    (aref local-mat i j) operation
-			    (aref subcell-offsets i) (aref subcell-offsets j))))))
+  (with-mutual-exclusion (smat)
+    (let ((mblocks (cell->matrix-value-blocks cell vecfe smat))
+	  (components (components vecfe))
+	  (subcell-offsets (subcell-offsets vecfe)))
+      (dotimes (i (length components))
+	(dotimes (j (length components))
+	  (do-fe-dofs-mblocks mblocks (aref components i) (aref components j)
+			      (aref local-mat i j) operation
+			      (aref subcell-offsets i) (aref subcell-offsets j)))))))
 
 (defmethod fill-local-from-global-mat ((cell <cell>) fe (smat <sparse-matrix>) local-mat)
   (do-fe-dofs-mat cell fe smat local-mat :local<-global))

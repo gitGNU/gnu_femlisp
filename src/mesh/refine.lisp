@@ -38,7 +38,7 @@
  "This module provides definitions for refinement rules and functions for
 refinements of skeletons.  The actual form of refinement information
 depends on the cell type and is calculated separately in the files
-vertex.lisp, simplex.lisp, and tensorial.lisp.")
+vertex.lisp, simplex.lisp, and product-cell.lisp.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; refinement-rules
@@ -467,7 +467,6 @@ or only the highest-dimensional cells."))
 	   (let ((rule (get-refinement-rule cell rule)))
 	     (if rule
 		 (refine-cell! rule cell skel refined-skel refined)
-		 (break) #+(or)
 		 (error "Refinement rule not found."))))))
    region :direction :up :dimension (and highest :highest)))
 

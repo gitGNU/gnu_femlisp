@@ -40,7 +40,7 @@
    "FOR" "FOR<" "MULTI-FOR" "DEFINLINE"
    "?1" "?2" "?3"
    "DELAY" "FORCE"
-   "FLUID-LET")
+   "FLUID-LET" "SHOW-CALL")
   (:documentation
    "This package contains some basic macro definitions used in Femlisp."))
 
@@ -268,6 +268,14 @@ deprecated, because it won't be recognized by default by editors."
 		    ,@body)
 	  ,@(loop for (place nil) in bindings and i from 0 collect
 		  `(setf ,place (nth ,i ,saved))))))))
+
+(defmacro show-call (func &optional name)
+  "Wraps a function object inside a trace form."
+  (with-gensyms (result)
+    `(lambda (&rest args)
+      (let ((,result (multiple-value-list (apply ,func args))))
+	(format t "~&~A called with ~A, produced ~A~%" ',name args ,result)
+	(apply #'values ,result)))))
 
 ;;;; Testing:
 (defun test-macros ()

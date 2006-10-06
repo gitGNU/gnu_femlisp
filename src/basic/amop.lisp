@@ -56,7 +56,8 @@ non-ANSI and may represent a problem when porting Femlisp."))
 (defun compile-and-eval (source)
   "Compiles and evaluates the given @arg{source}.  This should be an ANSI
 compatible way of ensuring method compilation."
-  (let ((*compile-print* (dbg-p :compile)))
+  (let ((*compile-print* (dbg-p :compile))
+	(*compile-verbose* (dbg-p :compile)))
     (dbg :compile "Compiling and evaluating: ~%~S~%" source)
     ;; for SBCL and CMUCL, EVAL might be sufficient here
     (funcall (compile nil (list 'lambda () source)))))

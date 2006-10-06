@@ -141,8 +141,9 @@ decomposition."))
 		      (copy! (vref b key) (vref r key))
 		      (for-each-key-and-entry-in-row
 		       #'(lambda (col-key mblock)
-			   #+(or)(gemm! -1.0 mblock (vref x col-key) 1.0 (vref r key))
-			   #-(or)(x-=Ay (vref r key) mblock (vref x col-key)))
+			   #-(or)(gemm! -1.0 mblock (vref x col-key) 1.0 (vref r key))
+			   ;; warning: does not work
+			   #+(or)(x-=Ay (vref r key) mblock (vref x col-key)))
 		       smat key)))
 	      ;; solve for local block
 	      (let ((local-r (sparse-vector->matlisp r block block-ranges))

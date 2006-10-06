@@ -101,6 +101,7 @@ system should be completely equivalent to the original one."
 	      mat i))))
      mat)))
 
+
 (defun assemble-interior (ansatz-space &key level (where :surface)
 			  matrix rhs
 			  (mass-factor 0.0) (stiffness-factor 1.0))
@@ -121,48 +122,52 @@ routine.
 In general, this function does most of the assembly work.  Other steps like
 handling constraints are intricate, but usually of lower complexity."
   (dbg :disc "Mass-factor=~A Stiffness-factor=~A" mass-factor stiffness-factor)
-  (let* ((problem (problem ansatz-space))
-	 (h-mesh (hierarchical-mesh ansatz-space))
-	 (level-skel (if level (cells-on-level h-mesh level) h-mesh))
-	 (fe-class (fe-class ansatz-space)))
-    (doskel (cell level-skel)
-      (when (ecase where
-	      (:refined (refined-p cell h-mesh))
-	      (:surface (not (refined-p cell h-mesh)))
-	      (:all t))
-	(let* ((patch (patch-of-cell cell h-mesh))
-	       (patch-properties (skel-ref (domain h-mesh) patch)))
-	  ;; for the moment, we assume that the problem is resolved by the
-	  ;; domain structure, i.e. that distributional coefficients occur
-	  ;; only on patches.
-	  (whereas ((coeffs (filter-applicable-coefficients
-			     (coefficients-of-cell cell h-mesh problem)
-			     cell patch :constraints nil)))
-	    (let* ((fe (get-fe fe-class cell))
-		   (qrule (quadrature-rule fe))
-		   (geometry (fe-cell-geometry
-			      cell qrule
-			      :metric (getf patch-properties 'FL.MESH::METRIC)
-			      :volume (getf patch-properties 'FL.MESH::VOLUME)))
-		   (local-mat (and matrix (make-local-mat fe)))
-		   (local-rhs (and rhs (make-local-vec fe (multiplicity ansatz-space))))
-		   (fe-paras (loop for obj in (required-fe-functions coeffs)
-				   collect obj collect
-				   (get-local-from-global-vec
-				    cell fe (get-property
-					     problem (if (symbolp obj) obj (car obj)))))))
-	      (discretize-locally
-	       problem coeffs fe qrule geometry
-	       :matrix local-mat :rhs local-rhs
-	       :mass-factor mass-factor :stiffness-factor stiffness-factor
-	       :fe-parameters fe-paras)
-	      ;; accumulate to global matrix and rhs (if not nil)
-	      (when rhs (increment-global-by-local-vec cell fe rhs local-rhs))
-	      (when matrix (increment-global-by-local-mat cell fe matrix local-mat))))))))
-  ;;  experimental: static condensation
-  (when *static-condensation*
-    (static-condensation matrix rhs))
-  )
+  (let* ((h-mesh (hierarchical-mesh ansatz-space))
+	 (problem (problem ansatz-space))
+	 (fe-class (fe-class ansatz-space))
+	 (level-skel (if level (cells-on-level h-mesh level) h-mesh)))
+    (with-workers
+	((lambda (cell)
+	   (let* ((patch (patch-of-cell cell h-mesh))
+		  (patch-properties (skel-ref (domain h-mesh) patch)))
+	     ;; for the moment, we assume that the problem is resolved by the
+	     ;; domain structure, i.e. that distributional coefficients occur
+	     ;; only on patches.
+	     (whereas ((coeffs (filter-applicable-coefficients
+				(coefficients-of-cell cell h-mesh problem)
+				cell patch :constraints nil)))
+	       (let* ((fe (get-fe fe-class cell))
+		      (qrule (quadrature-rule fe))
+		      (geometry (fe-cell-geometry
+				 cell (integration-points qrule)
+				 :weights (integration-weights qrule)
+				 :metric (getf patch-properties 'FL.MESH::METRIC)
+				 :volume (getf patch-properties 'FL.MESH::VOLUME)))
+		      (local-mat (and matrix (make-local-mat fe)))
+		      (local-rhs (and rhs (make-local-vec fe (multiplicity ansatz-space))))
+		      (fe-paras (loop for obj in (required-fe-functions coeffs)
+				      collect obj collect
+				      (get-local-from-global-vec
+				       cell fe (get-property
+						problem (if (symbolp obj) obj (car obj)))))))
+		 (discretize-locally
+		  problem coeffs fe qrule geometry
+		  :matrix local-mat :rhs local-rhs
+		  :mass-factor mass-factor :stiffness-factor stiffness-factor
+		  :fe-parameters fe-paras)
+		 ;; accumulate to global matrix and rhs (if not nil)
+		 (when rhs (increment-global-by-local-vec cell fe rhs local-rhs))
+		 (when matrix (increment-global-by-local-mat cell fe matrix local-mat)))))))
+      ;; fill pipeline for workers
+      (doskel (cell level-skel)
+	(when (ecase where
+		(:refined (refined-p cell h-mesh))
+		(:surface (not (refined-p cell h-mesh)))
+		(:all t))
+	  (work-on cell))))
+    ;;  experimental: static condensation, should also be parallelized
+    (when *static-condensation*
+      (static-condensation matrix rhs))))
 
 #+(or)  ; new, not yet active
 (defun compute-interior-level-matrix (interior-mat sol level)

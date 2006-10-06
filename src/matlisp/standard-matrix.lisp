@@ -113,13 +113,15 @@ If content is a 2d array, the dimensions can be deduced."
 	     (dotimes (j ncols)
 	       (setf (aref store (indexing i j nrows ncols)) (aref content i j))))))))))
 
-(defun standard-matrix (type)
-  "Defines the programmatic class @class{standard-matrix} for element type
+(with-memoization (:type :local :size 2 :id 'standard-matrix)
+  (defun standard-matrix (type)
+    "Defines the programmatic class @class{standard-matrix} for element type
 @arg{type} as extensions of the programmatic class @class{store-vector}."
-  (assert (subtypep type 'number))
-  (fl.amop:find-programmatic-class
-   (list 'standard-matrix (store-vector type))
-   (intern (format nil "~A" (list 'STANDARD-MATRIX type)) "FL.MATLISP")))
+    (memoizing-let ((type type))
+      (assert (subtypep type 'number))
+      (fl.amop:find-programmatic-class
+       (list 'standard-matrix (store-vector type))
+       (intern (format nil "~A" (list 'STANDARD-MATRIX type)) "FL.MATLISP")))))
 
 (defun make-real-matrix (&rest args)
   "Generates a real matrix as specified by its arguments.  If two arguments
@@ -267,6 +269,11 @@ is not available, NIL is returned."
 ;;; Access to the entries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(declaim (inline standard-matrix-indexing))
+(defun standard-matrix-indexing (i j nrows)
+  (declare (type (and fixnum (integer 0)) i j))
+  (the fixnum (+ i (the fixnum (* j nrows)))))
+
 (defmethod mref ((matrix standard-matrix) i j)
   "We choose Fortran-like column-major indexing to make the use of Matlisp
 routines easier.  Note: access to matrix entries using this generic
@@ -275,7 +282,7 @@ whenever possible."
   (declare (type (and fixnum (integer 0)) i j))
   (with-slots (store nrows ncols) matrix
     (assert (and (<= 0 i) (<= 0 j) (< i nrows) (< j ncols)))
-    (aref store (the fixnum (+ i (the fixnum (* j nrows)))))))
+    (aref store (standard-matrix-indexing i j nrows))))
 
 
 (defmethod (setf mref) (value (matrix standard-matrix) i j)
@@ -283,7 +290,7 @@ whenever possible."
   (declare (type (and fixnum (integer 0)) i j))
   (with-slots (store nrows ncols) matrix
     (assert (and (<= 0 i) (<= 0 j) (< i nrows) (< j ncols)))
-    (setf (aref store (the fixnum (+ i (the fixnum (* j (nrows matrix))))))
+    (setf (aref store (standard-matrix-indexing i j nrows))
 	  value)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -294,12 +301,20 @@ whenever possible."
   "Maximum number of columns and/or rows to print. NIL: no elements, T: all
 elements.")
 
+(defvar *print-matrix-pretty* nil
+  "T means that a newline is printed after each row.")
+
+(defvar *print-matrix-element-format* nil
+  "Size of matrix element field to be printed.")
+
 (defgeneric print-element (matrix element stream)
   (:documentation "Prints the element @arg{element} of @arg{matrix} to the
 stream @arg{stream}."))
 
 (defmethod print-element ((matrix standard-matrix) element stream)
-  (format stream "~a" element))
+  (if *print-matrix-element-format*
+      (format stream *print-matrix-element-format* element)
+      (format stream "~A" element)))
 
 (defun print-matrix (matrix stream)
   (if *print-matrix*
@@ -321,6 +336,8 @@ stream @arg{stream}."))
 		  (if (> ncols n)
 		      (princ " ...)" stream)
 		      (princ ")" stream))
+		  (when *print-matrix-pretty*
+		    (terpri stream))
 		  (unless (= i (1- m)) (format stream " ")))
 		(if (> nrows m)
 		    (princ " ...)" stream)
@@ -428,6 +445,10 @@ depending on the value of ORIENTATION."
   "Loop through column keys."
   (dotimes (i (ncols mat))
     (funcall fn i)))
+(defmethod for-each-key (fn (mat standard-matrix))
+  (dotimes (i (nrows mat))
+    (dotimes (j (ncols mat))
+      (funcall fn (cons i j)))))
 (defmethod for-each-key-and-entry (fn (mat standard-matrix))
   (dotimes (i (nrows mat))
     (dotimes (j (ncols mat))

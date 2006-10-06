@@ -71,19 +71,17 @@
     ;; return result
     vec))
 
-(defmethod l2g ((cell <simplex>) local-pos)
-  "Evaluate the linear transformation defined by the coordinates of the
-simplex corners."
-  (let ((dim (embedded-dimension cell)))
-    (declare (type fixnum dim))
-    (let ((result (make-double-vec dim)))
-      (declare (type double-vec result))
-      (loop for bc of-type double-float across (euclidean->barycentric local-pos)
-	    and corner of-type double-vec in (corners cell) do
-	    (dotimes (i dim)
-	      (declare (optimize (speed 3)))
-	      (incf (aref result i) (* bc (aref corner i))))
-	    finally (return result)))))
+(defmethod barycentric-coordinates ((refcell <simplex>) local-pos)
+  (euclidean->barycentric local-pos))
+
+(defmethod barycentric-gradients ((cell <simplex>) local-pos)
+  (declare (ignore local-pos))
+  (make-real-matrix
+   (loop for barycentric-index upto (dimension cell) collect
+	 (loop for index from 1 upto (dimension cell) collect
+	       (cond ((zerop barycentric-index) -1.0)
+		     ((= barycentric-index index) 1.0)
+		     (t 0.0))))))
 
 (defmethod l2Dg ((simplex <simplex>) local-pos)
   "Returns the linear transformation defined by the coordinates of the
@@ -101,17 +99,6 @@ simplex corners."
 	    (setf (mref mat row col)
 		  (- (aref corner row) (aref origin row))))
 	  finally (return mat))))
-
-(defmethod l2jet ((simplex <simplex>) local-pos (k integer))
-  "The jet of a simplex with linear cell mapping is 0 above the first
-derivative."
-  (loop with dim = (dimension simplex)
-	for i from 0 upto k
-	collect
-	(case i
-	  ((0) (l2g simplex local-pos))
-	  ((1) (l2Dg simplex local-pos))
-	  (t (make-real-tensor (make-fixnum-vec i dim))))))
 
 (defmethod coordinates-inside? ((cell <simplex>) local-pos)
   (and (not (some #'minusp local-pos))

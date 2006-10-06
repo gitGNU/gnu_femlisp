@@ -173,9 +173,10 @@ with dimension of the cells decreasing, otherwise increasing."
 all cells, otherwise it loops through cells and properties."
   (let* ((with-properties (listp looping-var))
 	 (arguments (if with-properties looping-var (list looping-var))))
-    `(skel-for-each #'(lambda ,arguments ,@body)
-      ,skel :direction ,direction :dimension ,dimension :where ,where
-      :with-properties ,with-properties)))
+    `(block nil
+      (skel-for-each #'(lambda ,arguments ,@body)
+       ,skel :direction ,direction :dimension ,dimension :where ,where
+       :with-properties ,with-properties))))
 
 (defun skel-map (func skel)
   (let ((new-skel (make-analog skel)))

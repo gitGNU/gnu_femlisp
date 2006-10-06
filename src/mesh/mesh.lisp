@@ -120,6 +120,18 @@ neighbors are generated."
   "Performs some additional checks for mesh."
   nil)
 
+(defgeneric meshsize (mesh)
+  (:documentation "Computes a meshsize.  Please refer to the method
+documentations for the exact definition.")
+  (:method ((mesh <mesh>))
+    "Computes a meshsize as the size of the longest edge in the mesh."
+    (let ((size 0.0))
+      (doskel (cell mesh :where :surface :dimension 1)
+	(let ((diam (diameter cell)))
+	  (when (> diam size)
+	    (setf size diam))))
+      size)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; h-mesh class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -265,7 +277,8 @@ locally refined hierarchical-mesh structure."
     sum))
 
 (defmethod find-cell-from-position ((h-mesh <hierarchical-mesh>) (pos array))
-  "Hierarchical search for a leaf cell containing the given position."
+  "Hierarchical search for a leaf cell containing the given position.  A
+result of NIL is given if no cell covering @arg{pos} is found."
   (loop for level from 0 below (nr-of-levels h-mesh)
 	for cell = (find-cell-from-position (cells-on-level h-mesh level) pos)
 	unless (null cell) do
@@ -277,7 +290,11 @@ locally refined hierarchical-mesh structure."
 				   do (return child))))
 		  (if child
 		      (setq cell child)
-		      (return nil))) ; position not covered on higher level
+		      ;; In the following case pos is not covered by cell's
+		      ;; children.  This may happen for non-polygonal
+		      ;; domains, but unfortunately also due to rounding
+		      ;; errors.
+		      (return nil)))
 		finally (return cell)))))
 
 (defvar *allow-child-patch-change* nil

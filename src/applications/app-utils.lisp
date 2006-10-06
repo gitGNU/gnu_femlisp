@@ -38,34 +38,6 @@
 ;;; Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun homogenized-diffusion-tensor (asv)
-  "Computes the homogenized coefficient using the formula $$ A^\mathrm{hom}
-= \int_Y A (\Id - \nabla N) \dy $$"
-  (let* ((problem (problem asv))
-	 (mesh (mesh asv))
-	 (dim (dimension mesh))
-	 (result (zeros dim))
-	 (id-mat (eye dim))
-	 (fe-class (fe-class asv)))
-    (doskel (cell mesh :dimension :highest :where :surface)
-      (let* ((coeffs (coefficients-of-cell cell mesh problem))
-	     (diffusion-function (get-coefficient coeffs 'FL.CDR::DIFFUSION))
-	     (fe (get-fe fe-class cell))
-	     (qrule (quadrature-rule fe))
-	     (values (transpose (get-local-from-global-vec cell fe asv))))  ; (dim x n-basis)
-	(loop for shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
-	      and ip in (integration-points qrule) do
-	      (let* ((gradN-hat (m* values shape-grads)) ; (dim x dim)
-		     (lcoords (ip-coords ip))
-		     (global (local->global cell lcoords))
-		     (Dphi (local->Dglobal cell lcoords))
-		     (weight (* (ip-weight ip) (abs (det Dphi))))
-		     (Dphi^-1 (m/ Dphi))
-		     (grad-N (transpose (m* gradN-hat Dphi^-1)))
-		     (diff-tensor (evaluate diffusion-function (list :global global))))
-		(gemm! weight diff-tensor (m- id-mat grad-N) 1.0 result)))))
-    result))
-
 (defmethod average-coefficient (ansatz-space &key coefficient)
   (let* ((problem (problem ansatz-space))
 	 (mesh (mesh ansatz-space))
@@ -76,15 +48,15 @@
 	     (coeff-function (get-coefficient coeffs coefficient))
 	     (factor-dims (mapcar #'dimension (factor-simplices cell)))
 	     (qrule (gauss-rule factor-dims (1+ order))))
-	(loop for ip in (integration-points qrule) do
-	      (let* ((lcoords (ip-coords ip))
-		     (global (local->global cell lcoords))
+	(loop for lcoords across (integration-points qrule)
+	      and weight across (integration-weights qrule) do
+	      (let* ((global (local->global cell lcoords))
 		     (Dphi (local->Dglobal cell lcoords))
-		     (weight (* (ip-weight ip) (abs (det Dphi))))
+		     (factor (* weight (abs (det Dphi))))
 		     (coeff-ip (evaluate coeff-function (list :global global))))
 		(if result
-		    (axpy! weight coeff-ip result)
-		    (setq result (scal weight coeff-ip)))
+		    (axpy! factor coeff-ip result)
+		    (setq result (scal factor coeff-ip)))
 		))))
     result))
 
@@ -102,23 +74,26 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
     (dotimes (i dim)
       (dotimes (j dim)
 	(setf (aref result i j) (make-real-matrix dim))))
-    (multi-for (index (make-fixnum-vec 4) (make-fixnum-vec 4 (1- dim)))
-      (setf (mref (aref result (aref index 0) (aref index 1))
-		     (aref index 2) (aref index 3))
+    (dotuple (index (make-list 4 :initial-element dim))
+      (setf (mref (mref result (elt index 0) (elt index 1))
+		  (elt index 2) (elt index 3))
 	    (mref mat
-		     (+ (* dim (aref index 0)) (aref index 2))
-		     (+ (* dim (aref index 1)) (aref index 3) ))))
+		  (+ (* dim (elt index 0)) (elt index 2))
+		  (+ (* dim (elt index 1)) (elt index 3) ))))
     result))
 
 (defun effective-tensor (blackboard)
   (with-items (&key ansatz-space problem solution rhs) blackboard
     (and solution rhs
-	 (typecase problem
+	 (etypecase problem
 	   (<cdr-problem>
 	    (m- (average-coefficient ansatz-space :coefficient 'FL.CDR::DIFFUSION)
 		(correction-tensor solution rhs)))
 	   (<elasticity-problem> 
 	    (m- (average-coefficient ansatz-space :coefficient 'FL.ELASTICITY::ELASTICITY)
+		(convert-correction (correction-tensor solution rhs))))
+	   (<ellsys-problem> 
+	    (m- (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A)
 		(convert-correction (correction-tensor solution rhs))))))))
 
 

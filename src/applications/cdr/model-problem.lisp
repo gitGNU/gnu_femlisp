@@ -113,8 +113,8 @@ after a step."))
 (make-model-problem-demo (n-simplex-domain 2) "unit-triangle")
 (make-model-problem-demo (n-cube-domain 2) "unit-quadrangle")
 (make-model-problem-demo (n-simplex-domain 3) "unit-tetrahedron")
-(make-model-problem-demo (tensorial-domain '(1 2)) "unit-wedge-1-2")
-(make-model-problem-demo (tensorial-domain '(2 1)) "unit-wedge-2-1")
+(make-model-problem-demo (simplex-product-domain '(1 2)) "unit-wedge-1-2")
+(make-model-problem-demo (simplex-product-domain '(2 1)) "unit-wedge-2-1")
 (make-model-problem-demo (n-cube-domain 3) "unit-cube")
 
 (defun test-laplace-model-problem ()
@@ -138,11 +138,12 @@ after a step."))
 			    :success-if '(> :step 2))))
   (let ((problem (cdr-model-problem 2)))
     (format t "~%2d-case (exact solution u(0.5,0.5) = 0.0736713532...)~%")
-    (check-h-convergence
-     problem 1 4 :order 1 :position #d(0.5 0.5)
-     :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)
-			    :success-if '(> :step 2)))
-    (check-p-convergence problem 1 5 :level 1 :position #d(0.5 0.5)))
+    (time
+     (check-h-convergence
+      problem 1 4 :order 4 :position #d(0.5 0.5)
+      :solver (make-instance '<linear-solver> :iteration (geometric-cs :fmg t)
+			     :success-if '(> :step 2))))
+    (time (check-p-convergence problem 1 5 :level 1 :position #d(0.5 0.5))))
   (let ((problem (cdr-model-problem 3)))
     (format t "~%3d-case (exact solution u(0.5,0.5,0.5) = 0.0562128...)~%")
     (check-h-convergence

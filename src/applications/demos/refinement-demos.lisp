@@ -49,8 +49,8 @@
 (create-refinement-demo "triangle" (n-simplex 2))
 (create-refinement-demo "quadrangle" (n-cube 2))
 (create-refinement-demo "tetrahedron" (n-simplex 3))
-(create-refinement-demo "1-2-wedge" (ensure-tensorial '(1 2)))
-(create-refinement-demo "2-1-wedge" (ensure-tensorial '(2 1)))
+(create-refinement-demo "1-2-wedge" (ensure-simplex-product '(1 2)))
+(create-refinement-demo "2-1-wedge" (ensure-simplex-product '(2 1)))
 (create-refinement-demo "cube" (n-cube 3))
 (create-refinement-demo
  "4-cube" (n-cube 4)

@@ -46,11 +46,6 @@
 (defvar *gnuplot-process* nil
   "The current @program{Gnuplot} process.")
 
-(defvar *gnuplot-file*
- (make-pathname :name "output.gnuplot"
-		:directory (pathname-directory *images-pathname*))
-  "The output file for @program{Gnuplot}.")
-
 (defun ensure-gnuplot-process ()
   (when *gnuplot-process* ; and: (eq (fl.port:process-status *gnuplot-process*) :running) ?
     (return-from ensure-gnuplot-process *gnuplot-process*))
@@ -58,7 +53,8 @@
 	(when *gnuplot-pathname*
 	  (fl.port:run-program
 	   *gnuplot-pathname* '() :wait nil
-	   :input :stream :output :stream)))
+	   :input :stream :output :stream
+	   :directory (images-pathname))))
   (unless *gnuplot-process*
     (format *error-output* "~&ENSURE-GNUPLOT-PROCESS: could not start GNUPLOT.~%"))
   *gnuplot-process*)
@@ -89,8 +85,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod graphic-file-name (object (program (eql :gnuplot)) &key &allow-other-keys)
+  "Returns the output file for @program{Gnuplot}."
   (declare (ignore object))
-  *gnuplot-file*)
+  (make-pathname :name "output.gnuplot"
+		 :directory (pathname-directory (images-pathname))))
 
 (defun wait-for-gnuplot ()
   (whereas ((stream (gnuplot-output-stream)))
@@ -105,25 +103,24 @@
 				  (output "gnuplot.ps") &allow-other-keys)
   (let ((stream (if (dbg-p :graphic)
 		    (make-broadcast-stream (gnuplot-input-stream) *trace-output*)
-		    (gnuplot-input-stream)))
-	(gnuplot-file (namestring (truename (graphic-file-name object :gnuplot)))))
+		    (gnuplot-input-stream))))
 ;;    (format stream "set size 1.0,1.0;~%")
 ;;    (format stream "set size square;~%")
     (if (and left right)
-	(format stream "set xrange [~a:~a]~%" left right)
-	(format stream "set autoscale x~%"))
+	(format stream "set xrange [~a:~a];~%" left right)
+	(format stream "set autoscale x;~%"))
     (if (and bottom top)
-	(format stream "set yrange [~a:~a]~%" bottom top)
-	(format stream "set autoscale y~%"))
+	(format stream "set yrange [~a:~a];~%" bottom top)
+	(format stream "set autoscale y;~%"))
     (if border
-	(format stream "set border~%")
-	(format stream "set noborder~%"))
+	(format stream "set border;~%")
+	(format stream "set noborder;~%"))
     (if tics
-	(format stream "set xtics~%set ytics~%")
-	(format stream "set noxtics~%set noytics~%"))
-    (format stream "set terminal ~A~%" terminal)
-    (format stream "set output ~S~%"
-	    (concatenate 'string (namestring *images-pathname*) output))
+	(format stream "set xtics~%set ytics;~%")
+	(format stream "set noxtics~%set noytics;~%"))
+    (format stream "set terminal ~A;~%" terminal)
+    (format stream "set output ~S;~%"
+	    (concatenate 'string (namestring (images-pathname)) output))
     (loop for script-command in (apply #'graphic-commands object program paras) do
 	  (format stream "~A~%" script-command))
     (format stream "print \"\\nFemlisp request processed\";~%")

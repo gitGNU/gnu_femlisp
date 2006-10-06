@@ -34,8 +34,8 @@
 
 (in-package :fl.discretization)
 
-;;;; This module provides Lagrange dofs and Lagrange basis functions
-;;;; of arbitrary order and for arbitrary tensorial cells.
+;;;; This module provides Lagrange dofs and Lagrange basis functions of
+;;;; arbitrary order and for arbitrary product cells.
 
 (defun lagrange-coords-1d (order type)
   (ecase type
@@ -44,7 +44,7 @@
 		collect (float (/ i order) 1.0)) 'vector))
     ;; The following choice of nodal points does not work for simplices with
     ;; dim>=3 and order>=3 because nodal points on the sides do not fit.  But
-    ;; it is much better suited for interpolation in the case of tensorial
+    ;; it is much better suited for interpolation in the case of product-cell
     ;; elements.
     (:gauss-lobatto
      (coerce (gauss-lobatto-points-on-unit-interval (1- order)) 'vector))))
@@ -63,37 +63,38 @@
 	      result)))
     (reverse result)))
 
-(defmethod lagrange-inner-coords ((cell <tensorial>) order type)
+(defmethod lagrange-inner-coords ((cell <product-cell>) order type)
   (apply #'map-product #'(lambda (&rest args) (apply #'concatenate 'double-vec args))
 	 (mapcar #'(lambda (simplex) (lagrange-inner-coords simplex order type))
 		 (factor-simplices cell))))
 
-(defun lagrange-dofs (cell order type)
-  (let ((lagrange-coords (lagrange-coords-1d order type)))
-    (loop with dof-index = -1
-	  for subcell across (subcells cell)
-	  and i from 0
-	  nconcing
-	  (loop with subcell-coords = (lagrange-inner-coords subcell order type)
-		for local in subcell-coords
-		and j from 0 collect
-		;; we need below that the coords are eql to the lobatto
-		;; coords without any rounding error
-		(let ((g (map 'double-vec
-			      #'(lambda (coord)
-				  (find-if #'(lambda (coord2) (< (abs (- coord coord2)) 1.0e-10))
-					   lagrange-coords))
-			      (l2g subcell local))))
-		  (make-instance 'dof :index (incf dof-index)
-				 :subcell subcell :subcell-index i
-				 :in-vblock-index j
-				 :coord local :gcoord g
-				 :functional #'(lambda (func) (evaluate func g))))))))
-(memoize-symbol 'lagrange-dofs)
+(with-memoization ()
+  (defun lagrange-dofs (cell order type)
+    (memoizing-let ((cell cell) (order order) (type type))
+      (let ((lagrange-coords (lagrange-coords-1d order type)))
+	(loop with dof-index = -1
+	      for subcell across (subcells cell)
+	      and i from 0
+	      nconcing
+	      (loop with subcell-coords = (lagrange-inner-coords subcell order type)
+		    for local in subcell-coords
+		    and j from 0 collect
+		    ;; we need below that the coords are eql to the lobatto
+		    ;; coords without any rounding error
+		    (let ((g (map 'double-vec
+				  #'(lambda (coord)
+				      (find-if #'(lambda (coord2) (< (abs (- coord coord2)) 1.0e-10))
+					       lagrange-coords))
+				  (l2g subcell local))))
+		      (make-instance 'dof :index (incf dof-index)
+				     :subcell subcell :subcell-index i
+				     :in-vblock-index j
+				     :coord local :gcoord g
+				     :functional #'(lambda (func) (evaluate func g))))))))))
 
 (defun lagrange-basis-simplex (cell order type)
   "Computes the Lagrange basis for a cell.  Should be applied only for
-simplices, because for tensorials the basis can be computed as a tensor
+simplices, because for product-cells the basis can be computed as a tensor
 product which is faster."
   (mapcar #'eliminate-small-coefficients
 	  (compute-duals (Q-nomials-of-degree cell order '<=)
@@ -101,7 +102,7 @@ product which is faster."
 			 #'evaluate)))
 
 (defun shapes-and-dof-coords (factor-simplices order type)
-  "Computes simulataneously shapes and dof-coords for a tensorial as a
+  "Computes simulataneously shapes and dof-coords for a product-cell as a
 tensor product."
   (if (null factor-simplices)
       (values (list (double-vec)) (list (make-polynomial '(1.0))))
@@ -119,20 +120,21 @@ tensor product."
 				  (poly* (shift-polynomial shape f-dim) f-shape))))))
 	  (values (mapcar #'car product) (mapcar #'cdr product))))))
 
-(defun lagrange-basis (cell order type)
-  "Computes the Lagrange basis for a tensorial accelerated.  The idea is to
+(with-memoization ()
+  (defun lagrange-basis (cell order type)
+  "Computes the Lagrange basis for a product-cell accelerated.  The idea is to
 construct the shapes with their associated dof-coordinates as a product of
 lower-dimensional shapes and coordinates."
-  (multiple-value-bind (coords shapes)
-      (shapes-and-dof-coords (factor-simplices cell) order type)
-    (let ((table (make-hash-table :test #'equalp)))
-      (loop for coord in coords and shape in shapes do
-	    (setf (gethash coord table) shape))
-      (loop for dof in (lagrange-dofs cell order type)
-	    for shape = (gethash (dof-gcoord dof) table)
-	    do (assert shape)
-	    collecting shape))))
-(memoize-symbol 'lagrange-basis)
+  (memoizing-let ((cell cell) (order order) (type type))
+    (multiple-value-bind (coords shapes)
+	(shapes-and-dof-coords (factor-simplices cell) order type)
+      (let ((table (make-hash-table :test #'equalp)))
+	(loop for coord in coords and shape in shapes do
+	      (setf (gethash coord table) shape))
+	(loop for dof in (lagrange-dofs cell order type)
+	      for shape = (gethash (dof-gcoord dof) table)
+	      do (assert shape)
+	      collecting shape))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; fe-class definitions
@@ -150,29 +152,27 @@ lower-dimensional shapes and coordinates."
   ()
   (:documentation "Vector Lagrange FE."))
 
-(defun lagrange-fe (order &key nr-comps integration-order (type :uniform))
-  "Constructor for Lagrange fe."
-  (unless integration-order (setq integration-order order))
-  (if nr-comps
-      (make-instance
-       '<vector-lagrange-fe>
-       :components
-       (make-list nr-comps :initial-element
-		  (lagrange-fe order :integration-order integration-order :type type)))
-      (let ((disc (make-instance '<scalar-lagrange-fe> :order order :type type)))
-	(setf (slot-value disc 'cell->fe)
-	      (compose
-	       (memoize-1
-		#'(lambda (refcell)
-		    (assert (reference-cell-p refcell))
-		    (make-instance
-		     '<scalar-fe> :cell refcell :discretization disc
-		     :dofs (lagrange-dofs refcell order type)
-		     :basis (lagrange-basis refcell order type)
-		     :order order)))
-	       #'reference-cell))
-	disc)))
-(memoize-symbol 'lagrange-fe)
+(with-memoization ()
+  (defun lagrange-fe (order &key nr-comps (type :uniform))
+    "Constructor for Lagrange fe."
+    (memoizing-let ((order order) (nr-comps nr-comps) (type type))
+      (if nr-comps
+	  (make-instance
+	   '<vector-lagrange-fe>
+	   :components
+	   (make-list nr-comps :initial-element
+		      (lagrange-fe order :type type)))
+	  (let ((disc (make-instance '<scalar-lagrange-fe> :order order :type type)))
+	      (setf (slot-value disc 'cell->fe)
+		    (with-memoization ()
+		      #'(lambda (cell)
+			  (memoizing-let ((refcell (reference-cell cell)))
+			    (make-instance
+			     '<scalar-fe> :cell refcell :discretization disc
+			     :dofs (lagrange-dofs refcell order type)
+			     :basis (lagrange-basis refcell order type)
+			     :order order)))))
+	    disc)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Isoparametric stuff
@@ -210,9 +210,9 @@ boundary lagrangian."
 	      (inner-indices (range< 0 nr-inner-dofs))
 	      (boundary-indices (range< nr-inner-dofs nr-dofs)))
 	 (loop with qrule = (quadrature-rule fe)
-	       for ip in (integration-points qrule)
+	       for weight across (integration-weights qrule)
 	       for gradients across (ip-gradients fe qrule) do
-	       (gemm! (ip-weight ip) gradients gradients 1.0 energy-mat :nt))
+	       (gemm! weight gradients gradients 1.0 energy-mat :nt))
 	 (let* ((A_II (submatrix energy-mat :row-indices inner-indices :col-indices inner-indices))
 		(A_IB (submatrix energy-mat :row-indices inner-indices :col-indices boundary-indices))
 		(corr-mat (m* (m/ A_II) A_IB))

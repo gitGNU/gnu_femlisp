@@ -189,17 +189,30 @@ partial sums."
 ;;; Arrays
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun for-each-tuple (func limits)
+  "Calls @arg{func} on each tuple greater or equal to (0 ... 0) and below
+@arg{dims}."
+  (labels ((helper (tuple limits)
+	     (if (null limits)
+		 (funcall func tuple)
+		 (dotimes (i (car limits))
+		   (helper (cons i tuple) (cdr limits))))))
+    (helper () (reverse limits))))
+
+(defmacro dotuple ((index limits &optional result) &body body)
+  "Loops through each tuple below @arg{limits}."
+  (assert (symbolp index))
+  `(progn
+    (for-each-tuple (lambda (,index) ,@body) ,limits)
+    ,result))
+
 (defun array-for-each (func &rest arrays)
   "Calls @arg{func} on all element tuples of the array arguments."
   (assert (same-p arrays :test #'equalp :key #'array-dimensions))
-  (labels ((loop-index (current-indices further-dims)
-	   (if (null further-dims)
-	       (apply func (mapcar #'(lambda (array)
-				       (apply #'aref array current-indices))
-				   arrays))
-	       (dotimes (k (car further-dims))
-		 (loop-index (cons k current-indices) (cdr further-dims))))))
-    (loop-index () (reverse (array-dimensions (car arrays))))))
+  (dotuple (indices (array-dimensions (car arrays)))
+    (apply func (mapcar #'(lambda (array)
+			    (apply #'aref array indices))
+			arrays))))
 
 (defun undisplace-array (array)
   "Return the fundamental array and the start and end positions into it of
@@ -329,36 +342,35 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 ;;; Queues (from Graham's book)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun make-queue ()
-  "Creates and returns an empty queue."
-  (cons nil nil))
+(defclass queue ()
+  ((head :accessor head :initform nil)
+   (tail :accessor tail :initform nil))
+  (:documentation "Queue class accessed with @function{enqueue} and
+@function{dequeue}."))
 
-(defun enqueue (object queue)
-  "Puts @arg{object} into the @arg{queue}."
-  (if (null (car queue))
-      (setf (cdr queue) (setf (car queue) (list object)))
-    (setf (cdr (cdr queue)) (list object)
-	  (cdr queue) (cdr (cdr queue)))))
+(defgeneric enqueue (object queue)
+  (:documentation "Puts @arg{object} into the @arg{queue}.")
+  (:method (object (queue queue))
+    (if (null (head queue))
+	(setf (tail queue) (setf (head queue) (list object)))
+	(setf (cdr (tail queue)) (list object)
+	      (tail queue) (cdr (tail queue))))))
 
-(defun dequeue (queue)
-  "Pops an object from @arg{queue}."
-  (pop (car queue)))
+(defgeneric dequeue (queue)
+  (:documentation "Pops an object from @arg{queue}.")
+  (:method ((queue queue))
+    (pop (head queue))))
 
 (defun queue->list (queue)
   "Transforms @arg{queue} to a list."
-  (car queue))
+  (head queue))
 
 (defun list->queue (list)
   "Transforms @arg{list} to a queue."
-  (let ((copy (copy-seq list)))
-    (cons copy (last copy))))
-
-(defun peek-first (queue)
-  "Returns the first item in @arg{queue} (without popping it)."
-  (caar queue))
-(defun peek-last (queue)
-  "Returns the last item in @arg{queue}."
-  (cadr queue))
+  (let ((queue (make-instance 'queue)))
+    (setf (head queue) (copy-seq list))
+    (setf (tail queue) (last (head queue)))
+    queue))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Doubly linked lists
@@ -531,12 +543,6 @@ function of one argument."
 		    value
 		    (setf (gethash args table)
 			  (apply unmemoized args))))))))
-
-(defmacro memoize ((defun funsym &rest rest))
-  "Defines a function and memoizes it."
-  (assert (eq defun 'defun))
-  `(progn (defun ,funsym ,@rest)
-	  (memoize-symbol ',funsym)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Association lists
@@ -869,6 +875,8 @@ according to @math{result[i] = v[perm[i]]}."
        (unbox a))
      (unbox a)))
   (partial-sums #(1 2 3))
+  (let ((x (list->queue '(1 2 3))))
+    (dequeue x))
   )
 
 ;; (fl.utilities::test-utilities)

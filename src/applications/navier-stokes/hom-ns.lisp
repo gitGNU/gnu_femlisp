@@ -54,7 +54,7 @@
      :patch->coefficients
      #'(lambda (patch)
 	 (cond ((patch-on-inner-boundary-p patch)
-		(list 'FL.NAVIER-STOKES::CONSTRAINT (no-slip-boundary dim)))
+		(list 'CONSTRAINT (no-slip-boundary dim)))
 	       ((= dim (dimension patch))  ; inner coeffs
 		(list 'FL.NAVIER-STOKES::VISCOSITY (constant-coefficient viscosity)
 		      'FL.NAVIER-STOKES::REYNOLDS (constant-coefficient reynolds)

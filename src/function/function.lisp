@@ -81,8 +81,20 @@ apply evaluate to all entries, so misunderstandings may arise."
     (declare (ignore x))
     vec))
 
+(defgeneric multiple-evaluate (func positions)
+  (:documentation "Multiple evaluations of @arg{func} may be optimized.")
+  (:method (func positions)
+    "The default and unoptimized method calls simply @function{evaluate}."
+    (map 'vector (curry #'evaluate func) positions)))
+
 (defgeneric evaluate-gradient (f x)
   (:documentation "Generic evaluation of gradients of differentiable functions."))
+
+(defgeneric multiple-evaluate-gradient (f positions)
+  (:documentation "Multiple evaluations may be optimized.")
+  (:method (f positions)
+    "The default and unoptimized method calls simply @function{evaluate}."
+    (map 'vector (curry #'evaluate-gradient f) positions)))
 
 (defgeneric evaluate-k-jet (f k x)
   (:documentation "Generic evaluation of k-jets of C^k-functions."))
@@ -354,6 +366,17 @@ transforms also the result."))
   (let ((grad (evaluate-gradient func pos))
 	(num-grad (evaluate (numerical-gradient func) pos)))
     (assert (< (norm (m- grad num-grad)) 1.0e-4))))
+
+
+(let* ((delta 1.0d-20)
+       (shift (* delta #C(0.0d0 1.0d0))))
+  (defun numerical-complex-derivative (f)
+    "Computes a very accurate real derivative for functions which can be
+applied to complex arguments."
+    (lambda (x)
+      (imagpart (/ (- (funcall f (+ x shift))
+		      (funcall f (- x shift)))
+		   (* 2 delta))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; zero finding

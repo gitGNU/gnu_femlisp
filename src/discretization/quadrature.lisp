@@ -49,7 +49,8 @@
 (defclass <integration-rule> ()
   ((cell :initarg :cell :type <cell>)
    (order :initarg :order :type fixnum)
-   (ips :accessor integration-points :initarg :ips)))
+   (points :reader integration-points :initarg :points)
+   (weights :reader integration-weights :initarg :weights)))
 
 ;;; Later on, integration rules with different qualities could be
 ;;; registered and chosen on demand.
@@ -78,7 +79,7 @@ splitting into monomials and computing
 			      dims)
 		 dims)))
 
-(defun integrate-over-reference-tensorial (poly factor-dims)
+(defun integrate-over-reference-product-cell (poly factor-dims)
   (loop for c&m in (split-into-monomials (coefficients poly))
 	summing (* (car c&m)
 		  (integrate-monomial-over-simplex-product (cdr c&m) factor-dims))))
@@ -190,18 +191,20 @@ occur for the inexact arithmetic."
 	    :coords (apply #'concatenate 'double-vec (mapcar #'ip-coords args))))
 	 quadrature-rules))
 
-(defun gauss-rule (factor-dims s)
-  "Returns an s-point Gauss integration rule."
-  (make-instance
-   '<integration-rule>
-   :order (* 2 s)
-   :ips (if (null factor-dims)
-	    (list (make-<ip> :weight 1.0 :coords (double-vec)))
-	    (apply #'product-rule
-		   (mapcar #'(lambda (dim) (gauss-rule-for-simplex dim s))
-			   factor-dims)))))
-
-(memoize-symbol 'gauss-rule :test 'equalp)
+(with-memoization (:id 'gauss-rule)
+  (defun gauss-rule (factor-dims s)
+    "Returns an s-point Gauss integration rule."
+    (memoizing-let ((factor-dims factor-dims) (s s))
+      (let ((ips (if (null factor-dims)
+		     (list (make-<ip> :weight 1.0 :coords (double-vec)))
+		     (apply #'product-rule
+			    (mapcar #'(lambda (dim) (gauss-rule-for-simplex dim s))
+				    factor-dims)))))
+	(make-instance
+	 '<integration-rule>
+	 :order (* 2 s)
+	 :points (map 'vector #'ip-coords ips)
+	 :weights (map 'vector #'ip-weight ips))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Gauss-Lobatto quadrature

@@ -78,6 +78,7 @@
    (let ((smoother (make-instance '<vanka>)))
      (geometric-cs
       :coarse-grid-iteration
+      ;;(make-instance '<lu>) #+(or)
       (make-instance '<multi-iteration> :nr-steps 1 :base smoother)
       :smoother smoother :pre-steps 1 :post-steps 1 :gamma 2))
      :success-if `(or (zerop :defnorm)

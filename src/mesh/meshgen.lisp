@@ -88,8 +88,8 @@ argument."
       ((= k n) mesh)))
 
 (defun special-mesh-on-box-domain (domain patch->mesh-sizes)
-  "Creates a uniform mesh on a box domain consisting of N_1 x ... x N_dim)
-cells."
+  "Creates a uniform mesh consisting of N_1 x ... x N_dim cells on a box
+domain."
   (let ((corners->cell (make-hash-table :test 'equalp))
 	(mesh (make-instance '<mesh> :domain domain)))
     (doskel (patch domain)
@@ -109,8 +109,8 @@ cells."
     mesh))
 
 (defun uniform-mesh-on-box-domain (domain N)
-  "Creates a uniform mesh on a box domain consisting of N_1 x ... x N_dim)
-cells."
+  "Creates a uniform mesh consisting of N_1 x ... x N_dim cells on a box
+domain."
   (let ((dim (dimension domain)))
     (special-mesh-on-box-domain
      domain
@@ -176,7 +176,7 @@ midpoint."
   (sort elist (compare-lexicographically :fuzzy fuzzy) :key #'midpoint))
 
 (defun triangulize (mesh)
-  "Transforms a tensorial mesh into a simplex mesh."
+  "Transforms a product-cell mesh into a simplex mesh."
   (when (typep mesh '<hierarchical-mesh>)
     (error "NYI for hierarchical meshes."))
   (when (> (dimension mesh) 2)

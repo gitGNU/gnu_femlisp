@@ -42,9 +42,11 @@
    "DIMENSION" "EMBEDDED-DIMENSION"
    "NR-OF-SIDES" "NR-OF-VERTICES" "NR-OF-SUBCELLS"
    "FACTOR-SIMPLICES" "FACTOR-DIMENSIONS" "REFERENCE-CELL" "REFERENCE-CELL-P"
-   "SUBCELLS" "VERTICES" "CORNERS"
+   "SUBCELLS" "VERTICES" "CORNERS" "DIAMETER"
    "CELL-MAPPING"
-   "L2G" "L2DG" "L2JET" "LOCAL->GLOBAL" "LOCAL->DGLOBAL"
+   "L2G" "L2DG"
+   "LOCAL->GLOBAL" "LOCAL->DGLOBAL"
+   "MULTIPLE-LOCAL->GLOBAL" "MULTIPLE-LOCAL->DGLOBAL"
    "G2L" "GLOBAL->LOCAL" "GLOBAL->EMBEDDED-LOCAL"
    "INSIDE-CELL?" "LOCAL-COORDINATES-OF-MIDPOINT" "MIDPOINT" "ORIGIN"
    "<VERTEX>" "MAKE-VERTEX" "VERTEX-POSITION" "*REFERENCE-VERTEX*"
@@ -55,9 +57,9 @@
    "<SIMPLEX>" "SIMPLEX-P" "MAKE-SIMPLEX" "MAKE-LINE"
    "*UNIT-INTERVAL*" "*UNIT-TRIANGLE*" "*UNIT-TETRAHEDRON*"
    "N-SIMPLEX"
-   ;; tensorial.lisp
-   "<TENSORIAL>" "*UNIT-QUADRANGLE*" "*UNIT-CUBE*" "N-CUBE" "CUBE-P"
-   "CELL->CUBE" "ENSURE-TENSORIAL"
+   ;; product-cell.lisp
+   "<PRODUCT-CELL>" "*UNIT-QUADRANGLE*" "*UNIT-CUBE*" "N-CUBE" "CUBE-P"
+   "CELL->CUBE" "ENSURE-SIMPLEX-PRODUCT"
    
    ;; skeleton.lisp
    "<SKELETON>" "SKELETON" "ETABLES" "ETABLE" "SKEL-EMPTY-P"
@@ -95,7 +97,7 @@
    ;; domain.lisp
    "<DOMAIN>" "DOMAIN-BOUNDARY" "DOMAIN-CHARACTERISTICS" "EXTENSIBLE-P"
    "MAKE-DOMAIN"
-   "N-SIMPLEX-DOMAIN" "TENSORIAL-DOMAIN" "N-CUBE-DOMAIN"
+   "N-SIMPLEX-DOMAIN" "SIMPLEX-PRODUCT-DOMAIN" "N-CUBE-DOMAIN" "ENSURE-DOMAIN"
    "BOX-DOMAIN" "N-CELL-DOMAIN" "N-BALL-DOMAIN"
    "TRIANGLE-DOMAIN" "L-DOMAIN"
 
@@ -105,7 +107,7 @@
    "REFINE" "<HIERARCHICAL-MESH>" "MESHES" "REFINEMENTS" "ACCUMULATED-MESH"
    "NR-OF-LEVELS" "CELLS-ON-LEVEL" "TOP-LEVEL" "BOTTOM-LEVEL-CELLS" "TOP-LEVEL-CELLS"
    "SURFACE-CELLS-OF-DIM" "NR-OF-SURFACE-CELLS"
-   "LEVEL-OF-CELL"
+   "LEVEL-OF-CELL" "MESHSIZE"
    "MESH->HIERARCHICAL-MESH" "REFINE-HIERARCHICAL-MESH"
    "REFINEMENT-INTERFACE" "HIERARCHICALLY-ORDERED-CELLS"
    
@@ -141,7 +143,7 @@ each cell is mapped to the patch to which it belongs.
 The basic entities are the class @class{<cell>}, the subclass
 @class{<simplex>} which in turn contains subclasses for arbitrarily
 dimensional simplices generated on demand, and the subclass
-@class{<tensorial>} containing arbitrary products of simplices, e.g. square
+@class{<product-cell>} containing arbitrary products of simplices, e.g. square
 or cube.
 
 Meshes can be refined either uniformly or locally using the Freudenthal
@@ -149,5 +151,5 @@ algorithm as presented in @cite{JBey_2000a} and generalized to product
 elements.  When local refinement is used, hanging nodes may occur.  In
 contrast to most other finite element software, in @femlisp{} the
 difference of refinement levels of adjacent cells may be arbitrarily large.
-Up to now, anisotropic refinement of tensorial cells has not yet been
+Up to now, anisotropic refinement of product cells has not yet been
 implemented."))

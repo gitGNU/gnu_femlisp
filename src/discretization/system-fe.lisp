@@ -52,30 +52,8 @@
 			    (member-of-skeleton? cell interface)))
 	      (:all t))
 	(let* ((coeffs (coefficients-of-cell cell h-mesh problem))
-	       (constraint-id (constraint-identifier problem cell))
-	       (constraint-function (getf coeffs constraint-id))
+	       (constraint-function (getf coeffs 'CONSTRAINT))
 	       (cell-key (cell-key cell h-mesh)))
-	  ;; old version
-	  #+(or)
-	  (when constraint-function
-	    (loop with fe = (get-fe fe-class cell)
-		  for dof in (fe-dofs fe)
-		  when (interior-dof? dof) do
-		  (let ((k (dof-in-vblock-index dof))
-			(comp (dof-component dof))
-			(ci (list :local (dof-coord dof)
-				  :global (local->global cell (dof-gcoord dof)))))
-		    ;; Very simple component-wise constraints for Lagrange
-		    ;; fe. This should be extended to constraints in the
-		    ;; form P, Q, r.  It could also be accelerated by not
-		    ;; evaluating every bc several times.
-		    (multiple-value-bind (constraint-flag constraint-val)
-			(evaluate constraint-function ci)
-		      (when (aref constraint-flag comp)
-			(setf (mref (mref constraints-P cell-key cell-key) k k) 1.0)
-			(minject (aref constraint-val comp) (vref constraints-rhs cell-key)
-				 k 0))))))
-	  #-(or) ; new version
 	  (when constraint-function
 	    (let ((fe (get-fe fe-class cell)))
 	      (do-dof (dof fe)

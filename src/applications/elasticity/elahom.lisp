@@ -50,40 +50,40 @@
 	       entry)))
      gamma)))
 
+(defun elasticity-cell-problem-tensor (dim value)
+  (constant-coefficient
+   (isotropic-elasticity-tensor :dim dim :lambda value :mu value)))
+
 (defun elasticity-inlay-cell-problem (domain &key (inlay-p #'patch-in-inlay-p)
 				      (interior 100.0))
   "Generates the inlay cell problem.  The coefficient is of the
-form $A^{ij}_{\lambda \mu}$ and the equation to be solved is in
-variational form
-$$
-  0 = \partial_\lambda \phi^i A^{ij}_{\lambda \mu}
-    (\partial_\mu N^j_m + \Gamma^j_{\mu m}) 
-$$
+form @math{A^{ij}_{\lambda \mu}}$, and the equation to be solved
+is in variational form
 
-With $k,\nu$ being such that $m= k n + \nu$ we have
-$\Gamma^{j_k}{\mu\nu}=\delta_{jk}\delta_{\mu\nu}$ leading to
-matrix-valued functions $N_\nu$ in the notation of
-\cite{Bakhvalov-Panasenko}.  We should also have N^{jk}_\nu =
-N^{j\nu}_k because of the symmetries of A.  The correction to
-the arithmetic average has to be computed as \(Acorr)^{kr}_{iq}
-:= int_Y A^{kl}_{ij} grad_{x_j} N^{lr}_q = \int_Y div_{x_j}
-A^{lk}_{ji} N^{lr}_q = F[k*dim+i] . N[r*dim+q]."
+@math{ 0 = \partial_\lambda \phi^i A^{ij}_{\lambda \mu}
+    (\partial_\mu N^j_m + \Gamma^j_{\mu m}) }
+
+With @math{k,\nu} being such that @math{m= k n + \nu} we have
+@math{\Gamma^{j_k}{\mu\nu}=\delta_{jk}\delta_{\mu\nu}} leading
+to matrix-valued functions @math{N_\nu} in the notation of
+\cite{Bakhvalov-Panasenko}.  We should also have
+@math{N^{jk}_\nu = N^{j\nu}_k} because of the symmetries of A.
+The correction to the arithmetic average has to be computed as
+
+@math{ A_{corr}^{kr}_{iq} := \int_Y A^{kl}_{ij} \grad_{x_j}
+N^{lr}_q = \int_Y \div_{x_j} A^{lk}_{ji} N^{lr}_q = F[k*dim+i]
+\cdot N[r*dim+q].}"
   (let ((dim (dimension domain)))
     (make-instance
-     '<elasticity-problem> :domain domain
-     :multiplicity (* dim dim)
+     '<ellsys-problem> :domain domain
+     :nr-of-components dim :multiplicity (* dim dim)
      :patch->coefficients
      #'(lambda (patch)
 	 (when (= (dimension patch) dim)
 	   (list
-	    'FL.ELASTICITY::ELASTICITY
-	    (constant-coefficient
-	     (check-elasticity-tensor
-	      (if (funcall inlay-p patch)
-		  (isotropic-elasticity-tensor :dim dim :lambda interior :mu interior)
-		  (isotropic-elasticity-tensor :dim dim :lambda 1.0 :mu 1.0))))
-	    'FL.ELASTICITY::GAMMA
-	    (elasticity-cell-problem-gamma dim)))))))
+	    'FL.ELLSYS::A (elasticity-cell-problem-tensor
+			   dim (if (funcall inlay-p patch) interior 1.0))
+	    'FL.ELLSYS::H (elasticity-cell-problem-gamma dim)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; utilities
@@ -153,17 +153,16 @@ with dim^3 components which are plotted one after the other."
 		       #'(lambda (blackboard)
 			   (let ((tensor (effective-tensor blackboard)))
 			     (format nil "~19,10,2E~19,10,2E~19,10,2E"
-				     (and tensor (mref (aref tensor 0 0) 0 0))
-				     (and tensor (mref (aref tensor 0 0) 1 1))
-				     (and tensor (mref (aref tensor 1 0) 1 0)))))))))
+				     (and tensor (mref (mref tensor 0 0) 0 0))
+				     (and tensor (mref (mref tensor 0 0) 1 1))
+				     (and tensor (mref (mref tensor 1 0) 1 0)))))))))
        (blackboard :problem problem)))
     (when plot
       ;; plot components of cell solution tensor
-      (dotimes (i dim)
-	(dotimes (j dim)
-	  (dotimes (k dim)
-	    (plot (getbb *result* :solution) :component i :index (+ (* j dim) k))
-	    (sleep 1.0)))))
+      (dotimes (j dim)
+	(dotimes (k dim)
+	  (plot (getbb *result* :solution) :index (+ (* j dim) k))
+	  (sleep 1.0))))
     ;; compute the homogenized coefficient
     (format t "The effective elasticity tensor is:~%~A~%"
 	    (effective-tensor *result*))))
@@ -173,6 +172,17 @@ with dim^3 components which are plotted one after the other."
  (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2))
  :order 4 :levels 2 :output :all)
 
+#|
+(prof:with-profiling (:type :time)
+  (elasticity-interior-effective-coeff-demo
+   (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2))
+   :order 4 :levels 1 :output :all))
+(prof:show-call-graph)
+|#
+
+#+(or)
+(plot (getbb *result* :solution) :index 1 :depth 2)
+
 #+(or)
 (let ((dim 2)
       (counter -1))
@@ -180,7 +190,7 @@ with dim^3 components which are plotted one after the other."
     (dotimes (j dim)
       (dotimes (k dim)
 	(plot (getbb *result* :solution) :component i :index (+ (* j dim) k)
-	      :plot :file :format "tiff" :background :white
+	      :background :white
 	      :filename (format nil "ela-cell-sol-x~D" (incf counter)))))))
 ;; montage -geometry 480x480 -tile 2x4 ela-cell-*.tiff ela-cell-sols.eps
 
@@ -246,22 +256,22 @@ Parameters: order=~D, levels=~D~%~%"
   ;;(profile:profile :methods 'fl.algebra:sparse-matrix->matlisp)
   ;;(profile:unprofile)
   ;; we should have N^{lr}_q = N^{lq}_r
-  (let ((average-tensor
-	 (average-coefficient (getbb *result* :ansatz-space)
-			      :coefficient 'FL.ELASTICITY::ELASTICITY))
-	(correction-tensor
-	 (convert-correction
-	  (correction-tensor (getbb *result* :solution)
-			     (getbb *result* :rhs)))))
-    (check-elasticity-tensor average-tensor 0.0)
-    (check-elasticity-tensor correction-tensor 1.0e-4)
-    (check-elasticity-tensor (m- average-tensor correction-tensor)))
+  (with-items (&key mesh solution ansatz-space rhs) *result*
+    (let ((average-tensor
+	   (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A))
+	  (correction-tensor
+	   (convert-correction
+	    (correction-tensor solution rhs)))
+	  (dim (dimension mesh)))
+      (check-elasticity-tensor average-tensor dim 0.0)
+      (check-elasticity-tensor correction-tensor dim 1.0e-4)
+      (check-elasticity-tensor (m- average-tensor correction-tensor) dim)))
   (effective-tensor *result*)
 
   (isotropic-elasticity-tensor :dim 2 :lambda 100 :mu 100)
 
   (plot (getbb *result* :solution) :component 1 :index 0)
-
+  
   )
 
 ;;; (test-homogenization-elasticity)

@@ -59,11 +59,12 @@ driven cavity."
       (append *stationary-fe-strategy-observe*
 	      (list (watch-dc-center-velocity dim))))))
   (when plot
-    (let ((solution (getbb *result* :solution)))
-      ;; plot components of cell solution tensor
-      (dotimes (i (1+ dim))
-	(plot solution :component i :depth 2)
-	(sleep 1.0)))))
+    ;; plot components of cell solution tensor
+    (plot (getbb *result* :solution)
+	  :shape 2 :key #'(lambda (vec)
+			    (vector (vref (vref vec 0) 0)
+				    (vref (vref vec 1) 0))))
+    (sleep 1.0)))
 
 ;;; (ns-driven-cavity-demo 2 2 5 :output :all :plot nil :reynolds 100.0)
 ;;; (plot (getbb *result* :solution) :component 0 :depth 2)
@@ -78,11 +79,12 @@ for the Navier-Stokes equation using Taylor-Hood finite elements
 	   (make-demo
 	    :name title :short short :long long :execute
 	    (lambda ()
-	      (ns-driven-cavity-demo dim order 3 :output 1 :plot t
+	      (ns-driven-cavity-demo dim order 4 :output 1 :plot t
 				     :reynolds (float reynolds 1.0))))))
       (adjoin-demo demo *navier-stokes-demo*))))
 
 ;;(ns-driven-cavity-demo 2 4 3 :output :all :plot t :reynolds 0.0)
+
 (make-driven-cavity-demo 2 2 0)
 (make-driven-cavity-demo 2 2 100)
 
@@ -115,6 +117,10 @@ for the Navier-Stokes equation using Taylor-Hood finite elements
 			 :output :all :success-if '(> :time 30.0) :observe
 			 (append *stationary-fe-strategy-observe*
 				 (list (watch-dc-center-velocity dim)))))))
+  (plot (getbb *result* :solution) :shape 2 :key
+	#'(lambda (vec)
+	    (vector (vref (vref vec 0) 0)
+		    (vref (vref vec 1) 0))))
   (fe-extreme-values (getbb *result* :solution))
   (time (plot (getbb *result* :solution) :component 1))
   (time (plot (component (getbb *result* :solution) 1)))

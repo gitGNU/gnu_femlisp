@@ -137,9 +137,10 @@ vertex-centered case."
 	     (t ;; may remain at the boundaries (e.g. on triangles)
 	      (setf (gethash key remaining) t)))
 	   (when block-keys
-	     (push (sort (coerce block-keys 'vector) #'>
-			 :key (compose #'dimension #'representative))
-		   blocks))))
+	     (?1 (push (coerce block-keys 'vector) blocks)
+		 (push (sort (coerce block-keys 'vector) #'>
+			     :key (compose #'dimension #'representative))
+		       blocks)))))
      asa)
     ;; remove all from remaining which are covered
     (loop for block in blocks do
@@ -148,5 +149,6 @@ vertex-centered case."
     (dohash (key remaining)
       (assert (dirichlet-dof-p key asa)))
     #+(or)(setq blocks (nconc blocks (find-connected-blocks-in-table remaining asa)))
+    (dbg :iter "Geoblocks: ~A" blocks)
     blocks))
 

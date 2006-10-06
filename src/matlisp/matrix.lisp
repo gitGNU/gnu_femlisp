@@ -168,11 +168,12 @@ starting from position @arg{offset}."))
 			       'for-each-key-and-entry-in-row))))
     `(,row-for-each #'(lambda ,(remove nil loop-vars) ,@body) ,row)))
 
-;;; vector-matrix operations
+#|
+;;; vector-matrix operations (deprecated)
 (defgeneric x<-Ay (x A y))
 (defgeneric x+=Ay (x A y))
 (defgeneric x-=Ay (x A y))
-
+|#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; General methods
@@ -190,6 +191,7 @@ default."
   "Rewriting for TRANSPOSE."
   (transpose! x (matrix-transpose-instance x)))
 
+(declaim (inline gemm!))
 (defun gemm! (alpha x y beta z &optional (job :nn))
   "Dispatches on the optional job argument (member :nn :tn :nt :tt) and
 calls the corresponding generic function, e.g. GEMM-NN!."

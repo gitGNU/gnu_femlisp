@@ -44,10 +44,11 @@
       (probe-file #p"femlisp:external;triangle;triangle"))
   "Pathname of the @program{triangle} binary.")
 
-(defvar *meshes-pathname*
-  (or (aand fl.start::*meshes-directory* (pathname it))
-      (translate-logical-pathname #p"femlisp:meshes;"))
-  "Pathname of the directory for @femlisp{} meshes.")
+(defun meshes-pathname ()
+  "Returns the pathname of the directory for @femlisp{} meshes."
+  (or (fl.port::getenv "FEMLISP_MESHES")
+      (aand fl.start::*meshes-directory* (pathname it))
+      (translate-logical-pathname #p"femlisp:meshes;")))
 
 (defun mesh-file (kind)
   "Returns the pathname for the mesh component @arg{kind} which may be
@@ -58,7 +59,7 @@
 	  (ecase kind
 	    (:poly "poly") (:poly-backup "poly.bak")
 	    (:element "1.ele") (:edge "1.edge") (:node "1.node")))
-   :directory (pathname-directory *meshes-pathname*)))
+   :directory (pathname-directory (meshes-pathname))))
 
 (defun write-1d-skeleton-to-poly-file (patch mesh vertices)
   "Writes out the 1d-skeleton for @arg{mesh} to a @code{.poly}-file.
@@ -108,7 +109,7 @@ command 'make triangle' from the Femlisp main directory."))
   (fl.port:run-program
    *triangle-pathname*
    (list (concatenate 'string "-YqeB" (dbg-when :triangle "V"))
-	 (concatenate 'string (namestring *meshes-pathname*)
+	 (concatenate 'string (namestring (meshes-pathname))
 		      (pathname-name (mesh-file :poly))))
    :wait t :output (dbg-when :triangle *trace-output*)))
 

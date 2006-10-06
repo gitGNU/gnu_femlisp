@@ -156,7 +156,7 @@
   (plot (inlay-cell-problem 2 0.1) :refinements 2
 	:coefficient 'FL.CDR::DIFFUSION :key (rcurry #'mref 0 0))
   ;; first order approximation
-  (homogenized-diffusion-tensor
+  (effective-tensor
    (cell-solve (inlay-cell-problem 2 0.1 0) :level 1
 	       :order 1 :parametric (lagrange-mapping 2))))
 

@@ -68,33 +68,31 @@ reference cells.  This is needed for plotting."
 		   skel :dimension 0)
     index-table))
 
-(let ((table (make-hash-table :test 'equalp)))
-  (defun refcell-refinement-vertices (refcell level)
-    "Transforms refcell-refinement-index-table into a vector."
-    (assert (reference-cell-p refcell))
-    (let ((skeleton (refcell-refinement-skeleton refcell level 0)))
-      (whereas ((entry (gethash (cons refcell level) table)))
-	;; safety check that nothing has changed
-	(when (eq (car entry) skeleton)
-	  (return-from refcell-refinement-vertices (cdr entry))))
-      ;; generate a new entry
-      (let* ((index-table (vertex-index-table skeleton))
-	     (vertex-array (make-array (hash-table-count index-table) :initial-element nil)))
-	(maphash #'(lambda (vtx index) (setf (aref vertex-array index) vtx))
-		 index-table)
-	;; because DX does not use connections in 1D
-	(when (= (dimension refcell) 1)
-	  (setf vertex-array
-		(sort vertex-array #'<
-		      :key (lambda (vtx) (aref (vertex-position vtx) 0)))))
-	(setf (gethash (cons refcell level) table)
-	      (cons skeleton vertex-array))
-	vertex-array))))
+(with-memoization (:id 'refcell-refinement-vertices :test 'equalp)
+  (defun refcell-refinement-vertices (cell level)
+    "Returns the vertices of the @arg{level}-refinement of the reference
+cell of @arg{cell} as a vector."
+    (let ((refcell (reference-cell cell)))
+      (memoizing-let ((skeleton (refcell-refinement-skeleton refcell level 0)))
+	(let* ((index-table (vertex-index-table skeleton))
+	       (vertex-array (make-array (hash-table-count index-table) :initial-element nil)))
+	  (maphash #'(lambda (vtx index) (setf (aref vertex-array index) vtx))
+		   index-table)
+	  ;; because DX does not use connections in 1D
+	  (when (= (dimension refcell) 1)
+	    (setf vertex-array
+		  (sort vertex-array #'<
+			:key (lambda (vtx) (aref (vertex-position vtx) 0)))))
+	  vertex-array)))))
+
+(with-memoization (:id 'refcell-refinement-vertex-positions)
+  (defun refcell-refinement-vertex-positions (cell level)
+    (memoizing-let ((vertices (refcell-refinement-vertices cell level)))
+      (map 'vector #'vertex-position vertices))))
 
 (defun nr-of-refinement-vertices (cell depth)
   (length (refcell-refinement-vertices
-	   (reference-cell cell)
-	   (if (numberp depth) depth (funcall depth cell)))))
+	   cell (if (numberp depth) depth (funcall depth cell)))))
 
 (definline make-key (cell local-vtx)
   "Returns a suitable hash-table key for the vertex of cell."
@@ -117,7 +115,7 @@ this number for the actual cell."
     (dolist (cell cells)
      (loop with depth = (if (numberp depth) depth (funcall depth cell))
 	for local-vtx across
-	  (let ((vertices (refcell-refinement-vertices (reference-cell cell) depth)))
+	  (let ((vertices (refcell-refinement-vertices cell depth)))
 	    (when (= (dimension cell) 1)
 	      ;; the following is a cludge because DX strangely breaks for
 	      ;; unordered vertices
@@ -152,7 +150,8 @@ this number for the actual cell."
 		     (cons (cadr vertices) (cons (car vertices) (cddr vertices)))
 		     vertices)))
 	      connection-list))
-	 (fl.mesh::refcell-refinement-skeleton (reference-cell cell) depth 0)
+	 (fl.mesh::refcell-refinement-skeleton
+	  (reference-cell cell) depth 0)
 	 :dimension :highest)))))
 
 (defun compute-all-position-values (cells position-indices depth cell->values)
@@ -160,13 +159,12 @@ this number for the actual cell."
 representing the number of cell subdivisions, or a function which yields
 this number for the actual cell."
   (let* ((nr-positions (hash-table-count position-indices))
-	 (data (make-double-vec nr-positions)))
+	 (data (make-array nr-positions)))
     ;; generate data array
     (dolist (cell cells)
       (let* ((values (funcall cell->values cell))
 	     (depth (if (numberp depth) depth (funcall depth cell)))
-	     (vertices (refcell-refinement-vertices
-			(reference-cell cell) depth)))
+	     (vertices (refcell-refinement-vertices cell depth)))
 	(dotimes (i (length vertices))
 	  (setf (aref data (gethash (make-key cell (aref vertices i))
 				    position-indices))
@@ -182,8 +180,7 @@ array."
     (dolist (cell cells)
       (let ((depth (if (numberp depth) depth (funcall depth cell))))
 	(loop
-	   for local-vtx across (refcell-refinement-vertices
-				 (reference-cell cell) depth)
+	   for local-vtx across (refcell-refinement-vertices cell depth)
 	   do
 	   (setf (aref position-array (gethash (make-key cell local-vtx) position-indices))
 		 (let ((pos (local->global cell (vertex-position local-vtx))))

@@ -66,17 +66,18 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	(source (get-coefficient coeffs 'FL.CDR::SOURCE))
 	(reaction (get-coefficient coeffs 'FL.CDR::REACTION))
 	(cell (getf fe-geometry :cell)))
-    (dbg :fe "Local discretization on cell ~A" cell)
+    (dbg :fe "Local discretization on cell ~A:~%D=~A, R=~A, S=~A" cell
+	 (not (null diffusion)) (not (null reaction)) (not (null source)))
     
     ;; loop over quadrature points
     (loop
      for i from 0
      and shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
      and shape-grads across (ip-gradients fe qrule) ; (n-basis x dim)-matrix
-     and global in (getf fe-geometry :global-coords)
-     and Dphi in (getf fe-geometry :gradients)
-     and Dphi^-1 in (getf fe-geometry :gradient-inverses)
-     and weight in (getf fe-geometry :weights)
+     and global across (getf fe-geometry :global-coords)
+     and Dphi across (getf fe-geometry :gradients)
+     and Dphi^-1 across (getf fe-geometry :gradient-inverses)
+     for weight across (getf fe-geometry :weights)
      do
      (let* ((right-vals (if local-u (dot local-u shape-vals) shape-vals))
 	    (left-vals (if local-v (dot local-v shape-vals) shape-vals))
@@ -153,10 +154,12 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 			    (member-of-skeleton? cell interface)))
 	      (:all t))
 	(let* ((coeffs (coefficients-of-cell cell h-mesh problem))
-	       (dirichlet-function (get-coefficient coeffs 'FL.CDR::CONSTRAINT))
+	       (dirichlet-function (get-coefficient coeffs 'CONSTRAINT))
 	       (cell-key (cell-key cell h-mesh)))
 	  (when dirichlet-function
 	    (let ((fe (get-fe fe-class cell)))
+	      (when (plusp (nr-of-inner-dofs fe))
+		(dbg :fe "adding constraints for cell ~A" cell))
 	      (loop+ ((dof (fe-dofs fe))
 		      (j (range :below (nr-of-inner-dofs fe))))
 		 do
@@ -219,6 +222,13 @@ Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
 	     (low->high (transfer-matrix as1 as2))
 	     (high->low (transfer-matrix as2 as1)))
 	(assert (< (norm (m- sol (m* high->low (m* low->high sol)))) 1.0e-10)))))
+
+    (let* ((order 1) (level 5)
+	   (problem (cdr-model-problem 2))
+	   (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
+	   (fedisc (lagrange-fe order)))
+      (time (discretize-globally problem h-mesh fedisc)))
+
   )
 
 (fl.tests:adjoin-test 'cdr-fe-tests)

@@ -81,7 +81,7 @@
   (let ((cell (find-cell-from-position (mesh asv) pos)))
     (fe-local-gradient asv cell (global->local cell pos))))
 
-(defmethod cell-integrate (cell x &key (initial-value 0.0) (combiner #'+)
+(defmethod cell-integrate (cell x &key initial-value (combiner #'m+!)
 			   (key #'identity) coeff-func)
   "Integrates the ansatz-space vector @arg{x} on @arg{cell}.  If
 @arg{coeff-fun} is set it should be a function which expects keyword
@@ -91,39 +91,42 @@ arguments @code{:solution} and @code{:global}."
 	 (qrule (quadrature-rule fe))
 	 (x-values (get-local-from-global-vec cell fe x))
 	 (result initial-value))
-    (loop for ip in (integration-points qrule)
-       for shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
-       for shape-vals-transposed =  (if (typep fe '<vector-fe>)
-					(vector-map #'transpose shape-vals)
-					(transpose shape-vals))
-       for xip = (if (typep fe '<vector-fe>)
-		     (map 'simple-vector #'m* shape-vals-transposed x-values)
-		     (m* shape-vals-transposed x-values))
-       for local = (ip-coords ip)
-       for value = (if coeff-func
-		       (evaluate coeff-func (list :solution xip :local local
-						  :global (local->global cell local)))
-		       xip)
-       do (setq result
-		(funcall combiner
-			 (scal (* (ip-weight ip)
-				  (area-of-span (local->Dglobal cell local)))
-			       (funcall key value))
-			 result)))
+    (loop
+     for local across (integration-points qrule)
+     and ip-weight across (integration-weights qrule)
+     for shape-vals across (ip-values fe qrule) ; (n-basis x 1)-matrix
+     for shape-vals-transposed =  (if (typep fe '<vector-fe>)
+				      (vector-map #'transpose shape-vals)
+				      (transpose shape-vals))
+     for xip = (if (typep fe '<vector-fe>)
+		   (map 'simple-vector #'m* shape-vals-transposed x-values)
+		   (m* shape-vals-transposed x-values))
+     for value = (if coeff-func
+		     (evaluate coeff-func (list :solution xip :local local
+						:global (local->global cell local)))
+		     xip)
+     for contribution = (scal (* ip-weight
+				 (area-of-span (local->Dglobal cell local)))
+			      (funcall key value))
+     do (setq result
+	      (if result
+		  (funcall combiner contribution result)
+		  contribution)))
     result))
 
 (defmethod fe-integrate ((asv <ansatz-space-vector>) &key cells skeleton
-			 (initial-value 0.0) (combiner #'+) (key #'identity))
+			 initial-value (combiner #'m+!) (key #'identity))
   "Integrates a finite element function over the domain.  key is a
 transformer function, as always (e.g. #'abs if you want the L1-norm)."
   (let ((result initial-value))
     (flet ((accumulate (cell)
-	     (setq result
-		   (funcall combiner
-			    (cell-integrate
-			     cell asv :initial-value initial-value
-			     :combiner combiner :key key)
-			    result))))
+	     (let ((contribution
+		    (cell-integrate
+		     cell asv :initial-value initial-value
+		     :combiner combiner :key key)))
+	       (setq result (if result
+				(funcall combiner contribution result)
+				contribution)))))
       (cond (cells (mapc #'accumulate cells))
 	    (t (doskel (cell (or skeleton (mesh asv)) :dimension :highest :where :surface)
 		 (accumulate cell))))
@@ -133,31 +136,33 @@ transformer function, as always (e.g. #'abs if you want the L1-norm)."
   (let* ((fe (get-fe (fe-class x) cell))
 	 (nr-comps (nr-of-components fe))
 	 (multiplicity (multiplicity x))
-	 (x-values (get-local-from-global-vec cell fe x))
-	 (initialized-p (car min/max)))
+	 (x-values (get-local-from-global-vec cell fe x)))
     (unless (vectorp x-values)
       (setf x-values (vector x-values)))
-    (unless initialized-p
-      (setf (car min/max) (make-real-matrix nr-comps multiplicity)
-	    (cdr min/max) (make-real-matrix nr-comps multiplicity)))
-    (destructuring-bind (minimum . maximum) min/max
+    (let ((minimum (or (car min/max) (make-array nr-comps :initial-element nil)))
+	  (maximum (or (cdr min/max) (make-array nr-comps :initial-element nil))))
       (dotimes (k nr-comps)
 	(let ((comp-values (aref x-values k)))
+	  (unless (aref minimum k)
+	    (setf (aref minimum k) (matrix-slice comp-values :nrows 1)))
+	  (unless (aref maximum k)
+	    (setf (aref maximum k) (matrix-slice comp-values :nrows 1)))
 	  (dotimes (j multiplicity)
-	    (symbol-macrolet ((min_kj (mref minimum k j))
-			      (max_kj (mref maximum k j)))
+	    (symbol-macrolet ((min_kj (vref (aref minimum k) j))
+			      (max_kj (vref (aref maximum k) j)))
 	      (dotimes (i (nrows comp-values))
 		(let ((entry (mref comp-values i j)))
-		  (cond
-		    (initialized-p
-		     (setf min_kj (min min_kj entry))
-		     (setf max_kj (max max_kj entry)))
-		    (t (setf max_kj (setf min_kj entry))
-		       (setf initialized-p t))))))))))))
+		  (setf min_kj (min min_kj entry))
+		  (setf max_kj (max max_kj entry))))))))
+      (setf (car min/max) minimum (cdr min/max) maximum)
+      min/max)))
 
 (defmethod fe-extreme-values ((asv <ansatz-space-vector>) &key cells skeleton)
   "Computes the extreme values of a finite element function over the domain
-or some region."
+or some region.  The result is a pair, the car being the minimum values and
+the cdr the maximum values.  Each part is a vector of the size of the
+number of components with entries being matrices of size 1 times
+multiplicity."
   (let ((min/max (cons nil nil)))
     (cond (cells
 	   (loop for cell in cells do

@@ -83,10 +83,6 @@ position."
   (assert (equalp local-pos (double-vec)))
   (vertex-position vtx))
 
-(defmethod embedded-dimension ((vtx <vertex>))
-  "Anchor for recursive definition."
-  (length (vertex-position vtx)))
-
 (defmethod l2Dg ((vtx <vertex>) local-pos)
   (assert (equalp local-pos (double-vec)))
   (make-real-matrix (embedded-dimension vtx) 0))
@@ -94,17 +90,6 @@ position."
 (defmethod local->Dglobal ((vtx <vertex>) local-pos)
   "Not perfect, should take mapping into account."
   (l2Dg vtx local-pos))
-
-(defmethod l2jet ((vtx <vertex>) (local-pos array) (k integer))
-  "The jet of a simplex with linear cell mapping is 0 above the first
-derivative."
-  (loop for i from 0 upto k
-	collect
-	(case i
-	  ((0) (l2g vtx local-pos))
-	  ((1) (l2Dg vtx local-pos))
-	  (t (make-real-tensor (cons (embedded-dimension vtx)
-				     (make-list (1- i) :initial-element 0)))))))
 
 (defmethod g2l ((vtx <vertex>) global-pos)
   (when (equalp global-pos (vertex-position vtx))

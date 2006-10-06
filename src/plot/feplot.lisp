@@ -34,65 +34,31 @@
 
 (in-package :fl.plot)
 
-(let ((table (make-hash-table :test 'equalp)))
-  (defun local-evaluation-matrix (fe depth)
-    "Returns an evaluation matrix for the fe with the specified local
-refinement depth."
-    (let ((vertices (refcell-refinement-vertices (reference-cell fe) depth))
-	  (key (cons fe depth)))
-      (whereas ((entry (gethash key table)))
-	(when (eq (car entry) vertices)
-	  (return-from local-evaluation-matrix (cdr entry))))
-      (let ((result (make-real-matrix (length vertices) (nr-of-dofs fe))))
-	(loop+ (i (vertex vertices)) do
-	   (loop+ (j (shape (fe-basis fe))) do
-	      (setf (mref result i j)
-		    (evaluate shape (vertex-position vertex)))))
-	result))))
+(with-memoization (:id 'local-evaluation-matrix :test 'equal)
+  (defun local-evaluation-matrix (fe depth &optional (type :solution))
+    "Returns a local evaluation matrix for the refcell-refinement-vertices of
+the given depth."
+    (memoizing-let ((fe fe) (depth depth) (type type))
+      (funcall (ecase type
+		 (:solution 'ip-values)
+		 (:gradient 'ip-gradients))
+	       fe (refcell-refinement-vertex-positions
+		   (reference-cell fe) depth)))))
 
 (defmethod graphic-commands ((asv <ansatz-space-vector>) (program (eql :dx))
-			     &key tubes (foreground :white) range &allow-other-keys)
-  (let ((axis-color (ecase foreground (:black "black")(:white "white")))
-	(graph-color (ecase foreground (:black "black")(:white "yellow")))
-	(dim (dimension (mesh asv))))
-    (case dim
-      (1 (list
-	  "data = Options(data, \"mark\", \"circle\");"
-	  (format nil "data = Color(data,~S);" graph-color)
-	  (format nil "image = Plot(data, colors=~S);" axis-color)
-	  ;;"image = Render (image, camera);"
-	  ))
-      (2 (list
-	  (if range
-	      (format nil "colored = AutoColor(data, min=~A, max=~A);"
-		      (first range) (second range))
-	      "colored = AutoColor(data);")
-	  "surface = Isosurface(data, number=20);"
-	  "image = Collect(surface,colored);"
-	  ;;(format nil "camera = AutoCamera(image, background=~S);" background-string)
-	  ;;"image = Render(image, camera);"
-	  ))
-      (t (list
-	  "connections = ShowConnections(data);"
-	  (if tubes
-	      (format nil "tubes = Tube(connections,~F);"
-		      (if (numberp tubes)
-			  tubes
-			  (case dim ((1 2) 0.01) (t 0.01))))
-	      "tubes = connections;")
-	  "image = AutoColor(tubes);"
-	  ;;(format nil "camera = AutoCamera(image, \"off diagonal\", background=~S);" background-string)
-	  ;;"image = Render(image, camera);"
-	  )))))
+			     &rest rest)
+  (apply #'fl.graphic::dx-commands-data rest))
 
 (defmethod plot ((asv <ansatz-space-vector>) &rest rest
 		 &key depth component index key transformation
-		 &allow-other-keys)
-  "Plots a certain component of asv.  Index is useful when asv consists of
-several vectors."
+		 rank shape &allow-other-keys)
+  "Plots a certain component of the ansatz space vector @arg{asv},
+e.g. pressure for Navier-Stokes equations.  @arg{index} chooses one of
+several solutions if @arg{asv} has multiplicity larger 1."
   (let* ((fe-class (fe-class (ansatz-space asv)))
 	 (mesh (mesh asv))
-	 (dim (embedded-dimension mesh)))
+	 (dim (embedded-dimension mesh))
+	 (nr-comps (nr-of-components fe-class)))
     (ensure depth
 	    #'(lambda (cell)
 		(let ((order (discretization-order (get-fe fe-class cell))))
@@ -103,47 +69,69 @@ several vectors."
 		    ((2) 1)
 		    ((3 4) 2)
 		    (t 3)))))
+    (ensure component (when (= 1 nr-comps) 0))
+    (ensure index (when (= (multiplicity asv) 1) 0))
+    (ensure rank (if (and component index) 0 1))
+    (ensure shape (unless (zerop rank) nr-comps))
     (apply #'graphic-output asv :dx
 	   :depth depth
 	   :cells (plot-cells mesh)
 	   :dimension (plot-dimension dim)
 	   :transformation (or transformation (plot-transformation dim))
+	   :rank rank :shape shape
 	   :cell->values
 	   #'(lambda (cell)
 	       (let* ((fe (get-fe fe-class cell))
 		      (local-vec (get-local-from-global-vec cell fe asv))
 		      (depth (if (numberp depth) depth (funcall depth cell)))
 		      (m (nr-of-refinement-vertices cell depth))
-		      (components (etypecase fe
-				    (<scalar-fe> (vector fe))
-				    (<vector-fe> (components fe)))))
-		 (unless (typep fe '<vector-fe>)
-		   (setq component 0)
+		      (components (components fe)))
+		 ;; not very nice: scalar-fe is special
+		 (unless (vectorp local-vec)
 		   (setq local-vec (vector local-vec)))
-		 (when (= (multiplicity asv) 1)
-		   (setq index 0))
-		 (assert (or (and key (not component))
-			     (and component (not key))))
 		 (let ((all (loop for k below (length components) collect
-				  (m* (local-evaluation-matrix (aref components k) depth)
-				      (aref local-vec k)))))
+				  (vector-map (rcurry #'m*-tn (aref local-vec k))
+					      (local-evaluation-matrix (aref components k) depth)))))
 		   ;; we have to extract a one component value array
 		   (if key
-		       (let ((result (make-real-matrix m 1)))
-			 (dotimes (i m result)
-			   (setf (vref result i)
-				 (funcall key (map 'vector (rcurry #'mref i index) all)))))
-		       (matrix-slice (elt all component) :from-col index :ncols 1)))))
-	   (sans rest :depth))))
+		       (coerce (loop for i below m collecting
+				     (funcall key (map 'vector (rcurry #'vref i) all)))
+			       'vector)
+		       (if component
+			   (map 'vector (lambda (vals) (vref vals index))
+				(elt all component))
+			   (coerce (loop for i below m collecting
+					 (map 'vector (lambda (x) (vref x index))
+						(map 'vector (rcurry #'vref i) all)))
+				   'vector))))))
+	   rest)))
 
 #| Test of 1d plotting with dx
 dx -script
 
-data = Import("image-data-1d.dx");
+data = Import("output.dx");
 data = Options(data, "mark", "circle");
 xyplot = Plot(data);
 camera = AutoCamera(xyplot);
 image = Render (xyplot, camera);
 where = SuperviseWindow("femlisp-output", size=[480,480], visibility=2);
 Display (image,where=where);
+|#
+
+#| Test of 2d vector plotting with dx
+dx -script
+
+data = Import("output.dx");
+colored = AutoColor(data);
+samples = Sample(data, 400);
+glyphs = AutoGlyph(samples, type="arrow");
+image = Collect(colored,glyphs);
+image = Options(image, "rendering mode", "hardware");
+where=SuperviseWindow("femlisp-image",size=[480,480],visibility=2);
+where=SuperviseWindow("femlisp-image",size=[480,480],visibility=1);
+camera = AutoCamera(image, direction="front", background="black", resolution=480, aspect=1.0);
+Display (image, camera, where=where);
+
+content = ReadImageWindow(where);
+WriteImage(content, "test", "tiff");
 |#

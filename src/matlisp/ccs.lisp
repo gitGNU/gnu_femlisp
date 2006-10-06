@@ -102,11 +102,13 @@ ordering."
   (make-instance (standard-matrix (element-type ccs))
 		 :nrows (slot-value (pattern ccs) 'nrows) :ncols multiplicity))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+(with-memoization (:type :local :size 2 :id 'ccs-matrix)
   (defun ccs-matrix (type)
     "Construct a CCS matrix with entries of @arg{type}."
-    (fl.amop:find-programmatic-class
-     (list 'ccs-matrix (store-vector type)))))
+    (memoizing-let ((type type))
+      (assert (subtypep type 'number))
+      (fl.amop:find-programmatic-class
+       (list 'ccs-matrix (store-vector type))))))
 
 (defmethod initialize-instance :after ((ccs ccs-matrix) &key &allow-other-keys)
   (assert (typep ccs 'store-vector))

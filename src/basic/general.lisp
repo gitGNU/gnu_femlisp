@@ -76,14 +76,14 @@ this object."))
 			      `(,prop (getf (properties ,obj) ',prop)))
 	 ,@body))))
 
-
 (defun runtime-compile (source)
   "Calls compile on the provided @arg{source}.  When :compile is activated
 for debugging, the source code is printed."
-  (let ((*print-circle* nil))
-    (dbg :compile "Compiling source:~%~A" source))
-  (compile nil source))
-
+  (let ((*compile-print* (dbg-p :compile))
+	(*compile-verbose* (dbg-p :compile))
+	(*print-circle* nil))
+    (dbg :compile "Compiling source: ~%~S~%" source)
+    (compile nil source)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; iteration
@@ -106,11 +106,11 @@ for debugging, the source code is printed."
     (error "Only one limit should be given."))
   (apply #'make-instance 'range args))
 
-(defgeneric iterator (vec)
-  (:documentation "Returns an iterator for the given vector.")
-  (:method ((range range)) (slot-value range 'from))
-  (:method ((vec vector)) 0)
-  (:method ((vec list)) vec))
+(defgeneric iterator (x)
+  (:documentation "Returns an iterator for @arg{x}.")
+  (:method ((x range)) (slot-value x 'from))
+  (:method ((x vector)) 0)
+  (:method ((x list)) x))
 
 (defgeneric iterator-next (vec iterator)
   (:documentation "Returns an incremented @arg{iterator}.")
@@ -140,7 +140,14 @@ for debugging, the source code is printed."
     (setf (car tail) value)))
 
 (defmacro loop+ (items &body body)
-  "Iterates @arg{body} over @arg{items}."
+  "Iterates @arg{body} over @arg{items}.  Example:
+@lisp
+  (let ((x (make-array 10))
+	(y (make-list 10 :initial-element 1)))
+    (loop+ ((xc x) (yc y) i) doing
+       (setf xc (+ i yc))
+       finally (return x)))
+@end lisp"
   (let ((vectors (loop for i below (length items)
 		      collect (gensym (format nil "V~D" i))))
 	(iterators (loop for i below (length items)
@@ -160,15 +167,169 @@ for debugging, the source code is printed."
 	    ,@body
 	 )))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; generic dictionary access
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric dic-ref (dictionary key)
+  (:documentation "Returns the value of the entry for @arg{key} in
+@arg{dictionary}.")
+  (:method ((table hash-table) key)
+    (gethash key table)))
+
+(defgeneric (setf dic-ref) (value dictionary key)
+  (:documentation "Sets the entry @arg{key} in @arg{dictionary} to
+@arg{value}.")
+  (:method (value (table hash-table) key)
+    (setf (gethash key table) value)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Memoization
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass cache-dictionary ()
+  ((size :reader size :initform 1 :initarg :size)
+   (test :initform #'eql :initarg :test)
+   (store :reader store :initform ())))
+
+(defmethod initialize-instance :after ((dic cache-dictionary) &key &allow-other-keys)
+  (assert (plusp (size dic))))
+
+(defmethod dic-ref ((dic cache-dictionary) key)
+  (with-slots (store test) dic
+    (loop for tail on store
+	  and prev-tail = nil then tail do
+	  (when (funcall test (caar tail) key)
+	    (when prev-tail
+	      (setf (cdr prev-tail) (cdr tail)
+		    (cdr tail) store
+		    store tail))
+	    (return (values (cdar store) t))))))
+
+(defmethod (setf dic-ref) (value (dic cache-dictionary) key)
+  (with-slots (store size test) dic
+    (loop for tail on store
+	  and prev-tail = nil then tail
+	  and i from 1 do
+	  (when (funcall test (caar tail) key)
+	    ;; eliminate entry from store
+	    (cond (prev-tail
+		   (setf (cdr prev-tail) (cdr tail))
+		   (return))
+		  (t (return-from dic-ref
+		       (setf (cdr tail) value)))))
+	  (when (null (cdr tail))
+	    (when (= i size)
+	      ;; full: drop last entry
+	      (if prev-tail
+		  (setf (cdr prev-tail) nil)
+		  (setf store nil)))
+	    (return)))
+    (pushnew (cons key value) store)
+    value))
+
+(defmacro memoizing-let (bindings &body body)
+  "The @arg{body} is memoized for the keys given as a list of
+@arg{bindings}."
+  (declare (ignore bindings body))
+  (error "This global macro should be used only within the context of
+@macro{with-memoization}."))
+
+(defmacro with-memoization ((&key (type :global) size id (debug t) (test ''equal)) &body body)
+  "Sets up a memoization environment consisting of a table, and a captured
+symbol @symbol{memoizing-let} memoizing its body depending on the
+arguments.  Example of usage:
+@lisp
+  (with-memoization (:type :local :id 'test)
+    (defun test (n)
+      (memoizing-let ((k (* 2 n)))
+	(sleep 1)
+	(* k k))))
+@end lisp
+If @arg{type} is :global, the table is thread-safe and the same for all
+threads, if @arg{type} is :local, it is special for each thread."
+  (when (eq type :local) (assert id))
+  (with-gensyms (mutex table key key-exprs value-body)
+    `(let ((,mutex (fl.multiprocessing:make-mutex))
+	   (,table
+	    ,(if size
+		 `(make-instance 'cache-dictionary :size ,size :test ,test)
+		 `(make-hash-table :test ,test))))
+      (declare (ignorable ,mutex ,table))
+      (flet ((,table ()
+	       ,(ecase type
+		       (:global table)
+		       (:local
+			`(or (getf fl.multiprocessing:*thread-local-memoization-table* ,id)
+			  (setf (getf fl.multiprocessing:*thread-local-memoization-table* ,id)
+			   ,(if size
+				`(make-instance 'cache-dictionary :size ,size :test ,test)
+				`(make-hash-table :test ,test))))))))
+	;; the memoize symbol is captured, 
+	(macrolet ((memoizing-let (,key-exprs &body ,value-body)
+		     `(let ,,key-exprs
+		       (fl.multiprocessing:with-mutex (,',mutex)
+			 (let ((,',key (list ,@(mapcar #'car ,key-exprs))))
+			   (or (dic-ref ,'(,table) ,',key)
+			       (progn
+				 ,',(when debug `(dbg :memoize "Memoizing (~A): ~A" ,id ,key))
+				 (setf (dic-ref ,'(,table) ,',key)
+				     (progn ,@,value-body)))))))))
+	  ,@body)))))
+
+
 ;;;; Testing
 
 (defun test-general ()
   (loop+ ((i (range :below 0))) do (error "should not be reached"))
-  (let ((x (make-array 10))
+  (let ((x (make-array 10 :initial-element 0))
 	(y (make-list 10 :initial-element 1)))
     (loop+ ((xc x) (yc y) i) doing
        (setf xc (+ i yc))
        finally (return x)))
+  (loop+ ((k '(1 2 3)) i) collecting (+ k i))
+  (let ((dic (make-instance 'cache-dictionary :size 2)))
+    (describe dic)
+    (setf (dic-ref dic 1) 1)
+    (describe dic)
+    (print (dic-ref dic 1))
+    (describe dic)
+    (setf (dic-ref dic 2) 4)
+    (describe dic)
+    (print (dic-ref dic 2))
+    (describe dic)
+    (print (dic-ref dic 1))
+    (describe dic)
+    (setf (dic-ref dic 3) 9)
+    (describe dic)
+    (print (dic-ref dic 1))
+    (describe dic))
+  
+
+  (print
+   (macroexpand '(with-memoization ()
+		  (defun test (n)
+		    (memoizing-let ((k (* 2 n)))
+				   (sleep 1)
+				   (* k k))))))
+  (with-memoization ()
+    (flet ((test (n)
+		 (memoizing-let ((k (* 2 n))
+				 (l (* 3 n)))
+		   (sleep 1)
+		   (* k l))))
+      (time (test 5))
+      (time (test 5))))
+  
+    (with-memoization (:type :local :size 2 :id 'test-memoization)
+      (flet ((test (n)
+	       (memoizing-let ((k (* 2 n))
+			       (l (* 3 n)))
+		 (sleep 1)
+		 (* k l))))
+	(time (test 5))
+	(time (test 5))))
+  
   )
 
 ;;; (test-general)

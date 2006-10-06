@@ -34,63 +34,39 @@
 
 (in-package :fl.plot)
 
-(defmethod graphic-commands ((f <function>) (program (eql :dx))
-			     &key (foreground :white) &allow-other-keys)
-  (let ((axis-color (ecase foreground (:black "black")(:white "white")))
-	(graph-color (ecase foreground (:black "black")(:white "yellow"))))
-    (case (domain-dimension f)
-      (1 (list
-	  "data = Options(data, \"mark\", \"circle\");"
-	  (format nil "data = Color(data,~S);" graph-color)
-	  (format nil "image = Plot(data, colors=~S);" axis-color)
-	  ;;"xyplot = Plot(data);"
-	  ;;"camera = AutoCamera(xyplot);"
-	  ;;"image = Render (xyplot, camera);"
-	  ))
-      (2 (list
-	  "colored = AutoColor(data);"
-	  "surface = Isosurface(data, number=20);"
-	  "image = Collect(surface,colored);"
-	  ;;"camera = AutoCamera(image);"
-	  ;;"image = Render(image, camera);"
-	  ))
-      (3 (list
-	  "connections = ShowConnections(data);"
-	  "tubes = Tube(connections, 0.01);"
-	  "image = AutoColor(tubes);"
-	  ;;"camera = AutoCamera(tubes, \"off diagonal\");"
-	  ;;"image = Render(tubes, camera);"
-	  )))))
 
-(defmethod plot ((f <function>) &rest rest &key (depth 0) (key #'identity)
-		 domain (refinements 0) parametric &allow-other-keys)
-  "Plots a function defined on the domain.  It generates a temporary mesh
-on the domain, refines it as often as given in the keyword parameter
-refinements and plots the coefficient function on this mesh where each cell
-is resolved as given by the additional parameter depth."
-  (let* ((mesh (uniformly-refined-mesh domain refinements :parametric parametric))
-	 (cells (cells-of-highest-dim mesh)))
-    (apply #'graphic-output f :dx
-	   :dimension (dimension mesh)
-	   :cells cells
-	   :cell->values 
-	   #'(lambda (cell)
-	       (let* ((local-vertices (refcell-refinement-vertices
-				       (reference-cell cell) depth))
-		      (values (make-double-vec (length local-vertices))))
-		 (dotimes (i (length local-vertices))
-		   (let* ((lcoords (vertex-position (aref local-vertices i))))
-		      (setf (aref values i)
-			    (funcall key (evaluate f (local->global cell lcoords))))))
-		 values))
-	   rest)))
+
+(defmethod graphic-commands ((f <function>) (program (eql :dx)) &rest rest)
+  (apply #'fl.graphic::dx-commands-data rest))
+
+(defmethod plot ((f <function>) &rest rest &key cells mesh domain parametric
+		 (depth 0) (key #'identity) (refinements 0) &allow-other-keys)
+  "Plots @arg{function} on the given cell list @arg{cells}.  If @arg{cells}
+is empty, the highest-dimensional cells of @arg{mesh} are used.  If this is
+NIL, then a temporary mesh on @arg{domain} is creatend and refined up to
+level @arg{refinements}.  Each cell is additionally refined @arg{depth}
+times."
+  (ensure cells
+	  (cells-of-highest-dim
+	   (or mesh (uniformly-refined-mesh domain refinements :parametric parametric))))
+  (apply #'graphic-output f :dx
+	 :dimension (domain-dimension f)
+	 :rank (if (= (image-dimension f) 1) 0 1)
+	 :shape (image-dimension f)
+	 :cells (cells-of-highest-dim mesh)
+	 :cell->values
+	 #'(lambda (cell)
+	     (map 'vector
+		  #'(lambda (lcoords)
+		      (funcall key (evaluate f (local->global cell lcoords))))
+		  (refcell-refinement-vertex-positions cell depth)))
+	 rest))
 
 ;;; Testing: (test-function-plot)
 
 (defun test-function-plot ()
   (plot (make-instance
 	 '<special-function> :evaluator
-	 
 	 #'(lambda (x)
 	     (let ((x (aref x 0))
 		   (y (aref x 1)))
@@ -102,7 +78,7 @@ is resolved as given by the additional parameter depth."
 		     #I(x*(1-x)*y*(1-y)*sin(20*pi*x)*sin(16*pi*y))))))
 	 :domain-dimension 2 :image-dimension 1)
 	:domain (n-cube-domain 2)
-	:depth 6)
+	:refinements 4 :depth 2)
   )
 
 (fl.tests::adjoin-test 'test-function-plot)

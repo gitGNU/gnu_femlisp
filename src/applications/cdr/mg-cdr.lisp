@@ -4,7 +4,7 @@
 ;;; mg-cdr.lisp - Solving CDR problems with multigrid
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003- Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without

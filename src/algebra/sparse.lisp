@@ -47,7 +47,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <sparse-vector> ()
+(defclass <sparse-vector> (fl.multiprocessing:mutex-mixin)
   ((blocks :initform (make-hash-table :test #'eq) :type hash-table
 	   :documentation "Table of blocks.")
    (key->size :reader key->size :initarg :key->size :type function
@@ -96,12 +96,6 @@ sides and solutions simultaneously."))
 (defmethod for-each-entry ((fn function) (svec <sparse-vector>))
   (loop for val being the hash-values of (slot-value svec 'blocks) do
 	(funcall fn val)))
-(defmethod for-each-entry-of-vec1 ((fn function) (svec1 <sparse-vector>) (svec2 <sparse-vector>))
-  (maphash #'(lambda (key val) (funcall fn val (vref svec2 key)))
-	   (slot-value svec1 'blocks)))
-(defmethod for-each-entry-of-vec2 ((fn function) (svec1 <sparse-vector>) (svec2 <sparse-vector>))
-  (maphash #'(lambda (key val) (funcall fn (vref svec1 key) val))
-	   (slot-value svec2 'blocks)))
 
 (defmethod keys ((svec <sparse-vector>))
   (let ((keys ()))
@@ -209,7 +203,7 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <sparse-matrix> (<matrix>)
+(defclass <sparse-matrix> (<matrix> fl.multiprocessing:mutex-mixin)
   ((row-table :accessor row-table :initarg :row-table
 	      :initform (make-hash-table :test #'eq) :type hash-table
 	      :documentation "Table of rows.")
@@ -641,6 +635,8 @@ means a lot of consing."
 ;;; matrix-vector blas operations <smat>/<svec>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+#| deprecated
+
 (definline sparse-vecmat-loop (operation x A y)
   (maphash
    #'(lambda (row-key row-dic)
@@ -659,6 +655,7 @@ means a lot of consing."
   (sparse-vecmat-loop #'x+=Ay x A y))
 (defmethod x-=Ay ((x <sparse-vector>) (A <sparse-matrix>) (y <sparse-vector>))
   (sparse-vecmat-loop #'x-=Ay x A y))
+|#
 
 (defmethod x-on-range-of-A<-0 ((x <sparse-vector>) (A <sparse-matrix>))
   (for-each-row-key #'(lambda (key) (x<-0 (vref x key))) A))
@@ -835,6 +832,16 @@ col-keys=nil means to allow every key."
 
 (defmethod submatrix ((smat <sparse-matrix>) &key row-indices col-indices)
   (extract-matrix-block smat row-indices col-indices))
+
+(defmethod extract-value-blocks ((smat <sparse-matrix>) row-keys col-keys)
+  (let* ((result (make-array (list (length row-keys) (length col-keys))
+			     :initial-element nil)))
+    (loop+ (i (rk row-keys))
+      do (whereas ((row (matrix-row smat rk)))
+	   (loop+ (j (ck col-keys))
+	     do (setf (aref result i j)
+		      (gethash j row)))))
+    result))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; transformation to matlisp matrices
@@ -1013,6 +1020,7 @@ problem."
       (show (sparse-m* A A :job :nt :sparsity :B))
       (show (sparse-m* A A :job :tn :sparsity :A))
       (show (sparse-m* A A :job :tt))
+      (extract-value-blocks A '(0 1) '(0 1))
       ;; end of testing environment
       ))
   ;; end of test procedure

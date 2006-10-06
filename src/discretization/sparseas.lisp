@@ -61,10 +61,11 @@ the slot @var{properties}."))
 (defmethod hierarchical-mesh ((as <ansatz-space>))
   "h-mesh accessor for ansatz-space.  Use it for emphasizing that you work
 with a hierarchical mesh."
-  (the <hierarchical-mesh> (mesh as)))
+  (the <hierarchical-mesh> (values (mesh as))))
 
 (defun make-fe-ansatz-space (fe-class problem mesh &optional multiplicity)
   "<ansatz-space> constructor.  Somewhat shorter than with MAKE-INSTANCE."
+  (assert (= (nr-of-components problem) (nr-of-components fe-class)))
   (make-instance '<ansatz-space> :fe-class fe-class
 		 :problem problem :mesh mesh
 		 :multiplicity (or multiplicity
@@ -148,19 +149,26 @@ for a specific fe-class on a given mesh."))
   "Deprecated."
   (make-instance '<ansatz-space-vector> :ansatz-space as))
 
-(defun random-ansatz-space-vector (ansatz-space)
-  "Returns a ansatz space vector for @arg{ansatz-space} filled with random
-entries.  Essential constraints are satisfied."
+(defun special-ansatz-space-vector (ansatz-space &optional (type :random) (value 1.0))
+  "Returns a ansatz space vector for @arg{ansatz-space} filled with
+constant or random entries.  Essential constraints are satisfied."
   (with-slots (mesh key->size)
     ansatz-space
     (let ((asv (make-instance '<ansatz-space-vector> :ansatz-space ansatz-space)))
       (doskel (cell mesh :where :surface)
-	(fill-random! (vref asv (cell-key cell mesh)) 1.0))
+	(ecase type
+	  (:random (fill-random! (vref asv (cell-key cell mesh)) value))
+	  (:constant (fill! (vref asv (cell-key cell mesh)) value))))
       (assemble-constraints ansatz-space)
       (destructuring-bind (&key constraints-P constraints-r &allow-other-keys)
 	  (properties ansatz-space)
 	(copy! (sparse-m* constraints-P constraints-r) asv))
       asv)))
+
+(defun random-ansatz-space-vector (ansatz-space)
+  "Returns a ansatz space vector for @arg{ansatz-space} filled with random
+entries.  Essential constraints are satisfied."
+  (special-ansatz-space-vector ansatz-space :random 1.0))
 
 (defgeneric choose-start-vector (ansatz-space problem)
   (:documentation "Choose a reasonable start vector for some strategy.")

@@ -54,33 +54,11 @@
      '<linear-function> :A (eye 3 dim))))
 
 (defmethod graphic-commands ((skel <skeleton>) (program (eql :dx))
-			     &key tubes (glyphs t) background
-			     &allow-other-keys)
-  (let ((dim (dimension skel)))
-    (list
-     "connections = ShowConnections(data);"
-     (if tubes
-	 (format nil "tubes = Tube(connections,~F);"
-		 (if (numberp tubes)
-		     tubes
-		     (case dim ((1 2) 0.01) (t 0.01))))
-	 "tubes = connections;")
-     (when (eq background :white)
-	 "tubes = Color(tubes, \"black\");")
-     (when glyphs
-       (format nil "glyphs = Glyph(data~A);"
-	       (case dim (1 ",scale=0.01") (2 ",scale=0.01") (t ""))))
-     (if glyphs
-	 "image = Collect(tubes,glyphs);"
-	 "image = tubes;")
-     #+(or)
-     (format nil "camera = AutoCamera(all~A);"
-	     (case dim ((1 2) "") (t ", \"off diagonal\"")))
-     )))
+			     &rest rest)
+  (apply #'fl.graphic::dx-commands-mesh rest))
 
-(defmethod plot ((skel <skeleton>) &rest rest &key transformation depth &allow-other-keys)
-  (when depth
-    (error "The depth option is not allowed for mesh plotting."))
+(defmethod plot ((skel <skeleton>) &rest rest
+		 &key transformation &allow-other-keys)
   (let ((dim (embedded-dimension skel)))
     (apply #'graphic-output skel :dx
 	   :dimension (plot-dimension dim)
@@ -110,7 +88,8 @@
 	(format stream "~D ~D~%"
 		(gethash (cons cell from) position-indices)
 		(gethash (cons cell to) position-indices))))
-    (format stream "attribute \"ref\" string \"positions\"~%~
+    (format stream "~
+attribute \"ref\" string \"positions\"~%~
 attribute \"element type\" string \"lines\"~%~
 object \"grid\" class field~%~
 component \"positions\" value 1~%~
@@ -120,14 +99,14 @@ end~%")))
 #| Test of 1d plotting with dx
 dx -script
 
-data = Import("output-0.dx");
+data = Import("output.dx");
 data = Options(data, "mark", "circle");
 xyplot = Plot(data, corners={[0.0,-0.1],[1.0,0.1]});
 camera = AutoCamera(xyplot);
 image = Render (xyplot, camera);
 Display (image);
 
-data = Import("output-1.dx");
+data = Import("output.dx");
 connections = ShowConnections(data);
 positions = ShowPositions(data);
 image = Collect(positions,connections);

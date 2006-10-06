@@ -37,7 +37,7 @@
   (:export
 
    ;; sparse-tensor.lisp
-   "<SPARSE-TENSOR>" "IN-PATTERN-P" 
+   "<SPARSE-TENSOR>" "DIAGONAL-SPARSE-TENSOR" "IN-PATTERN-P" "INDICES" "ENTRIES"
    
    ;; crs.lisp
    "CRS-PATTERN" "STORE-SIZE" "ROW-STARTS" "COL-INDS" "OFFSETS"

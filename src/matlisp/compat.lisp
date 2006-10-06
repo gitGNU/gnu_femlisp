@@ -110,6 +110,7 @@ double-float array."
   (make-instance (standard-matrix (element-type mat))
 		 :nrows (ncols mat) :ncols multiplicity))
 
+#|
 ;;; old interface matrix-vector multiplication (deprecated)
 
 (defmethod x<-Ay (x (A standard-matrix) y)
@@ -121,6 +122,7 @@ double-float array."
 (defmethod x-=Ay (x (A standard-matrix) y)
   (gemm! -1.0 A (ensure-matlisp y) 1.0 (ensure-matlisp x))
   x)
+|#
 
 ;;; Multiplication of Matlisp matrices and Lisp vectors
 

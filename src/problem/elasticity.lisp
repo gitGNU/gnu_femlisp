@@ -36,11 +36,12 @@
 
 (defpackage "FL.ELASTICITY"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH" "FL.PROBLEM")
+	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH"
+	"FL.PROBLEM" "FL.ELLSYS")
   (:export
    "<ELASTICITY-PROBLEM>" "ISOTROPIC-ELASTICITY-TENSOR"
    "CHECK-ELASTICITY-TENSOR"
-   "STANDARD-ELASTICITY-PROBLEM")
+   "ELASTICITY-MODEL-PROBLEM")
   (:documentation "Defines elasticity problems."))
 
 (in-package :fl.elasticity)
@@ -49,16 +50,16 @@
 ;;;; <elasticity-problem>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <elasticity-problem> (<pde-problem>)
+(defclass <elasticity-problem> (<ellsys-problem>)
   ()
-  (:documentation "Elasticity problems."))
+  (:documentation "An elasticity problem is a special instance of an
+elliptic sytems."))
 
-(defmethod nr-of-components ((problem <elasticity-problem>))
-  (dimension (domain problem)))
-
-(defmethod interior-coefficients ((problem <elasticity-problem>))
-  "Interior coefficients for the elasticity problem."
-  '(ELASTICITY FORCE GAMMA))
+(defmethod shared-initialize :after ((problem <elasticity-problem>) slot-names
+				     &key &allow-other-keys)
+  (declare (ignore slot-names))
+  (setf (slot-value problem 'nr-of-components)
+	(dimension (domain problem))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generation of standard elasticity problems
@@ -66,9 +67,11 @@
 
 (defun isotropic-elasticity-tensor (&key dim lambda mu)
   "Returns the tensor corresponding to the Lam'e constants @math{lambda}
-and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
-(delta_{ij} delta_{kl} + delta_{kj} delta_{il})}."
-  (let ((tensor (make-array (list dim dim) :initial-element nil)))
+and @math{mu}, i.e.:
+
+@math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu (delta_{ij}
+delta_{kl} + delta_{kj} delta_{il})}."
+  (let ((tensor (make-array (list dim dim))))
     (dotimes (k dim)
       (dotimes (l dim)
 	(let ((mat (make-real-matrix dim)))
@@ -78,53 +81,49 @@ and @math{mu}, i.e.: @math{A_{ij}^{kl} = lambda delta_{ik} delta_{jl} + mu
 		    (+ (* lambda (if (and (= i k) (= j l)) 1.0 0.0))
 		       (* mu  (+ (if (and (= i j) (= k l)) 1.0 0.0)
 				 (if (and (= k j) (= i l)) 1.0 0.0)))))))
-	  (setf (aref tensor k l) mat))))
+	  (setf (mref tensor k l) mat))))
     tensor))
 
-(defun check-elasticity-tensor (tensor &optional (threshold 1.0e-6))
+(defun check-elasticity-tensor (tensor dim &optional (threshold 1.0e-6))
   "Checks the symmetries in the elasticity tensor."
   (labels ((tref (index)
-	     (mref (aref tensor (aref index 0) (aref index 1))
+	     (mref (mref tensor (aref index 0) (aref index 1))
 		   (aref index 2) (aref index 3)))
 	   (same? (ind1 ind2)
 	     (<= (abs (- (tref ind1) (tref ind2))) threshold)))
-    (let ((dim (array-dimension tensor 0)))
-      (multi-for (index (make-fixnum-vec 4) (make-fixnum-vec 4 (1- dim)))
-	(flet ((check-permutation (permutation)
-		 (let ((permuted (permute permutation index)))
-		   (unless (same? index permuted)
-		     (format t "~A: t[~A] = ~A but t[~A] = ~A~%" permutation
-			     index (tref index) permuted (tref permuted))))))
-	  (check-permutation #(1 0 3 2))
-	  (check-permutation #(2 1 0 3)))))
+    (multi-for (index (make-fixnum-vec 4) (make-fixnum-vec 4 (1- dim)))
+      (flet ((check-permutation (permutation)
+	       (let ((permuted (permute permutation index)))
+		 (unless (same? index permuted)
+		   (format t "~A: t[~A] = ~A but t[~A] = ~A~%" permutation
+			   index (tref index) permuted (tref permuted))))))
+	(check-permutation #(1 0 3 2))
+	(check-permutation #(2 1 0 3))))
     tensor))
 
-(defun standard-elasticity-problem (domain &key (lambda 1.0) (mu 1.0) force)
+(defun elasticity-model-problem (domain &key (lambda 1.0) (mu 1.0) force)
   (let* ((domain (if (numberp domain) (n-cube-domain domain) domain))
 	 (dim (dimension domain))
 	 (force (or force (constant-coefficient (make-array dim :initial-element (ones 1))))))
-    (make-instance
-     '<elasticity-problem>
-     :domain domain
-     :patch->coefficients
-     #'(lambda (patch)
-	 (if (member-of-skeleton? patch (domain-boundary domain))
-	     (list 'FL.ELASTICITY::CONSTRAINT (constraint-coefficient dim 1))
-	     (list 'FL.ELASTICITY::ELASTICITY
-		   (constant-coefficient
-		    (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu))
-		   'FL.ELASTICITY::FORCE
-		   (ensure-coefficient force)))))))
+    (ellsys-model-problem
+     domain dim
+     :derived-class '<elasticity-problem>
+     :a (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu)
+     :f (or force (coerce (loop repeat dim collect #m(1.0)) 'vector))
+     :dirichlet (constraint-coefficient dim 1))))
 
 ;;; Testing: (test-elasticity)
 
 (defun test-elasticity ()
-  (check-elasticity-tensor
-   (isotropic-elasticity-tensor :dim 2 :lambda 1.0 :mu 2.0))
+  
+  (let ((dim 2))
+    (check-elasticity-tensor
+     (isotropic-elasticity-tensor :dim dim :lambda 1.0 :mu 2.0)
+     dim))
   ;; the following should be equal to (cdr-model-problem 1)
   (let ((dim 1))
-    (standard-elasticity-problem
-     (n-cube-domain dim) :lambda 1.0 :mu 1.0
+    (elasticity-model-problem
+     dim :lambda 1.0 :mu 1.0
      :force (constant-coefficient (make-array dim :initial-element (zeros 1)))))
   )
 

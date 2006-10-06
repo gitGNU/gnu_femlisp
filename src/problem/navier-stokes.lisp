@@ -70,14 +70,14 @@
 
 (defun no-slip-boundary (dim)
   (let ((flags (make-array (1+ dim) :initial-element t))
-	(values (make-array (1+ dim) :initial-element #m(0.0))))
+	(values (make-array (1+ dim) :initial-element (zeros 1))))
     (setf (aref flags dim) nil)
   (constant-coefficient flags values)))
 
 (defun unit-vector-force (dim &optional (direction 0))
   (constant-coefficient
-   (let ((result (make-array (1+ dim) :initial-element #m((0.0)))))
-     (setf (aref result direction) #m((1.0)))
+   (let ((result (make-array (1+ dim) :initial-element (zeros 1))))
+     (setf (aref result direction) (eye 1))
      result)))
 
 (defun inertia-term (reynolds)
@@ -98,7 +98,7 @@
      :patch->coefficients
      #'(lambda (patch)
 	 (cond ((member-of-skeleton? patch (domain-boundary domain))
-		(list 'FL.NAVIER-STOKES::CONSTRAINT (no-slip-boundary dim)))
+		(list 'CONSTRAINT (no-slip-boundary dim)))
 	       ((= dim (dimension patch))
 		(list* 'FL.NAVIER-STOKES::VISCOSITY (ensure-coefficient viscosity)
 		       'FL.NAVIER-STOKES::FORCE (ensure-coefficient force)
@@ -139,14 +139,14 @@
 		   (= (aref midpoint (1- dim)) 1.0))
 	      (append (when smooth-p
 			(list 'FL.NAVIER-STOKES::FORCE (driven-cavity-force dim)))
-		      (list 'FL.NAVIER-STOKES::CONSTRAINT
+		      (list 'CONSTRAINT
 			    (driven-cavity-upper-boundary dim smooth-p))))
 	     ;; lower corner sets also pressure to zero:
 	     ((mzerop midpoint)
-	      (list 'FL.NAVIER-STOKES::CONSTRAINT
+	      (list 'CONSTRAINT
 		    (constraint-coefficient (1+ dim) 1)))
 	     ;; other boundaries have standard no-slip bc
-	     (t (list 'FL.NAVIER-STOKES::CONSTRAINT
+	     (t (list 'CONSTRAINT
 		      (no-slip-boundary dim)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -207,11 +207,11 @@ velocity profile is a solution to @math{-\Delta u = constant}."
 		     (inertia-term reynolds)))
 	     ((and (= (1- dim) (dimension patch))
 		   (not (/= dir-coordinate 0.0 1.0)))
-	      (list 'FL.NAVIER-STOKES::CONSTRAINT
+	      (list 'CONSTRAINT
 		    (simple-pressure-boundary-conditions
 		     dim direction (if (zerop dir-coordinate) 1.0 0.0))))
 	     ;; other boundaries have standard no-slip bc
-	     (t (list 'FL.NAVIER-STOKES::CONSTRAINT (no-slip-boundary dim)))))))))
+	     (t (list 'CONSTRAINT (no-slip-boundary dim)))))))))
 
 ;;; Testing: (test-navier-stokes)
 

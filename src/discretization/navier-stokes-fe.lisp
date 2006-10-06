@@ -34,7 +34,7 @@
 
 (in-package :cl-user)
 (defpackage "FL.NAVIER-STOKES-FE"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
 	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION"
 	"FL.MESH" "FL.PROBLEM" "FL.NAVIER-STOKES" "FL.DISCRETIZATION")
   (:export "NAVIER-STOKES-LAGRANGE-FE")
@@ -48,15 +48,17 @@ generalized Taylor hood elements."))
   ()
   (:documentation "Generalized Taylor-Hood finite element class."))
 
-(defun navier-stokes-lagrange-fe (order dim delta)
-  "Returns a generalized Tylor-Hood element @math{(Q^{k+1})^d/Q^k} of order
-@math{k} in dimension @math{d}."
-  (make-instance
-   '<navier-stokes-lagrange-fe>
-   :components
-   (concatenate 'vector
-		(make-array dim :initial-element (lagrange-fe (+ order delta)))
-		(list (lagrange-fe order :integration-order (+ order delta))))))
+(with-memoization (:id 'navier-stokes-lagrange-fe)
+  (defun navier-stokes-lagrange-fe (order dim delta)
+    "Returns a generalized Tylor-Hood element @math{(Q^{k+delta})^d/Q^k} of
+order @math{k} in dimension @math{d}."
+    (memoizing-let ((order order) (dim dim) (delta delta))
+      (make-instance
+       '<navier-stokes-lagrange-fe>
+       :components
+       (concatenate 'vector
+		    (make-array dim :initial-element (lagrange-fe (+ order delta)))
+		    (list (lagrange-fe order)))))))
 
 (defvar *full-newton* t
   "If T, a full Newton linearization is used.  If NIL, the reaction term is
@@ -67,7 +69,6 @@ dropped.")
 			       fe-parameters &allow-other-keys)
   "Local discretization for a Navier-Stokes problem."
   (assert (and (null local-u) (null local-v)))
-  
   (let* ((nr-comps (nr-of-components vecfe))
 	 (dim (1- nr-comps))
 	 (cell-dim (dimension (get-coefficient fe-geometry :cell)))
@@ -81,18 +82,16 @@ dropped.")
      for k from 0
      for shape-vals across (ip-values vecfe qrule) ; nr-comps x (n-basis x 1)
      and shape-grads across (ip-gradients vecfe qrule) ; nr-comps x (n-basis x dim)
-     and global in (get-coefficient fe-geometry :global-coords)
-     and Dphi in (getf fe-geometry :gradients)
-     and Dphi^-1 in (get-coefficient fe-geometry :gradient-inverses)
-     and weight in (get-coefficient fe-geometry :weights)
+     and global across (get-coefficient fe-geometry :global-coords)
+     and Dphi across (getf fe-geometry :gradients)
+     and Dphi^-1 across (get-coefficient fe-geometry :gradient-inverses)
+     and weight across (get-coefficient fe-geometry :weights)
      do
      (let* ((coeff-input (construct-coeff-input
 			  cell global Dphi shape-vals nil fe-parameters))
 	    (sol-ip (getf coeff-input :solution)))
-       (when viscosity (setq viscosity (evaluate viscosity coeff-input)))
-       (when reynolds (setq reynolds (evaluate reynolds coeff-input)))
-       (when force	     ; makes sense also for lower-dimensional cells
-	 (setq force (evaluate force coeff-input))
+       (whereas ((force (and force (evaluate force coeff-input))))
+	 ;; makes sense also for lower-dimensional cells
 	 (when rhs
 	   (dotimes (i nr-comps)
 	     (gemm! weight (aref shape-vals i) (aref force i)
@@ -101,52 +100,55 @@ dropped.")
        (when (= cell-dim dim)
 	 (let* ((gradients (map 'vector (rcurry #'m* Dphi^-1) shape-grads)) ; nr-comps x (n-basis x dim)
 		(grad-p (vector-last gradients)))
-	   ;; Stokes part: matrix 
-	   (dotimes (i nr-comps)
-	     (dotimes (j nr-comps)
-	       ;; matrix
-	       (when matrix
-		 ;; momentum part: tested with velocity
-		 (when (< i dim)
-		   ;; - \Delta u
-		   (when (= i j)
-		     (when (and viscosity (not (zerop viscosity)))
-		       (gemm! (* weight viscosity) (aref gradients i) (aref gradients j)
+	   (whereas ((viscosity (and viscosity (evaluate viscosity coeff-input))))
+	     ;; Stokes part: matrix 
+	     (dotimes (i nr-comps)
+	       (dotimes (j nr-comps)
+		 ;; matrix
+		 (when matrix
+		   ;; momentum part: tested with velocity
+		   (when (< i dim)
+		     ;; - \Delta u
+		     (when (= i j)
+		       (when (and viscosity (not (zerop viscosity)))
+			 (gemm! (* weight viscosity) (aref gradients i) (aref gradients j)
+				1.0 (aref matrix i j) :NT)))
+		     ;; + \phi \nabla p = - (\Div \phi) p
+		     (when (= j dim)
+		       (gemm! weight (aref shape-vals i) (matrix-slice grad-p :from-col i :ncols 1)
 			      1.0 (aref matrix i j) :NT)))
-		   ;; + \phi \nabla p = - (\Div \phi) p
-		   (when (= j dim)
-		     (gemm! weight (aref shape-vals i) (matrix-slice grad-p :from-col i :ncols 1)
-			    1.0 (aref matrix i j) :NT)))
-		 ;; continuity part: tested with pressure
-		 (when (= i dim)
-		   ;; p \Div u
-		   (when (< j dim)
-		     (gemm! weight (aref shape-vals i)
-			    (matrix-slice (aref gradients j) :from-col j :ncols 1)
-			    1.0 (aref matrix i j) :NT))))))
+		   ;; continuity part: tested with pressure
+		   (when (= i dim)
+		     ;; p \Div u
+		     (when (< j dim)
+		       (gemm! weight (aref shape-vals i)
+			      (matrix-slice (aref gradients j) :from-col j :ncols 1)
+			      1.0 (aref matrix i j) :NT)))))))
 	   ;; Convection part
-	   (when (and reynolds (not (zerop reynolds)))
-	     (let ((u-ip (make-real-matrix
-			  (loop for k below dim
-				collecting (vref (aref sol-ip k) 0)))))
-	       (dotimes (i dim)
-		 ;; (usol \cdot \nabla) u
-		 (let ((u.grad_ui (m* (aref gradients i) u-ip)))
-		   (gemm! (* weight reynolds)
-			  (aref shape-vals i) u.grad_ui
-			  1.0 (aref matrix i i) :NT))
-		 ;; Full Newton linearization includes the term u (\nabla usol)
-		 (when *full-newton*
-		   (let ((grad-i (m*-tn (aref solution i) (aref gradients i))))
-		     (dotimes (j dim)
-		       (let ((factor (* weight reynolds (vref grad-i j))))
-			 ;; put this term into the matrix
-			 (gemm! factor (aref shape-vals i) (aref shape-vals j)
-				1.0 (aref matrix i j) :NT)
-			 ;; and correct also the rhs
-			 (when rhs
-			   (axpy! (* factor (vref u-ip j)) (aref shape-vals i)
-				  (aref rhs i))))))))))
+	   (whereas ((reynolds (and reynolds (evaluate reynolds coeff-input))))
+	     (when (not (zerop reynolds))
+	       (dbg :ns "Assembling Reynolds term")
+	       (let ((u-ip (make-real-matrix
+			    (loop for k below dim
+				  collecting (vref (aref sol-ip k) 0)))))
+		 (dotimes (i dim)
+		   ;; (usol \cdot \nabla) u
+		   (let ((u.grad_ui (m* (aref gradients i) u-ip)))
+		     (gemm! (* weight reynolds)
+			    (aref shape-vals i) u.grad_ui
+			    1.0 (aref matrix i i) :NT))
+		   ;; Full Newton linearization includes the term u (\nabla usol)
+		   (when *full-newton*
+		     (let ((grad-i (m*-tn (aref solution i) (aref gradients i))))
+		       (dotimes (j dim)
+			 (let ((factor (* weight reynolds (vref grad-i j))))
+			   ;; put this term into the matrix
+			   (gemm! factor (aref shape-vals i) (aref shape-vals j)
+				  1.0 (aref matrix i j) :NT)
+			   ;; and correct also the rhs
+			   (when rhs
+			     (axpy! (* factor (vref u-ip j)) (aref shape-vals i)
+				    (aref rhs i)))))))))))
 	   ))))))
 
 ;;; Constraint assembly -> see system-fe.lisp

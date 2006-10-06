@@ -36,13 +36,11 @@
 
 (defpackage "FL.CDRSYS"
   (:use "COMMON-LISP" "FL.MATLISP" "FL.MACROS" "FL.UTILITIES"
-	"FL.MESH" "FL.PROBLEM")
-  (:export "<CDRSYS-PROBLEM>"
-	   "SYSTEM-DIFFUSION-TENSOR"
-	   "CDRSYS-MODEL-PROBLEM")
-  (:documentation "This package contains the problem definition of systems
-of convection-diffusion-reaction equations.  All coefficients are vectors
-with entries corresponding to the scalar case."))
+	"FL.MESH" "FL.PROBLEM" "FL.ELLSYS")
+  (:export "<CDRSYS-PROBLEM>" "CDRSYS-MODEL-PROBLEM")
+  (:documentation "This package contains some definitions for systems of
+convection-diffusion-reaction equations.  These are a special case of
+general elliptic systems defined in @path{ellsys.lisp}."))
 
 (in-package :fl.cdrsys)
 
@@ -50,77 +48,49 @@ with entries corresponding to the scalar case."))
 ;;;; <cdrsys-problem>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <cdrsys-problem> (<pde-problem>)
-  ((ncomps :reader nr-of-components :initarg :nr-of-components))
-  (:documentation "Systems of convection-diffusion-reaction equations.  The
-coefficients should be vector-valued functions in this case."))
+(defclass <cdrsys-problem> (<ellsys-problem>)
+  ()
+  (:documentation "Problem class for a system of
+convection-diffusion-reaction equations."))
 
-(defmethod interior-coefficients ((problem <cdrsys-problem>))
-  "Coefficients for a CDR system."
-  '(DIFFUSION CONVECTION REACTION SOURCE GAMMA CONSTRAINT))
-  
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Generation of standard cdrsys problems
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun vector-diffusion (dim ncomps value)
-  (constant-coefficient
-   (make-array ncomps :initial-element (scal value (eye dim)))))
-
-(defun cdrsys-model-problem (dim/domain ncomps &key (diffusion nil diffusion-p)
+(defun cdrsys-model-problem (domain ncomps &key (diffusion nil diffusion-p)
 			     (source nil source-p) (dirichlet nil dirichlet-p)
-			     gamma convection reaction initial evp properties)
+			     convection reaction initial evp properties)
   "Generates a system of convection-diffusion-reaction equations.  Defaults
 are identity diffusion, right-hand-side equal 1, and Dirichlet zero
 boundary conditions for each component.  Ordinary function are converted
 into coefficient functions depending on a global coordinate.  The first
 argument can be either a domain or an integer n which is interpreted as the
 n-dimensional unit cube."
-  (let* ((domain (if (numberp dim/domain)
-		     (n-cube-domain dim/domain)
-		     dim/domain))
-	 (dim (dimension domain)))
-    ;; set default values
-    (unless diffusion-p
-      (setq diffusion (vector-diffusion dim ncomps 1.0)))
-    (unless source-p
-      (setq source (make-array ncomps :initial-element (ensure-matlisp (if evp 0.0 1.0)))))
-    (unless dirichlet-p (setq dirichlet (constraint-coefficient ncomps 1)))
-    (apply #'fl.amop:make-programmatic-instance
-	   (cond (initial '(<time-dependent-problem> <cdrsys-problem>))
-		 (evp '(<cdrsys-problem> <evp-mixin>))
-		 (t '<cdrsys-problem>))
-	   :nr-of-components ncomps
-	   :properties properties
-	   :domain domain :patch->coefficients
-	   `((:external-boundary
-	      ,(when dirichlet
-		     `(FL.CDRSYS::CONSTRAINT ,(ensure-coefficient dirichlet))))
-	     (:d-dimensional
-	      ,(append
-		(when diffusion
-		  `(FL.CDRSYS::DIFFUSION ,(ensure-coefficient diffusion)))
-		(when source
-		  `(FL.CDRSYS::SOURCE ,(ensure-coefficient source)))
-		(when convection
-		  `(FL.CDRSYS::CONVECTION ,(ensure-coefficient convection)))
-		(when reaction
-		  `(FL.CDRSYS::REACTION ,(ensure-coefficient reaction)))
-		(when gamma
-		  `(FL.CDRSYS::GAMMA ,(ensure-coefficient gamma)))
-		(when initial
-		  `(FL.CDRSYS::INITIAL ,(ensure-coefficient initial))))))
-	   (append
-	    (when evp (destructuring-bind (&key lambda mu) evp
-			(list :lambda lambda :mu mu))))
-	   )))
+  (setq domain (ensure-domain domain))
+  (let ((dim (dimension domain)))
+    (ellsys-model-problem
+     domain ncomps
+     :derived-class '<cdrsys-problem>
+     :a (if diffusion-p
+	    diffusion
+	    (isotropic-diffusion
+	     dim (coerce (loop repeat ncomps collect 1.0) 'vector)))
+     :b convection
+     :c reaction
+     :f (if source-p
+	    source
+	    (coerce (loop repeat ncomps collect
+			  (if evp (zeros 1) (eye 1)))
+		    'vector))
+     :properties properties
+     :dirichlet (if dirichlet-p
+		    dirichlet
+		    (constraint-coefficient ncomps 1))
+     :initial initial :evp evp)))
 
 
 ;;; Testing: (test-cdrsys)
 
 (defun test-cdrsys ()
-  (make-instance '<cdrsys-problem> :domain (n-cube-domain 2)
-		 :patch->coefficients (constantly nil) :nr-of-components 1))
+  (cdrsys-model-problem 1 1)
+  (describe (cdrsys-model-problem 1 1))
+  )
 
 (fl.tests:adjoin-test 'test-cdrsys)
 

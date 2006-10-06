@@ -112,7 +112,7 @@ already assembled.  Works only for uniformly refined meshes."
 	 (h-mesh (hierarchical-mesh ansatz-space))
 	 (top-level (top-level h-mesh))
 	 (a-vec (make-array (nr-of-levels h-mesh)))
-	 (i-vec (make-array (nr-of-levels h-mesh)))
+	 (i-vec (make-array (1- (nr-of-levels h-mesh))))
 	 (interior-mat (get-property mat :interior-matrix))
 	 (solution (get-property mat :solution)))
     
@@ -147,8 +147,8 @@ already assembled.  Works only for uniformly refined meshes."
   (let* ((ansatz-space (ansatz-space mat))
 	 (h-mesh (hierarchical-mesh ansatz-space))
 	 (top-level (top-level h-mesh))
-	 (a-vec (make-array (nr-of-levels h-mesh)))
-	 (i-vec (make-array (1- (nr-of-levels h-mesh)))))
+	 (a-vec (make-array (nr-of-levels h-mesh) :initial-element nil))
+	 (i-vec (make-array (1- (nr-of-levels h-mesh)) :initial-element nil)))
     ;; set the top-level matrix vector
     (setf (aref a-vec top-level) mat)
     (loop for level from (1- top-level) downto (base-level mgit)
@@ -168,7 +168,11 @@ already assembled.  Works only for uniformly refined meshes."
 	     (m+! constraints-P eliminated-mat)
 	     (m-! constraints-Q eliminated-mat)
 	     (setf (aref i-vec level) imat)
-	     (setf (aref a-vec level) eliminated-mat))))
+	     (setf (aref a-vec level) eliminated-mat)
+	     )))
+    (loop for level from (base-level mgit) upto top-level do
+	  (when (typep (aref a-vec level) 'property-mixin )
+	    (setf (get-property (aref a-vec level) :level) level)))
     ;; return result
     (blackboard :a-vec a-vec :i-vec i-vec)))
 

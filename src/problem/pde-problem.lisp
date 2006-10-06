@@ -68,6 +68,10 @@ keyword parameters which should correspond to the list in DEMANDS.")
   "Get coefficient @arg{name} from the list @arg{coeffs}."
   (getf coeffs name))
 
+(defun (setf get-coefficient) (value coeffs name)
+  "Set coefficient @arg{name} from the list @arg{coeffs}."
+  (setf (getf coeffs name) value))
+
 (defmethod demands ((coeffs list))
   "Returns unified demands for all coefficients in the list."
   (let ((demands nil))
@@ -223,8 +227,24 @@ identifiers are special symbols and the coefficients are objects of type
 is usually set up by calling the function @function{patch->coefficients}
 which has to be provided as a key argument.  The slot @slot{multiplicity}
 can be chosen as a positive integer @math{n} if the problem is posed with
-@math{n} different right hand sides simultaneously."))
+@math{n} different right hand sides simultaneously.
 
+Note also that for nonlinear problems, where the coefficients depend on the
+solution, an approximate solution can be found as a property of the
+problem."))
+
+(defun test-condition (condition classifications)
+  "Test if @arg{condition} which at the moment should be either an AND or
+an OR combination of symbols in the list @arg{classification} holds."
+  (cond
+    ((symbolp condition) (member condition classifications))
+    ((consp condition)
+     (funcall
+      (ecase (car condition) (and #'subsetp) (or #'intersection))
+      (cdr condition) classifications))
+    (t (error "Unknown patch classification scheme."))))
+	
+  
 (defmethod initialize-instance ((problem <domain-problem>)
 				&key patch->coefficients &allow-other-keys)
   "Setup the coefficient table, if the coefficients are given as a function
@@ -240,7 +260,7 @@ association of patch classifications to coefficient functions."
 		(function (funcall patch->coefficients patch))
 		(list (loop with classifications = (patch-classification patch domain)
 			    for (id coeffs) in patch->coefficients
-			    when (subsetp (if (consp id) id (list id)) classifications)
+			    when (test-condition id classifications)
 			    do (return coeffs)))
 		(t (error "Unknown mapping."))))))))
 
@@ -275,22 +295,14 @@ for @arg{cell}.")
     (declare (ignore problem))
     ()))
 
-(defgeneric constraint-identifier (problem &optional cell)
-  (:documentation
-   "Returns the symbol which identifies constraints for this problem.")
-  (:method (problem &optional cell)
-    "Returns the CONSTRAINT symbol in the package of the class name."
-    (declare (ignore cell))
-    (find-symbol "CONSTRAINT"
-		 (symbol-package (class-name (class-of problem))))))
-
 (defgeneric boundary-coefficients (problem)
   (:documentation "Returns a list of possible boundary coefficients for
 @arg{problem}.")
   (:method (problem)
     "This default method returns the constraint identifier for
 @arg{problem}."
-    (list (constraint-identifier problem))))
+    (declare (ignore problem))
+    (list 'CONSTRAINT)))
 
 (defgeneric all-coefficients (problem)
   (:documentation "Yields a list of possible coefficients for @arg{problem}.")
@@ -363,11 +375,10 @@ space."
       (when (solution-dependent coeffs)
 	(setf (get-property problem 'linear-p) nil))))
   ;; very coarse test which will be often false for systems
-  (let ((constraint-id (constraint-identifier problem)))
-    (unless (property-set-p problem 'coercive)
-      (dohash ((coeffs) (coefficients problem))
-	(when (member constraint-id coeffs)
-	  (setf (get-property problem 'coercive) t))))))
+  (unless (property-set-p problem 'coercive)
+    (dohash ((coeffs) (coefficients problem))
+      (when (member 'CONSTRAINT coeffs)
+	(setf (get-property problem 'coercive) t)))))
 
 (defgeneric dual-problem (problem functional)
   (:documentation "Returns the dual problem for @arg{problem} with the

@@ -40,27 +40,25 @@
 
 (defvar *dx-pathname*
   (or (aand fl.start::*dx-path* (probe-file (pathname it)))
-      (fl.port:find-executable "dx"))
+      (fl.port:find-executable "dx") #+mswindows (fl.port:find-executable "dx.exe"))
   "Pathname of the @program{DX} binary.")
 
 (defvar *dx-process* nil
   "The current @program{dx} process.")
 
-(defvar *dx-file*
- (make-pathname :name "output.dx"
-		:directory (pathname-directory *images-pathname*))
-  "The output file for @program{dx}.")
-
 (defun ensure-dx-process ()
   (when *dx-process*  ; (eq (fl.port:process-status *dx-process*) :running) ?
     (return-from ensure-dx-process *dx-process*))
-  ;;; execute it within the images directory
+  ;; execute it within the images directory
   (setq *dx-process*
-	(when *dx-pathname*
-	  (fl.port:run-program
-	   *dx-pathname* '("-script" "-cache" "off" "-log" "on") :wait nil
-	   :input :stream :output (dbg-when :graphic *trace-output*)
-	   :directory *images-pathname*)))
+        (when *dx-pathname*
+          (fl.port:run-program
+           *dx-pathname*
+	   ;; -processors 1 was needed on Solaris and a Linux/AMD64 machine (quadruped)
+           '("-script" "-cache" "off" "-log" "on" "-processors" "1" #+mswindows "-native")
+           :wait nil
+           :input :stream :output :stream
+           :directory (images-pathname))))
   (unless *dx-process*
     (warn "~&ENSURE-DX-PROCESS: could not start DX.~%"))
   *dx-process*)
@@ -68,8 +66,12 @@
 (defmethod graphic-input-stream ((program (eql :dx)))
   (fl.port:process-input (ensure-dx-process)))
 
-(defun dx-input-stream () (fl.port:process-input (ensure-dx-process)))
-(defun dx-output-stream () (fl.port:process-output (ensure-dx-process)))
+(defun dx-input-stream ()
+  (whereas ((process (ensure-dx-process)))
+    (fl.port:process-input process)))
+(defun dx-output-stream ()
+  (whereas ((process (ensure-dx-process)))
+    (fl.port:process-output process)))
 
 #+(or)  ; (ensure-dx-process)
 (when *dx-process*
@@ -85,8 +87,10 @@
 This is a trick to make @arg{dx} redraw the picture.")
 
 (defmethod graphic-file-name (object (program (eql :dx)) &key &allow-other-keys)
+  "Returns the output file for @program{dx}."
   (declare (ignore object))
-  *dx-file*)
+  (make-pathname :name "output.dx"
+		 :directory (pathname-directory (images-pathname))))
 
 (defmethod graphic-output :after (object (program (eql :dx)) &key &allow-other-keys)
   (declare (ignore object))
@@ -95,39 +99,116 @@ This is a trick to make @arg{dx} redraw the picture.")
 (defun wait-for-dx ()
   (whereas ((stream (dx-output-stream)))
     (loop for line = (read-line stream)
-	  until (equalp line " 0:  ECHO:  Femlisp request processed")
+	  until (search "0:  ECHO:  Femlisp request processed" line)
 	  do (when (dbg-p :graphic)
 	       (format *trace-output* "~A~%" line)))))
 
+(defun dx-commands-mesh (&key dimension tubes (glyphs t) background &allow-other-keys)
+  (list
+   "connections = ShowConnections(data);"
+   (if tubes
+       (format nil "tubes = Tube(connections,~F);"
+	       (if (numberp tubes)
+		   tubes
+		   (case dimension
+		     ((1 2) 0.01)
+		     (t 0.01))))
+       "tubes = connections;")
+   (when (eq background :white)
+     "tubes = Color(tubes, \"black\");")
+   (when glyphs
+     (format nil "glyphs = Glyph(data~A);"
+	     (case dimension
+	       (1 ",scale=0.01")
+	       (2 ",scale=0.01")
+	       (t ""))))
+   (if glyphs
+       "image = Collect(tubes,glyphs);"
+       "image = tubes;")
+   ))
+
+(defun dx-commands-data (&key (foreground :white) dimension shape range
+			 &allow-other-keys)
+  (let ((axis-color (ecase foreground (:black "black")(:white "white")))
+	(graph-color (ecase foreground (:black "black")(:white "yellow"))))
+    (case dimension
+      (1 (list
+	  "data = Options(data, \"mark\", \"circle\");"
+	  ;;(format nil "data = Color(data,~S);" graph-color)
+	  (format nil "image = Plot(data, colors=~S);" axis-color)
+	  ;;"xyplot = Plot(data);"
+	  ;;"camera = AutoCamera(xyplot);"
+	  ;;"image = Render (xyplot, camera);"
+	  ))
+      (2 (cons
+	  (if range
+	      (format nil "colored = AutoColor(data, min=~A, max=~A);"
+		      (first range) (second range))
+	      "colored = AutoColor(data);")
+	  (if (and shape (= shape 2))
+	      (list
+	       "samples = Sample(data, 400);"
+	       (if range
+		   (format nil "glyphs = AutoGlyph(samples, type=\"arrow\",min=~A,max=~A);"
+			   (first range) (second range))
+		   "glyphs = AutoGlyph(samples, type=\"arrow\");")
+	       "image = Collect(colored,glyphs);")
+	      (list
+	       "surface = Isosurface(data, number=20);"
+	       "image = Collect(surface,colored);"))))
+      (3 (list
+	  "connections = ShowConnections(data);"
+	  "tubes = Tube(connections, 0.01);"
+	  "image = AutoColor(tubes);"
+	  ;;"camera = AutoCamera(tubes, \"off diagonal\");"
+	  ;;"image = Render(tubes, camera);"
+	  )))))
+
+(defparameter *dx-bug-workaround* nil
+  "If T switches on hardware rendering.  This variant is problematic,
+although it gets rid of black lines in dx pictures in some situations.
+E.g. it does not do xy-graphs correctly and fails for @lisp{(plot (n-cube
+1))}.  It can also kill the Xwindows interface on some computers.")
+
 (defmethod send-graphic-commands (object (program (eql :dx)) &rest paras
-				  &key (plot t) dimension (background :black)
+				  &key dimension (background :black)
 				  (resolution 480) (width 480) (height 480)
 				  format filename &allow-other-keys)
   (whereas ((stream (dx-input-stream)))
     (when (dbg-p :graphic)
       (setq stream (make-broadcast-stream stream *trace-output*)))
-    (dbg :graphic "~A" *dx-file*)
     (let ((dx-file (namestring (probe-file (graphic-file-name object :dx)))))
+      (dbg :graphic "File: ~A~%" dx-file)
       (format stream "data = Import(~S);~%" dx-file)
       (format stream "data = Options(data, \"cache\", ~D);~%" *dx-toggle*)
       (loop for script-command in (apply #'graphic-commands object program paras)
-	 when script-command do
-	 (format stream "~A~%" script-command))
+	    when script-command do
+	    (format stream "~A~%" script-command))
       (format stream "camera = AutoCamera(image, direction=~S, background=~S, resolution=~D, aspect=1.0);~%"
 	      (if (= dimension 3) "off-diagonal" "front")
 	      (ecase background (:black "black") (:white "white"))
 	      resolution)
-      (format stream "image = Render(image, camera);~%")
-      (ecase plot
-	((t :plot)
-	 (let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
-	   (format stream control width height 2)
-	   (format stream control width height 1))
-	 (format stream "Display (image, where=where);~%"))
-	(:file
-	 (when format
+      (if *dx-bug-workaround*
+	  (format stream "image = Options(image, \"rendering mode\", \"hardware\");~%")
+	  (format stream "image = Render(image,camera);"))
+      (let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
+	(format stream control width height 2)
+	(format stream control width height 1))
+      (if *dx-bug-workaround*
+	  ;; corresponding to the above problematic variant
+	  (format stream "Display (image, camera, where=where);~%")
+	  (format stream "Display (image, where=where);~%"))
+      (when filename
+	(ensure format "tiff")
+	(cond
+	  (*dx-bug-workaround*
+	   (format stream "content = ReadImageWindow(where);~%")
+	   (format stream "WriteImage (content,~S,~S);~%"
+		   (concatenate 'string (namestring (images-pathname)) filename)
+		   format))
+	  (t
 	   (format stream "WriteImage (image,~S,~S);~%"
-		   (concatenate 'string (namestring *images-pathname*) filename)
+		   (concatenate 'string (namestring (images-pathname)) filename)
 		   format))))
       (format stream "Echo (\"Femlisp request processed\");~%")
       (force-output stream)

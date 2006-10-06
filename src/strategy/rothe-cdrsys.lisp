@@ -41,12 +41,11 @@ be solved at the beginning."
   (map-coefficients
    #'(lambda (coeff-name coeff)
        (case coeff-name
-	 (FL.CDRSYS::CONSTRAINT (values coeff-name coeff))
-	 (FL.CDRSYS::INITIAL (values 'FL.CDRSYS::SOURCE coeff))
-	 (FL.CDRSYS::REACTION
+	 (CONSTRAINT (values coeff-name coeff))
+	 (FL.ELLSYS::INITIAL (values 'FL.ELLSYS::F coeff))
+	 (FL.ELLSYS::C
 	  (values coeff-name (constant-coefficient
-			      (make-array (nr-of-components problem)
-					  :initial-element 1.0))))
+			      (diagonal-sparse-tensor #m(1.0) (nr-of-components problem)))))
 	 (t (values nil nil))))
    coeffs))
    
@@ -63,40 +62,48 @@ be solved at the beginning."
     (coefficients problem))
    :linear-p t))
 
-(defun cdrsys-time-step-coefficients (rothe coeffs)
+(defun cdrsys-time-step-coefficients (rothe coeffs ncomps)
   "Return a coefficient list for the stationary problem to be solved at
 each time step."
   (let ((coeffs (copy-seq coeffs)))
-    ;; source and reaction modification
-    (whereas ((reaction (get-coefficient coeffs 'FL.CDRSYS::REACTION)))
-      (setf (getf coeffs 'FL.CDRSYS::REACTION)
-	    (make-instance
-	     '<coefficient> :dimension (dimension reaction) :demands (demands reaction) :eval
-	     #'(lambda (&rest args)
-		 (let ((reaction (evaluate reaction args))
-		       (increment (/ (ecase (time-stepping-scheme rothe)
-				       (:implicit-euler 1.0)
-				       (:crank-nicolson 2.0))
-				     (time-step rothe))))
-		   (map 'double-vec (curry #'+ increment) reaction)))))
-      (let ((source (get-coefficient coeffs 'FL.CDRSYS::SOURCE)))
-	(setf (getf coeffs 'FL.CDRSYS::SOURCE)
+    (let ((sigma (get-coefficient coeffs 'FL.ELLSYS::SIGMA))
+	  (reaction (get-coefficient coeffs 'FL.ELLSYS::C))
+	  (source (get-coefficient coeffs 'FL.ELLSYS::F)))
+      (ensure sigma (constant-coefficient
+		     (diagonal-sparse-tensor (ones 1) ncomps)))
+      ;; source and reaction modification
+      (when reaction
+	(setf (getf coeffs 'FL.ELLSYS::C)
+	      (make-instance
+	       '<coefficient> :dimension (dimension reaction) :demands (demands reaction) :eval
+	       #'(lambda (&rest args)
+		    (let ((reaction (evaluate reaction args))
+			  (sigma (evaluate sigma args))
+			  (factor
+			   (/ (ecase (time-stepping-scheme rothe)
+				(:implicit-euler 1.0)
+				(:crank-nicolson 2.0))
+			      (time-step rothe))))
+		      (axpy factor sigma reaction)))))
+	(setf (getf coeffs 'FL.ELLSYS::F)
 	      (make-instance
 	       '<coefficient> :dimension (dimension source)
 	       :demands (add-fe-parameters-demand (demands source) '(:old-solution))
 	       :eval
 	       #'(lambda (&rest args &key old-solution &allow-other-keys)
-		   (axpy (/ (time-step rothe)) old-solution (evaluate source args)))))))
-    ;; inclusion of time variable
-    (loop for (coeff-name coeff) on coeffs by #'cddr
-	  for demands = (demands coeff)
+		   (let ((sigma (evaluate sigma args))
+			 (source (evaluate source args)))
+		     (gemm (/ (time-step rothe)) sigma old-solution 1.0 source))))))
+      ;; inclusion of time variable
+      (loop for (coeff-name coeff) on coeffs by #'cddr
+	    for demands = (demands coeff)
 	  collect coeff-name collect
 	  (if (find :time demands)
 	      (make-instance
 	       '<coefficient> :dimension (dimension coeff) :demands demands
 	       :eval #'(lambda (&rest args)
 			 (evaluate coeff (list* :time (model-time rothe) args))))
-	      coeff))))
+	      coeff)))))
 
 (defmethod time-step-problem ((rothe <rothe>) (problem <cdrsys-problem>))
   "Returns a stationary problem corresponding to a step of the Rothe
@@ -108,7 +115,7 @@ method."
    :coefficients
    (map-hash-table
     #'(lambda (patch coeffs)
-	(values patch (cdrsys-time-step-coefficients rothe coeffs)))
+	(values patch (cdrsys-time-step-coefficients rothe coeffs (nr-of-components problem))))
     (coefficients problem))))
 
 (defun test-rothe-cdrsys ()
@@ -116,7 +123,7 @@ method."
   (let* ((dim 1) (levels 1) (order 4) (end-time 0.1) (steps 64)
 	 (problem (cdrsys-model-problem
 		   dim 1 :initial #'(lambda (x) (vector (ensure-matlisp #I(sin(2*pi*x[0])))))
-		   :reaction (constant-coefficient #(0.0))
+		   :reaction (diagonal-sparse-tensor #m(0.0) 1)
 		   :source (constant-coefficient (vector #m(0.0)))))
 	 (rothe (make-instance
 		 '<rothe> :model-time 0.0 :time-step (/ end-time steps)

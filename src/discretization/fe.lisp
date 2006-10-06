@@ -223,8 +223,10 @@ in a sparse vector value block corresponding to the subcell."
 	       unless (zerop nr-dofs) collect i))
       ;; setup dofs
       (setq dofs
-	    (loop+ (comp (fe components)
-			 (local-off local-offset) (subcell-offset subcell-offsets))
+	    (loop+ (comp
+		    (fe components)
+		    (local-off local-offset)
+		    (subcell-offset subcell-offsets))
 	       nconcing
 	       (loop+ ((dof (fe-dofs fe))) collecting
 		  (new-vector-dof-from-dof dof comp subcell-offset))))
@@ -255,15 +257,16 @@ interpolation with the finite element @arg{fe}.")
     "Asserts a scalar value of @arg{func}."
     #'(lambda (x)
 	(let ((value (funcall func x)))
-	(if (numberp value) value (aref value 0)))))
+	  (if (numberp value) value (aref value 0)))))
   (:method ((fe <vector-fe>) func &key dof)
     "Returns a function for the component of @arg{dof}."
     #'(lambda (x) (aref (funcall func x)
 			(dof-component dof)))))
 
 (defmethod interpolate-on-refcell ((fe <fe>) function)
-  "Interpolates @arg{function} on the reference cell of the scalar finite
-element @arg{fe}."
+  "Interpolates @arg{function} on the reference cell of the finite element
+@arg{fe}.  Returns a standard-matrix corresponding to the block in the
+sparse vector."
   (let ((values (loop for dof in (fe-dofs fe) when (interior-dof? dof)
 		      collecting (evaluate dof (interpolation-function fe function :dof dof)))))
     (when values
@@ -326,20 +329,19 @@ depends only on the type of the reference cell."))
 (defmethod nr-of-components ((fe-disc <scalar-fe-discretization>)) 1)
 
 (defclass <vector-fe-discretization> (<standard-fe-discretization>)
-  ((components :accessor components :initarg :components))
+  ((components :reader components))
   (:documentation "Vector FE discretization class."))
 
 (defmethod initialize-instance ((disc <vector-fe-discretization>) &key components)
   "Combines scalar fe discretization to form a vector fe discretization."
   (setf (slot-value disc 'cell->fe)
-	(compose
-	 (memoize-1
-	  #'(lambda (refcell)
-	      (make-instance
-	       '<vector-fe> :cell refcell :discretization disc :components
-	       (map 'vector #'(lambda (comp-disc) (get-fe comp-disc refcell))
-		    components))))
-	   #'reference-cell))
+	 (with-memoization (:id 'initialize-vector-fe-discretization)
+	   (lambda (cell)
+	     (memoizing-let ((refcell (reference-cell cell)))
+	       (make-instance
+		'<vector-fe> :cell refcell :discretization disc :components
+		(map 'vector #'(lambda (comp-disc) (get-fe comp-disc refcell))
+		     components))))))
   (setf (slot-value disc 'components)
 	(map 'vector
 	     #'(lambda (comp-disc i)
@@ -351,7 +353,6 @@ depends only on the type of the reference cell."))
 		      (aref (components (get-fe disc cell)) i))))
 	     components (range< 0 (length components))))
   disc)
-
 
 (defmethod discretization-order ((vecfe-disc <vector-fe-discretization>))
   (loop for disc across (components vecfe-disc)
@@ -373,55 +374,65 @@ depends only on the type of the reference cell."))
 ;;; ip-values, ip-gradients
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; The following two functions might be the standard way to generate the
+;;; The following functions might be the standard way to generate the
 ;;; quadrature information given a finite element and a quadrature rule.
-;;; They should be used in their memoized form
 
-(defun base-function-values-at-ips (fe qrule)
+(defgeneric ip-values (fe obj)
+    (:documentation "Returns a vector of ip values for @arg{obj} which may
+be a vector of integration points or a quadrature rule.  Note that this
+function is memoized using an :around method."))
+
+(with-memoization (:id 'ip-values)
+  (defmethod ip-values :around ((fe <fe>) obj)
+    (memoizing-let ((fe fe) (obj obj))
+      (call-next-method))))
+    
+(defmethod ip-values ((fe <scalar-fe>) (positions vector))
   "Returns a list of nr-ip float-matrices of dimension (n-basis x 1)."
   (map 'vector
-       #'(lambda (ip)
+       #'(lambda (pos)
 	   (make-real-matrix
 	    (loop+ ((shape (fe-basis fe)))
-	       collect (list (evaluate shape (ip-coords ip))))))
-        (integration-points qrule)))
-(memoize-symbol 'base-function-values-at-ips :test 'equal)
+	      collect (list (evaluate shape pos)))))
+       positions))
 
-(defun base-function-gradients-at-ips (fe qrule)
+(defmethod ip-values ((fe <vector-fe>) (positions vector))
+  "Returns a list of positions of length components."
+  (apply #'map 'vector #'vector
+	 (map 'list (rcurry 'ip-values positions)
+	      (components fe))))
+
+(defmethod ip-values (fe (qrule <integration-rule>))
+  "Return the fe values for the integration points of qrule."
+  (ip-values fe (integration-points qrule)))
+
+(defgeneric ip-gradients (fe obj)
+  (:documentation "Returns a vector of local gradient matrices for
+@arg{obj} which may be a vector of integration points or a quadrature rule.
+Note that this function is memoized using an :around method."))
+
+(with-memoization (:id 'ip-gradients)
+  (defmethod ip-gradients :around ((fe <fe>) obj)
+    (memoizing-let ((fe fe) (obj obj))
+      (call-next-method))))
+  
+(defmethod ip-gradients ((fe <scalar-fe>) (positions vector))
   "Returns a list of nr-ip float-matrices of dimension (n-basis x dim)."
   (map 'vector
-       #'(lambda (ip)
+       #'(lambda (pos)
 	   (make-real-matrix
 	    (loop+ ((shape (fe-basis fe))) collect
-	       (evaluate-gradient shape (ip-coords ip)))))
-       (integration-points qrule)))
-(memoize-symbol 'base-function-gradients-at-ips :test 'equal)
+		   (evaluate-gradient shape pos))))
+       positions))
 
-(defun vector-fe-ip-values (vecfe qrule)
+(defmethod ip-gradients ((fe <vector-fe>) (positions vector))
   (apply #'map 'vector #'vector
-	 (map 'list (rcurry 'ip-values qrule)
-	      (components vecfe))))
-(memoize-symbol 'vector-fe-ip-values :test 'equal)
+	 (map 'list (rcurry 'ip-gradients positions)
+	      (components fe))))
 
-(defun vector-fe-ip-gradients (vecfe qrule)
-  (apply #'map 'vector #'vector
-	 (map 'list (rcurry 'ip-gradients qrule)
-	      (components vecfe))))
-(memoize-symbol 'vector-fe-ip-gradients :test 'equal)
-
-(defmethod ip-values ((fe <scalar-fe>) qrule)
-  "Returns a list of nr-ip float-matrices of dimension (n-basis x 1)."
-  (funcall #'base-function-values-at-ips fe qrule))
-
-(defmethod ip-gradients ((fe <scalar-fe>) qrule)
-  (funcall #'base-function-gradients-at-ips fe qrule))
-
-(defmethod ip-values ((fe <vector-fe>) qrule)
-  "Returns a list of vectors of length components."
-  (funcall #'vector-fe-ip-values fe qrule))
-
-(defmethod ip-gradients ((fe <vector-fe>) qrule)
-  (funcall #'vector-fe-ip-gradients fe qrule))
+(defmethod ip-gradients (fe (qrule <integration-rule>))
+  "Return the fe values for the integration points of qrule."
+  (ip-gradients fe (integration-points qrule)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Coefficient input construction for fes
@@ -438,13 +449,13 @@ fe-functions to be evalutated."
 	       collect (if (symbolp obj) obj (car obj))
 	       collect
 	       (let ((value (if (vectorp data)
-				(map 'vector #'m*-tn data values)
+				(map 'vector #'m*-tn values data)
 				(m*-tn values data))))
 		 (if (symbolp obj)
 		     value
 		     (list value
 			   (if (vectorp data)
-			       (map 'vector #'m*-tn data gradients)
+			       (map 'vector #'m*-tn gradients data)
 			       (m*-tn gradients data))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -462,7 +473,7 @@ fe-functions to be evalutated."
       (encapsulate (list item) (- dim 1))))
 
 (defun Q-nomials-of-degree (cell deg &optional (type '=))
-  "Builds the Qn = Pn-Pn-Pn ... on a tensorial cell."
+  "Builds the Qn = Pn-Pn-Pn ... on a product-cell."
   (cond ((or (vertex-p cell) (simplex-p cell))
 	 (P-nomials-of-degree cell deg type))
 	((eq type '<=)
@@ -530,29 +541,35 @@ scalar product in pairing."
 ;;;; fe-cell-geometry
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun fe-cell-geometry (cell qrule &key metric volume)
-  "Collects cell geometry information inside a property list."
-  (loop for ip in (integration-points qrule)
-	for local-coord = (ip-coords ip)
-	for global-coord = (local->global cell local-coord)
-	for Dphi = (local->Dglobal cell local-coord)
-	for metric-ip = (and metric (funcall metric :local local-coord :global global-coord))
-	for volume-ip = (and volume (funcall volume :local local-coord :global global-coord))
-	for volume-at-point =
-	(* (sqrt (abs (det (if metric
-			       (m*-tn Dphi (m* metric-ip Dphi))
-			       (m*-tn Dphi Dphi)))))
-	   (or volume-ip 1.0))
-	collect local-coord into local-coords
-	collect global-coord into global-coords
-	collect Dphi into gradients
-	collect volume-at-point into volumes
-	collect (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi)) into gradient-inverses
-	collect (* (ip-weight ip) volume-at-point) into weights
-	finally
-	(return (list :cell cell :local-coords local-coords :global-coords global-coords
-		      :gradients gradients :volume volumes
-		      :gradient-inverses gradient-inverses :weights weights))))
+(defun fe-cell-geometry (cell sample-points &key weights metric volume
+			 &aux (n (length sample-points)))
+  "Collects cell geometry information at @arg{sample-points} inside a
+property list."
+  ;;(declare (optimize speed))
+  (let ((global-coords (multiple-local->global cell sample-points))
+	(gradients (multiple-local->Dglobal cell sample-points))
+	(volumes (make-array n))
+	(gradient-inverses (make-array n))
+	(combined-weights (make-array n)))
+    (dotimes (i n)
+      (let* ((local-coord (aref sample-points i))
+	     (global-coord (aref global-coords i))
+	     (Dphi (aref gradients i))
+	     (metric-ip (and metric (funcall metric :local local-coord :global global-coord)))
+	     (volume-ip (and volume (funcall volume :local local-coord :global global-coord)))
+	     (volume-at-point
+	      (* (sqrt (abs (det (if metric
+				     (m*-tn Dphi (m* metric-ip Dphi))
+				     (m*-tn Dphi Dphi)))))
+		 (or volume-ip 1.0)))
+	     (Dphi-inverse (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi))))
+	;;
+	(setf (aref volumes i) volume-at-point
+	      (aref gradient-inverses i) Dphi-inverse
+	      (aref combined-weights i) (* volume-at-point (if weights (aref weights i) 1.0)))))
+    (list :cell cell :local-coords sample-points :global-coords global-coords
+	  :gradients gradients :volume volumes :gradient-inverses gradient-inverses
+	  :weights combined-weights)))
 
 ;;; For the following to be effective, we should eliminate the consing by
 ;;; handing over a geometry to be filled
@@ -569,9 +586,8 @@ scalar product in pairing."
 	    Dphi-inverse (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi))
 	    ))
     (loop
-     for ip in (integration-points qrule)
-     for local-coord = (ip-coords ip)
-     for local-weight = (ip-weight ip)
+     for local-coord across (integration-points qrule)
+     and local-weight across (integration-weights qrule)
      for global-coord = (if fast-p
 			    (gemm 1.0 Dphi local-coord 1.0 origin)
 			    (evaluate mapping local-coord)) do

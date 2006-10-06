@@ -33,8 +33,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.PORT"
-  (:use "COMMON-LISP" "FL.UTILITIES")
+  (:use "COMMON-LISP")
   (:export
+   "PORTABILITY-WARNING"
    ;; UNIX environment
    "FIND-EXECUTABLE" "GETENV" "UNIX-CHDIR"
    
@@ -53,15 +54,12 @@
    )
   (:export "SAVE-FEMLISP-CORE-AND-DIE" "FEMLISP-RESTART")
   (:documentation "This package should contain the implementation-dependent
-parts of Femlisp with the exception of the MOP."))
+parts of Femlisp with the exception of the MOP.  It serves a similar
+purpose as the PORT module in CLOCC and is somewhat inspired by this
+module.  It will be dropped when there is a portable and easily installable
+alternative in all CL implementations we are interested in"))
 
 (in-package :fl.port)
-
-(file-documentation
- "This file serves the same purpose as the PORT module in CLOCC and is
-inspired by this module.  It will be dropped when CLOCC/port is easily
-installable in all CL implementations we are interested in or if the
-maintenance of this file should become too difficult.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Utility
@@ -135,16 +133,15 @@ functionality of Femlisp you should provide it in the file
       (wait (excl:run-shell-command (apply #'vector program program args) :wait t
 				    :directory directory :show-window :hide))
       (t
-       ;; for now, process-close expects that only input is a newly generated stream
-       #+(or)(assert (and (eq input :stream)
-			  (not (eq output :stream))
-			  (not (eq error-output :stream))))
+       #+mswindows (assert (and (eq input :stream) (eq output :stream)))
        (multiple-value-bind (stream null proc-id)
-	   (excl:run-shell-command
-	    (apply #'vector program program args)
-	    :wait nil :input input :output output
-	    :error-output error-output :directory directory
-	    :show-window :hide)
+           (excl:run-shell-command
+            #-mswindows (apply #'vector program program args)
+            #+mswindows (apply #'concatenate 'string program
+                               (loop for arg in args collect " " collect arg))
+            :wait nil :input input :output output
+            :error-output error-output :directory directory
+            :show-window :normal) ; :hide
 	 (declare (ignore null))
 	 (list :allegro-process
 	       (if (eq input :stream) stream input)
@@ -347,7 +344,22 @@ that no GC changes array pointers obtained by @function{vector-sap}."
 
 (defun save-femlisp-core-and-die (core-file-name)
   "Saves Femlisp core and quits."
-  #+allegro (excl:dumplisp :name core-file-name)
+  (when (symbolp core-file-name)
+    (setq core-file-name (string-downcase (symbol-name core-file-name))))
+  #+allegro
+  (progn
+    (setq excl:*restart-init-function*
+	  (let ((directory (pathname-directory fl.start::*femlisp-pathname*)))
+	    #'(lambda ()
+		(setf (logical-pathname-translations "FEMLISP")
+		      `(("**;*.*.*"
+			 ,(make-pathname :directory `(,@directory :wild-inferiors)
+					 :name :wild :type :wild :version :wild))))
+		(tpl:setq-default *package* (find-package :fl.application))
+		(rplacd (assoc 'tpl::*saved-package*
+			       tpl:*default-lisp-listener-bindings*)
+			'common-lisp:*package*))))
+    (excl:dumplisp :name core-file-name))
   #+clisp   (EXT:SAVEINITMEM corefilename)
   #+cmu     (ext:save-lisp core-file-name :print-herald nil)
   #+gcl     (si:save-system core-file-name)
@@ -363,5 +375,4 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   (fl.start::femlisp-banner)
   (in-package :fl.application)
   )
-
   

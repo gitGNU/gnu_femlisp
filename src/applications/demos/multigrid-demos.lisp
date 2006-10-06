@@ -136,8 +136,8 @@ See make-smoother-demo for more information."
        (values (getbb result :step-reduction) result)))))
 
 #+(or)
-(let ((dim 1) (order 6))
-  (smoother-performance-test :dim dim :order order :smoother *gauss-seidel*))
+(let ((dim 2) (order 3))
+  (smoother-performance-test :dim dim :order order :smoother (geometric-ssc)))
 
 (defun smoother-demo-execute (smoother)
   (lambda ()
@@ -224,8 +224,8 @@ a Laplace model problem on cubes of different dimensions." smoother-name)))
 
 ;;; (bpx-demo-computation (cdr-model-problem 2) 1 2 '<jacobi>)
 ;;; (bpx-demo-computation (cdr-model-problem 2) 1 2 '<psc>)
-;;; (bpx-demo-computation (standard-elasticity-problem 2) 5 2 '<jacobi>)
-;;; (bpx-demo-computation (standard-elasticity-problem 2) 5 2 '<geometric-psc>)
+;;; (bpx-demo-computation (elasticity-model-problem 2) 5 2 '<jacobi>)
+;;; (bpx-demo-computation (elasticity-model-problem 2) 5 2 '<geometric-psc>)
 
 (defun make-bpx-demo (problem problem-name order level)
   (adjoin-demo
@@ -238,7 +238,7 @@ problem ~A.~%Parameters: dim=~D, order=~D, level=~D,~%"
     :execute (lambda () (bpx-demo-computation problem order level)))
    *multigrid-demo*))
 (make-bpx-demo (cdr-model-problem 2) "laplace-on-square" 1 4)
-(make-bpx-demo (standard-elasticity-problem 2) "elasticity-on-square" 1 4)
+(make-bpx-demo (elasticity-model-problem 2) "elasticity-on-square" 1 4)
 
 
 ;;;; Testing:
@@ -248,7 +248,7 @@ problem ~A.~%Parameters: dim=~D, order=~D, level=~D,~%"
   (smoother-performance-test :dim 1 :order 1 :smoother (geometric-psc))
   (smoother-performance-test :dim 1 :order 6 :smoother (geometric-ssc))
   (smoother-performance-test :dim 3 :order 4 :level 2 :simplex t :smoother (geometric-ssc))
-  (bpx-demo-computation (standard-elasticity-problem 2) 1 4)
+  (bpx-demo-computation (elasticity-model-problem 2) 1 4)
   )
 
 ;;; (test-multigrid-demos)

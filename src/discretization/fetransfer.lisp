@@ -140,12 +140,13 @@ functionals of the children on the parent shape functions."
 		    finally (setf (tensor-ref vecfe-imat i j) mblock))))
       vecfe-imat)))
 
-(defun local-imatrix (rule fe &optional (type :local))
-  "Memoized call of compute-local-imatrix."
-  (assert (eq (reference-cell rule) (reference-cell fe)))
-  (dbg :fe "Generating imatrix for rule ~A and fe ~A" rule fe)
-  (compute-local-imatrix rule fe (discretization fe) :type type))
-(memoize-symbol 'local-imatrix)
+(with-memoization (:id 'local-imatrix)
+  (defun local-imatrix (rule fe &optional (type :local))
+    "Memoized call of compute-local-imatrix."
+    (assert (eq (reference-cell rule) (reference-cell fe)))
+    (dbg :fe "Generating imatrix for rule ~A and fe ~A" rule fe)
+    (memoizing-let ((rule rule) (disc (discretization fe)) (type type))
+      (compute-local-imatrix rule fe disc :type type))))
 
 (defvar *local-interpolation-matrix* nil
   "If non-NIL, it should be a function of the arguments cell, mesh, and
@@ -235,12 +236,13 @@ in the local projection matrix."
 		finally (setf (tensor-ref vecfe-pmat i) mblock)))
 	  vecfe-pmat)))))
 
-(defun local-pmatrix (rule fe)
-  "Memoized call of compute-local-pmatrix."
-  (assert (eq (reference-cell rule) (reference-cell fe)))
-  (dbg :fe "Generating projection matrix for rule ~A and fe ~A" rule fe)
-  (compute-local-pmatrix rule fe (discretization fe)))
-(memoize-symbol 'local-pmatrix)
+(with-memoization (:id 'local-pmatrix)
+  (defun local-pmatrix (rule fe)
+    "Memoized call of compute-local-pmatrix."
+    (assert (eq (reference-cell rule) (reference-cell fe)))
+    (memoizing-let ((rule rule) (fe fe))
+      (dbg :fe "Generating projection matrix for rule ~A and fe ~A" rule fe)
+      (compute-local-pmatrix rule fe (discretization fe)))))
 
 (defvar *local-projection-matrix* nil
   "If non-NIL, it should be a function of the arguments cell, mesh, and
@@ -259,15 +261,16 @@ matrix.")
 ;;; Transfer between different fe-spaces
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun local-transfer-matrix (fe-from fe-to)
-  "Computes a local transfer matrix between different FE spaces."
-  (assert (eq (reference-cell fe-from) (reference-cell fe-to)))
-  (let ((local-mat (make-real-matrix (nr-of-dofs fe-to) (nr-of-dofs fe-from))))
-    (loop+ (i (dof (fe-dofs fe-to)))
-       do (loop+ (j (phi (fe-basis fe-from)))
-	     do (setf (mref local-mat i j) (evaluate dof phi))))
-    local-mat))
-(memoize-symbol 'local-transfer-matrix)
+(with-memoization ()
+  (defun local-transfer-matrix (fe-from fe-to)
+    "Computes a local transfer matrix between different FE spaces."
+    (memoizing-let ((fe-from fe-from) (fe-to fe-to))
+      (assert (eq (reference-cell fe-from) (reference-cell fe-to)))
+      (let ((local-mat (make-real-matrix (nr-of-dofs fe-to) (nr-of-dofs fe-from))))
+	(loop+ (i (dof (fe-dofs fe-to)))
+	  do (loop+ (j (phi (fe-basis fe-from)))
+	       do (setf (mref local-mat i j) (evaluate dof phi))))
+	local-mat))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Testing (test-fetransfer)

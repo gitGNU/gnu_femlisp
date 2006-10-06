@@ -84,8 +84,8 @@ functional."
    #'(lambda (cell)
        ;; check that problem is self adjoint
        (let ((coeffs (copy-seq (coefficients-of-patch cell problem))))
-	 (when (get-coefficient coeffs 'FL.CDR::CONSTRAINT)
-	   (setf (getf coeffs 'FL.CDR::CONSTRAINT)
+	 (when (get-coefficient coeffs 'CONSTRAINT)
+	   (setf (getf coeffs 'CONSTRAINT)
 		 (constant-coefficient 0.0)))
 	 (assert (not (get-coefficient coeffs 'FL.CDR::CONVECTION)))  ; better: change to negative
 	 (unless (eq cell->rhs :load-functional)
@@ -112,7 +112,7 @@ functional."
 (defun identity-diffusion-tensor (dim)
   (scalar-diffusion dim 1.0))
 
-(defun cdr-model-problem (dim/domain &key (diffusion nil diffusion-p)
+(defun cdr-model-problem (domain &key (diffusion nil diffusion-p)
 			  (source nil source-p) (dirichlet nil dirichlet-p)
 			  gamma convection reaction initial evp properties)
   "Generates a convection-diffusion-reaction model problem.  Defaults are
@@ -121,10 +121,8 @@ conditions.  Ordinary function are converted into coefficient functions
 depending on a global coordinate.  The first argument can be either a
 domain or an integer n which is interpreted as the n-dimensional unit
 cube."
-  (let* ((domain (if (numberp dim/domain)
-		     (n-cube-domain dim/domain)
-		     dim/domain))
-	 (dim (dimension domain)))
+  (setq domain (ensure-domain domain))
+  (let ((dim (dimension domain)))
     ;; set default values
     (unless diffusion-p (setq diffusion (eye dim)))
     (unless source-p (setq source (if evp 0.0 1.0)))
@@ -137,7 +135,7 @@ cube."
 	   :domain domain :patch->coefficients
 	   `((:external-boundary
 	      ,(when dirichlet
-		     `(FL.CDR::CONSTRAINT ,(ensure-coefficient dirichlet))))
+		     `(CONSTRAINT ,(ensure-coefficient dirichlet))))
 	     (:d-dimensional
 	      ,(append
 		(when diffusion
@@ -159,25 +157,23 @@ cube."
 
 ;;; nonlinear cdr problem
 
-(defun cdr-nonlinear-rhs-problem (dim/domain f &rest args &key source reaction &allow-other-keys)
+(defun cdr-nonlinear-rhs-problem (domain f &rest args &key source reaction &allow-other-keys)
   "Returns the Newton linearization @math{-\Delta u + F'(u) u = F'(u) u -
 F(u)} for the nonlinear problem @math{-\Delta u +F(u) =0}."
   (assert (not (or source reaction)))
-  (let ((domain (if (numberp dim/domain)
-		    (n-cube-domain dim/domain)
-		    dim/domain)))
-    (apply #'cdr-model-problem
-	   domain
-	   :reaction
-	   (make-instance '<coefficient> :demands '((:fe-parameters :solution)) :residual nil
-			  :eval #'(lambda (&key solution &allow-other-keys)
-				    (evaluate-gradient f solution)))
-	   :source
-	   (make-instance '<coefficient> :demands '((:fe-parameters :solution))
-			  :eval #'(lambda (&key solution &allow-other-keys)
-				    (gemm 1.0 (evaluate-gradient f solution) solution
-					  -1.0 (evaluate f solution))))
-	   args)))
+  (setq domain (ensure-domain domain))
+  (apply #'cdr-model-problem
+	 domain
+	 :reaction
+	 (make-instance '<coefficient> :demands '((:fe-parameters :solution)) :residual nil
+			:eval #'(lambda (&key solution &allow-other-keys)
+				  (evaluate-gradient f solution)))
+	 :source
+	 (make-instance '<coefficient> :demands '((:fe-parameters :solution))
+			:eval #'(lambda (&key solution &allow-other-keys)
+				  (gemm 1.0 (evaluate-gradient f solution) solution
+					-1.0 (evaluate f solution))))
+	 args))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Bratu problem

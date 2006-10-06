@@ -54,7 +54,7 @@ $x_n=0$."
 		     (bl-patch-on-artificial-boundary bl-cell-domain patch))
 		(list 'FL.CDR::SOURCE (constant-coefficient 1.0)))
 	       ((bl-patch-on-lower-boundary bl-cell-domain patch)
-		(list 'FL.CDR::CONSTRAINT (constant-coefficient 0.0)))
+		(list 'CONSTRAINT (constant-coefficient 0.0)))
 	       ((= (dimension patch) dim)
 		(list 'FL.CDR::DIFFUSION (identity-diffusion-tensor dim)))
 	       (t nil))))))
@@ -76,10 +76,10 @@ oscillating domain."
 (defun cdr-bl-computation (dim/domain order max-levels &rest rest
 			   &key output plot solver &allow-other-keys)
   "Performs the bl-diffusion demo."
-  (let ((domain (if (numberp dim/domain)
+  (let ((*output-depth* output)
+	(domain (if (numberp dim/domain)
 		    (apply #'sinusoidal-bl-cell dim/domain rest)
-		    dim/domain))
-	(*output-depth* output))
+		    dim/domain)))
     (defparameter *result*
       (solve (blackboard
 	      :problem (boundary-layer-cell-problem domain)
@@ -101,10 +101,15 @@ oscillating domain."
   *result*)
 
 #+(or) (cdr-bl-computation
-	2 4 3 :plot nil :amplitude 0.15 :shift 1.0 :extensible nil
+	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil
 	:solver (lu-solver) :output :all)
 
 #|
+ (prof:with-profiling (:type :time)
+	 (cdr-bl-computation
+	  2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil
+	  :solver (lu-solver) :output :all))
+(prof:show-call-graph)
 (profile:unprofile)
 (profile:report-time)
 (profile:reset-time)
@@ -125,11 +130,11 @@ oscillating domain."
 (profile:profile fl.matlisp::gesv!)
 (profile:profile fl.matlisp::gemm-nn!)
 (profile:profile fl.mesh::euclidean->barycentric)
-(profile:profile fl.mesh::weight-vector-tensorial)
+(profile:profile fl.mesh::weight-vector-product-cell)
 (profile:profile fl.mesh::corners)
 (profile:profile fl.mesh::vertices)
 (profile:profile fl.application::bottom-mapping)
-(profile:profile fl.mesh::weight-lists-grad-tensorial)
+(profile:profile fl.mesh::weight-lists-grad-product-cell)
 |#
 
 ;; before change (+ 1 sec on another run)

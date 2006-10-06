@@ -227,21 +227,31 @@ completely."
 		(column-length
 		 (loop for ri in sorted-block-column
 		    summing (aref row-sizes ri))))
+	   (declare (type fixnum column-width col-range-start column-length))
 	   ;; and put in the ccs store
-	   (loop with pos1 = pos
-	      for ri in sorted-block-column
-	      for row-range-start = (if row-ranges
-					(car (aref row-ranges ri))
-					0)
-	      for row-offset = (aref row-offsets ri)
-	      for entry = (mref A (aref row-keys ri) ck) do
-	      (dotimes (i (aref row-sizes ri))
-		(dotimes (j column-width)
-		  (let ((k (+ pos1 (* j column-length))))
-		    (setf (aref row-indices k) (+ i row-offset))
-		    (setf (aref store k)
-			  (mref entry (+ i row-range-start) (+ j col-range-start)))))
-		(incf pos1)))
+	   (loop with pos1 of-type fixnum = pos
+		 for ri in sorted-block-column do
+		 (let* ((row-range-start
+			 (if row-ranges (car (aref row-ranges ri)) 0))
+			(row-offset (aref row-offsets ri))
+			(entry (mref A (aref row-keys ri) ck))
+			(entry-store (store entry)))
+		   (declare (type fixnum row-range-start row-offset)
+			    (type double-vec entry-store))
+		   (dotimes (i (the fixnum (aref row-sizes ri)))
+		     (declare (type fixnum i))
+		     (declare (optimize speed (safety 0)))
+		     (dotimes (j column-width)
+		       (declare (type fixnum j))
+		       (let ((k (the fixnum (+ pos1 (the fixnum (* j column-length))))))
+			 (declare (type fixnum k))
+			 (setf (aref row-indices k) (+ i row-offset))
+			 (setf (aref store k)
+			       (aref entry-store (fl.matlisp::standard-matrix-indexing
+						  (the fixnum (+ i row-range-start))
+						  (the fixnum (+ j col-range-start))
+						  (the fixnum (nrows entry)))))))
+		     (setf pos1 (the fixnum (+ pos1 1))))))
 	   ;; set column-starts
 	   (loop for i below column-width do
 		(setf (aref column-starts column-index)

@@ -106,13 +106,16 @@ definition is finished and setup the boundary slot."
 		      (dim (dimension patch)))
 		  (when (= dim (dimension domain)) (push :d-dimensional result))
 		  (when (= dim (1- (dimension domain))) (push :d-1-dimensional result))
-		  (when (= dim 0) (push :0-dimensional result))
+		  (when (= dim 0)
+		    (when (mzerop (vertex-position patch))
+		      (push :origin result)))
 		  (when (= dim 1) (push :1-dimensional result))
 		  (awhen (get-cell-property patch domain 'classification)
 		    (setf result (append result it)))
 		  result))))
   (loop for classifier in classifiers do
        (pushnew classifier (slot-value domain 'classifiers))))
+
 
 (defun domain-characteristics (domain)
   "Returns a property list of characteristics.  The property curved means
@@ -130,6 +133,12 @@ assumed to be provided in an exact form."
 	      (setf (getf properties :exact) nil))))
     properties))
 
+(defmethod describe-object :after ((domain <domain>) stream)
+  (format stream "~&Characteristics: ~A" (domain-characteristics domain))
+  (format stream "~&Classifications: ~A~%" (domain-characteristics domain))
+  (doskel (patch domain)
+    (format t "~A ->~% ~A~%" patch (patch-classification patch domain))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Frequently used domains
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -142,15 +151,50 @@ assumed to be provided in an exact form."
   (change-class (skeleton (n-simplex dim)) '<domain>))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; tensorials, n-cube
+;;; product-cells, n-cubes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun tensorial-domain (dims)
-  "Generates a tensorial domain for the given factor dimensions."
-  (change-class (skeleton (ensure-tensorial dims)) '<domain>))
+(defun simplex-product-domain (dims)
+  "Generates a product-cell domain for the given factor dimensions."
+  (change-class (skeleton (ensure-simplex-product dims)) '<domain>))
+
+(defun classify-top-bottom-lateral (&optional (bottom 0.0) (top 1.0) (left 0.0) (right 1.0))
+  "Returns a classifier for identifying top, bottom, and lateral parts of a
+cube domain."
+  (lambda (cell classifications)
+    (let* ((midpoint (midpoint cell))
+	   (dim (length midpoint))
+	   (coord (aref midpoint (1- dim))))
+      (when (< (dimension cell) dim)
+	(pushnew (cond ((= coord top) :top)
+		       ((= coord bottom) :bottom)
+		       (t :lateral))
+		 classifications)
+	(when (< (dimension cell) (1- dim))
+	  (pushnew :lateral classifications))
+	;; special information for 2d problems
+	(when (= dim 2)
+	  (cond ((= (elt midpoint 0) left) (pushnew :left classifications))
+		((= (elt midpoint 0) right) (pushnew :right classifications))))))
+    classifications))
 
 (defun n-cube-domain (dim)
-  (change-class (skeleton (n-cube dim)) '<domain>))
+  (change-class (skeleton (n-cube dim)) '<domain>
+		:classifiers (list (classify-top-bottom-lateral dim)
+				   (lambda (cell classifications)
+				     (when (mzerop (midpoint cell))
+				       (pushnew :origin classifications))
+				     classifications))))
+
+(defun ensure-domain (domain)
+  "If @arg{domain} is an integer, return the corresponding
+@arg{n-cube-domain}, if @arg{domain} is a domain return it unchanged,
+otherwise signal an error."
+  (if (integerp domain)
+      (n-cube-domain domain)
+      (if (typep domain '<domain>)
+	  domain
+	  (error "Expected either a dimension or a domain."))))
 
 (defun box-domain (dimensions)
   "Generates a box domain for the given dimensions.  Here,
@@ -158,7 +202,8 @@ dimensions is expected to be a list of 2-element lists denoting
 the interval along the respective axis.  The algorithm works by
 copying the unit cube and modifying the coordinates of the
 vertices of the copy."
-  (let ((new-skel (copy-skeleton (skeleton (n-cube (length dimensions))))))
+  (let* ((dim (length dimensions))
+	 (new-skel (copy-skeleton (skeleton (n-cube dim)))))
     (doskel (vertex new-skel :dimension 0)
       (loop with pos = (vertex-position vertex)
 	    for dims in dimensions
@@ -167,6 +212,7 @@ vertices of the copy."
 		  (coerce (elt dims (if (zerop (aref pos i)) 0 1))
 			  'double-float))))
     (change-class new-skel '<domain>)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; n-cell
@@ -303,6 +349,7 @@ the unit cube."
 ;;;; Testing
 (defun test-domain ()
   (display-ht (etable (n-ball-domain 2) 2))
+  (describe (n-cube-domain 2))
   (corners (n-simplex 2))
   (let ((*print-skeleton-values* t))
     (describe (triangle-domain #d(0.0 0.0) #d(1.0 0.0) #d(0.0 1.0))))
@@ -311,6 +358,9 @@ the unit cube."
   (let ((domain (n-cube-domain 1)))
     (doskel (patch domain)
       (format t "~A : ~S~%" patch (patch-classification patch domain))))
+  (let ((domain (n-cube-domain 3)))
+    (doskel (cell domain)
+      (print (patch-classification cell domain))))
   )
 
 ;;; (test-domain)
