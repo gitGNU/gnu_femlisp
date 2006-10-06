@@ -56,7 +56,7 @@ comes with a separate license which you should read (and accept) before		\
 using it."
 	cd external; mkdir triangle; cd triangle;\
 	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
-	unzip triangle.zip; rm triangle.zip; make
+	unzip triangle.zip; rm triangle.zip; make triangle
 
 tetgen:
 	echo "Installing Tetgen in femlisp/external.  Note that Tetgen	\
