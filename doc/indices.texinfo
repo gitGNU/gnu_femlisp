@@ -1,0 +1,18 @@
+@c We use a combined concept index
+
+@c @node Function Index, , Reference manual, Top
+@c @unnumbered Function index
+
+@c @printindex fn
+
+
+@c @node Variable Index, , Reference manual, Top
+@c @unnumbered Variable index
+
+@c @printindex vr
+
+
+@node Concept Index, , Bibliography, Top
+@chapter Concept Index
+
+@printindex cp
