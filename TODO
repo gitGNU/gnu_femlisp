@@ -7,6 +7,7 @@ Femlisp needs the following more or less urgently:
 
 * Discretization
  - scalar fe as special case of vector fe
+ - all problems/discretizations as special cases of ellsys
  - tensor-product fe and associated quadrature rules
  - sparse interpolation/projection matrices
 
