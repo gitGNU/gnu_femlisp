@@ -30,8 +30,8 @@
 ###########################################################################
 
 help:
-	echo "Options: all, configure, clean, documentation, femlisp, help,";\
-	echo "         triangle, superlu, umfpack."
+	echo "Options: all, configure, clean, cleanall, documentation, femlisp,";\
+	echo "         help, triangle, superlu, umfpack."
 
 all: configure superlu umfpack triangle femlisp documentation
 
@@ -71,9 +71,6 @@ umfpack:
 
 femlisp:
 	sh ./bin/femlisp --save-core-and-die
-
-slime:
-	cd elisp; wget -O - http://common-lisp.net/project/slime/slime-1.0.tar.gz| tar xzvf -
 
 clean:
 	rm -f *.x86f *.fasl *.fas? *.fas *.o
