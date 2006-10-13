@@ -75,8 +75,14 @@ non-structured meshes and/or on domains with curved boundary."
 			    :success-if '(> :step 2)))
     (format t "~%p-refinement, no convergence, because domain is not approximated~%")
     (check-p-convergence problem 1 3 :level 2 :position #d(0.0 0.0))
-    (format t "~%p-refinement, exponential convergence due to isoparametric approximation~%")
-    (check-p-convergence problem 1 5 :level 2 :position #d(0.0 0.0) :isopar t))
+    (format t "~%p-refinement, exponential convergence due to isoparametric approximation~%~
+Exact value: u(0.1,0.1)=0.245~%")
+    ;; We do not use the origin as ealuation point in the following line
+    ;; because it sometimes is not recognized as being contained in any
+    ;; cell due to approximation errors when solving the nonlinear mappings
+    ;; (interestingly, I observed this only with Allegro CL).  Maybe a
+    ;; search in lower-dimensional cells could help?
+    (check-p-convergence problem 1 5 :level 2 :position #d(0.1 0.1) :isopar t))
 
   (format t "~%Laplace with exact solution u=exp(x+y), -> u(1/2,1/2)=1.6487212707~%")
   (let* ((dim 2)
