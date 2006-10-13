@@ -105,7 +105,6 @@ location of this file when it is loaded.")
 
 #+sbcl (require 'sb-posix)
 #+sbcl (require 'sb-introspect)
-#-(or ecl sbcl) (require 'asdf)
 
 #+allegro (require :osi)
 
@@ -125,6 +124,7 @@ location of this file when it is loaded.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; ASDF
+(ignore-errors (require 'asdf))
 #-asdf (load #p"femlisp:external;asdf")
 
 ;;; it seems that ASDF does not work for GCL
