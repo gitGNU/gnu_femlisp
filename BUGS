@@ -14,3 +14,5 @@ This is a list of known bugs:
 
 * Parallelization on multithreaded architectures is not yet complete.
 
+* Loading the SuperLU/UMFPACK interface was observed to fail on
+  Suse/AMD64.  (Remedy: work without SuperLU/UMFPACK.)
