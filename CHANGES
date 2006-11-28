@@ -1,5 +1,12 @@
 # -*- mode: text; -*-
 
+* From Femlisp-0.9.9 to Femlisp-0.9.10:
+
+Depending on the parameter @var{fl.graphic::*show-dx-window*}, DX windows
+do not pop up when plotting.
+
+Removed a bug in force/delay.
+
 * From Femlisp-0.9.8 to Femlisp-0.9.9:
 
 @class{<tensorial>} was renamed to @class{<product-cell>},

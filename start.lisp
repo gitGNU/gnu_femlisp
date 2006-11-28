@@ -34,141 +34,25 @@
 
 (in-package "COMMON-LISP-USER")
 
-(defpackage "FL.START"
-  (:use "COMMON-LISP")
-  (:export "*FEMLISP-VERSION*" "FEMLISP-HERALD" "FEMLISP-BANNER")
-  (:documentation "This package contains some routines called
-during initialization of Femlisp."))
+(eval-when (:load-toplevel :execute)
+  (let ((directory (pathname-directory *load-truename*)))
+    (setf (logical-pathname-translations "FEMLISP")
+	  `((#-gcl "**;*.*.*" #+gcl "**;*.*" 
+	     ,(make-pathname :directory `(,@directory :wild-inferiors)
+			     :name :wild :type :wild :version :wild))))))
 
-(in-package :fl.start)
+;;; ensure ASDF
+(require :asdf #p"femlisp:external;asdf.lisp")
 
-(defparameter *femlisp-version* "0.9.9")
-(defparameter *process* nil
-  "This variable should be set externally for identifying a certain process.")
-
-(defun femlisp-version () *femlisp-version*)
-(defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
-
-(defun femlisp-banner ()
-  (format
-   t "~&~%*** Femlisp-~A ***
-
-Copyright (C) 2003-2006
-Nicolas Neuss, University of Heidelberg.
-
-Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
-file LICENSE in the Femlisp main directory.  This is free
-software, and you are welcome to redistribute it under certain
-conditions.
-
-You can enter \"(femlisp-demo)\" to get a guided tour through
-Femlisp, and enter \"(quit)\" to leave the program.~%~%"
-   *femlisp-version*))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Setup the logical host "FEMLISP"
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defvar *femlisp-pathname*
-  (make-pathname :directory (pathname-directory *load-truename*))
-  "The pathname for the Femlisp main directory.  This should be the
-location of this file when it is loaded.")
-
-(defvar *femlisp-directory* (namestring *femlisp-pathname*)
-  "The namestring for @var{*femlisp-pathname*}.")
-
-(let ((directory (pathname-directory *femlisp-pathname*)))
-  (setf (logical-pathname-translations "FEMLISP")
-	`((#-gcl "**;*.*.*" #+gcl "**;*.*" 
-	   ,(make-pathname :directory `(,@directory :wild-inferiors)
-			   :name :wild :type :wild :version :wild)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Configuration
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(load "femlisp:femlisp-config.lisp")
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Implementation-dependent configurations
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; since Femlisp needs a lot of storage, GC messages are
-;;; annoying
-
-#+allegro (setq excl:*global-gc-behavior* :auto)
-#+cmu (setq extensions:*gc-verbose* nil)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Implementation-dependent loading of modules
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-#+sbcl (require 'sb-posix)
-#+sbcl (require 'sb-introspect)
-
-#+allegro (require :osi)
-
-#+gcl
-(mapcar #'(lambda (name)
-	    (unless (find-package name)
-	      (make-package name)))
-	'("ASDF" "FL.DEBUG" "FL.TESTS" "FL.MACROS" "FL.ALIEN"
- "FL.AMOP" "FL.TESTS" "FL.PORT" "FL.MULTIPROCESSING"
- "FL.DEMO" "FL.PATCHES" "FL.DEBUG" "FL.CDR-FE" "FL.ELASTICITY-FE"
- "FL.CDRSYS-FE" "FL.NAVIER-STOKES-FE" "FL.ELASTICITY"
-"FL.CDR" "FL.CDRSYS" "FL.NAVIER-STOKES"))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Ensure the presence of Common Lisp libraries
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; ASDF
-(ignore-errors (require 'asdf))
-#-asdf (load #p"femlisp:external;asdf")
-
-;;; it seems that ASDF does not work for GCL
-#+gcl (load #p"femlisp:external;trivial-asdf")
-
-(pushnew #p"femlisp:" asdf::*central-registry* :test #'equalp)
-
-#+(or)
-(defmethod asdf::output-files :around (operation (c asdf::cl-source-file))
-  (let ((out (call-next-method))
-	(name (asdf::component-pathname (asdf::component-system c))))
-    (when out
-      (if (member name '("femlisp") :test #'equal)
-	  (list (merge-pathnames
-		 (make-pathname
-		  :host nil :device nil :directory nil :name nil
-		  :type "fasl")
-		 (first out)))
-	  out))))
-
-;;; INFIX
-#-infix (load "femlisp:external;infix.cl")
-
-;;; try to get UFFI
-#+(or)
-(ignore-errors
-  (when (asdf:find-system :uffi nil)
-    (asdf:operate 'asdf::load-op :uffi)
-    (pushnew :uffi *features*)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Compiling and loading of Femlisp
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; we want to work generally with double float numbers
-(setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
-
-(asdf:operate 'asdf::load-op :femlisp-src)
+(let ((asdf::*compile-file-failure-behaviour* :error))
+  (asdf:operate 'asdf::load-op :femlisp))
 
 (pushnew :femlisp *features*)
 
 #-(or ecl gcl)
-(let ((private (probe-file #p"femlisp:private;start.lisp")))
+(let ((asdf::*compile-file-failure-behaviour* :error)
+      (private (probe-file #p"femlisp:private;start.lisp")))
   (when private (load private)))
 
-(femlisp-banner)
+(fl.start:femlisp-banner)
 

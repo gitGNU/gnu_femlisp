@@ -115,6 +115,7 @@
 				     (parse-integer v :start (1+ dot)
 						    :junk-allowed t)))))
 
+(defvar *external-format* :default)
 (defvar *compile-file-warnings-behaviour* :warn)
 (defvar *compile-file-failure-behaviour* #+sbcl :error #-sbcl :warn)
 
@@ -709,7 +710,7 @@ system."))
 	(output-file (car (output-files operation c))))
     (multiple-value-bind (output warnings-p failure-p)
 	(compile-file source-file
-		      :output-file output-file)
+		      :output-file output-file :external-format *external-format*)
       ;(declare (ignore output))
       (when warnings-p
 	(case (operation-on-warnings operation)
@@ -744,7 +745,8 @@ system."))
 (defclass load-op (operation) ())
 
 (defmethod perform ((o load-op) (c cl-source-file))
-  (mapcar #'load (input-files o c)))
+  (mapcar (lambda (file) (load file :external-format *external-format*))
+	  (input-files o c)))
 
 (defmethod perform ((operation load-op) (c static-file))
   nil)
@@ -765,7 +767,7 @@ system."))
 (defmethod perform ((o load-source-op) (c cl-source-file))
   (let ((source (component-pathname c)))
     (setf (component-property c 'last-loaded-as-source)
-          (and (load source)
+          (and (load source :external-format *external-format*)
                (get-universal-time)))))
 
 (defmethod perform ((operation load-source-op) (c static-file))
