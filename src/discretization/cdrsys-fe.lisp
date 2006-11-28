@@ -45,6 +45,7 @@ these are a special type of elliptic system, there is not much to do."))
 (in-package "FL.CDRSYS-FE")
 
 (defmethod select-discretization ((problem <cdrsys-problem>) blackboard)
+  (declare (ignore blackboard))
   (let ((dim (dimension (domain problem))))
     (lagrange-fe (or *suggested-discretization-order*
 		     (if (<= dim 2) 4 3))

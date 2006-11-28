@@ -192,7 +192,7 @@ Parameters: order=~D, max-levels=~D~%~%"
    (ns-hole-cell-problem 2)
    :order 2 :levels 2 :plot nil :delta 1)
   (let ((tensor (permeability-tensor *result*)))
-    (assert #I"abs(mref(tensor,0,0) - 0.019) < 1e-3"))
+    (assert (< (abs (- (mref tensor 0 0) 0.019)) 1e-3)))
   )
 
 ;;;  (hom-ns-tests)

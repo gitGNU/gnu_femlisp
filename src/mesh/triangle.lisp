@@ -106,6 +106,7 @@ vertices defining the correct ordering of vertices."
   (unless *triangle-pathname*
     (error "Cannot call TRIANGLE.  Please install it, e.g. by issuing the
 command 'make triangle' from the Femlisp main directory."))
+  (dbg :triangle "Calling triangle...")
   (fl.port:run-program
    *triangle-pathname*
    (list (concatenate 'string "-YqeB" (dbg-when :triangle "V"))

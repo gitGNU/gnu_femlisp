@@ -134,7 +134,7 @@ This is a trick to make @arg{dx} redraw the picture.")
     (case dimension
       (1 (list
 	  "data = Options(data, \"mark\", \"circle\");"
-	  ;;(format nil "data = Color(data,~S);" graph-color)
+	  (format nil "data = Color(data,~S);" graph-color)
 	  (format nil "image = Plot(data, colors=~S);" axis-color)
 	  ;;"xyplot = Plot(data);"
 	  ;;"camera = AutoCamera(xyplot);"
@@ -170,6 +170,10 @@ although it gets rid of black lines in dx pictures in some situations.
 E.g. it does not do xy-graphs correctly and fails for @lisp{(plot (n-cube
 1))}.  It can also kill the Xwindows interface on some computers.")
 
+(defparameter *show-dx-window* t
+  "Show the DX window when something is plotted.  This may be useful on
+Laptops when the window is hidden.")
+
 (defmethod send-graphic-commands (object (program (eql :dx)) &rest paras
 				  &key dimension (background :black)
 				  (resolution 480) (width 480) (height 480)
@@ -192,7 +196,8 @@ E.g. it does not do xy-graphs correctly and fails for @lisp{(plot (n-cube
 	  (format stream "image = Options(image, \"rendering mode\", \"hardware\");~%")
 	  (format stream "image = Render(image,camera);"))
       (let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
-	(format stream control width height 2)
+	(when *show-dx-window*
+	  (format stream control width height 2))
 	(format stream control width height 1))
       (if *dx-bug-workaround*
 	  ;; corresponding to the above problematic variant
@@ -214,4 +219,3 @@ E.g. it does not do xy-graphs correctly and fails for @lisp{(plot (n-cube
       (force-output stream)
       (wait-for-dx)
       )))
-

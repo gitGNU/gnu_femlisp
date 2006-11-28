@@ -203,6 +203,30 @@ made concrete by combining it with a store-vector."))
 
 ;;; These are given because crs-matrix is a store-vector.
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; matrix blas operations for crs-matrix
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun for-each-index-and-entry (func mat)
+  (with-slots (row-starts col-inds offsets) (pattern mat)
+    (dotimes (i (nrows mat))
+      (loop for k of-type fixnum from (aref row-starts i) below (aref row-starts (1+ i))
+	    do
+	    (let ((entry (aref (store mat) (aref offsets k)))
+		  (j (aref col-inds k)))
+	      (funcall func i j entry))))))
+
+(defmethod gemm-nn! ((alpha number) (x crs-matrix) (y standard-matrix) (beta number) (z standard-matrix))
+  (declare (inline for-each-index-and-entry))
+  (for-each-index-and-entry
+   (lambda (i j entry)
+     (dotimes (l (ncols z))
+       (setf (mref z i l)
+	     (+ (* alpha entry (mref y j l))
+		(* beta (mref z i l))))))
+   x)
+  z)
+
 (defmethod make-analog ((mat crs-matrix))
   (make-instance (crs-matrix (element-type mat))
 		 :pattern (pattern mat)))
@@ -222,6 +246,7 @@ made concrete by combining it with a store-vector."))
     (describe A)
     (x<-0 A)
     (describe A)
+    (gemm-nn! 1.0 B (ones 5 1) 1.0 (zeros 2 1))
     )
   (describe (full-crs-pattern 2 2))
   nil)

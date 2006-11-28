@@ -36,11 +36,12 @@
   (:use "COMMON-LISP")
   (:export
    "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF"
-   "AAND" "ACOND" "_F" "IT" "ENSURE" "REMOVE-THIS-METHOD"
+   "AAND" "ACOND" "_F" "DELETEF" "IT" "ENSURE" "ECHO"
+   "REMOVE-THIS-METHOD"
    "FOR" "FOR<" "MULTI-FOR" "DEFINLINE"
    "?1" "?2" "?3"
    "DELAY" "FORCE"
-   "FLUID-LET" "SHOW-CALL")
+   "FLUID-LET" "LRET" "LRET*" "SHOW-CALL")
   (:documentation
    "This package contains some basic macro definitions used in Femlisp."))
 
@@ -118,9 +119,17 @@ Naggum (c.l.l., 4.12.2002)."
   "Macro from @cite{(Graham 1993)}.  Turns the operator @arg{op} into a
 modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}."
   (multiple-value-bind (vars forms var set access) 
-                       (get-setf-expansion place)
+      (get-setf-expansion place)
     `(let* (,@(mapcar #'list vars forms)
             (,(car var) (,op ,access ,@args)))
+       ,set)))
+
+(defmacro deletef (item sequence &rest args)
+  "Delets @arg{item} from @arg{sequence} destructively."
+  (multiple-value-bind (vars forms var set access) 
+      (get-setf-expansion sequence)
+    `(let* (,@(mapcar #'list vars forms)
+            (,(car var) (delete ,item ,access ,@args)))
        ,set)))
 
 (define-modify-macro ensure (&rest args) or
@@ -143,6 +152,14 @@ Jul 2004 in a probably more ANSI conforming way."
 	   (multiple-value-bind ,putvars
 	       ,newval
 	     ,putform)))))
+
+(defmacro echo (ekx-id &rest body)
+  "Posted to cll at 17.10.2006 by Kenny Tilton."
+  (let ((result (gensym)))
+    `(let ((,result (,@body)))
+       (format t "~&~a -> ~a"
+          ,(string-downcase (symbol-name ekx-id)) ,result)
+       ,result)))
 
 ;;; Others
 
@@ -223,14 +240,14 @@ upto @arg{end}.  Example:
 (defmacro delay (form)
   "Delays the evaluation of @arg{form}."
   (with-gensyms (value computed)
-    `#'(lambda ()
-	 (let ((,computed nil)
-	       (,value nil))
-	   (if ,computed
-	       ,value
-	       (prog1
-		   (setq ,value ,form)
-		 (setq ,computed t)))))))
+    `(let ((,computed nil)
+	   (,value nil))
+      (lambda ()
+	(if ,computed
+	    ,value
+	    (prog1
+		(setq ,value ,form)
+	      (setq ,computed t)))))))
 
 (defmacro force (delayed-form)
   "Forces the value of a @arg{delayed-form}."
@@ -276,6 +293,24 @@ deprecated, because it won't be recognized by default by editors."
       (let ((,result (multiple-value-list (apply ,func args))))
 	(format t "~&~A called with ~A, produced ~A~%" ',name args ,result)
 	(apply #'values ,result)))))
+
+(defmacro lret (bindings &body body)
+  "A @macro{let}-construct which returns its last binding."
+  `(let
+    ,bindings ,@body
+    ,(let ((x (car (last bindings))))
+	  (if (atom x)
+	      x
+	      (car x)))))
+
+(defmacro lret* (bindings &body body)
+  "A @macro{let*}-construct which returns its last binding."
+  `(let*
+    ,bindings ,@body
+    ,(let ((x (car (last bindings))))
+	  (if (atom x)
+	      x
+	      (car x)))))
 
 ;;;; Testing:
 (defun test-macros ()

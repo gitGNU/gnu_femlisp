@@ -345,7 +345,7 @@ for this index."
 		   (error "No sparse matrix entry allowed here!"))
 		  ((= store-size (* nrows ncols))
 		   (make-real-matrix nrows ncols))
-		  (t (make-instance 'crs-matrix :pattern pattern
+		  (t (make-instance (crs-matrix 'double-float) :pattern pattern
 				    :store (make-double-vec store-size)))))))))
 
 (defmethod (setf mref) (value (smat <sparse-matrix>) row-key col-key)
@@ -1023,6 +1023,25 @@ problem."
       (extract-value-blocks A '(0 1) '(0 1))
       ;; end of testing environment
       ))
+  ;; sparse matrices with crs entries
+  (let* ((offdiag (make-instance 'crs-pattern
+				 :nrows 2 :ncols 2
+				 :pattern '( ((a . 0))  ((a . 1)) )))
+	 (diag (full-crs-pattern 2 2))
+	 (n 3)
+	 (key->size (constantly 2))
+	 (A (make-sparse-matrix
+	     :row-key->size key->size :col-key->size key->size
+	     :keys->pattern (lambda (i j)
+			      (if (eql i j) diag offdiag)))))
+    ;; generate a 1d discretization
+    (loop for i from 1 below n do
+	  (setf (mref A i i) (diag (double-vec 2.0 2.0)))
+	  (when (> i 1)
+	    (fill! (mref A i (1- i)) -1.0))
+	  (when (< i (- n 1))
+	    (fill! (mref A i (1+ i)) -1.0)))
+    (describe (mref A 1 2)))
   ;; end of test procedure
   )
 

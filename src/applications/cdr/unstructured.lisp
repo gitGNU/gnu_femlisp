@@ -52,7 +52,8 @@ non-structured meshes and/or on domains with curved boundary."
 	  (cdr-model-problem
 	   (n-cube-domain dim)
 	   :source #'(lambda (x) #I"exp(x[0])")
-	   :dirichlet #'(lambda (x) #I"if (x[0]==0.0) then 0.0 else 1.0"))))
+	   :dirichlet #'(lambda (x)
+			  (if (zerop (aref x 0)) 0.0 1.0)))))
     (check-h-convergence problem dim 6 :order 1 :position #d(0.5))
     (check-p-convergence problem dim 5 :level 0 :position #d(0.5)))
 

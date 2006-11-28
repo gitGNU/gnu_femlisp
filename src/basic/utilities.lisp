@@ -880,5 +880,5 @@ according to @math{result[i] = v[perm[i]]}."
   )
 
 ;; (fl.utilities::test-utilities)
-(fl.tests:adjoin-test 'test-utilities)
+#+(or)(fl.tests:adjoin-test 'test-utilities)
 
