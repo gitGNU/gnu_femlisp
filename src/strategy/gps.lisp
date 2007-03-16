@@ -129,9 +129,11 @@ estimated, we refine those cells within some factor of the maximum error."
 blackboard describing the problem is passed and the solution method is
 open."
   (assert (null dummy))
-  (with-items (&key strategy problem matrix rhs
+  (with-items (&key strategy problem ansatz-space matrix rhs
 		    fe-class solver estimator indicator)
       blackboard
+    ;; the problem might be given already in a fixed ansatz-space
+    (ensure problem (and ansatz-space (problem ansatz-space)))
     (cond
       (strategy				; there is a strategy on the blackboard
        (solve strategy blackboard))

@@ -39,7 +39,7 @@
 ;;; multi-level discretization.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Interface for standard customization (e.g. in cdr-fe.lisp)
+;;;; Interface for standard customization (ellsys-fe.lisp)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defgeneric discretize-locally (problem coeffs fe qrule fe-geometry
@@ -124,7 +124,6 @@ handling constraints are intricate, but usually of lower complexity."
   (dbg :disc "Mass-factor=~A Stiffness-factor=~A" mass-factor stiffness-factor)
   (let* ((h-mesh (hierarchical-mesh ansatz-space))
 	 (problem (problem ansatz-space))
-	 (fe-class (fe-class ansatz-space))
 	 (level-skel (if level (cells-on-level h-mesh level) h-mesh)))
     (with-workers
 	((lambda (cell)
@@ -136,28 +135,29 @@ handling constraints are intricate, but usually of lower complexity."
 	     (whereas ((coeffs (filter-applicable-coefficients
 				(coefficients-of-cell cell h-mesh problem)
 				cell patch :constraints nil)))
-	       (let* ((fe (get-fe fe-class cell))
+	       (dbg :disc "Coefficients: ~A" coeffs)
+	       (let* ((fe (get-fe ansatz-space cell))
 		      (qrule (quadrature-rule fe))
 		      (geometry (fe-cell-geometry
 				 cell (integration-points qrule)
 				 :weights (integration-weights qrule)
 				 :metric (getf patch-properties 'FL.MESH::METRIC)
 				 :volume (getf patch-properties 'FL.MESH::VOLUME)))
-		      (local-mat (and matrix (make-local-mat fe)))
-		      (local-rhs (and rhs (make-local-vec fe (multiplicity ansatz-space))))
+		      (local-mat (and matrix (make-local-mat matrix cell)))
+		      (local-rhs (and rhs (make-local-vec rhs cell)))
 		      (fe-paras (loop for obj in (required-fe-functions coeffs)
 				      collect obj collect
 				      (get-local-from-global-vec
-				       cell fe (get-property
-						problem (if (symbolp obj) obj (car obj)))))))
+				       cell (get-property problem (car obj))))))
+		 (dbg :disc "FE-parameters: ~A" fe-paras)
 		 (discretize-locally
 		  problem coeffs fe qrule geometry
 		  :matrix local-mat :rhs local-rhs
 		  :mass-factor mass-factor :stiffness-factor stiffness-factor
 		  :fe-parameters fe-paras)
 		 ;; accumulate to global matrix and rhs (if not nil)
-		 (when rhs (increment-global-by-local-vec cell fe rhs local-rhs))
-		 (when matrix (increment-global-by-local-mat cell fe matrix local-mat)))))))
+		 (when rhs (increment-global-by-local-vec cell rhs local-rhs))
+		 (when matrix (increment-global-by-local-mat cell matrix local-mat)))))))
       ;; fill pipeline for workers
       (doskel (cell level-skel)
 	(when (ecase where
@@ -224,6 +224,11 @@ of a nonlinear problem."
 			 :matrix interior-matrix :rhs interior-rhs :where :surface
 			 :mass-factor (force mass-factor)
 			 :stiffness-factor (force stiffness-factor))
+      (dbg-when :disc
+	(format t "Interior matrix:~%")
+	(show interior-matrix)
+	(format t "Interior rhs:~%")
+	(show interior-rhs))
       (when assemble-constraints-p (assemble-constraints ansatz-space))
       (destructuring-bind (&key constraints-P constraints-Q constraints-r
 				ip-constraints-P ip-constraints-Q ip-constraints-r

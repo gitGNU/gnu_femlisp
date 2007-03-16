@@ -44,21 +44,15 @@ generalized Taylor hood elements."))
 
 (in-package "FL.NAVIER-STOKES-FE")
 
-(defclass <navier-stokes-lagrange-fe> (<vector-fe-discretization>)
-  ()
-  (:documentation "Generalized Taylor-Hood finite element class."))
-
-(with-memoization (:id 'navier-stokes-lagrange-fe)
-  (defun navier-stokes-lagrange-fe (order dim delta)
-    "Returns a generalized Tylor-Hood element @math{(Q^{k+delta})^d/Q^k} of
+(defun navier-stokes-lagrange-fe (order dim delta)
+  "Returns a generalized Taylor-Hood element @math{(Q^{k+delta})^d/Q^k} of
 order @math{k} in dimension @math{d}."
-    (memoizing-let ((order order) (dim dim) (delta delta))
-      (make-instance
-       '<navier-stokes-lagrange-fe>
-       :components
-       (concatenate 'vector
-		    (make-array dim :initial-element (lagrange-fe (+ order delta)))
-		    (list (lagrange-fe order)))))))
+  (lagrange-fe (map 'vector
+		    (lambda (k)
+		      (if (< k dim)
+			  (+ order delta)
+			  order))
+		    (range<= 0 dim))))
 
 (defvar *full-newton* t
   "If T, a full Newton linearization is used.  If NIL, the reaction term is
@@ -71,21 +65,21 @@ dropped.")
   (assert (and (null local-u) (null local-v)))
   (let* ((nr-comps (nr-of-components vecfe))
 	 (dim (1- nr-comps))
-	 (cell-dim (dimension (get-coefficient fe-geometry :cell)))
+	 (cell (getf fe-geometry :cell))
+	 (cell-dim (dimension cell))
 	 (viscosity (get-coefficient coeffs 'FL.NAVIER-STOKES::VISCOSITY))
 	 (reynolds (get-coefficient coeffs 'FL.NAVIER-STOKES::REYNOLDS))
 	 (force (get-coefficient coeffs 'FL.NAVIER-STOKES::FORCE))
-	 (cell (get-coefficient fe-geometry :cell))
 	 (solution (getf fe-parameters :solution)))
     ;; loop over quadrature points
     (loop
      for k from 0
      for shape-vals across (ip-values vecfe qrule) ; nr-comps x (n-basis x 1)
      and shape-grads across (ip-gradients vecfe qrule) ; nr-comps x (n-basis x dim)
-     and global across (get-coefficient fe-geometry :global-coords)
+     and global across (getf fe-geometry :global-coords)
      and Dphi across (getf fe-geometry :gradients)
-     and Dphi^-1 across (get-coefficient fe-geometry :gradient-inverses)
-     and weight across (get-coefficient fe-geometry :weights)
+     and Dphi^-1 across (getf fe-geometry :gradient-inverses)
+     and weight across (getf fe-geometry :weights)
      do
      (let* ((coeff-input (construct-coeff-input
 			  cell global Dphi shape-vals nil fe-parameters))
@@ -183,6 +177,7 @@ dropped.")
 	 (P (projection-matrix ansatz-space)))
     (assert (midentity-p (sparse-m* P I) 1.0e-10)))
   )
+
 ;;; (navier-stokes-fe-tests)
 (fl.tests:adjoin-test 'navier-stokes-fe-tests)
 

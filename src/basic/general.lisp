@@ -76,14 +76,24 @@ this object."))
 			      `(,prop (getf (properties ,obj) ',prop)))
 	 ,@body))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Runtime compilation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defun runtime-compile (source)
   "Calls compile on the provided @arg{source}.  When :compile is activated
 for debugging, the source code is printed."
-  (let ((*compile-print* (dbg-p :compile))
-	(*compile-verbose* (dbg-p :compile))
-	(*print-circle* nil))
-    (dbg :compile "Compiling source: ~%~S~%" source)
-    (compile nil source)))
+  (let ((*print-circle* nil))
+    (dbg :compile "Compiling source: ~%~S~%" source))
+  (funcall (if (dbg-p :compile) #'compile #'fl.port:compile-silently)
+	   nil source))
+
+(defun compile-and-eval (source)
+  "Compiles and evaluates the given @arg{source}.  This should be an ANSI
+compatible way of ensuring method compilation."
+  (dbg :compile "Compiling and evaluating: ~%~S~%" source)
+  (funcall (funcall (if (dbg-p :compile) #'compile #'fl.port:compile-silently)
+		    nil `(lambda () ,source))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; iteration
@@ -196,6 +206,7 @@ for debugging, the source code is printed."
   (assert (plusp (size dic))))
 
 (defmethod dic-ref ((dic cache-dictionary) key)
+  (declare (optimize speed))
   (with-slots (store test) dic
     (loop for tail on store
 	  and prev-tail = nil then tail do
@@ -249,7 +260,7 @@ arguments.  Example of usage:
 If @arg{type} is :global, the table is thread-safe and the same for all
 threads, if @arg{type} is :local, it is special for each thread."
   (when (eq type :local) (assert id))
-  (with-gensyms (mutex table key key-exprs value-body)
+  (with-gensyms (mutex table key key-exprs value-body func foundp value)
     `(let ((,mutex (fl.multiprocessing:make-mutex))
 	   (,table
 	    ,(if size
@@ -265,16 +276,31 @@ threads, if @arg{type} is :local, it is special for each thread."
 			   ,(if size
 				`(make-instance 'cache-dictionary :size ,size :test ,test)
 				`(make-hash-table :test ,test))))))))
-	;; the memoize symbol is captured, 
-	(macrolet ((memoizing-let (,key-exprs &body ,value-body)
+	;; the memoizing-let symbol is captured, 
+	(macrolet ((memoizing (,func)
+		     `(lambda (&rest ,',key)
+		       (fl.multiprocessing:with-mutex (,',mutex)
+			 (multiple-value-bind (,',value ,',foundp)
+			     (dic-ref ,'(,table) ,',key)
+			   (if ,',foundp
+			       ,',value
+			       (progn
+				 ,',(when debug `(dbg :memoize "Memoizing: id=~A, key=~A" ,id ,key))
+				 (setf (dic-ref ,'(,table) ,',key)
+				       (apply ,,func ,',key))))))))
+		   (memoizing-let (,key-exprs &body ,value-body)
 		     `(let ,,key-exprs
+		       ;; declares should be inserted here from value-body
 		       (fl.multiprocessing:with-mutex (,',mutex)
 			 (let ((,',key (list ,@(mapcar #'car ,key-exprs))))
-			   (or (dic-ref ,'(,table) ,',key)
-			       (progn
-				 ,',(when debug `(dbg :memoize "Memoizing (~A): ~A" ,id ,key))
-				 (setf (dic-ref ,'(,table) ,',key)
-				     (progn ,@,value-body)))))))))
+			   (multiple-value-bind (,',value ,',foundp)
+			       (dic-ref ,'(,table) ,',key)
+			     (if ,',foundp
+				 ,',value
+				 (progn
+				   ,',(when debug `(dbg :memoize "Memoizing: id=~A, key=~A" ,id ,key))
+				   (setf (dic-ref ,'(,table) ,',key)
+					 (progn ,@,value-body))))))))))
 	  ,@body)))))
 
 
@@ -305,7 +331,6 @@ threads, if @arg{type} is :local, it is special for each thread."
     (print (dic-ref dic 1))
     (describe dic))
   
-
   (print
    (macroexpand '(with-memoization ()
 		  (defun test (n)
@@ -314,10 +339,10 @@ threads, if @arg{type} is :local, it is special for each thread."
 				   (* k k))))))
   (with-memoization ()
     (flet ((test (n)
-		 (memoizing-let ((k (* 2 n))
-				 (l (* 3 n)))
-		   (sleep 1)
-		   (* k l))))
+	     (memoizing-let ((k (* 2 n))
+			     (l (* 3 n)))
+	       (sleep 1)
+	       (* k l))))
       (time (test 5))
       (time (test 5))))
   
@@ -329,7 +354,13 @@ threads, if @arg{type} is :local, it is special for each thread."
 		 (* k l))))
 	(time (test 5))
 	(time (test 5))))
-  
+
+    (dbg-on :memoize)
+    (with-memoization (:id 'test)
+      (let* ((f (lambda (x) (sleep x) ))
+	     (memoized-f (memoizing f)))
+	(loop repeat 10 do (print (funcall memoized-f 1.0)))))
+    (dbg-off)
   )
 
 ;;; (test-general)

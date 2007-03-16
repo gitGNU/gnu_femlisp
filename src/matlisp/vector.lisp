@@ -42,7 +42,6 @@
   (:documentation "We allow multiple vectors, for solving linear problems
 in parallel."))
 
-
 (defgeneric element-type (vector)
   (:documentation "Type of the elements of the vector/matrix."))
 
@@ -129,35 +128,48 @@ than @arg{threshold}."))
 
 (defgeneric for-each-entry (func vec)
   (:documentation "Calls @arg{func} on all entries of @arg{vec}.")
+  #+(or)
   (:method (func vec)
     "Default method defined with @function{for-each-key}.  Probably slower
 than a special implementation."
-    (for-each-key #'(lambda (key) (funcall func (vref vec key))) vec)))
+    (vec-for-each-key #'(lambda (key) (funcall func (vref vec key))) vec)))
 
-(defgeneric for-each-key-and-entry (func vec)
-  (:documentation "Calls @arg{func} on all keys and associated entries of
-@arg{vec}.")
+(defgeneric for-each-entry-and-key (func object)
+  (:documentation "Calls @arg{func} on all entries of the collection
+@arg{object} and their corresponding keys."))
+
+(defgeneric for-each-entry-and-vector-index (func vec)
+  (:documentation "Calls @arg{func} on all entries of @arg{vec} and their
+corresponding vector indices.  The index used should be unserstood by
+@func{vref}.")
   (:method (func vec)
-    "Default method defined with @function{for-each-key}.  Probably slower
-than a special implementation."
-    (for-each-key #'(lambda (key) (funcall func key (vref vec key))) vec)))
+    "The default method calls @arg{for-each-entry-and-key} which works for
+single-indexed objects, i.e. rather general vectors."
+    (for-each-entry-and-key
+     #'(lambda (entry key) (funcall func entry key))
+     vec)))
 
-(defmacro dovec ((loop-vars vec) &body body)
-  "Loops on indices and entries of a vector.  Examples:
+(defmacro dovec ((loop-vars vec &optional result) &body body)
+  "Loops on indices and entries of a vector, matrix or tensor.  Examples:
 @lisp
-  (dovec ((key) vec) ...)
   (dovec (entry vec) ...)
-  (dovec ((key entry) vec) ...)
+  (dovec ((entry key1 ...) vec) ...)
 @end lisp"
-  (let* ((loop-vars (if (consp loop-vars) loop-vars (list nil loop-vars)))
-	 (vec-for-each (if (null (car loop-vars))
-			   (if (null (cdr loop-vars))
-			       (error "no loop variable")
-			       'for-each-entry)
-			   (if (or (null (cdr loop-vars)) (null (cadr loop-vars)))
-			       'for-each-key
-			       'for-each-key-and-entry))))
-    `(,vec-for-each #'(lambda ,(remove nil loop-vars) ,@body) ,vec)))
+  (assert (not (single? loop-vars)))
+  (let* ((loop-vars (mklist loop-vars))
+	 (vec-for-each
+	  (cond ((single? loop-vars) 'for-each-entry)
+		((= 2 (length loop-vars)) 'for-each-entry-and-vector-index)
+		(t 'for-each-entry-and-key)))
+	 (entry-var (first loop-vars))
+	 (actual-entry-var (or entry-var (gensym)))
+	 (new-loop-vars (cons actual-entry-var (rest loop-vars))))
+    `(progn
+      (,vec-for-each (lambda ,new-loop-vars
+		       ,@(unless entry-var `((declare (ignore ,actual-entry-var))))
+		       ,@body)
+       ,vec)
+      ,result)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Derived functionality
@@ -223,106 +235,77 @@ than a special implementation."
 
 (defmethod fill! (x s)
   "Recursive definition for FILL! usable for sparse block vectors."
-  (for-each-entry (rcurry #'fill! s) x)
-  x)
+  (dovec ((xc i) x x)
+    (setf (vref x i) (fill! xc s))))
+
 (defmethod fill-random! (x s)
   "Recursive definition for FILL-RANDOM! usable for sparse block vectors."
-  (for-each-entry (rcurry #'fill-random! s) x)
-  x)
+  (dovec ((xc i) x x)
+    (setf (vref x i) (fill-random! xc s))))
 
-(defmethod total-entries (obj)
-  (let ((entries 0))
-    (for-each-entry
-     #'(lambda (entry)
-	 (incf entries (total-entries entry)))
-     obj)
-    entries))
+(defmethod total-entries (obj &aux (entries 0))
+  (dovec (entry obj entries)
+    (incf entries (total-entries entry))))
 
 (defmethod mzerop (mat &optional (threshold 0.0))
-  (for-each-entry
-   #'(lambda (entry)
-       (unless (mzerop entry threshold)
-	 (return-from mzerop nil)))
-   mat)
-  t)
+  (dovec (entry mat t)
+    (unless (mzerop entry threshold)
+      (return-from mzerop nil))))
 
 (defmethod copy! (x y)
   "Recursive definition for COPY! usable for sparse block vectors."
-  (for-each-key #'(lambda (i)
-		    (setf (vref y i)
-			  (copy! (vref x i) (vref y i))))
-		x)
-  y)
+  (dovec ((xc i) x y)
+    (setf (vref y i)
+	  (copy! xc (vref y i)))))
 
 (defmethod m+! (x y)
   "Recursive definition for M+! usable for sparse block vectors."
-  (for-each-key #'(lambda (i)
-		    (setf (vref y i)
-			  (m+! (vref x i) (vref y i))))
-		x)
-  y)
+  (dovec ((xc i) x y)
+    (setf (vref y i)
+	  (m+! xc (vref y i)))))
 
 (defmethod scal! (s x)
-  (for-each-entry #'(lambda (x) (scal! (coerce s (scalar-type x)) x))
-		  x)
-  x)
+  (dovec ((xc i) x x)
+    (setf (vref x i)
+	  (scal! (coerce s (scalar-type xc)) xc))))
 
 (defmethod axpy! (alpha x y)
   "Recursive definition for AXPY! usable for sparse block vectors."
-  (for-each-key
-   #'(lambda (key)
-       (let ((xc (vref x key)))
-	 (setf (vref y key)
-	       (axpy! (coerce alpha (scalar-type xc)) xc
-		      (vref y key)))))
-   x)
-  y)
+  (dovec ((xc i) x y)
+    (setf (vref y i)
+	  (axpy! (coerce alpha (scalar-type xc)) xc
+		 (vref y i)))))
 
-(defmethod l2-norm (vec)
+(defmethod l2-norm (vec &aux (sum 0))
   "Recursive definition for the l2-norm."
-  (let ((sum 0))
-    (for-each-entry #'(lambda (x) (incf sum (expt (l2-norm x) 2)))
-		    vec)
-    (sqrt sum)))
+  (dovec (x vec (sqrt sum))
+    (incf sum (expt (l2-norm x) 2))))
 
-(defmethod lp-norm (vec (p number))
+(defmethod lp-norm (vec (p number) &aux (sum 0))
   "Recursive definition for the lp-norm."
-  (let ((sum 0))
-    (for-each-entry #'(lambda (x) (incf sum (expt (lp-norm x p) p)))
-		    vec)
-    (expt sum (/ 1 p))))
+  (dovec (x vec (expt sum (/ 1 p)))
+    (incf sum (expt (lp-norm x p) p))))
 
-(defmethod linf-norm (vec)
+(defmethod linf-norm (vec &aux (max 0))
   "Recursive definition for the linf-norm."
-  (let ((max 0))
-    (for-each-entry #'(lambda (x)
-			(let ((norm-x (linf-norm x)))
-			  (when (> norm-x max) (setq max norm-x))))
-		    vec)
-    max))
+  (dovec (x vec max)
+    (let ((norm-x (linf-norm x)))
+      (when (> norm-x max) (setq max norm-x)))))
 
-(defmethod dot (x y)
-  (let ((sum 0))
-    (for-each-key
-     #'(lambda (key)
-	 (incf sum (dot (vref x key) (vref y key))))
-     x)
-    sum))
+(defmethod dot (x y &aux (sum 0))
+  (dovec ((xc i) x sum)
+    (incf sum (dot xc (vref y i)))))
 
 (defmethod dot-abs (x y)
   (let ((sum 0))
-    (for-each-key #'(lambda (key) (incf sum (dot-abs (vref x key) (vref y key))))
-		  x)
-    sum))
+    (dovec ((xc i) x sum)
+      (incf sum (dot-abs xc (vref y i))))))
 
 (defmethod mequalp (x y)
   (when (= (total-entries x) (total-entries y))
-    (for-each-key
-     #'(lambda (key)
-	 (unless (mequalp (vref x key) (vref y key))
-	   (return-from mequalp nil)))
-     x)
-    t))
+    (dovec ((xc i) x t)
+      (unless (mequalp xc (vref y i))
+	(return-from mequalp nil)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing
@@ -330,6 +313,8 @@ than a special implementation."
 
 (defun test-vector ()
   (assert (mequalp (m+! (vector (vector 3.0)) (vector (vector 4.0))) #(#(7.0))))
+  (dovec ((entry key) #(A B C))
+    (format t "~A ~A~%" entry key))
   )
 
 ;;; (test-vector)

@@ -39,6 +39,9 @@
 (defmethod nrows ((obj number)) 1)
 (defmethod ncols ((obj number)) 1)
 
+(defmethod for-each-entry (func (num number))
+  (funcall func num))
+
 (defmethod total-entries ((obj number)) 1)
 
 (defmethod make-analog ((x number)) (coerce 0 (type-of x)))

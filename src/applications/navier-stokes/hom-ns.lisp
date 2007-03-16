@@ -40,6 +40,7 @@
 
 (defun ns-cell-problem-force (dim)
   (constant-coefficient
+   'FL.NAVIER-STOKES::FORCE
    (coerce (loop for i upto dim collect
 		 (if (< i dim)
 		     (ensure-matlisp (unit-vector dim i) :row)
@@ -54,11 +55,11 @@
      :patch->coefficients
      #'(lambda (patch)
 	 (cond ((patch-on-inner-boundary-p patch)
-		(list 'CONSTRAINT (no-slip-boundary dim)))
+		(list (no-slip-boundary dim)))
 	       ((= dim (dimension patch))  ; inner coeffs
-		(list 'FL.NAVIER-STOKES::VISCOSITY (constant-coefficient viscosity)
-		      'FL.NAVIER-STOKES::REYNOLDS (constant-coefficient reynolds)
-		      'FL.NAVIER-STOKES::FORCE (ns-cell-problem-force dim)))
+		(list (navier-stokes-viscosity-coefficient viscosity)
+		      (navier-stokes-inertia-coefficient reynolds)
+		      (ns-cell-problem-force dim)))
 	       (t ())))
      :multiplicity dim)))
 
@@ -139,7 +140,8 @@ components."
 #+(or)
 (let ((sol (getbb *result* :solution)))
   (fe-extreme-values sol)
-  (plot (component sol 0) :index 0))
+  ;; was: (plot (component sol 0) :index 0)
+  (plot sol :component 0 :index 0))
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 3)

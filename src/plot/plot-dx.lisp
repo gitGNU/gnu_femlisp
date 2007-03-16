@@ -104,13 +104,10 @@ data-- or some function mapping cells to a list of corner values."
       (format stream "object 4 class array type float rank ~D" rank)
       (when shape (format stream " shape ~D" shape))
       (format stream " items ~D data follows~%" (length values))
-      (loop for value across values do
-	    (setq value (etypecase value
-			  (number (list value))
-			  (vector (coerce value 'list))))
-	    (loop for num in value do
-		  (format stream "~10,8,,,,,'eG " (coerce num 'single-float))
-		  finally (terpri stream)))
+      (dovec (value values)
+	(dovec (num value)
+	  (format stream "~10,8,,,,,'eG " (coerce num 'single-float)))
+	(terpri stream))
       (format stream "attribute \"dep\" string \"positions\"~%"))
 
     ;; epilogue

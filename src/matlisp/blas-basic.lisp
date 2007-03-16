@@ -103,9 +103,9 @@ name being the symbol @arg{name}.")
 		       arg))
 	   ,@rest-args)
 	  (declare (type ,element-type ,@number-args))
-	  (declare (optimize (speed 3) (safety 0) (debug 0)))
 	  ,(subst element-type 'element-type
 		  `(macrolet ,blas-macros
+		    (declare (optimize (speed 3) (safety 0) (debug 0)))
 		    ,@body)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -134,7 +134,7 @@ name being the symbol @arg{name}.")
 		       when (blas-macro ,instance-name sym)
 		       collect it)))
 	    ;; define specialized method
-	    (fl.amop:compile-and-eval
+	    (compile-and-eval
 	     (new-blas-method-code
 	      ',name ',class-name ',template-args ,actual-args ,blas-macros
 	      ',(if (stringp (car body)) (cdr body) body)))
@@ -158,20 +158,13 @@ of a type that can be handled by the BLAS routines which are tested.")
 	(z (when (= nr-of-arguments 3)
 	     (funcall generator size)))
 	(fn (symbol-function fsym)))
-    (format
-     t "~A-~D: ~$ MFLOPS~%" fsym size
-     (loop with after = 0
-	   for before = (get-internal-run-time) then after
-	   and count of-type fixnum = 1 then (* count 2)
-	   do
-	   (if z
-	       (loop repeat count do (funcall fn x y z))
-	       (loop repeat count do (funcall fn x y)))
-	   (setq after (get-internal-run-time))
-	   (when (> (/ (- after before) internal-time-units-per-second)
-		    fl.utilities::*mflop-delta*)
-	       (return (/ (* (funcall flop-calculator size)
-			     count
-			     internal-time-units-per-second)
-			  (* 1e6 (- after before)))))))))
-
+    (format t "~A-~D: ~$ MFLOPS~%" fsym size
+	    (multiple-value-bind (time count)
+		(fl.utilities::measure-time-repeated
+		 (lambda ()
+		   (if z
+		       (funcall fn x y z)
+		       (funcall fn x y))))
+	      (/ (* (funcall flop-calculator size)
+		    count)
+		 (* 1e6 time))))))

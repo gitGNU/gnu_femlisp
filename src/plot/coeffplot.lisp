@@ -40,7 +40,7 @@
 
 (defmethod plot ((problem <pde-problem>) &rest rest &key mesh (refinements 0)
 		 (depth 0) (key #'identity) parametric coefficient
-		 (rank 0) (shape 1) &allow-other-keys)
+		 (rank 0) shape &allow-other-keys)
   "Plots a coefficient function for the problem on the given mesh.  Does
 handle coefficients depending on finite element functions."
   (ensure mesh (uniformly-refined-mesh
@@ -51,18 +51,17 @@ handle coefficients depending on finite element functions."
 	 :rank rank :shape shape
 	 :cell->values
 	 (lambda (cell)
-	   (whereas ((coeff-func (getf (coefficients-of-cell cell mesh problem)
-				       coefficient)))
+	   (whereas ((coeff-func (get-coefficient (coefficients-of-cell cell mesh problem)
+						  coefficient)))
 	     (let* ((sample-points
 		     (refcell-refinement-vertex-positions cell depth))
 		    (geometry (fe-cell-geometry cell sample-points))
-		    (fe-paras (loop for obj in (required-fe-functions
-						(list coefficient coeff-func))
+		    (fe-paras (loop for obj in (required-fe-functions (list coeff-func))
 				    for asv = (get-property problem
 							    (if (symbolp obj) obj (car obj)))
-				    for fe = (get-fe (fe-class asv) cell)
+				    for fe = (get-fe (ansatz-space asv) cell)
 				    collect obj
-				    collect (cons fe (get-local-from-global-vec cell fe asv))))
+				    collect (cons fe (get-local-from-global-vec cell asv))))
 		    (fe (when fe-paras
 			  (assert (<= (length fe-paras) 2))
 			  (prog1 (car (second fe-paras))
@@ -83,17 +82,19 @@ handle coefficients depending on finite element functions."
 		    (or dummy (local-evaluation-matrix fe depth :gradient))))))
 	 rest))
 
-;;; Testing: (test-coeffplot)
+
+;;; Testing:
 
 (defun test-coeffplot ()
   (let* ((dim 1)
 	 (domain (n-cell-domain dim))
 	 (problem
 	  (make-instance
-	   '<pde-problem> :domain domain :patch->coefficients
-	   (constantly (list 'MY-COEFFICIENT
-			     (ensure-coefficient #'(lambda (x) (aref x 0))))))))
+	   '<pde-problem> :domain domain :components '(u) :patch->coefficients
+	   `((:d-dimensional (,(f[x]->coefficient
+				'MY-COEFFICIENT (lambda (x) (aref x 0)))))))))
     (plot problem :refinements 2 :coefficient 'MY-COEFFICIENT))
   )
 
+;;; (test-coeffplot)
 (fl.tests:adjoin-test 'test-coeffplot)

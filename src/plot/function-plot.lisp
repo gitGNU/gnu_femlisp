@@ -51,9 +51,9 @@ times."
 	   (or mesh (uniformly-refined-mesh domain refinements :parametric parametric))))
   (apply #'graphic-output f :dx
 	 :dimension (domain-dimension f)
-	 :rank (if (= (image-dimension f) 1) 0 1)
+	 :rank (if (= (image-dimension f) 1) 1 2)
 	 :shape (image-dimension f)
-	 :cells (cells-of-highest-dim mesh)
+	 :cells cells
 	 :cell->values
 	 #'(lambda (cell)
 	     (map 'vector
@@ -62,23 +62,26 @@ times."
 		  (refcell-refinement-vertex-positions cell depth)))
 	 rest))
 
-;;; Testing: (test-function-plot)
+;;; Testing:
 
 (defun test-function-plot ()
-  (plot (make-instance
-	 '<special-function> :evaluator
-	 #'(lambda (x)
-	     (let ((x (aref x 0))
-		   (y (aref x 1)))
-	       (if (or (> (abs (- 0.5 x)) 0.4)
-			(> (abs (- 0.5 y)) 0.4))
-		   0.0
-		   (let ((x (/ (- x 0.1) 0.8))
-			 (y (/ (- y 0.1) 0.8)))
-		     #I(x*(1-x)*y*(1-y)*sin(20*pi*x)*sin(16*pi*y))))))
-	 :domain-dimension 2 :image-dimension 1)
-	:domain (n-cube-domain 2)
-	:refinements 4 :depth 2)
+  (let ((domain (n-cube-domain 2)))
+    (plot (make-instance
+	   '<special-function> :evaluator
+	   #'(lambda (x)
+	       (let ((x (aref x 0))
+		     (y (aref x 1)))
+		 (if (or (> (abs (- 0.5 x)) 0.4)
+			 (> (abs (- 0.5 y)) 0.4))
+		     0.0
+		     (let ((x (/ (- x 0.1) 0.8))
+			   (y (/ (- y 0.1) 0.8)))
+		       #I(x*(1-x)*y*(1-y)*sin(10*pi*x)*sin(8*pi*y))))))
+	   :domain-dimension (dimension domain)
+	   :image-dimension 1)
+	  :domain domain
+	  :refinements 4 :depth 2))
   )
 
+;;; (test-function-plot)
 (fl.tests::adjoin-test 'test-function-plot)

@@ -63,21 +63,29 @@
   (loop for i of-type fixnum from 0 below n
 	summing (* (aref x i) (aref y i)) double-float))
 
-(declaim (inline measure-time))
-(defun measure-time (fn)
-  "Repeatedly runs fn which should be a function with no parameters until
-it takes more than *mflop-delta* seconds.  Then it returns the average time
-in seconds."
+(defun measure-time (fn count &optional real-p)
+  "Measures the time in secondswhich @arg{count}-time execution of @arg{fn}
+needs."
+  (declare (type function fn) (type fixnum count))
+  (declare (optimize speed))
+  (flet ((time-stamp ()
+	   (if real-p
+	       (get-internal-real-time)
+	       (get-internal-run-time))))
+    (let ((before (time-stamp)))
+      (loop repeat count do (funcall fn))
+      ;; return time in seconds
+      (float (/ (- (time-stamp) before)
+		internal-time-units-per-second)))))
+
+(defun measure-time-repeated (fn &optional (delta *mflop-delta*))
+  "Calls fn repeatedly until it takes more than *mflop-delta* seconds.
+Returns the time in seconds together with the repetition count."
   (declare (type function fn))
-  (loop with before = (get-internal-run-time)
-	for count of-type fixnum = 1 then (+ count (* count 2)) do
-	(dotimes (i count)
-	  (declare (optimize speed))
-	  (funcall fn))
-	(let ((secs (float (/ (- (get-internal-run-time) before)
-			      internal-time-units-per-second))))
-	  (when (> secs *mflop-delta*)
-	    (return (values secs count))))))
+  (loop	for count of-type fixnum = 1 then (* count 2)
+	for secs = (measure-time fn count) 
+	until (> secs delta)
+	finally (return (values secs count))))
 
 (defun daxpy-speed (n)
   "Returns the speed with which @function{daxpy} works for vectors of size
@@ -86,7 +94,7 @@ in seconds."
 	(y (make-array n :element-type 'double-float :initial-element 1.0)))
     ;;(/ (measure-time #'(lambda () (blas::DAXPY n 2.0 x 1 y 1))))
     (multiple-value-bind (secs count)
-	(measure-time #'(lambda () (daxpy x 2.0 y n)))
+	(measure-time-repeated #'(lambda () (daxpy x 2.0 y n)))
       (/ (* 2 n count) 1.0e6 secs))))
 
 (defun common-lisp-speed (&key (cache 0.5) (memory 0.5))

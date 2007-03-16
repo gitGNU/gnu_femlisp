@@ -38,7 +38,7 @@
 ;;; Class definition and basic methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <sparse-tensor> ()
+(defclass <sparse-tensor> (tensor)
   ((rank :reader rank :initarg :rank :type fixnum
 	 :documentation "Tensor rank.")
    (indices :accessor indices :initarg :indices :type vector
@@ -50,23 +50,37 @@
   (:documentation "A general sparse tensor class which is implemented as a
 sparse vector containing full-or sparse tensor entries."))
 
+(defmethod multiplicity ((tensor <sparse-tensor>))
+  (assert (= (rank tensor) 1))
+  1)
+
+(defmethod initialize-instance :after ((tensor <sparse-tensor>) &key initial-contents &allow-other-keys)
+  (loop for (entry . indices) in initial-contents do
+	(setf (apply #'tensor-ref tensor indices) entry)))
+
+(defun sparse-tensor (contents)
+  "Constructor for @class{sparse-tensor}."
+  (make-instance '<sparse-tensor>
+		 :rank (1- (length (first contents)))
+		 :initial-contents contents))
+
 (defmethod make-analog ((tensor <sparse-tensor>))
-  (let ((result (make-instance '<sparse-tensor> :rank (rank tensor))))
-    (for-each-key #'(lambda (index)
-		      (setf (vref result index)
-			    (make-analog (vref tensor index))))
-		  tensor)
-    result))
+  (with-slots (rank indices entries) tensor
+    (make-instance
+     '<sparse-tensor> :rank rank :indices indices
+     :entries (map 'vector (lambda (entry) (make-analog entry))
+		   entries))))
+
+;;; sparse tensors of rank 2 behave as matrices
 
 (defun diagonal-sparse-tensor (values &optional ncomps)
   "Constructs a sparse tensor of rank 2 where @arg{values} are the diagonal
 entries.  If @arg{ncomps} is given then the tensor dimension is nxn with
 each diagonal entry being @arg{values}."
-  (let ((result (make-instance '<sparse-tensor> :rank 2)))
+  (lret ((result (make-instance '<sparse-tensor> :rank 2)))
     (dotimes (i (or ncomps (length values)))
       (setf (mref result i i)
-	    (if ncomps values (aref values i))))
-    result))
+	    (if ncomps values (aref values i))))))
 
 (defun find-first-position>= (indices index)
   "Finds the position for index, which is the first position which is >=
@@ -94,13 +108,36 @@ index in the sorted list."
 			((> index index-e) length)
 			(t (find-position 0 length-1))))))))))
 
-(defun in-pattern-p (tensor &rest indices)
-  "Returns a getter/setter pair for the specified location."
+(defgeneric in-pattern-p (tensor &rest indices)
+  (:documentation "Returns T, if the indices are in the nonzero pattern.")
+  (:method (object &rest indices)
+    "The default method returns T iff no indices are given."
+    (declare (ignore object))
+    (null indices))
+  (:method ((tensor array) &rest indices)
+    (every #'< indices (array-dimensions tensor)))
+  (:method ((tensor <matrix>) &rest indices)
+    (or (null indices)
+	(and (< (first indices) (nrows tensor))
+	     (or (null (second indices))
+		 (< (second indices) (ncols tensor))))))
+  (:method ((vec <vector>) &rest indices)
+    (destructuring-bind (index) indices
+      (and (plusp index) (< index (nrows vec)))))
+  (:method ((mat <matrix>) &rest indices)
+    (destructuring-bind (i j) indices
+      (and (plusp i) (plusp j)
+	   (< i (nrows mat)) (< j (ncols mat))))))
+
+(defmethod in-pattern-p ((tensor <sparse-tensor>) &rest indices)
   (if (null indices)
-      t
+      t					; indices are in this pattern
       (whereas ((pos (position (first indices) (indices tensor))))
-	(apply #'in-pattern-p (aref (entries tensor) pos) (cdr indices)))))
-  
+	(let ((rest (rest indices)))
+	  (if (null rest)
+	      pos
+	      (apply #'in-pattern-p (aref (entries tensor) pos) rest))))))
+
 (definline get-place-in-tensor (tensor &rest search-indices)
   "Returns a getter/setter pair for the specified location."
   (labels
@@ -113,8 +150,8 @@ index in the sorted list."
 	   (unless (and (< pos length)
 			(= (aref indices pos) index))
 	     ;; generate new (sparse!) place
-	     (adjust-array indices (1+ length) :initial-element -1)
-	     (adjust-array entries (1+ length) :initial-element nil)
+	     (setq indices (adjust-array indices (1+ length) :initial-element -1))
+	     (setq entries (adjust-array entries (1+ length) :initial-element nil))
 	     (loop for i from length above pos do
 		   (setf (aref indices i) (aref indices (1- i)))
 		   (setf (aref entries i) (aref entries (1- i))))
@@ -136,16 +173,11 @@ index in the sorted list."
 		    (error "No setter possible.")))
 	(get-place tensor search-indices))))
 
-(defmethod vref ((tensor <sparse-tensor>) (indices list))
+(defmethod tensor-ref ((tensor <sparse-tensor>) &rest indices)
   (funcall (apply #'get-place-in-tensor tensor indices)))
-(defmethod (setf vref) (value (tensor <sparse-tensor>) (indices list))
+(defmethod (setf tensor-ref) (value (tensor <sparse-tensor>) &rest indices)
   (funcall (nth-value 1 (apply #'get-place-in-tensor tensor indices))
 	   value))
-
-(defmethod tensor-ref ((tensor <sparse-tensor>) &rest indices)
-  (vref tensor indices))
-(defmethod (setf tensor-ref) (value (tensor <sparse-tensor>) &rest indices)
-  (setf (vref tensor indices) value))
 
 ;;; for rank 2 tensors we allow mref access
 (defmethod mref ((tensor <sparse-tensor>) i j)
@@ -170,16 +202,20 @@ index in the sorted list."
     (t (loop for entry across (entries tensor) do
 	     (for-each-entry func entry)))))
 
-(defmethod for-each-key-and-entry ((func function) (tensor <sparse-tensor>))
-  (labels ((helper (reversed-index tensor)
-	     (case (rank tensor)
-	       (1 (loop for index across (indices tensor)
-			and entry across (entries tensor) do
-			(funcall func (reverse (cons index reversed-index)) entry)))
-	       (t (loop for index across (indices tensor)
-			and entry across (entries tensor) do
-			(helper (cons index reversed-index) entry))))))
-    (helper () tensor)))
+(defmethod for-each-entry-and-key ((func function) (tensor <sparse-tensor>))
+  (let ((full-index (make-list (rank tensor) :initial-element 0)))
+    (labels ((helper (tensor current-index)
+	       (case (rank tensor)
+		 (0 (funcall func tensor))
+		 (1 (loop for index across (indices tensor)
+			  and entry across (entries tensor) do
+			  (setf (car current-index) index)
+			  (apply func entry full-index)))
+		 (t (loop for index across (indices tensor)
+			  and entry across (entries tensor) do
+			  (setf (car current-index) index)
+			  (helper entry (cdr current-index)))))))
+      (helper tensor full-index))))
 
 (defmethod tensor-for-each ((func function) (tensor <sparse-tensor>) &key (job :both) depth)
   (unless depth (setq depth (rank tensor)))
@@ -239,26 +275,50 @@ index in the sorted list."
 	       (if (or (typep entry 'full-tensor)  (typep entry '<sparse-tensor>))
 		   (show-tensor entry (1+ level))))))
     (show-tensor tensor 0)
-    (format t "~%")))
+    (terpri)
+    tensor))
+
+(defmethod ensure-matlisp ((tensor <sparse-tensor>) &optional (type :column))
+  (with-slots (indices entries) tensor
+    (ecase (rank tensor)
+      (1 (lret* ((n (length (indices tensor)))
+		 (result (ecase type
+			   (:column (zeros n 1))
+			   (:row (zeros 1 n)))))
+	   (dotimes (i n)
+	     (assert (= i (aref indices i)))
+	     (setf (vref result i)
+		   (tensor-ref tensor i))))))))
+
+(defmethod m* ((mat <sparse-tensor>) vec)
+  (lret ((result (make-instance '<sparse-tensor> :rank 1)))
+    (for-each-entry-and-key
+     (lambda (entry i j)
+       (when (in-pattern-p vec j)
+	 (let ((prod (* entry (tensor-ref vec j))))
+	   (if (in-pattern-p result i)
+	       (incf (tensor-ref result i) prod)
+	       (setf (tensor-ref result i) prod)))))
+     mat)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
-(defmethod gemm-nn! (alpha (A <sparse-tensor>) (y vector) beta (x vector))
-  (for-each-key-and-entry
-   (lambda (key entry)
-     (destructuring-bind (i j) key
-       (setf (vref x i)
-	     (gemm! alpha entry (vref y j) beta (vref x i)))))
-   A)
-  x)
-
-
-;;; Testing: (test-sparse-tensor)
+;;; Testing:
 
 (defun test-sparse-tensor ()
+  (let ((tensi (sparse-tensor `((,(eye 1) 0)))))
+    (for-each-entry-and-key (lambda (value k)
+			      (format t "entry=~A k=~A~%" value k))
+			    tensi)
+    (show (tensor-map #'identity tensi))
+    (show (m- tensi tensi)))
   (let ((tensi (make-instance '<sparse-tensor> :rank 2)))
     (setf (tensor-ref tensi 1 2) 1.0)
+    (let ((sparse-vec (sparse-tensor `((9.0 2))))
+	  (vec #(1.0 2.0 3.0)))
+      (show (m* tensi vec))
+      (show (m* tensi sparse-vec))
+      (show (axpy 1.0 (m* tensi vec) sparse-vec)))
     (show tensi)
     (assert (in-pattern-p tensi 1 2))
     (assert (not (in-pattern-p tensi 2 2)))
@@ -270,15 +330,30 @@ index in the sorted list."
     (describe (tensor-ref tensi 1))
     (setf (tensor-ref tensi 1 2) 3.0)
     (describe (tensor-ref tensi 1))
-    (setf (tensor-ref tensi 1 5) 3.0)
-    (describe (tensor-ref tensi 1))
+    (assert (= (tensor-ref (tensor-ref tensi 1) 2)
+	       (tensor-ref tensi 1 2)
+	       (vref tensi '(1 2))))
+    (setf (tensor-ref tensi 1 5) 4.0)
+    (vref tensi '(1 5))
     (show tensi)
     (show (make-analog tensi))
+    (show (copy tensi))
     (show (axpy 1.0 tensi tensi)))
   (let ((tensi (diagonal-sparse-tensor #(3.0 5.0))))
     (show tensi)
     (assert (mzerop (gemm 1.0 tensi #(1.0 2.0) -1.0 #(3.0 10.0)))))
+  (let ((x (make-array 2 :initial-element (zeros 1)))
+	(y (make-array 2 :initial-element (ones 1)))
+	(sigma (diagonal-sparse-tensor (vector #m(0.0) #m(1.0)))))
+    (gemm 1.0 sigma x 1.0 y))
+  (let ((sigma (diagonal-sparse-tensor (vector 0.0 0.0)))
+	(x (double-vec 0.0 0.0))
+	(y (double-vec 0.0 0.0)))
+    (gemm 1.0 sigma x 1.0 y))
+  (let ((sigma (sparse-tensor '((0.0 0) (1.0 1)))))
+    (ensure-matlisp sigma :row))
   )
 
+;;; (test-sparse-tensor)
 (fl.tests:adjoin-test 'test-sparse-tensor)
 

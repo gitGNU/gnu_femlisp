@@ -40,19 +40,19 @@
 
 (defclass dof ()
   ((index :reader dof-index :initarg :index :type fixnum
-	  :documentation "index of the dof in the cell-dof array")
-   (subcell-index :reader dof-subcell-index :initarg :subcell-index :type fixnum
-		  :documentation "index of the reference subcell on which the dof is defined")
-   (in-vblock-index :reader dof-in-vblock-index :initarg :in-vblock-index :type fixnum
-		    :documentation "index of the dof in the subcell vblock")
+	  :documentation "Index of the dof in the cell-dof array")
    (subcell :reader dof-subcell :initarg :subcell
-		  :documentation "reference subcell on which the dof is defined")
+	    :documentation "Reference subcell on which the dof is defined")
+   (subcell-index :reader dof-subcell-index :initarg :subcell-index :type fixnum
+		  :documentation "Index of the reference subcell on which the dof is defined")
+   (in-vblock-index :reader dof-in-vblock-index :initarg :in-vblock-index :type fixnum
+		    :documentation "Index of the dof in the subcell vblock")
    (coord :reader dof-coord :initarg :coord :type double-vec
-	    :documentation "local coordinate of the dof in the reference subcell")
+	  :documentation "Local coordinate of the dof in the reference subcell")
    (gcoord :reader dof-gcoord :initarg :gcoord :type double-vec
-	  :documentation "global coordinate of the dof on the reference cell")
+	   :documentation "Global coordinate of the dof on the reference cell")
    (functional :reader dof-functional :initarg :functional
-	   :documentation "a functional for functions defined on the reference cell"))
+	       :documentation "A functional for functions defined on the reference cell"))
   (:documentation
    "Degree of freedom in a finite element.  It is defined as a functional
 defined by integration over a sub-cell or by evaluation at a local
@@ -90,8 +90,12 @@ coordinate of a sub-cell of a reference cell. "))
   (:documentation "Abstract base class for finite elements."))
 
 (defclass <scalar-fe> (<fe>)
-  ((dofs :reader fe-dofs :initform () :initarg :dofs :type list)
-   (basis :reader fe-basis :initform () :initarg :basis :type list)
+  ((dofs :reader fe-dofs :initform () :initarg :dofs
+	 :documentation "The associated dofs.  These are Lagrange
+functionals associated to the basis functions used for interpolating smooth
+functions.")
+   (basis :reader fe-basis :initform () :initarg :basis
+	  :documentation "The fe's basis functions.")
    (order :reader discretization-order :initarg :order))
   (:documentation "A finite element <fe> is given for each reference cell,
 e.g. <2-simplex>.  dofs are the degrees of freedom associated with the
@@ -108,8 +112,6 @@ cells as keys."))
 
 (defun subcell-ndofs (fe)
   (getf (properties fe) 'SUBCELL-NDOFS))
-(defun subcell-indices (fe)
-  (getf (properties fe) 'SUBCELL-INDICES))
 (defun inner-dof-indices (fe)
   (getf (properties fe) 'INNER-DOF-INDICES))
 
@@ -134,21 +136,12 @@ cells as keys."))
     (let ((subcell-ndofs (make-fixnum-vec (nr-of-subcells refcell) 0)))
       (do-dof (dof fe)
 	(incf (aref subcell-ndofs (dof-subcell-index dof))))
-      (setf (getf properties 'SUBCELL-NDOFS) subcell-ndofs)
-      (setf (getf properties 'SUBCELL-INDICES)
-	    (loop for nr-dofs across subcell-ndofs and i from 0
-		  unless (zerop nr-dofs) collect i)))
+      (setf (getf properties 'SUBCELL-NDOFS) subcell-ndofs))
     (setf (getf properties 'INNER-DOF-INDICES)
 	  (coerce (loop+ ((i (range :below (nr-of-inner-dofs fe)))
 			  (dof (fe-dofs fe)))
 		     collecting (dof-in-vblock-index dof))
 		  'vector))))
-
-(defmethod make-local-vec ((fe <scalar-fe>) &optional (multiplicity 1))
-  (make-real-matrix (nr-of-dofs fe) multiplicity))
-
-(defmethod make-local-mat ((fe <scalar-fe>))
-  (make-real-matrix (nr-of-dofs fe)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <vector-fe>
@@ -156,12 +149,11 @@ cells as keys."))
 
 (defclass <vector-fe> (<fe>)
   ((components :accessor components :initarg :components :type simple-vector)
-   (dofs :accessor fe-dofs :type list))
+   (dofs :accessor fe-dofs)
+   (basis :reader fe-basis))
   (:documentation "Finite element for vector functions.  Components is a
-vector of scalar finite elements.  Local-offset is an array of the same
-length which contains the offsets for each component in the local
-discretization vector.  Subcell-offsets is an array consisting of arrays
-which yield such an offset for every subcell."))
+vector of scalar finite elements.  Subcell-offsets is an array consisting
+of arrays which yield such an offset for every subcell."))
 
 (defmethod nr-of-dofs ((fe <vector-fe>))
   (reduce #'+ (components fe) :key #'nr-of-dofs))
@@ -177,12 +169,12 @@ which yield such an offset for every subcell."))
   (loop for fe across (components vecfe)
 	maximize (discretization-order fe)))
 
+(with-memoization (:type :global :test 'equalp)
+  (defun make-vector-fe (components)
+    (let ((components components))
+      (make-instance '<vector-fe> :components components))))
 
 ;;; property content
-(definline local-offset (fe)
-  "Reader for the local-offset of this component in the local cell vector."
-  (the fixnum-vec (getf (properties fe) 'LOCAL-OFFSET)))
-
 (definline subcell-offsets (fe)
   "Reader for subcell-offsets.  This is an array of length the number of
 components.  Each component is an array giving the offset of this component
@@ -191,7 +183,7 @@ in a sparse vector value block corresponding to the subcell."
 
 (defmethod initialize-instance :after ((vecfe <vector-fe>) &key &allow-other-keys)
   (declare (optimize safety debug))
-  (with-slots (components dofs properties)
+  (with-slots (components dofs basis properties)
     vecfe
     (assert components)
     (assert (same-p components :key #'reference-cell))
@@ -201,50 +193,43 @@ in a sparse vector value block corresponding to the subcell."
     (let* ((refcell (reference-cell vecfe))
 	   (nr-comps (length components))
 	   (nr-subcells (nr-of-subcells refcell))
-	   (local-offset (make-fixnum-vec nr-comps))
 	   (subcell-offsets (make-array nr-comps :initial-element nil))
 	   (subcell-ndofs (make-fixnum-vec nr-subcells)))
-      ;; fill arrays: local-offset, subcell-offsets, subcell-ndofs
-      (loop with local-off = 0
-	 and subcell-off = (make-fixnum-vec nr-subcells 0)
+      ;; fill arrays: subcell-offsets, subcell-ndofs
+      (loop with subcell-off = (make-fixnum-vec nr-subcells 0)
 	 for i from 0 and fe across components
 	 do
-	   (setf (aref local-offset i) local-off)
 	   (setf (aref subcell-offsets i) (copy-seq subcell-off))
-	   (incf local-off (nr-of-dofs fe))
 	   (m+! (subcell-ndofs fe) subcell-ndofs)
 	   (m+! (subcell-ndofs fe) subcell-off))
-      (setf (getf properties 'LOCAL-OFFSET) local-offset)
       (setf (getf properties 'SUBCELL-OFFSETS) subcell-offsets)
       (setf (getf properties 'SUBCELL-NDOFS) subcell-ndofs)
-      ;; set subcell-indices
-      (setf (getf properties 'SUBCELL-INDICES)
-	    (loop+ (i (nr-dofs (subcell-ndofs vecfe)))
-	       unless (zerop nr-dofs) collect i))
       ;; setup dofs
       (setq dofs
-	    (loop+ (comp
-		    (fe components)
-		    (local-off local-offset)
-		    (subcell-offset subcell-offsets))
-	       nconcing
-	       (loop+ ((dof (fe-dofs fe))) collecting
-		  (new-vector-dof-from-dof dof comp subcell-offset))))
+	    (loop+ (comp (fe components) (subcell-offset subcell-offsets))
+	      nconcing
+	      (loop+ ((dof (fe-dofs fe)))
+		collecting (new-vector-dof-from-dof dof comp subcell-offset))))
+      ;; setup basis
+      (setq basis (reduce (curry #'concatenate 'vector) components :key #'fe-basis))
       )))
 
-(defmethod make-local-vec ((vecfe <vector-fe>) &optional (multiplicity 1))
-  (map 'simple-vector
-       #'(lambda (fe) (make-real-matrix (nr-of-dofs fe) multiplicity))
-       (components vecfe)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Quadrature
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod make-local-mat ((vecfe <vector-fe>))
-  (let* ((n-comps (nr-of-components vecfe))
-	 (result (make-array (list n-comps n-comps) :initial-element nil)))
-    (loop+ (i (fe1 (components vecfe))) do
-       (loop+ (j (fe2 (components vecfe))) do
-	  (setf (aref result i j)
-		(make-real-matrix (nr-of-dofs fe1) (nr-of-dofs fe2)))))
-    result))
+(defgeneric quadrature-rule (fe)
+  (:documentation "Computes the quadrature rule to be used for the finite
+element @arg{fe}."))
+
+(defmethod quadrature-rule ((fe <fe>))
+  "Standard quadrature rule for fe."
+  (let ((refcell (reference-cell fe))
+	(order (discretization-order fe)))
+    (gauss-rule (mapcar #'dimension (factor-simplices refcell))
+		;; does not integrate reaction terms precisely
+		#+(or)(if (typep refcell '<simplex>) order (1+ order))
+		(1+ order))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Interpolation
@@ -267,8 +252,9 @@ interpolation with the finite element @arg{fe}.")
   "Interpolates @arg{function} on the reference cell of the finite element
 @arg{fe}.  Returns a standard-matrix corresponding to the block in the
 sparse vector."
-  (let ((values (loop for dof in (fe-dofs fe) when (interior-dof? dof)
-		      collecting (evaluate dof (interpolation-function fe function :dof dof)))))
+  (let ((values (loop+ ((dof (fe-dofs fe)))
+		  when (interior-dof? dof) collecting
+		  (evaluate dof (interpolation-function fe function :dof dof)))))
     (when values
       (assert (apply #'= (mapcar #'multiplicity values)))
       (let ((vblock (make-real-matrix (nr-of-inner-dofs fe)
@@ -278,97 +264,6 @@ sparse vector."
 		  (setf (vref vblock i) value)
 		  (minject vblock value i 0)))
 	vblock))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; <fe-discretization>
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <fe-discretization> (<discretization>)
-  ()
-  (:documentation "FE discretization base class."))
-
-(defgeneric get-fe (fe-disc cell)
-  (:documentation "Returns the finite element for the given discretization
-and reference cell."))
-
-(defgeneric quadrature-rule (fe)
-  (:documentation "Computes the quadrature rule to be used for the finite
-element @arg{fe}."))
-
-(defmethod quadrature-rule ((fe <fe>))
-  "Standard quadrature rule for fe."
-  (let ((refcell (reference-cell fe))
-	(order (discretization-order fe)))
-    (gauss-rule (mapcar #'dimension (factor-simplices refcell))
-		;; does not integrate reaction terms precisely
-		#+(or)(if (typep refcell '<simplex>) order (1+ order))
-		(1+ order))))
-
-(defclass <cell-fe-discretization> (<fe-discretization>)
-  ((cell->fe :initarg :cell->fe :documentation
-	     "A function mapping a cell to a finite element."))
-  (:documentation "Finite element discretization where the finite elements
-can differ from cell to cell.  Especially, hp-FEM are included."))
-
-(defmethod get-fe ((disc <cell-fe-discretization>) cell)
-  (funcall (slot-value disc 'cell->fe) cell))
-
-(defclass <standard-fe-discretization> (<cell-fe-discretization>)
-  ()
-  (:documentation "Finite element discretization where the finite element
-depends only on the type of the reference cell."))
-
-(defmethod get-fe ((disc <standard-fe-discretization>) cell)
-  (funcall (slot-value disc 'cell->fe)
-	   (reference-cell cell)))
-
-(defclass <scalar-fe-discretization> (<standard-fe-discretization>)
-  ((order :reader discretization-order :initarg :order))
-  (:documentation "Class for scalar fe discretizations."))
-
-(defmethod nr-of-components ((fe-disc <scalar-fe-discretization>)) 1)
-
-(defclass <vector-fe-discretization> (<standard-fe-discretization>)
-  ((components :reader components))
-  (:documentation "Vector FE discretization class."))
-
-(defmethod initialize-instance ((disc <vector-fe-discretization>) &key components)
-  "Combines scalar fe discretization to form a vector fe discretization."
-  (setf (slot-value disc 'cell->fe)
-	 (with-memoization (:id 'initialize-vector-fe-discretization)
-	   (lambda (cell)
-	     (memoizing-let ((refcell (reference-cell cell)))
-	       (make-instance
-		'<vector-fe> :cell refcell :discretization disc :components
-		(map 'vector #'(lambda (comp-disc) (get-fe comp-disc refcell))
-		     components))))))
-  (setf (slot-value disc 'components)
-	(map 'vector
-	     #'(lambda (comp-disc i)
-		 (make-instance
-		  '<scalar-fe-discretization>
-		  :order (discretization-order comp-disc)
-		  :cell->fe
-		  #'(lambda (cell)
-		      (aref (components (get-fe disc cell)) i))))
-	     components (range< 0 (length components))))
-  disc)
-
-(defmethod discretization-order ((vecfe-disc <vector-fe-discretization>))
-  (loop for disc across (components vecfe-disc)
-	maximize (discretization-order disc)))
-
-(defmethod nr-of-components ((vecfe-disc <vector-fe-discretization>))
-  (length (components vecfe-disc)))
-
-(defmethod component ((fedisc <fe-discretization>) i)
-  (make-instance
-   '<cell-fe-discretization> :cell->fe
-   #'(lambda (cell)
-       (aref (components (get-fe fedisc cell)) i))))
-
-(defmethod component ((fedisc <vector-fe-discretization>) i)
-  (aref (components fedisc) i))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ip-values, ip-gradients
@@ -382,25 +277,24 @@ depends only on the type of the reference cell."))
 be a vector of integration points or a quadrature rule.  Note that this
 function is memoized using an :around method."))
 
-(with-memoization (:id 'ip-values)
-  (defmethod ip-values :around ((fe <fe>) obj)
-    (memoizing-let ((fe fe) (obj obj))
-      (call-next-method))))
-    
-(defmethod ip-values ((fe <scalar-fe>) (positions vector))
-  "Returns a list of nr-ip float-matrices of dimension (n-basis x 1)."
-  (map 'vector
-       #'(lambda (pos)
-	   (make-real-matrix
-	    (loop+ ((shape (fe-basis fe)))
-	      collect (list (evaluate shape pos)))))
-       positions))
+(with-memoization (:id 'scalar-ip-values)
+  (defmethod ip-values ((fe <scalar-fe>) (positions vector))
+    "Returns a list of nr-ip float-matrices of dimension (n-basis x 1)."
+    (memoizing-let ((fe fe) (positions positions))
+      (map 'vector
+	   #'(lambda (pos)
+	       (make-real-matrix
+		(loop+ ((shape (fe-basis fe)))
+		  collect (list (evaluate shape pos)))))
+	   positions))))
 
-(defmethod ip-values ((fe <vector-fe>) (positions vector))
-  "Returns a list of positions of length components."
-  (apply #'map 'vector #'vector
-	 (map 'list (rcurry 'ip-values positions)
-	      (components fe))))
+(with-memoization (:id 'vector-ip-values)
+  (defmethod ip-values ((fe <vector-fe>) (positions vector))
+    "Returns a list of positions of length components."
+    (memoizing-let ((fe fe) (positions positions))
+      (apply #'map 'vector #'vector
+	     (map 'list (rcurry 'ip-values positions)
+		  (components fe))))))
 
 (defmethod ip-values (fe (qrule <integration-rule>))
   "Return the fe values for the integration points of qrule."
@@ -411,24 +305,23 @@ function is memoized using an :around method."))
 @arg{obj} which may be a vector of integration points or a quadrature rule.
 Note that this function is memoized using an :around method."))
 
-(with-memoization (:id 'ip-gradients)
-  (defmethod ip-gradients :around ((fe <fe>) obj)
-    (memoizing-let ((fe fe) (obj obj))
-      (call-next-method))))
-  
-(defmethod ip-gradients ((fe <scalar-fe>) (positions vector))
-  "Returns a list of nr-ip float-matrices of dimension (n-basis x dim)."
-  (map 'vector
-       #'(lambda (pos)
-	   (make-real-matrix
-	    (loop+ ((shape (fe-basis fe))) collect
-		   (evaluate-gradient shape pos))))
-       positions))
+(with-memoization (:id 'scalar-ip-gradients)
+  (defmethod ip-gradients ((fe <scalar-fe>) (positions vector))
+    "Returns a list of nr-ip float-matrices of dimension (n-basis x dim)."
+    (memoizing-let ((fe fe) (positions positions))
+      (map 'vector
+	   #'(lambda (pos)
+	       (make-real-matrix
+		(loop+ ((shape (fe-basis fe))) collect
+		       (evaluate-gradient shape pos))))
+       positions))))
 
-(defmethod ip-gradients ((fe <vector-fe>) (positions vector))
-  (apply #'map 'vector #'vector
-	 (map 'list (rcurry 'ip-gradients positions)
-	      (components fe))))
+(with-memoization (:id 'vector-ip-gradients)
+  (defmethod ip-gradients ((fe <vector-fe>) (positions vector))
+    (memoizing-let ((fe fe) (positions positions))
+      (apply #'map 'vector #'vector
+	     (map 'list (rcurry 'ip-gradients positions)
+		  (components fe))))))
 
 (defmethod ip-gradients (fe (qrule <integration-rule>))
   "Return the fe values for the integration points of qrule."
@@ -444,19 +337,26 @@ Note that this function is memoized using an :around method."))
 @arg{values} and @arg{gradients} the values and gradients of the shape
 functions at the ip, and @arg{fe-parameters} are the corresponding data of
 fe-functions to be evalutated."
-  (list* :global global :cell cell :Dphi Dphi
-	 (loop for (obj data) on fe-parameters by #'cddr
-	       collect (if (symbolp obj) obj (car obj))
-	       collect
-	       (let ((value (if (vectorp data)
-				(map 'vector #'m*-tn values data)
-				(m*-tn values data))))
-		 (if (symbolp obj)
-		     value
-		     (list value
-			   (if (vectorp data)
-			       (map 'vector #'m*-tn gradients data)
-			       (m*-tn gradients data))))))))
+  (list*
+   :global global :cell cell :Dphi Dphi
+   (loop for (obj data) on fe-parameters by #'cddr
+	 collect (if (symbolp obj) obj (car obj))
+	 collect
+	 (let ((value (if (vectorp data)
+			  (map 'vector #'m*-tn values data)
+			  (m*-tn values data))))
+	   (if (symbolp obj)
+	       value
+	       (list value
+		     (if (vectorp data)
+			 (map 'vector #'m*-tn gradients data)
+			 (m*-tn gradients data))))))
+   #+(or)
+   (loop
+    for (obj data) on fe-parameters by #'cddr
+    collect (car obj) collect
+    (list (map 'vector #'m*-tn values data)
+	  (map 'vector #'m*-tn gradients data)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Polynomial spaces on cells
@@ -492,15 +392,15 @@ fe-functions to be evalutated."
 		      (Q-nomials-of-degree cell deg '<=) ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; gram matrix computation
+;;; Gram matrix computation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun gram-matrix (vectors functionals pairing)
   "Computes the Gram matrix of vectors and functionals wrt pairing."
   (make-real-matrix
-   (loop for phi in vectors
-	 collect (loop for psi in functionals
-		       collect (funcall pairing psi phi)))))
+   (loop+ ((phi vectors))
+     collect (loop+ ((psi functionals))
+	       collect (funcall pairing psi phi)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; dual basis

@@ -71,7 +71,7 @@ and a matrix."))
   "Default method for residual computation.  Should work for everything for
 which the blas operations copy! and gemm! are defined."
   (copy! b r)
-  (gemm-nn! -1.0 A x 1.0 r)
+  (gemm! -1.0 A x 1.0 r)
   r)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

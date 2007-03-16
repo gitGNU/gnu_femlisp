@@ -4,7 +4,8 @@
 ;;; lagrange.lisp - Lagrange Finite Elements
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2006 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2007- Nicolas Neuss, University of Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -72,25 +73,26 @@
   (defun lagrange-dofs (cell order type)
     (memoizing-let ((cell cell) (order order) (type type))
       (let ((lagrange-coords (lagrange-coords-1d order type)))
-	(loop with dof-index = -1
-	      for subcell across (subcells cell)
-	      and i from 0
-	      nconcing
-	      (loop with subcell-coords = (lagrange-inner-coords subcell order type)
-		    for local in subcell-coords
-		    and j from 0 collect
-		    ;; we need below that the coords are eql to the lobatto
-		    ;; coords without any rounding error
-		    (let ((g (map 'double-vec
-				  #'(lambda (coord)
-				      (find-if #'(lambda (coord2) (< (abs (- coord coord2)) 1.0e-10))
-					       lagrange-coords))
-				  (l2g subcell local))))
-		      (make-instance 'dof :index (incf dof-index)
-				     :subcell subcell :subcell-index i
-				     :in-vblock-index j
-				     :coord local :gcoord g
-				     :functional #'(lambda (func) (evaluate func g))))))))))
+	(coerce
+	 (loop with dof-index = -1
+	       for subcell across (subcells cell)
+	       and i from 0 nconcing
+	       (loop with subcell-coords = (lagrange-inner-coords subcell order type)
+		     for local in subcell-coords
+		     and j from 0 collect
+		     ;; we need below that the coords are eql to the lobatto
+		     ;; coords without any rounding error
+		     (let ((g (map 'double-vec
+				   #'(lambda (coord)
+				       (find-if #'(lambda (coord2) (< (abs (- coord coord2)) 1.0e-10))
+						lagrange-coords))
+				   (l2g subcell local))))
+		       (make-instance 'dof :index (incf dof-index)
+				      :subcell subcell :subcell-index i
+				      :in-vblock-index j
+				      :coord local :gcoord g
+				      :functional #'(lambda (func) (evaluate func g))))))
+	 'vector)))))
 
 (defun lagrange-basis-simplex (cell order type)
   "Computes the Lagrange basis for a cell.  Should be applied only for
@@ -113,12 +115,14 @@ tensor product."
 	       (f-shapes (lagrange-basis-simplex factor order type))
 	       (f-dofs (lagrange-dofs factor order type))
 	       (product
-		(loop for coord in coords and shape in shapes nconcing
-		      (loop for f-dof in f-dofs and f-shape in f-shapes
-			    for f-coord = (dof-gcoord f-dof) collecting
-			    (cons (concatenate 'double-vec f-coord coord)
-				  (poly* (shift-polynomial shape f-dim) f-shape))))))
-	  (values (mapcar #'car product) (mapcar #'cdr product))))))
+		(loop+ ((coord coords) (shape shapes))
+		  nconcing
+		  (loop+ ((f-dof f-dofs) (f-shape f-shapes))
+		    collecting
+		    (let ((f-coord (dof-gcoord f-dof)))
+		      (cons (concatenate 'double-vec f-coord coord)
+			    (poly* (shift-polynomial shape f-dim) f-shape)))))))
+	  (values (map 'vector #'car product) (map 'vector #'cdr product))))))
 
 (with-memoization ()
   (defun lagrange-basis (cell order type)
@@ -129,75 +133,78 @@ lower-dimensional shapes and coordinates."
     (multiple-value-bind (coords shapes)
 	(shapes-and-dof-coords (factor-simplices cell) order type)
       (let ((table (make-hash-table :test #'equalp)))
-	(loop for coord in coords and shape in shapes do
-	      (setf (gethash coord table) shape))
-	(loop for dof in (lagrange-dofs cell order type)
-	      for shape = (gethash (dof-gcoord dof) table)
-	      do (assert shape)
-	      collecting shape))))))
+	(loop+ ((coord coords) (shape shapes))
+	  do (setf (gethash coord table) shape))
+	(map 'vector (lambda (dof) (gethash (dof-gcoord dof) table))
+	     (lagrange-dofs cell order type)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; fe-class definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <lagrange-fe> ()
-  ((type :initarg :type))
-  (:documentation "Mixin for finite elements of Lagrange type."))
+(with-memoization (:test 'equalp)
+  (defun cell-lagrange-fe (cell order type &optional disc)
+    "Returns a Lagrange fe depending on reference cell, an order \(which
+can be number or vector\), and a type symbol."
+    (memoizing-let ((refcell (reference-cell cell))
+		    (order order) (type type) (disc disc))
+      (etypecase order
+	(number (make-instance
+		 '<scalar-fe> :cell refcell :discretization disc
+		 :dofs (lagrange-dofs refcell order type)
+		 :basis (lagrange-basis refcell order type)
+		 :order order))
+	(vector (make-instance
+		 '<vector-fe> :discretization disc :components
+		 (map 'vector (lambda (order)
+				(cell-lagrange-fe refcell order type))
+		      order)))))))
 
-(defclass <scalar-lagrange-fe> (<scalar-fe-discretization> <lagrange-fe>)
-  ()
-  (:documentation "Scalar Lagrange FE."))
-
-(defclass <vector-lagrange-fe> (<vector-fe-discretization> <lagrange-fe>)
-  ()
-  (:documentation "Vector Lagrange FE."))
-
-(with-memoization ()
-  (defun lagrange-fe (order &key nr-comps (type :uniform))
+(with-memoization (:test 'equalp)
+  (defun lagrange-fe (order &key (nr-comps 1) (type :uniform))
     "Constructor for Lagrange fe."
+    (when (and nr-comps (numberp order))
+      (setq order (make-array nr-comps :initial-element order)))
+    ;; (vectorp order) is now indicator for vector-fe/scalar-fe
     (memoizing-let ((order order) (nr-comps nr-comps) (type type))
-      (if nr-comps
-	  (make-instance
-	   '<vector-lagrange-fe>
-	   :components
-	   (make-list nr-comps :initial-element
-		      (lagrange-fe order :type type)))
-	  (let ((disc (make-instance '<scalar-lagrange-fe> :order order :type type)))
-	      (setf (slot-value disc 'cell->fe)
-		    (with-memoization ()
-		      #'(lambda (cell)
-			  (memoizing-let ((refcell (reference-cell cell)))
-			    (make-instance
-			     '<scalar-fe> :cell refcell :discretization disc
-			     :dofs (lagrange-dofs refcell order type)
-			     :basis (lagrange-basis refcell order type)
-			     :order order)))))
-	    disc)))))
+      (lret ((disc (make-instance
+		    (if (vectorp order)
+			'<vector-fe-discretization>
+			'<scalar-fe-discretization>))))
+	(setf (get-property disc :type) type)
+	(setf (slot-value disc 'cell->fe)
+	      (rcurry #'cell-lagrange-fe order type disc))
+	(if (vectorp order)
+	    (setf (slot-value disc 'components)
+		  (vector-map (lambda (order)
+				(lagrange-fe order :nr-comps nil :type type))
+			      order))
+	    (setf (slot-value disc 'order) order))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Isoparametric stuff
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun lagrange-basis-boundary (cell order type)
-  (loop for phi in (lagrange-basis cell order type)
-	for dof in (lagrange-dofs cell order type)
-	unless (interior-dof? dof) collect phi))
+  (loop+ ((phi (lagrange-basis cell order type))
+	  (dof (lagrange-dofs cell order type)))
+    unless (interior-dof? dof) collect phi))
 
 (defun lagrange-basis-inner (cell order type)
-  (loop for phi in (lagrange-basis cell order type)
-	for dof in (lagrange-dofs cell order type)
-	when (interior-dof? dof) collect phi))
+  (loop+ ((phi (lagrange-basis cell order type))
+	  (dof (lagrange-dofs cell order type)))
+    when (interior-dof? dof) collect phi))
 
 (defun lagrange-boundary-dofs (cell order type)
-  (loop	for dof in (lagrange-dofs cell order type)
-	unless (interior-dof? dof) collect dof))
+  (loop+ ((dof (lagrange-dofs cell order type)))
+    unless (interior-dof? dof) collect dof))
 
 (defun lagrange-reference-parameters (refcell order type)
   "Computes an energy-minimizing extension to the interior for the
 boundary lagrangian."
   (assert (reference-cell-p refcell))
-  (let* ((fe-class (lagrange-fe order :type type))
-	 (fe (get-fe fe-class refcell))
+  (let* ((fe-disc (lagrange-fe order :type type :nr-comps nil))
+	 (fe (get-fe fe-disc refcell))
 	 (nr-inner-dofs (nr-of-inner-dofs fe))
 	 (result (make-hash-table)))
     (cond
@@ -217,13 +224,12 @@ boundary lagrangian."
 		(A_IB (submatrix energy-mat :row-indices inner-indices :col-indices boundary-indices))
 		(corr-mat (m* (m/ A_II) A_IB))
 		(inner-shapes (lagrange-basis-inner refcell order type)))
-	   (loop for j from 0
-		 and dof in (lagrange-boundary-dofs refcell order type)
-		 and phi in (lagrange-basis-boundary refcell order type) do
-		 (setf (gethash dof result)
-		       (loop for i from 0 and psi in inner-shapes do
-			     (setf phi (axpy (- (mref corr-mat i j)) psi phi))
-			     finally (return phi))))))))
+	   (loop+ (j (dof (lagrange-boundary-dofs refcell order type))
+		     (phi (lagrange-basis-boundary refcell order type)))
+	     do (setf (gethash dof result)
+		      (loop+ (i (psi inner-shapes))
+			do (setf phi (axpy (- (mref corr-mat i j)) psi phi))
+			finally (return phi))))))))
     result))
 
 (defun lagrange-polynomial-vector (cell order type)
@@ -262,7 +268,6 @@ by interpolating the boundary map via Lagrange interpolation."
 	      (loop for poly across poly-vec collect
 		    (loop for i from 0 below (length lcoord) collect
 			  (evaluate (differentiate poly i) lcoord)))))))))
-
 
 
 ;;; Testing
@@ -333,5 +338,3 @@ by interpolating the boundary map via Lagrange interpolation."
 
 ;;; (fl.discretization::test-lagrange)
 (fl.tests:adjoin-test 'test-lagrange)
-
-

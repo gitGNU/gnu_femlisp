@@ -4,7 +4,8 @@
 ;;; sparseas.lisp - ansatz spaces and operators between them
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2006 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2006- Nicolas Neuss, University of Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -35,50 +36,6 @@
 (in-package :fl.discretization)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; ansatz-space
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <ansatz-space> (property-mixin)
-  ((fe-class :reader fe-class :initarg :fe-class :type <fe-discretization> :documentation
-	     "The finite element class for this ansatz space.")
-   (problem :reader problem :initarg :problem :documentation
-	    "The proplem for this ansatz space which determines essential constraints.")
-   (mesh :reader mesh :initarg :mesh :type <mesh> :documentation
-	    "The mesh for this ansatz space which determines hanging-node constraints.")
-   (multiplicity :reader multiplicity :initarg :multiplicity
-		 :documentation "Should be a copy of problem multiplicity."))
-  (:documentation "A finite element ansatz space is determined by finite
-element discretization, mesh and problem.  The constraints are stored in
-the slot @var{properties}."))
-
-(defmethod initialize-instance :after ((as <ansatz-space>) &key &allow-other-keys)
-  (unless (slot-boundp as 'multiplicity)
-    (setf (slot-value as 'multiplicity)
-	  (if (slot-boundp as 'problem)
-	      (slot-value (problem as) 'multiplicity)
-	      1))))
-
-(defmethod hierarchical-mesh ((as <ansatz-space>))
-  "h-mesh accessor for ansatz-space.  Use it for emphasizing that you work
-with a hierarchical mesh."
-  (the <hierarchical-mesh> (values (mesh as))))
-
-(defun make-fe-ansatz-space (fe-class problem mesh &optional multiplicity)
-  "<ansatz-space> constructor.  Somewhat shorter than with MAKE-INSTANCE."
-  (assert (= (nr-of-components problem) (nr-of-components fe-class)))
-  (make-instance '<ansatz-space> :fe-class fe-class
-		 :problem problem :mesh mesh
-		 :multiplicity (or multiplicity
-				   (and problem (multiplicity problem))
-				   1)))
-
-(defgeneric set-constraints (ansatz-space)
-  (:documentation "Computes the constraint matrices for this ansatz-space.
-Constraints arise partially because of the discretization, e.g. hanging
-nodes, and partially because of essential boundary conditions.  Of course,
-these matrices change when mesh or discretization are adapted."))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Linear algebra interface 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -87,15 +44,15 @@ these matrices change when mesh or discretization are adapted."))
 ;;; ansatz-space.  Element identification is respected as a property of the
 ;;; underlying mesh.
 
-(definline cell-key (cell mesh)
-  "If cell is identified, its identification is the key."
-  (or (cell-identification cell mesh) cell))
+(inlining
+ (defun cell-key (cell mesh)
+   "If cell is identified, its identification is the key."
+   (or (cell-identification cell mesh) cell)))
 
 (defmethod key->size (ansatz-space)
-  (let ((fe-class (fe-class ansatz-space)))
-    #'(lambda (key)
-	(nr-of-inner-dofs
-	 (get-fe fe-class (representative key))))))
+  (lambda (key)
+    (nr-of-inner-dofs
+     (get-fe ansatz-space (representative key)))))
 
 (defmethod print-key (ansatz-space)
   (declare (ignore ansatz-space))
@@ -143,7 +100,7 @@ for a specific fe-class on a given mesh."))
   (let ((as (ansatz-space asv)))
     (setf (slot-value asv 'key->size) (key->size as))
     (setf (slot-value asv 'print-key) (print-key as))
-    (setf (slot-value asv 'multiplicity) (slot-value as 'multiplicity))))
+    (setf (slot-value asv 'multiplicity) (multiplicity as))))
 
 (defun make-ansatz-space-vector (as)
   "Deprecated."
@@ -154,56 +111,82 @@ for a specific fe-class on a given mesh."))
 constant or random entries.  Essential constraints are satisfied."
   (with-slots (mesh key->size)
     ansatz-space
-    (let ((asv (make-instance '<ansatz-space-vector> :ansatz-space ansatz-space)))
+    (lret ((asv (make-instance '<ansatz-space-vector> :ansatz-space ansatz-space)))
       (doskel (cell mesh :where :surface)
-	(ecase type
-	  (:random (fill-random! (vref asv (cell-key cell mesh)) value))
-	  (:constant (fill! (vref asv (cell-key cell mesh)) value))))
+	(let ((key (cell-key cell mesh)))
+	  (when (in-pattern-p asv key)
+	    (ecase type
+	      (:random (fill-random! (vref asv key) value))
+	      (:constant (fill! (vref asv key) value))))))
       (assemble-constraints ansatz-space)
       (destructuring-bind (&key constraints-P constraints-r &allow-other-keys)
 	  (properties ansatz-space)
 	(copy! (sparse-m* constraints-P constraints-r) asv))
-      asv)))
+      )))
 
 (defun random-ansatz-space-vector (ansatz-space)
   "Returns a ansatz space vector for @arg{ansatz-space} filled with random
 entries.  Essential constraints are satisfied."
   (special-ansatz-space-vector ansatz-space :random 1.0))
 
-(defgeneric choose-start-vector (ansatz-space problem)
+(defgeneric choose-start-vector (ansatz-space)
   (:documentation "Choose a reasonable start vector for some strategy.")
-  (:method (as problem)
-    "Default method chooses 0."
-    (declare (ignore problem))
-    (make-ansatz-space-vector as))
-  (:method (as (problem <evp-mixin>))
-    "For eigenvalue problems we choose a random guess."
-    (random-ansatz-space-vector as)))
-  
-(defmethod component ((asv <ansatz-space-vector>) i)
+  (:method (as)
+    "The default method chooses a random guess for eigenvalue problems and
+0 otherwise."
+    (if (typep (problem as) '<evp-mixin>)
+	(random-ansatz-space-vector as)
+	(make-ansatz-space-vector as))))
+
+#+(or)
+(defmethod component ((asv <ansatz-space-vector>) index)
   "Returns an ansatz-space-vector which denotes a component of asv.  The
 vector shares part of the values."
   (let* ((fedisc (fe-class asv))
-	 (comp-fedisc (component fedisc i))
-	 (comp-as (make-instance '<ansatz-space> :fe-class comp-fedisc :problem (problem asv)
-				 :mesh (mesh asv) :multiplicity (multiplicity asv)))
+	 (comp-fedisc (component fedisc index))
+	 (comp-as (make-instance '<ansatz-space> :fe-class comp-fedisc
+				 :problem (problem asv) :mesh (mesh asv)))
 	 (comp-asv (make-ansatz-space-vector comp-as))
 	 (indices (coerce (range< 0 (multiplicity asv)) 'vector)))
-    (for-each-key-and-entry
-     #'(lambda (key entry)
+    (for-each-entry-and-key
+     #'(lambda (entry key)
 	 (let* ((vecfe (get-fe fedisc (representative key)))
-		(fe (component vecfe i)))
+		(fe (component vecfe index)))
 	   (when (plusp (nr-of-inner-dofs fe))
 	     (setf (vref comp-asv key)
 		   (make-instance
 		    '<submatrix> :matrix entry
 		    :row-keys
-		    (let ((offset (aref (aref (subcell-offsets vecfe) i) 0)))
+		    (let ((offset (aref (aref (subcell-offsets vecfe) index) 0)))
 		      (map 'vector (curry #'+ offset) (inner-dof-indices fe)))
 		    :col-keys indices)))))
      asv)
     comp-asv))
-  
+
+#+(or)
+(defmethod subvector ((asv <ansatz-space-vector>) indices)
+  "Extracts the subvector of @arg{asv} specified by @arg{indices}."
+  (let* ((fedisc (fe-class asv))
+	 (comp-fedisc (component fedisc index))
+	 (comp-as (make-instance '<ansatz-space> :fe-class comp-fedisc
+				 :problem (problem asv) :mesh (mesh asv)))
+	 (comp-asv (make-ansatz-space-vector comp-as))
+	 (indices (coerce (range< 0 (multiplicity asv)) 'vector)))
+    (for-each-entry-and-key
+     #'(lambda (entry key)
+	 (let* ((vecfe (get-fe fedisc (representative key)))
+		(fe (component vecfe index)))
+	   (when (plusp (nr-of-inner-dofs fe))
+	     (setf (vref comp-asv key)
+		   (make-instance
+		    '<submatrix> :matrix entry
+		    :row-keys
+		    (let ((offset (aref (aref (subcell-offsets vecfe) index) 0)))
+		      (map 'vector (curry #'+ offset) (inner-dof-indices fe)))
+		    :col-keys indices)))))
+     asv)
+    comp-asv))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <ansatz-space-morphism>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -247,14 +230,22 @@ ansatz-space-morphism."))
     (with-slots (ansatz-space row-key->size col-key->size print-row-key print-col-key
 			      keys->pattern)
       asa
-      (setf row-key->size key->size       col-key->size key->size
-	    print-row-key (print-key as)  print-col-key (print-key as)
+      (setf row-key->size key->size
+	    col-key->size key->size
+	    print-row-key (print-key as)
+	    print-col-key (print-key as)
 	    keys->pattern #'(lambda (row-key col-key)
 			      (full-crs-pattern (funcall key->size row-key)
 						(funcall key->size col-key)))))))
 
 (defun make-ansatz-space-automorphism (as)
   (make-instance '<ansatz-space-automorphism> :ansatz-space as))
+
+(defmethod domain-ansatz-space ((asa <ansatz-space-automorphism>))
+  (ansatz-space asa))
+
+(defmethod image-ansatz-space ((asa <ansatz-space-automorphism>))
+  (ansatz-space asa))
 
 (defun sparse->ansatz-space-automorphism (smat &key ansatz-space)
   (declare (type <sparse-matrix> smat))
@@ -277,8 +268,8 @@ ansatz-space-morphism."))
   (let* ((sub-vec (make-ansatz-space-vector (ansatz-space asv)))
 	 (vblocks (slot-value sub-vec 'fl.algebra::blocks))
 	 (level-skel (cells-on-level (hierarchical-mesh asv) level)))
-    (for-each-key-and-entry
-     #'(lambda (key vblock)
+    (for-each-entry-and-key
+     #'(lambda (vblock key)
 	 (when (member-of-skeleton? (representative key) level-skel)
 	   (setf (gethash key vblocks) vblock)))
      asv)
@@ -289,8 +280,8 @@ ansatz-space-morphism."))
   "Extracts a sub-matrix from a sparse matrix.  This routine could be
 accelerated by taking member-checks out of the loop."
   (let ((sub-mat (make-ansatz-space-automorphism (ansatz-space asa))))
-    (for-each-key-and-entry
-     #'(lambda (row-key col-key entry)
+    (for-each-entry-and-key
+     #'(lambda (entry row-key col-key)
 	 (when (and (or (not row?) (member-of-skeleton? (representative row-key) skel))
 		    (or (not col?) (member-of-skeleton? (representative col-key) skel)))
 	   (setf (mref sub-mat row-key col-key) entry)))
@@ -339,7 +330,6 @@ type having a default value @var{*interpolation-type*}."
   (let* ((h-mesh (hierarchical-mesh ansatz-space))
 	 (region (or region
 		     (if level (cells-on-level h-mesh level) h-mesh)))
-	 (fe-class (fe-class ansatz-space))
 	 (dim (dimension h-mesh)))
     (flet ((insert-local-imat (cell)
 	     (when (refined-p cell h-mesh)
@@ -348,7 +338,7 @@ type having a default value @var{*interpolation-type*}."
 		       (if (eq type :local)
 			   (children cell h-mesh)
 			   (subcell-children cell h-mesh)))
-		      (local-imat (local-interpolation-matrix cell h-mesh fe-class type)))
+		      (local-imat (local-interpolation-matrix cell ansatz-space type)))
 		 (dotensor ((i j . mblock) local-imat)
 		   (let* ((child (aref children i))
 			  (child-id (cell-key (aref children i) h-mesh))
@@ -365,8 +355,8 @@ type having a default value @var{*interpolation-type*}."
 	(doskel (cell region :dimension dim)
 	  (dovec (child (subcell-children cell h-mesh))
 	    (incf (gethash (cell-key child h-mesh) nr-of-supercells 0))))
-	(for-each-key-and-entry
-	 #'(lambda (key entry)
+	(for-each-entry-and-key
+	 #'(lambda (entry key)
 	     (scal! (/ 1.0 (gethash (car key) nr-of-supercells)) entry))
 	 imat)))
     imat))
@@ -379,21 +369,21 @@ type having a default value @var{*interpolation-type*}."
   "The algorithm works as follows: On each cell of the provided cell list
 or the whole refinement a local projection matrix computed on the reference
 finite element is copied into the global projection matrix."
-  (unless pmat
-    (setq pmat (make-ansatz-space-automorphism ansatz-space)))
-  (let* ((h-mesh (hierarchical-mesh ansatz-space))
-	 (level-mesh (if level (cells-on-level h-mesh level) h-mesh))
-	 (fe-class (fe-class ansatz-space)))
+  (ensure pmat (make-ansatz-space-automorphism ansatz-space))
+  (let ((h-mesh (hierarchical-mesh ansatz-space)))
     (flet ((insert-local-pmat (cell)
 	     (when (refined-p cell h-mesh)
-	       (whereas ((local-pmat (local-projection-matrix
-				      cell h-mesh fe-class)))
+	       (whereas ((local-pmat (local-projection-matrix cell ansatz-space)))
 		 (let ((subcell-children (subcell-children cell h-mesh))
 		       (cell-id (cell-key cell h-mesh)))
 		   (dotensor ((k . pmat-block) local-pmat)
 		     (setf (mref pmat cell-id (cell-key (aref subcell-children k) h-mesh))
 			   pmat-block)))))))
-      (skel-for-each #'insert-local-pmat (or region level-mesh)))
+      (skel-for-each #'insert-local-pmat
+		     (or region
+			 (if level
+			     (cells-on-level h-mesh level)
+			     h-mesh))))
     pmat))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -430,8 +420,6 @@ masters."
 	 (image-constraints-Q (getf (properties image-as) :ip-constraints-Q))
 	 (mesh (mesh domain-as))
 	 (interface (refinement-interface mesh))
-	 (domain-disc (fe-class domain-as))
-	 (image-disc (fe-class image-as))
 	 (prol (make-ansatz-space-morphism domain-as image-as)))
     (assert (eq mesh (mesh image-as)))
     ;;(assert (symmetric-p mat :threshold 1.0e-7 :output t))  ;;!!
@@ -443,8 +431,8 @@ masters."
 	  (when (plusp (funcall (key->size image-as) key))
 	    (unless (matrix-row prol key) ; don't handle twice for identified bc
 	      (unless (c-dirichlet-dof-p key image-constraints-P image-constraints-Q)
-		(let* ((image-fe (get-fe image-disc cell))
-		       (domain-fe (get-fe domain-disc cell))
+		(let* ((image-fe (get-fe image-as cell))
+		       (domain-fe (get-fe domain-as cell))
 		       (local-prol (local-transfer-matrix domain-fe image-fe))
 		       (subcells (subcells cell))
 		       (nrows (nr-of-inner-dofs image-fe)))
@@ -501,11 +489,14 @@ masters."
   ;; yield identity on a quadratic polynomial
   (let* ((dim 1) (domain (n-cube-domain dim))
 	 (mesh (uniformly-refined-hierarchical-mesh domain 1))
-	 (ansatz-space (make-instance '<ansatz-space> :fe-class (lagrange-fe 3) :mesh mesh))
+	 (problem (make-instance '<pde-problem> :components '(u) :multiplicity 1))
+	 (ansatz-space (make-fe-ansatz-space (lagrange-fe 3) problem mesh))
 	 (x (make-ansatz-space-vector ansatz-space))
 	 (I (interpolation-matrix ansatz-space))
 	 (P (projection-matrix ansatz-space)))
-    (set-lagrange-ansatz-space-vector x #'(lambda (coord) #I"coord[0]*(1.0-coord[0])"))
+    (doskel (cell mesh) (print (vref x cell)))
+    (set-lagrange-ansatz-space-vector
+     x #'(lambda (coord) #I"coord[0]*(1.0-coord[0])"))
     (let ((y (sparse-m* P x :sparsity :B)))
       (let ((z (sparse-m* I y :sparsity :B)))
 	(show x)

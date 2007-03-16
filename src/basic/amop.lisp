@@ -33,14 +33,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.AMOP"
-  (:use "COMMON-LISP" "FL.DEBUG")
+  (:use "COMMON-LISP" "FL.DEBUG" "FL.UTILITIES")
   (:import-from
    #-(OR ECL GCL SBCL) "MOP" #+SBCL "SB-MOP" #+ECL "CLOS" #+GCL "PCL"
    "CLASS-DIRECT-SUPERCLASSES" "CLASS-DIRECT-SUBCLASSES"
    "GENERIC-FUNCTION-NAME" "GENERIC-FUNCTION-METHODS"
    "METHOD-SPECIALIZERS")
-  (:export "COMPILE-AND-EVAL"
-	   "CLASS-DIRECT-SUPERCLASSES" "CLASS-DIRECT-SUBCLASSES"
+  (:export "CLASS-DIRECT-SUPERCLASSES" "CLASS-DIRECT-SUBCLASSES"
 	   "FIND-PROGRAMMATIC-CLASS" "MAKE-PROGRAMMATIC-INSTANCE"
 	   "REMOVE-SUBCLASS-METHODS")
   (:documentation
@@ -48,19 +47,6 @@
 non-ANSI and may represent a problem when porting Femlisp."))
 
 (in-package :fl.amop)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Compiled evaluation
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun compile-and-eval (source)
-  "Compiles and evaluates the given @arg{source}.  This should be an ANSI
-compatible way of ensuring method compilation."
-  (let ((*compile-print* (dbg-p :compile))
-	(*compile-verbose* (dbg-p :compile)))
-    (dbg :compile "Compiling and evaluating: ~%~S~%" source)
-    ;; for SBCL and CMUCL, EVAL might be sufficient here
-    (funcall (compile nil (list 'lambda () source)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Programmatic classes

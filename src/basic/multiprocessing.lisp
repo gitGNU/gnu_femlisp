@@ -40,7 +40,6 @@
    "MAKE-THREAD" "MAKE-MUTEX" "WITH-MUTEX"
    "MAKE-WAITQUEUE" "CONDITION-WAIT" "CONDITION-NOTIFY"
 
-   "*THREADS*"
    "MUTEX-MIXIN" "WITH-LOCK"
    "WITH-MUTUAL-EXCLUSION"
    "MPQUEUE" "PARQUEUE"
@@ -56,29 +55,22 @@ effects."))
 (in-package "FL.MULTIPROCESSING")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Reaching a common interface
+;;; A implementation-independent interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Threads
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar *threads* nil
-    "The number of threads in which Femlisp tries to split the work for some
-computationally intensive tasks.  If NIL, no threading is used.")
-  )
-
+;;; threads
 
 (defun make-thread (func &key name initial-bindings)
   "Execute @arg{func} as a thread with name @arg{name} within dynamic
 bindings given by @arg{initial-bindings}."
-  (declare (ignorable name initial-bindings))
+  (when initial-bindings
+    (warn "Not supported by SBCL."))
   #+allegro (mp:process-run-function
-	     `(:name ,name :initial-bindings ,initial-bindings)
+	     (list :name name :initial-bindings initial-bindings)
 	     func)
   #+cmu (mp:make-process func :name name :initial-bindings initial-bindings)
   #+sb-thread (sb-thread:make-thread func :name name)
+  #-(or allegro cmu sb-thread) nil
   )
 
 (defun thread-yield (&optional absolutely)
@@ -87,6 +79,7 @@ processes have to run."
   (declare (ignorable absolutely))
   #+allegro (mp:process-allow-schedule)
   #+cmu (mp:process-yield)
+  #-(or allegro cmu) nil
   )
 
 (defun current-thread ()
@@ -94,29 +87,86 @@ processes have to run."
   #+allegro system:*current-process*
   #+cmu (mp:current-process)
   #+sb-thread sb-thread:*current-thread*
+  #-(or allegro cmu sb-thread) :main-thread
+  )
+
+(defun thread-name (thread)
+  "Returns the name of the current thread."
+  #+allegro (mp:process-name thread)
+  #+cmu (mp:process-name thread)
+  #+sb-thread (sb-thread:thread-name thread)
+  #-(or allegro cmu sb-thread) nil
+  )
+
+(defun list-all-threads ()
+  "Returns a list of all threads"
+  #+allegro mp:*all-processes*
+  #+cmu (mp:all-processes)
+  #+sb-thread (sb-thread:list-all-threads)
+  #-(or allegro cmu sb-thread) :main-thread
+  )
+
+(defun terminate-thread (thread)
+  #+allegro (mp:process-kill thread)
+  #+cmu (mp:destroy-process thread)
+  #+sb-thread (sb-thread:terminate-thread thread)
+  #-(or allegro cmu sb-thread)
+  ;; no threading: thus only the main-thread which must not be killed
+  (assert (null thread))
   )
   
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Mutex
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; mutices
 
 (defun make-mutex (&key (name "mutex"))
   (declare (ignorable name))
   #+allegro (mp:make-process-lock :name name)
   #+cmu (mp:make-lock name)
   #+sb-thread (sb-thread:make-mutex :name name)
+  #-(or allegro cmu sb-thread) nil
   )
 
 (defmacro with-mutex ((mutex) &body body)
   (declare (ignorable mutex))
-  (if *threads*
-      (list 'progn
-	    #+allegro `(mp:with-process-lock (,mutex) ,@body)
-	    #+cmu `(mp:with-lock-held (,mutex) ,@body)
-	    #+sb-thread `(sb-thread:with-mutex (,mutex) ,@body))
-      `(progn ,@body)))
+  #+allegro `(mp:with-process-lock (,mutex) ,@body)
+  #+cmu `(mp:with-lock-held (,mutex) ,@body)
+  #+sb-thread `(sb-thread:with-recursive-lock (,mutex) ,@body)
+  #-(or allegro cmu sb-thread) `(locally ,@body))
 
-;;; Mutex mixin - should maybe be a metaclass?
+;;; waitqueues (following the SBCL interface)
+
+(defun make-waitqueue ()
+  "Generates a waitqueue."
+  #+allegro (mp:make-gate nil)
+  #+sb-thread (sb-thread:make-waitqueue)
+  #-(or allegro sb-thread) nil 
+  )
+
+(defun condition-wait (waitqueue mutex)
+  "Registers on the waitqueue, releases mutex, and waits for a notification
+on the waitqueue."
+  (declare (ignorable waitqueue mutex))
+  #+allegro
+  (progn
+    (mp:close-gate waitqueue)
+    (mp:process-unlock mutex)
+    (mp:process-wait "waiting for gate" #'mp:gate-open-p waitqueue)
+    (mp:process-lock mutex))
+  #+sb-thread (sb-thread:condition-wait waitqueue mutex)
+  #-(or allegro sb-thread) (thread-yield)
+  )
+
+(defun condition-notify (waitqueue &optional (n 1))
+  "Notifies on the waitqueue."
+  (declare (ignorable waitqueue n))
+  #+allegro (mp:open-gate waitqueue)
+  #+sb-thread
+  (if (eq n t)
+      (sb-thread:condition-broadcast waitqueue)
+      (sb-thread:condition-notify waitqueue n))
+  #-(or allegro sb-thread) (thread-yield)
+  )
+
+;;; nicer OO interface
 
 (defclass mutex-mixin ()
   ((mutex :reader mutex :initform (make-mutex) :documentation
@@ -130,170 +180,229 @@ interfering."
   `(with-mutex ((mutex ,obj))
     ,@body))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Waitqueue
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; SBCL-specific performance enhancement
-
-(defun make-waitqueue ()
-  "Generates a waitqueue."
-  #+sb-thread (sb-thread:make-waitqueue)
-  )
-
-(defun condition-wait (waitqueue mutex)
-  "Registers on the waitqueue, releases mutex, and waits for a notification
-on the waitqueue."
-  (declare (ignorable waitqueue mutex))
-  #+sb-thread (sb-thread:condition-wait waitqueue mutex)
-  )
-
-(defun condition-notify (waitqueue)
-  "Notifies on the waitqueue."
-  (declare (ignorable waitqueue))
-  #+sb-thread (sb-thread:condition-notify waitqueue)
-  )
-
 (defclass waitqueue-mixin (mutex-mixin)
   ((waitqueue :reader waitqueue :initform (make-waitqueue)))
   (:documentation "Waitqueue mixin."))
 
+(defgeneric wait (waitqueue-object &key while until)
+  (:documentation "Waits on @arg{waitqueue-object} while @arg{while} is
+satisfied or until @arg{until} is satisfied.")
+  (:method ((wq waitqueue-mixin) &key while until)
+    (with-mutual-exclusion (wq)
+      (loop while (or (and while (funcall while wq))
+		      (and until (not (funcall until wq))))
+	    do (condition-wait (waitqueue wq) (mutex wq))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; MRSW (multiple-read-single-write) access (untested)
+;;;; Multithreaded debugging
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass mrsw-mixin (waitqueue-mixin)
-  ((readcount :reader readcount :initform 0 :documentation
-	      "Number of read accesses.")
-   (writecount :reader writecount :initform 0 :documentation
-	       "Number of (desired) write accesses, should be 0 or 1."))
-  (:documentation "Waitqueue mixin."))
+(defvar *debug-mutex* (make-mutex))
 
-(defmacro with-read-access ((obj) &body body)
-  "Execute @arg{body} while registered for reading @arg{obj}."
-  `(with-slots (mutex waitqueue readcount writecount) ,obj
-    (with-mutex (mutex)
-      (loop until (zerop writecount) do
-	    (condition-wait waitqueue mutex))
-      (incf readcount)
-      ,@body
-      (decf readcount))))
+(defmethod dbg :around (id format-string &rest args)
+  "Serializing of debug output."
+  (declare (ignore id format-string args))
+  (with-mutex (*debug-mutex*)
+    (call-next-method)))
 
-(defmacro with-readwrite-access ((obj) &body body)
-  "Execute @arg{body} while registered for writing @arg{obj}."
-  `(with-slots (mutex waitqueue readcount writecount) ,obj
-    (with-mutex (mutex)
-      (loop until (zerop writecount) do
-	    (condition-wait waitqueue mutex))
-      (incf writecount)
-      (loop until (zerop readcount) do
-	    (condition-wait waitqueue mutex))
-      (incf readcount))
-    ,@body
-    (with-mutex (mutex)
-      (decf readcount)
-      (decf writecount))))
+(defun mp-dbg (format &rest args)
+  (apply #'dbg :mp (concatenate 'string "~A: " format)
+	 (current-thread) args))
+
+(defgeneric notify (waitqueue-object &optional n)
+  (:documentation "Notifies @arg{waitqueue-object}.")
+  (:method ((wq waitqueue-mixin) &optional (n t))
+    (mp-dbg "notifying ~A" wq)
+    (condition-notify (waitqueue wq) n)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass multithread (waitqueue-mixin)
+  ((threads :accessor threads :initform ())
+   (work :initarg :work :documentation "Function doing the actual work.")))
+
+(defmethod initialize-instance :after ((mt multithread) &key number-of-threads &allow-other-keys)
+  (with-slots (waitqueue mutex threads work) mt
+    (with-mutual-exclusion (mt)
+      (setf threads
+	    (loop repeat number-of-threads collect
+		  (make-thread
+		   ;; worker function
+		   (lambda ()
+		     (funcall work)
+		     ;; epilogue after doing the work
+		     (with-mutual-exclusion (mt)
+		       (setf threads (remove (current-thread) threads))
+		       (notify mt)))
+		   :name "my-worker"))))))
+
+#+(or)
+(defun execute-in-parallel (work &key (number-of-threads *number-of-threads*))
+  (let ((mt (make-instance 'multithread :work work
+			   :number-of-threads number-of-threads)))
+    (wait mt :while #'threads)))
+
+#+(or)
+(loop for i from 1 upto 5 do
+      (format t "~R thread~:P~%" i)
+      (time (execute-in-parallel
+	     (lambda ()
+	       (loop repeat (expt 2 27) sum 1))
+	     :number-of-threads i)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; thread-safe queue
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass parqueue (queue waitqueue-mixin)
-  ((finished-p :reader finished-p :initform nil :documentation
-	       "Indicator for end-of-input."))
+  ((finished-p :accessor finished-p :initform nil :documentation
+	       "Indicator for no-more-input-allowed."))
   (:documentation "A thread-safe queue waiting for input."))
 
 (defmethod enqueue :around (obj (pq parqueue))
-  (declare (ignorable obj))
+  (assert (not (finished-p pq)))
+  (mp-dbg "enqueueing ~A in ~A" obj pq)
   (with-mutual-exclusion (pq)
     (call-next-method)
-    (condition-notify (waitqueue pq))))
+    (notify pq) ; notify of change!
+    nil
+    ))
 
 (defmethod dequeue :around ((pq parqueue))
-  (loop do
-	(when (finished-p pq)
-	  (with-mutual-exclusion (pq)
-	    (return (call-next-method))))
-	(with-mutual-exclusion (pq)
-	  (whereas ((obj (call-next-method)))
-	    (return obj))
-	  (condition-wait (waitqueue pq) (mutex pq)))
-	(thread-yield)))
+  (with-mutual-exclusion (pq)
+    (loop
+     (mp-dbg "trying to dequeue ~A (finished: ~A, empty: ~A, top: ~A)"
+	     pq (finished-p pq) (emptyp pq) (fl.utilities::head pq))
+     (cond ((or (finished-p pq) (not (emptyp pq)))
+	    (multiple-value-bind (value emptyp)
+		(call-next-method)
+	      (notify pq)			; notify of change
+	      (mp-dbg "dequeued value=~A, emptyp=~A" value emptyp)
+	      (return-from dequeue (values value emptyp))))
+	   (t (mp-dbg "waiting on parqueue ~A" pq)
+	      (condition-wait (waitqueue pq) (mutex pq))))
+     )))
 
-(defmethod finish-queue ((parqueue parqueue))
-  (with-mutual-exclusion (parqueue)
-    (setf (slot-value parqueue 'finished-p)  t)))
+(defmethod finish ((pq parqueue))
+  (with-mutual-exclusion (pq)
+    (mp-dbg "finishing queue ~A" pq)
+    (setf (finished-p pq) t)
+    (notify pq)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Working-group
+;;; work-group
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass working-group (waitqueue-mixin)
-  ((threads :reader threads :initform ())
-   (queue :reader queue :initform (make-instance 'parqueue)))
+(defclass work-group (waitqueue-mixin)
+  ((threads :accessor threads :initform ())
+   (tasks :reader tasks :initform (make-instance 'parqueue))
+   (work :reader work :initarg :work))
   (:documentation "A class representing a group of threads working on a
 queue."))
-
-(defun add-worker (group thread)
-  "Adds @arg{thread} as worker to @arg{group}."
-  (with-mutual-exclusion (group)
-    (dbg :mp "Adding worker ~A" thread)
-    (with-slots (threads waitqueue) group
-      (push thread threads)
-      (condition-notify waitqueue))))
-
-(defun remove-worker (group thread)
-  "Removes @arg{thread} from @arg{group}."
-  (with-mutual-exclusion (group)
-    (with-slots (threads waitqueue queue) group
-      (assert (finished-p queue))
-      (assert (member thread threads))
-      (dbg :mp "Removing worker ~A" thread)
-      (setf threads (delete thread threads))
-      (condition-notify waitqueue))))
-
-(defun send-work (group work)
-  "Send work to the group.  @arg{work} is an argument list for the worker
-functions."
-  (with-mutual-exclusion (group)
-    (enqueue (queue group) work)))
-
-(defun wait-until-finished (group)
-  (loop while (threads group) do
-	(with-slots (waitqueue mutex) group
-	  (with-mutex (mutex)
-	    (condition-wait waitqueue mutex))
-	  (thread-yield))))
 
 (defparameter *thread-local-memoization-table* nil
   "Dynamic variable specialized for each worker thread separately.  Should
 not be used globally.")
 
-(defmacro with-workers ((func) &body body)
+(defmethod add-worker ((group work-group) &optional work)
+  (with-mutual-exclusion (group)
+    (push (make-thread
+	   (lambda ()
+	     (mp-dbg "starting...")
+	     (let ((*thread-local-memoization-table* ()))
+	       (loop
+		(multiple-value-bind (args emptyp)
+		    (dequeue (tasks group))
+		  (when emptyp (return))
+		  (mp-dbg "working on ~A ..." args)
+		  (apply (or work (work group)) args)
+		  (thread-yield)))
+	       (mp-dbg "... done")
+	       (remove-worker group (current-thread))))
+	   :name "femlisp-worker")
+	  (threads group))))
+
+(defmethod remove-worker ((group work-group) thread)
+  "Removes @arg{thread} from @arg{group}."
+  (assert (finished-p (tasks group)))
+  (with-mutual-exclusion (group)
+    (assert (member thread (threads group)))
+    (mp-dbg " --- removes itself.")
+    (setf (threads group)
+	  (delete thread (threads group)))
+    (notify group)))
+
+(defmethod send-task ((group work-group) task)
+  "Send a task to the work-group."
+  (enqueue task (tasks group)))
+
+(defparameter *number-of-threads* nil
+  "The number of threads in which Femlisp tries to split the work for some
+computationally intensive tasks.  If NIL, no threading is used.")
+
+(defun execute-in-parallel (work &key arguments distribute
+			    (number-of-threads *number-of-threads*))
+  (if number-of-threads
+      ;; parallel execution
+      (let ((group (make-instance 'work-group :work work)))
+	(loop repeat number-of-threads do (add-worker group))
+	(if distribute
+	    (funcall distribute (lambda (&rest arglist) (send-task group arglist)))
+	    (loop for arglist in arguments do (send-task group arglist)))
+	(finish (tasks group))
+	(wait group :while #'threads))
+      ;; sequential execution
+      (if distribute
+	  (funcall distribute work)
+	  (loop for arglist in arguments
+		   do (apply work arglist)))))
+
+(defun femlisp-workers ()
+  (remove "femlisp-worker" (list-all-threads)
+	  :test-not #'string= :key #'thread-name))
+
+(defun terminate-workers ()
+  (dolist (thread (femlisp-workers))
+    (terminate-thread thread)))
+
+(defmacro with-workers ((work &key number-of-threads) &body body)
   "This macro distributes work generated in body with calling the locally
 bound function @function{work-on} on some arguments to several working
 threads which call @arg{func} on those arguments."
-  (if *threads*
-      (with-gensyms (group thunk)
-	`(let ((,group (make-instance 'working-group)))
-	  (flet ((work-on (&rest args) (enqueue args (queue ,group)))
-		 (,thunk ()
-		   (let ((*thread-local-memoization-table*
-			  (make-hash-table :test 'equalp)))
-		     (loop for args = (dequeue (queue ,group)) while args do
-			   (dbg :mp "Handling ~A" args)
-			   (apply ,func args)
-			   (thread-yield))
-		     (remove-worker ,group (current-thread)))))
-	    (loop repeat *threads* do
-		  (add-worker ,group (make-thread #',thunk :name "worker")))
-	    ,@body
-	    (finish-queue (queue ,group))
-	    (wait-until-finished ,group))))
-      `(flet ((work-on (&rest args) (apply ,func args)))
-	,@body)
-      ))
+  (with-gensyms (send-work)
+    `(execute-in-parallel
+      ,work
+      :number-of-threads ,number-of-threads
+      :distribute
+      (lambda (,send-work)
+	(flet ((work-on (&rest args) (apply ,send-work args)))
+	 ,@body)))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Find optimal threading parameter for this architecture
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun optimal-thread-number ()
+  (let ((count
+	 (nth-value 1 (fl.utilities::measure-time-repeated
+		       (lambda () (loop repeat 10000 sum 1))
+		       0.5))))
+    (loop for nr-threads from 1 upto 8
+	  for previous-time = nil then time
+	  for time =
+	  (fl.utilities::measure-time
+	   (lambda ()
+	     (execute-in-parallel
+	      (lambda () (loop repeat (* 10000 count) sum 1))
+	      :number-of-threads nr-threads
+	      :arguments (make-list nr-threads :initial-element ())))
+	   1 t)
+	  until (and previous-time (> time (* previous-time 1.1)))
+	  finally (return (1- nr-threads)))))
+
+;;(optimal-thread-number)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Thread-global and thread-local cacheing of results
@@ -303,31 +412,99 @@ threads which call @arg{func} on those arguments."
 
 ;;; Testing
 (defun femlisp-multiprocessing-tests ()
-  (let ((q (make-instance 'parqueue)))
-    (enqueue 1 q)
-    (dequeue q))
 
-  (let ((k 100000000)
+  (dbg-on :mp)
+  (let ((mutex (make-mutex))
+	(result ())
+	(pq (make-instance 'parqueue)))
+    (flet ((worker ()
+	     (loop for obj = (dequeue pq) while obj
+		   do (with-mutex (mutex)
+			(push obj result)))
+	     (format t "~A done.~%" (current-thread))))
+      (make-thread #'worker :name "femlisp-worker")
+      (make-thread #'worker :name "femlisp-worker")
+      (make-thread #'worker :name "femlisp-worker"))
+    (loop for k from 1 upto 10 do
+	  (enqueue k pq))
+    (finish pq)
+    (sleep 0.5)
+    result)
+
+  (assert (null (femlisp-workers)))
+  ;; (terminate-workers)
+
+  (time
+   (let ((n 10000)
+	 (q (make-instance 'parqueue)))
+     (let ((*number-of-threads* 4))
+       (with-workers ((lambda (k)
+			(enqueue k q)))
+	 (loop for k below n do (work-on k))))
+     :done))
+
+  (assert (null (femlisp-workers)))
+  ;; (terminate-workers)
+
+  (let ((k 100000)
 	(mutex (make-mutex))
 	(sum 0))
     (declare (ignorable mutex))
-    (time (print (loop for n to k summing 1)))
+    (time (print (loop repeat k summing 1)))
     (time
-     (let ((*threads* 10))
+     (let ((*number-of-threads* 4))
        (with-workers
 	   ((lambda (k)
 	      (declare (type fixnum k))
-	      (let ((s (loop for n to k summing 1)))
+	      (let ((s (loop repeat k summing 1)))
 		(with-mutex (mutex)
 		  (incf sum s)))))
-	 (loop for i below *threads* do (work-on k)))
+	 (loop repeat *number-of-threads* do (work-on k)))
        (format t "Sum: ~A" sum))))
+  
+  (assert (null (femlisp-workers)))
+  ;;; (terminate-workers)
 
+  ;; no tasks for 3 threads
+  (time (execute-in-parallel
+	 (lambda () (error "should not be called"))
+	 :arguments ()
+	 :number-of-threads 3))
+
+  (assert (null (femlisp-workers)))
+  ;; (terminate-workers)
+
+  (let ((n (expt 2 27)))
+    (loop for i from 1 upto 5 do
+	  (format t "~R thread~:P~%" i)
+	  (time (execute-in-parallel
+		 (lambda (k)
+		   (loop repeat k sum 1))
+		 :arguments (make-list i :initial-element (list n))
+		 :number-of-threads i))))
+
+  (assert (null (femlisp-workers)))
+  ;; (terminate-workers)
+
+  (let ((n (expt 2 27)))
+    (loop for i from 1 upto 5 do
+	  (format t "~R thread~:P~%" i)
+	  (time (with-workers ((lambda (k) (loop repeat k sum 1))
+			       :number-of-threads i)
+		  (loop repeat i do (work-on n))))))
+
+  (assert (null (femlisp-workers)))
+  ;; (list-all-threads)
+  ;; (terminate-workers)
+  
+  #+(or)
   (let ((x (make-instance 'mrsw-mixin)))
     (with-read-access (x)
       (print 'hi))
     (with-readwrite-access (x)
       (print 'ho)))
+  
+  (dbg-off :mp)
   )
 
 ;;; (femlisp-multiprocessing-tests)

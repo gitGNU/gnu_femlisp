@@ -62,24 +62,24 @@
 
 (defmethod correction-tensor ((solution <ansatz-space-vector>) (rhs <ansatz-space-vector>))
   (let ((result (make-real-matrix (multiplicity solution) (multiplicity rhs))))
-    (dovec ((key) solution)
-      (gemm! 1.0 (vref solution key) (vref rhs key) 1.0 result :tn))
+    (dovec ((entry key) solution)
+      (gemm! 1.0 entry (vref rhs key) 1.0 result :tn))
     result))
 
-(defun convert-correction (mat)
+(defun convert-elasticity-correction (mat)
   "Converts the (dim^2)x(dim^2) matrix returned as result of correction
 tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
   (let* ((dim (floor (sqrt (nrows mat))))
-	 (result (make-array (list dim dim) :initial-element nil)))
+	 (result (make-array (list dim dim))))
     (dotimes (i dim)
       (dotimes (j dim)
-	(setf (aref result i j) (make-real-matrix dim))))
+	(setf (mref result i j) (make-real-matrix dim))))
     (dotuple (index (make-list 4 :initial-element dim))
       (setf (mref (mref result (elt index 0) (elt index 1))
 		  (elt index 2) (elt index 3))
 	    (mref mat
 		  (+ (* dim (elt index 0)) (elt index 2))
-		  (+ (* dim (elt index 1)) (elt index 3) ))))
+		  (+ (* dim (elt index 1)) (elt index 3)))))
     result))
 
 (defun effective-tensor (blackboard)
@@ -87,15 +87,24 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
     (and solution rhs
 	 (etypecase problem
 	   (<cdr-problem>
-	    (m- (average-coefficient ansatz-space :coefficient 'FL.CDR::DIFFUSION)
+	    (m- (mref (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A)
+		      0 0)
 		(correction-tensor solution rhs)))
-	   (<elasticity-problem> 
-	    (m- (average-coefficient ansatz-space :coefficient 'FL.ELASTICITY::ELASTICITY)
-		(convert-correction (correction-tensor solution rhs))))
 	   (<ellsys-problem> 
 	    (m- (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A)
-		(convert-correction (correction-tensor solution rhs))))))))
+		(convert-elasticity-correction (correction-tensor solution rhs)))))
+	 )))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Special routines
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun plot-diffusion (problem &key (refinements 0) (depth 2) parametric)
+  "Plots the first component of the diffusion tensor."
+  (plot problem :refinements refinements :depth depth :parametric parametric
+	:coefficient 'FL.ELLSYS::A 
+	:key (lambda (val) (mref (mref val 0 0) 0 0))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Variables

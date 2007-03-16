@@ -4,7 +4,8 @@
 ;;; pde-problem.lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003, 2004 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2006 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2007- Nicolas Neuss, University of Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -40,10 +41,12 @@
 
 ;;; Q: would it be reasonable to include problem and name?
 (defclass <coefficient> ()
-  ((dimension :reader dimension :initform nil :initarg :dimension :documentation
+  ((name :accessor coefficient-name :initform nil :initarg :name)
+   (dimension :reader dimension :initform nil :initarg :dimension :documentation
 	      "The dimension of the cell on which this coefficient is
 active.  The value T means that it is active on all cells lying on the
-patch.")
+patch.  The default value NIL means that it is active on cells with the
+same dimension as the patch.")
    (demands :reader demands :initform () :initarg :demands
     :documentation "A list indicating which information the evaluation
 function needs.  Possible choices depend on problem and discretization,
@@ -60,17 +63,23 @@ keyword parameters which should correspond to the list in DEMANDS.")
     :documentation "T means evaluation for computing the Jacobian."))
   (:documentation "The coefficient class."))
 
+#+(or)
+(defmethod initialize-instance :after ((coeff <coefficient>) &key &allow-other-keys)
+  "For compatibility with older coefficient definitions."
+  (mapf (slot-value coeff 'demands)
+	(lambda (x) (if (atom x) (cons x 1) x))))
+
+(defmethod print-object :after ((coeff <coefficient>) stream)
+  "Prints the coefficient name."
+  (format stream "{~A}" (coefficient-name coeff)))
+
 (defmethod evaluate ((coeff <coefficient>) (input list))
   "The pairing between coefficient and input."
   (apply (slot-value coeff 'eval) input))
 
 (defun get-coefficient (coeffs name)
   "Get coefficient @arg{name} from the list @arg{coeffs}."
-  (getf coeffs name))
-
-(defun (setf get-coefficient) (value coeffs name)
-  "Set coefficient @arg{name} from the list @arg{coeffs}."
-  (setf (getf coeffs name) value))
+  (find name coeffs :key #'coefficient-name))
 
 (defmethod demands ((coeffs list))
   "Returns unified demands for all coefficients in the list."
@@ -80,29 +89,49 @@ keyword parameters which should correspond to the list in DEMANDS.")
 	(pushnew demand demands :test #'equalp)))
     demands))
 
-(defun filter-applicable-coefficients (coeffs cell patch &key (constraints t))
-  "Filters out the applicable coefficients for the respective cell with the
-given patch."
-  (loop
-     for (symbol coeff) on coeffs by #'cddr
-     when (and coeff
-	       (or (eq (dimension coeff) t)
-		   (= (dimension cell)
-		      (or (dimension coeff) (dimension patch))))
-	       (or constraints
-		   (not (equal (symbol-name symbol) "CONSTRAINT"))))
-     collect symbol and collect coeff))
+(defun copy-coefficient (coeff &key demands name eval)
+  (with-slots (dimension residual jacobian) coeff
+    (make-instance
+     '<coefficient>
+     :name (or name (coefficient-name coeff))
+     :dimension dimension
+     :demands (or demands (demands coeff))
+     :eval (or eval (slot-value coeff 'eval))
+     :residual residual :jacobian jacobian)))
+    
+(defun constant-coefficient (name value &rest other-values)
+  "Returns a coefficient which takes the given value.  Several values can
+be passed which is needed, for example, for returning also the type of a
+boundary condition."
+  (make-instance
+   '<coefficient> :name name :demands () :eval
+   (if other-values
+       #'(lambda (&key &allow-other-keys)
+	   (apply #'values value other-values))
+       (constantly value))))
 
-(defun map-coefficients (func coeffs)
-  "Maps a given coefficient list @arg{coeffs} into a new coefficient list.
-@arg{func} takes coefficient name and coefficient and returns two values
-for new coefficient name and coefficient.  If the first value returned is
-@code{NIL}, this coefficient is not collected."
-  (loop
-   for (coeff-name coeff) on coeffs by #'cddr
-   for (new-name new-coeff) = (multiple-value-list (funcall func coeff-name coeff))
-   when new-name collect new-name and collect new-coeff))
+(defun constraint-coefficient (components multiplicity)
+  "Returns a coefficient function which sets Dirichlet zero boundary
+conditions for all components of a PDE system."
+  (make-instance
+   '<coefficient> :name 'CONSTRAINT :dimension t :demands ()
+   :eval (lambda (&key &allow-other-keys)
+	   (values
+	    (make-array components :initial-element t)
+	    (make-array components :initial-element (zeros 1 multiplicity))))))
 
+(defgeneric zero-constraints (problem)
+  (:documentation "Returns a coefficient function which constrains all
+system components to zero.")
+  (:method (problem)
+    (constraint-coefficient
+     (nr-of-components problem) (multiplicity problem))))
+
+(defun constraint-p (coeff)
+  (eq (coefficient-name coeff) 'CONSTRAINT))
+
+(defun sigma-p (coeff)
+  (eq (coefficient-name coeff) 'SIGMA))
 
 ;;; fe-parameters
 
@@ -110,36 +139,41 @@ for new coefficient name and coefficient.  If the first value returned is
  "fe-parameters is an element in the demand list of coefficient functions
 which is a pair consisting of :fe-parameters followed by a list of symbols
 denoting the ansatz-space functions on the blackboard to be evaluated at
-each integration point.  Instead of a symbol, an entry may also be of the
-form (symbol . k). which means that a k-jet has to be evaluated.
+each integration point.  Each entry is of the form (symbol . k). which
+means that a k-jet has to be evaluated.
+
 Examples:
-@code{(:fe-parameters :solution :flow-field)}
-@code{(:fe-parameters (:solution . 1))}")
+@code{(:fe-parameters (:solution . 1))}
+@code{(:fe-parameters (:solution . 1) (:flow-field . 0))}")
  
 (defun fe-parameter-p (demand)
   (and (consp demand)
        (eq :fe-parameters (car demand))))
 
+(defun parameter-name (para)
+  (etypecase para
+    (symbol para)
+    (list (car para))))
+
+(defun parameter-order (para)
+  (etypecase para
+    (symbol 0)
+    (list (cdr para))))
+
 (defun compress-fe-parameters (paras)
-  (let ((result ()))
-    (dolist (para paras)
-      (cond
-	((symbolp para)
-	 (unless (or (member para result)
-		     (member para result :key #'car))
-	   (push para result)))
-	(t (when (member (car para) result)
-	     (setq result (delete (car para) result)))
-	   (aif (find (car para) result :key #'car)
-		(setf (cdr it) (max (cdr it) (cdr para)))
-		(push para result)))))
-    result))
+  (remove-duplicates
+   (loop for para in paras collect
+	 (cons (parameter-name para)
+	       (loop for para2 in paras
+		     when (eq (parameter-name para2) (parameter-name para))
+		     maximize (parameter-order para2))))
+   :test #'equalp))
 
 (defun required-fe-functions (coeffs)
   "Returns a list of finite element functions required by the coefficients
 in the property list @arg{coeffs}."
   (compress-fe-parameters
-   (loop for (nil coeff) on coeffs by #'cddr appending
+   (loop for coeff in coeffs appending
 	 (loop for demand in (demands coeff)
 	       when (fe-parameter-p demand)
 	       appending (cdr demand)))))
@@ -152,60 +186,48 @@ in the property list @arg{coeffs}."
 	  (remove-if #'fe-parameter-p demands))))
 
 (defun solution-dependent (coeffs)
-  (loop for para in (required-fe-functions coeffs)
-	thereis (eq (if (consp para) (car para) para)
-		    :solution)))
+  (find :solution (required-fe-functions coeffs) :key #'car))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; some coefficient functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun constant-coefficient (value &rest other-values)
-  "Returns a coefficient which takes the given value.  Several values can
-be passed which is needed, for example, for returning also the type of a
-boundary condition."
-  (make-instance
-   '<coefficient> :demands () :eval
-   (if other-values
-       #'(lambda (&key &allow-other-keys)
-	   (apply #'values value other-values))
-       (constantly value))))
-
-(defun f[x]->coefficient (func)
+(defun f[x]->coefficient (name func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on global coordinates."
-  (make-instance '<coefficient> :demands '(:global)
+  (make-instance '<coefficient> :name name :demands '(:global)
 		 :eval #'(lambda (&key global &allow-other-keys)
 			   (funcall func global))))
 
-(defun f[u]->coefficient (func)
+(defun f[u]->coefficient (name func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on the solution."
-  (make-instance '<coefficient> :demands '((:fe-parameters :solution))
+  (make-instance '<coefficient> :name name :demands '((:fe-parameters :solution))
 		 :eval #'(lambda (&key solution &allow-other-keys)
 			   (funcall func solution))))
 
-(defun f[xu]->coefficient (func)
+(defun f[xu]->coefficient (name func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on position and solution."
-  (make-instance '<coefficient> :demands '(:global (:fe-parameters :solution))
+  (make-instance '<coefficient> :name name
+		 :demands '(:global (:fe-parameters :solution))
 		 :eval #'(lambda (&key global solution &allow-other-keys)
 			   (funcall func global solution))))
 
-(defun function->coefficient (func)
-  (f[x]->coefficient func))
+(defun function->coefficient (name func)
+  (f[x]->coefficient name func))
 
-(defun ensure-coefficient (obj)
+(defun ensure-coefficient (name obj)
   "Returns @arg{obj} if it is a coefficient, converts @arg{obj} into a
 coefficient depending on the space variable if @arg{obj} is a function;
 otherwise, @arg{obj} is made into a constant coefficient."
   (cond ((typep obj '<coefficient>) obj)
-	((functionp obj) (f[x]->coefficient obj))
+	((functionp obj) (f[x]->coefficient name obj))
 	((typep obj '<function>)
-	 (make-instance '<coefficient> :demands '(:global)
+	 (make-instance '<coefficient> :name name :demands '(:global)
 			:eval #'(lambda (&key global &allow-other-keys)
 				  (evaluate obj global))))
-	(t (constant-coefficient obj))))
+	(t (constant-coefficient name obj))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <domain-problem>
@@ -213,46 +235,110 @@ otherwise, @arg{obj} is made into a constant coefficient."
 
 (defclass <domain-problem> (<problem>)
   ((domain :reader domain :initarg :domain :type <domain>)
+   (components :reader components :initarg :components
+	       :documentation "A list whose elements are lists of the form
+\(symbol dim) or \(symbol dim type) or \(symbol subcomponents) describing
+the components occuring in the pde, or a dictionary mapping patches to such
+lists.")
+   (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity
+		 :documentation "Multiplicity of the right-hand side.")
    (coefficients :accessor coefficients :initform (make-hash-table)
 		 :initarg :coefficients :documentation
-		 "Hash table which maps domain patches to coefficients.")
-   (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity))
+		 "A table which maps domain patches to coefficient lists."))
   ;;
   (:documentation "An instance of this class describes a problem posed on
-the domain @slot{domain}.  The slot @slot{coefficients} contains a table
-mapping domain patches to property lists of the form (@symbol{identifier1}
-@code{coefficient1} @symbol{identifier2} @code{coefficient2} ...).  Here
-identifiers are special symbols and the coefficients are objects of type
-@class{<coefficient>}.  When the problem instance is initialized this table
+@slot{domain}.  @slot{coefficients} contains a table mapping domain patches
+to lists of coefficients.  When the problem instance is initialized this table
 is usually set up by calling the function @function{patch->coefficients}
 which has to be provided as a key argument.  The slot @slot{multiplicity}
 can be chosen as a positive integer @math{n} if the problem is posed with
 @math{n} different right hand sides simultaneously.
 
-Note also that for nonlinear problems, where the coefficients depend on the
-solution, an approximate solution can be found as a property of the
+Note that for nonlinear problems, where the coefficients depend on the
+solution, an approximate solution can be found in the properties of the
 problem."))
 
 (defun test-condition (condition classifications)
   "Test if @arg{condition} which at the moment should be either an AND or
 an OR combination of symbols in the list @arg{classification} holds."
   (cond
+    ((eq t condition))
     ((symbolp condition) (member condition classifications))
     ((consp condition)
      (funcall
       (ecase (car condition) (and #'subsetp) (or #'intersection))
       (cdr condition) classifications))
     (t (error "Unknown patch classification scheme."))))
-	
-  
-(defmethod initialize-instance ((problem <domain-problem>)
-				&key patch->coefficients &allow-other-keys)
+
+(defun component-symbol (comp)
+  (if (symbolp comp) comp (first comp)))
+
+(defun component-name (comp)
+  (symbol-name (component-symbol comp)))
+
+(defun component-length (comp)
+  (cond ((symbolp comp) 1)
+	((numberp (second comp)) (second comp))
+	(t (count-components (second comp)))))
+
+(defun count-components (comps)
+  "Counts the total number of components."
+  (reduce #'+ comps :key #'component-length))
+
+(defun check-components (comps)
+  "Checks if comps is of the correct form, see the documentation of the
+slot @slot{components} in @class{domain-problem}."
+  (every (lambda (comp)
+	   (or (symbolp comp)
+	       (and (listp comp)
+		    (or (numberp (second comp))
+			(check-components (second comp))))))
+	  comps))
+
+(defun extraction-information (components component)
+  "If @arg{component} is in @arg{components}, a triple consisting of
+position, length, and a flag is returned.  The flag is true, if the
+component is a scalar."
+  (loop
+   for comp in components
+   and off = 0 then (+ off (component-length comp))
+   when (eq (component-symbol comp) component)
+   do (return (values off (component-length comp) (symbolp comp)))
+   when (and (listp comp) (listp (second comp)))
+   do (multiple-value-bind (from length flag)
+	  (extraction-information (second comp) component)
+	(when from
+	  (return (values from length flag))))))
+
+(defun component-position (components comp)
+  "Translates a symbol denoting a component to a position."
+  (etypecase comp
+    (number (values comp 1))
+    (symbol
+     (multiple-value-bind (from length)
+	 (extraction-information components comp)
+       (if from
+	   (values from length)
+	   (let* ((name (symbol-name comp))
+		  (pos (position-if #'alpha-char-p name :from-end t)))
+	     (when pos
+	       (multiple-value-bind (from length)
+		   (extraction-information
+		    components (intern (subseq name 0 (1+ pos))))
+		 (when from
+		   (let ((n (parse-integer (subseq name (1+ pos)))))
+		     (when (<= 1 n length)
+		       (values (+ from n -1) 1))))))))))))
+
+				  
+(defmethod initialize-instance :after ((problem <domain-problem>)
+				       &key patch->coefficients &allow-other-keys)
   "Setup the coefficient table, if the coefficients are given as a function
 mapping domain patches to coefficient property lists.  Instead of a
 function, this mapping can also be given as a list describing the
 association of patch classifications to coefficient functions."
-  (call-next-method)
-  (with-slots (domain coefficients) problem
+  (with-slots (domain coefficients components) problem
+    ;; compute coefficients, if patch->coefficients is given
     (when patch->coefficients
       (doskel (patch domain)
 	(setf (gethash patch coefficients)
@@ -262,7 +348,17 @@ association of patch classifications to coefficient functions."
 			    for (id coeffs) in patch->coefficients
 			    when (test-condition id classifications)
 			    do (return coeffs)))
-		(t (error "Unknown mapping."))))))))
+		(t (error "Unknown mapping."))))
+	(let ((components (components-of-patch patch problem)))
+	  (assert (check-components components))
+	  ;; component name check
+	  (when (some (lambda (comp)
+			(let ((name (component-name comp)))
+			  (or (string-equal name "X")
+			      (string-equal name "TIME")
+			      (string-equal (subseq name 0 1) "D"))))
+		      components)
+	    (error "Illegal component names.")))))))
 
 (defmethod domain-dimension ((problem <domain-problem>))
   (dimension (domain problem)))
@@ -274,67 +370,62 @@ association of patch classifications to coefficient functions."
 	    (coefficients-of-patch patch problem))))
 
 (defgeneric nr-of-components (problem)
-  (:documentation "Returns the number of components for @arg{problem}."))
+  (:documentation "Returns the number of components for @arg{problem}.")
+  (:method ((problem <domain-problem>))
+    "Counts the number of components."
+    (with-slots (components) problem
+      (typecase components
+	(list (reduce #'+ components :key #'component-length))
+	(t nil)  ; no clear definition of number of components
+	))))
+
+(defun components-of-patch (patch problem)
+  "Reader for the components of @arg{problem} on @arg{patch}."
+  (with-slots (components) problem
+    (etypecase components
+      (list components)
+      (function (funcall components patch))
+      (hash-table (gethash patch components)))))
+
+(defun (setf components-of-patch) (value patch problem)
+  "Writer for the components of @arg{problem} on @arg{patch}."
+  (with-slots (components) problem
+    (ensure components (make-hash-table))
+    (setf (gethash patch components) value)))
+
+(defgeneric components-of-cell (cell mesh problem)
+  (:documentation
+   "Returns the components of @arg{problem} on @arg{cell}.")
+  (:method (cell mesh problem)
+    (components-of-patch (patch-of-cell cell mesh) problem)))
 
 (defun coefficients-of-patch (patch problem)
-  "An accessor for the coefficients of @arg{patch} for @arg{problem}."
-  (the list (gethash patch (slot-value problem 'coefficients))))
+  "Reader for the coefficients of @arg{patch} for @arg{problem}."
+  (with-slots (coefficients) problem
+    (the list (gethash patch coefficients))))
+
+(defun (setf coefficients-of-patch) (coeffs patch problem)
+  "Writer for the coefficients of @arg{patch} for @arg{problem}."
+  (with-slots (coefficients) problem
+    (setf (gethash patch coefficients) coeffs)))
 
 (defgeneric coefficients-of-cell (cell mesh problem)
-  (:documentation "An accessor for the coefficients of @arg{problem} valid
-for @arg{cell}.")
+  (:documentation
+   "Returns the coefficients of @arg{problem} on @arg{cell}.")
   (:method (cell mesh problem)
-    "This default method returns the coefficients of the associated patch."
+    "Default method, returns the coefficients of the associated patch."
     (coefficients-of-patch (patch-of-cell cell mesh) problem)))
 
-(defgeneric interior-coefficients (problem)
-  (:documentation "Returns a list of possible interior coefficients for
-@arg{problem}.")
-  (:method (problem)
-    "Default method returns no coefficients."
-    (declare (ignore problem))
-    ()))
-
-(defgeneric boundary-coefficients (problem)
-  (:documentation "Returns a list of possible boundary coefficients for
-@arg{problem}.")
-  (:method (problem)
-    "This default method returns the constraint identifier for
-@arg{problem}."
-    (declare (ignore problem))
-    (list 'CONSTRAINT)))
-
-(defgeneric all-coefficients (problem)
-  (:documentation "Yields a list of possible coefficients for @arg{problem}.")
-  (:method (problem)
-	   (append (interior-coefficients problem)
-		   (boundary-coefficients problem))))
-
-(defgeneric interior-coefficient-p (problem coeff)
-  (:documentation "Tests, if @arg{coeff} is an interior coefficient of @arg{problem}.")
-  (:method (problem coeff) (member coeff (interior-coefficients problem))))
-
-(defgeneric boundary-coefficient-p (problem coeff)
-  (:documentation "Tests, if @arg{coeff} is a boundary coefficient of @arg{problem}.")
-  (:method (problem coeff) (member coeff (boundary-coefficients problem))))
-
-(defgeneric coefficient-p (problem coeff)
-  (:documentation "Test if @arg{coeff} is a coefficient of @arg{problem}.")
-  (:method (problem coeff) (member coeff (coefficients problem))))
-
-(defun constraint-coefficient (components multiplicity)
-  "Returns a coefficient function which sets Dirichlet zero boundary
-conditions for all components of a PDE system."
-  (constant-coefficient
-   (make-array components :initial-element t)
-   (make-array components :initial-element (zeros 1 multiplicity))))
-
-(defgeneric zero-constraints (problem)
-  (:documentation "Returns a coefficient function which constrains all
-system components to zero.")
-  (:method (problem)
-    (constraint-coefficient
-     (nr-of-components problem) (multiplicity problem))))
+(defun filter-applicable-coefficients (coeffs cell patch &key (constraints t))
+  "Filters out the applicable coefficients for the respective cell with the
+given patch."
+  (remove-if-not
+   (lambda (coeff)
+     (and (or (eq (dimension coeff) t)
+	      (= (dimension cell)
+		 (or (dimension coeff) (dimension patch))))
+	  (or constraints (not (constraint-p coeff)))))
+   coeffs))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <interpolation-problem>
@@ -354,31 +445,34 @@ coefficient list."))
   ()
   (:documentation "Base-class for a pde-problem."))
 
-(defmethod initialize-instance
-    ((problem <pde-problem>) &key (linear-p t linear-p-supplied)
-     (coercive nil coercive-supplied) &allow-other-keys)
-  "Set properties which are explicitly initialized."
-  (call-next-method)
-  (when linear-p-supplied
-    (setf (get-property problem 'linear-p) linear-p))
-  (when coercive-supplied
-    (setf (get-property problem 'coercive) coercive)))
-
-(defmethod initialize-instance :after ((problem <pde-problem>) &key &allow-other-keys)
-  "Flag linearity and coercivity of the problem.  Linearity is determined
-by looking at dependencies of the coefficient functions on the solution.
-Coercivity is determined by looking for essential constraints on the ansatz
-space."
+(defun classify-problem (problem)
+  "Classifies a problem.  The result is written in its property list."
   (unless (property-set-p problem 'linear-p)
     (setf (get-property problem 'linear-p) t)
     (dohash ((coeffs) (coefficients problem))
       (when (solution-dependent coeffs)
-	(setf (get-property problem 'linear-p) nil))))
+	(setf (get-property problem 'linear-p) nil)
+	(return))))
+  (when (and (> (multiplicity problem) 1)
+	     (not (get-property problem 'linear-p)))
+    (error "Nonlinear problems cannot be solved simultaneously with
+multiple right-hand sides."))
   ;; very coarse test which will be often false for systems
   (unless (property-set-p problem 'coercive)
     (dohash ((coeffs) (coefficients problem))
       (when (member 'CONSTRAINT coeffs)
 	(setf (get-property problem 'coercive) t)))))
+
+(defmethod initialize-instance :after
+    ((problem <pde-problem>)
+     &key (linear-p t linear-p-supplied) (coercive nil coercive-supplied)
+     (classify t) &allow-other-keys)
+  (when linear-p-supplied
+    (setf (get-property problem 'linear-p) linear-p))
+  (when coercive-supplied
+    (setf (get-property problem 'coercive) coercive))
+  ;; automatic classification
+  (when classify (classify-problem problem)))
 
 (defgeneric dual-problem (problem functional)
   (:documentation "Returns the dual problem for @arg{problem} with the
@@ -399,8 +493,9 @@ that no check has been performed."
 
 (defun test-pde-problem ()
   (function->coefficient
+   'test
    #'(lambda (&key global &allow-other-keys) (exp (aref global 0))))
-  (make-instance '<pde-problem> :domain (n-cube-domain 1))
+  (make-instance '<pde-problem> :domain (n-cube-domain 1) :components '(u))
   )
 
 (fl.tests:adjoin-test 'test-pde-problem)

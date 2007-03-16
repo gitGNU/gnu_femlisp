@@ -159,7 +159,7 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
   "Returns the inverse of X."
   (if (numberp x)
       (/ x)
-      (gesv! x (eye (nrows x) (ncols x)))))
+      (gesv! x (eye (nrows x) (ncols x) (element-type x)))))
 
 
 ;;;; Testing
@@ -190,6 +190,12 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
      (loop repeat 10000 do
 	   (matlisp::copy! mat mat2)
 	 (matlisp::getrf! mat2))))
+  
+  ;; we can handle also rational matrices
+  (mequalp (m/ (make-instance (standard-matrix 'rational)
+			      :content '((1 2) (3 4))))
+	   (make-instance (standard-matrix 'rational)
+			  :content '((-2 1) (3/2 -1/2))))
   )
 
 ;;; (fl.matlisp::test-standard-matrix-lr)

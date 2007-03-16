@@ -120,8 +120,10 @@ nrows and ncols of the given matrices."
 ;;; The following routines could be replaced by the BLAS for store-vector.
 ;;; Unfortunately, this would mean that no matrix compatibility check is
 ;;; done anymore.  The perfect solution would be to add the check as a
-;;; :before method as indicated here.  However, the performance
-;;; implications are not clear.  This has to be checked in the future.
+;;; :before method as indicated below.  However, the performance
+;;; implications are unclear (e.g., Allegro performance drops by a factor
+;;; 20 for copy! on size 1 matrices).  This has to be checked in the
+;;; future.
 
 (declaim (inline assert-same-size))
 (defun assert-same-size (x y)
@@ -285,7 +287,7 @@ nrows and ncols of the given matrices."
 	(y (make-real-matrix #2a((2.0 1.0) (1.0 2.0))))
 	(z (make-real-matrix 2 2)))
    (dotimes (i 1000000)
-     (gemm-nn! 1.0 x y 0.0 z))))
+     (gemm! 1.0 x y 0.0 z))))
 
 #+(or)
 (time 
@@ -295,7 +297,7 @@ nrows and ncols of the given matrices."
 	(y (make-instance (standard-matrix type) :nrows n :ncols n))
 	(z (make-instance (standard-matrix type) :nrows n :ncols n)))
    (dotimes (i 100000)
-     (gemm-nn! 1.0f0 x y 0.0f0 z))))
+     (gemm! 1.0f0 x y 0.0f0 z))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing
@@ -313,6 +315,8 @@ nrows and ncols of the given matrices."
   (copy! (funcall (standard-matrix-generator 'single-float) 1)
 	 (funcall (standard-matrix-generator 'single-float) 1))
   (test-blas 'copy! 1 :generator (standard-matrix-generator '(complex double-float)))
+  (test-blas 'm+! 100 :generator (standard-matrix-generator 'double-float))
+  ;; the following shows very slow performance
   (test-blas 'm+! 7992 :generator (standard-matrix-generator '(complex double-float)))
   (scal! 0.5 #m((1.0 2.0)))
   (copy! (eye 2) (eye 2))
@@ -347,8 +351,8 @@ nrows and ncols of the given matrices."
 	(y (zeros 1)))
     (copy! x y)
     y)
-  (gemm-nt! (/ -27.0) #m((1.5) (0.0)) #m((6.0) (0.0)) (/ 3.0) (eye 2))
-  (gemm-nn! (/ -27.0) #m((1.5) (0.0)) #m((6.0 0.0)) (/ 3.0) (eye 2))
+  (gemm! (/ -27.0) #m((1.5) (0.0)) #m((6.0) (0.0)) (/ 3.0) (eye 2) :nt)
+  (gemm! (/ -27.0) #m((1.5) (0.0)) #m((6.0 0.0)) (/ 3.0) (eye 2))
   (join #m((1.0 2.0)) #m((3.0 4.0)))
   (join #m((1.0 2.0)) #m((3.0 4.0)) :vertical)
   (join #m((1.0) (2.0)) #m((3.0) (4.0)))

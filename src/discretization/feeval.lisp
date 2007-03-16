@@ -36,8 +36,8 @@
 
 (defmethod fe-local-value ((asv <ansatz-space-vector>) cell local-pos)
   "Evaluates a finite element function in CELL at LOCAL-POS."
-  (let* ((fe (get-fe (fe-class asv) cell))
-	 (f-values (get-local-from-global-vec cell fe asv))
+  (let* ((fe (get-fe (ansatz-space asv) cell))
+	 (f-values (get-local-from-global-vec cell asv))
 	 (nr-comps (nr-of-components fe))
 	 (components (components fe))
 	 (result (make-array nr-comps :initial-element nil)))
@@ -58,8 +58,8 @@
 
 (defmethod fe-local-gradient ((asv <ansatz-space-vector>) cell local-pos)
   "Evaluates a finite element gradient on cell at local coordinates local-pos."
-  (let* ((fe (get-fe (fe-class asv) cell))
-	 (f-values (get-local-from-global-vec cell fe asv))
+  (let* ((fe (get-fe (ansatz-space asv) cell))
+	 (f-values (get-local-from-global-vec cell asv))
 	 (nr-comps (nr-of-components fe))
 	 (components (components fe))
 	 (result (make-array nr-comps :initial-element nil)))
@@ -87,9 +87,9 @@
 @arg{coeff-fun} is set it should be a function which expects keyword
 arguments @code{:solution} and @code{:global}."
   (dbg :feeval "Cell: ~A" cell)
-  (let* ((fe (get-fe (fe-class x) cell))
+  (let* ((fe (get-fe (ansatz-space x) cell))
 	 (qrule (quadrature-rule fe))
-	 (x-values (get-local-from-global-vec cell fe x))
+	 (x-values (get-local-from-global-vec cell x))
 	 (result initial-value))
     (loop
      for local across (integration-points qrule)
@@ -132,42 +132,48 @@ transformer function, as always (e.g. #'abs if you want the L1-norm)."
 		 (accumulate cell))))
       result)))
 
-(defun update-cell-extreme-values (cell x min/max)
-  (let* ((fe (get-fe (fe-class x) cell))
-	 (nr-comps (nr-of-components fe))
-	 (multiplicity (multiplicity x))
-	 (x-values (get-local-from-global-vec cell fe x)))
-    (unless (vectorp x-values)
-      (setf x-values (vector x-values)))
-    (let ((minimum (or (car min/max) (make-array nr-comps :initial-element nil)))
-	  (maximum (or (cdr min/max) (make-array nr-comps :initial-element nil))))
-      (dotimes (k nr-comps)
-	(let ((comp-values (aref x-values k)))
-	  (unless (aref minimum k)
-	    (setf (aref minimum k) (matrix-slice comp-values :nrows 1)))
-	  (unless (aref maximum k)
-	    (setf (aref maximum k) (matrix-slice comp-values :nrows 1)))
-	  (dotimes (j multiplicity)
-	    (symbol-macrolet ((min_kj (vref (aref minimum k) j))
-			      (max_kj (vref (aref maximum k) j)))
-	      (dotimes (i (nrows comp-values))
-		(let ((entry (mref comp-values i j)))
-		  (setf min_kj (min min_kj entry))
-		  (setf max_kj (max max_kj entry))))))))
-      (setf (car min/max) minimum (cdr min/max) maximum)
-      min/max)))
+(defun update-cell-extreme-values (cell x min/max component)
+  "Computes the extreme values of @arg{x} on @arg{cell}.  Note that the
+current implementation works correctly only for Lagrange finite elements,
+and even for those only approximate extrema are obtained."
+  (multiple-value-bind (pos length)
+      (component-position
+       (components-of-cell cell (hierarchical-mesh x) (problem x))
+       component)
+    (when pos
+      (let ((x-values (get-local-from-global-vec cell x))
+	    (multiplicity (multiplicity x)))
+	(symbol-macrolet ((minimum (car min/max))
+			  (maximum (cdr min/max)))
+	  (unless minimum
+	    (setq minimum (zeros length multiplicity))
+	    (setq maximum (zeros length multiplicity))
+	    (dotimes (k length)
+	      (let ((comp-values (aref x-values (+ pos k))))
+		(dotimes (j multiplicity)
+		  (setf (mref minimum k j) (mref comp-values 0 j)
+			(mref maximum k j) (mref comp-values 0 j))))))
+	  (dotimes (k length)
+	    (let ((comp-values (aref x-values (+ pos k))))
+	      (dotimes (j multiplicity)
+		(symbol-macrolet ((min_kj (mref minimum k j))
+				  (max_kj (mref maximum k j)))
+		    (dotimes (i (nrows comp-values))
+		      (let ((entry (mref comp-values i j)))
+			(setf min_kj (min min_kj entry))
+			(setf max_kj (max max_kj entry))))))))))))
+  min/max)
 
-(defmethod fe-extreme-values ((asv <ansatz-space-vector>) &key cells skeleton)
+(defmethod fe-extreme-values ((asv <ansatz-space-vector>) &key cells skeleton (component 0))
   "Computes the extreme values of a finite element function over the domain
 or some region.  The result is a pair, the car being the minimum values and
-the cdr the maximum values.  Each part is a vector of the size of the
-number of components with entries being matrices of size 1 times
+the cdr the maximum values.  Each part is a matrix of the format ncomps x
 multiplicity."
   (let ((min/max (cons nil nil)))
     (cond (cells
 	   (loop for cell in cells do
-		(update-cell-extreme-values cell asv min/max)))
-	  (t (doskel (cell (or skeleton (mesh asv)) :dimension :highest :where :surface)
-	       (update-cell-extreme-values cell asv min/max))))
+		(update-cell-extreme-values cell asv min/max component)))
+	  (t (doskel (cell (or skeleton (mesh asv)) :where :surface)
+	       (update-cell-extreme-values cell asv min/max component))))
     min/max))
 

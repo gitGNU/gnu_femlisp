@@ -120,8 +120,6 @@ Guide."
 	 (rhs (make-array (* m nrhs) :element-type 'double-float
 			  :initial-element 1.0))
 	 (sol (make-array (* m nrhs) :element-type 'double-float
-			  :initial-element 0.0)))
-    (values (funcall solver m n nnz cs ri sa nrhs rhs sol) sol)))
-
-
-
+			  :initial-element 0.0))
+	 (orientation 0))
+    (values (funcall solver m n nnz cs ri sa nrhs rhs sol orientation) sol)))

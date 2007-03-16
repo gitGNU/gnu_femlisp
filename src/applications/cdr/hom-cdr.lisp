@@ -60,7 +60,7 @@
 
 ;;; cell problems defined by the coefficient function on regular meshes
 
-(defun cdr-cell-problem (dim/domain &key diffusion-function)
+(defun cdr-cell-problem (dim/domain &key diffusion)
   "Returns the cell problem on the n-cell-domain of the given dimension.
 Gamma yields dim right hand sides of the form A e_k, i.e. the columns of
 the diffusion tensor."
@@ -68,53 +68,51 @@ the diffusion tensor."
       (etypecase dim/domain
 	(number (values dim/domain (n-cell-domain dim/domain)))
 	(<domain> (values (dimension dim/domain) dim/domain)))
-    (ensure diffusion-function (constantly (eye dim)))
+    (ensure diffusion (diagonal-sparse-tensor (eye dim) 1))
     (make-instance
-     '<cdr-problem> :domain domain
+     '<cdr-problem> :components '(u) :domain domain
      :multiplicity dim :patch->coefficients
      #'(lambda (patch)
 	 (cond
 	   ((= (dimension patch) dim)
-	    (list 'FL.CDR::DIFFUSION (ensure-coefficient diffusion-function)
-		  'FL.CDR::GAMMA (constant-coefficient (eye dim))))
+	    (list (ensure-tensor-coefficient 'FL.ELLSYS::A diffusion)
+		  (ensure-coefficient 'FL.ELLSYS::H (vector (eye dim)))))
 	   ((mzerop (midpoint patch))
-	    (list 'CONSTRAINT (constant-coefficient 0.0)))))
+	    (list (constraint-coefficient 1 1)))))
 	 )))
 
 (defun simple-square-inlay-cell-problem (dim)
   (cdr-cell-problem
-   dim :diffusion-function
-   #'(lambda (x) 
-       (let ((result (eye dim)))
-	 (when (every #'(lambda (coord) (<= 0.25 coord 0.75)) x)
-	    (scal! 0.1 result))
-	  result))))
+   dim :diffusion
+   #'(lambda (x)
+       (scal (if (every #'(lambda (coord) (<= 0.25 coord 0.75)) x)
+		 0.1 1.0)
+	     (eye dim)))))
 
 (defun smooth-coefficient-cell-problem (dim)
   (cdr-cell-problem
-   dim :diffusion-function
+   dim :diffusion
    #'(lambda (x)
        (scal (reduce #'* (map 'vector #'(lambda (xc) #I(2.0+sin(2*pi*xc))) x))
 	     (eye dim)))))
   
 (defun simple-ball-inlay-cell-problem (dim eps)
   (cdr-cell-problem
-   dim :diffusion-function
+   dim :diffusion
    #'(lambda (x)
-       (let ((result (eye dim)))
-	 (when (<= (norm (m- (make-double-vec dim 0.5) x)) 0.25)
-	   (scal! eps result))
-	 result))))
+       (scal (if (<= (norm (m- (make-double-vec dim 0.5) x)) 0.25)
+		 eps 1.0)
+	     (eye dim)))))
 
 (defun chequerboard-problem (dim eps)
   "Returns cell problem on the n-cell-domain of the given dimension with
 a chequerboard pattern."
   (cdr-cell-problem
-   dim :diffusion-function
+   dim :diffusion
    #'(lambda (x)
-       (scal! (if (evenp (loop for coord across x count (>= coord 0.5)))
-		  1.0 eps)
-	      (eye dim)))))
+       (scal (if (evenp (loop for coord across x count (>= coord 0.5)))
+		 1.0 eps)
+	     (eye dim)))))
 
 ;;; cell problem defined with inlay-adapted subdomain
 
@@ -126,10 +124,8 @@ inlay and the component of the cell vector."
    :multiplicity dim :patch->coefficients
    #'(lambda (patch)
        (when (= (dimension patch) dim)
-	 (list 'FL.CDR::DIFFUSION
-	       (constant-coefficient
-		(scal! (if (patch-in-inlay-p patch) eps 1.0) (eye dim)))
-	  'FL.CDR::GAMMA (constant-coefficient (eye dim)))))))
+	 (list (scalar-diffusion dim (if (patch-in-inlay-p patch) eps 1.0))
+	       (constant-coefficient 'FL.ELLSYS::H (vector (eye dim))))))))
 
 (defun porous-cell-problem (dim &key (radius 0.25) A)
   (cdr-cell-problem
@@ -250,8 +246,8 @@ must be a scalar multiple of the identity."
 (cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 1 3 :output :all)
 
 ;;grid is not inlay-adapted
-(plot (simple-ball-inlay-cell-problem 1 0.1) :refinements 3
-	:coefficient 'FL.CDR::DIFFUSION :key (rcurry #'mref 0 0))
+(plot-diffusion (simple-ball-inlay-cell-problem 1 0.1)
+		:refinements 3 :depth 0)
 
 ;; solve cell problem and compute homogenized coefficient
 (setq *result*
@@ -264,8 +260,8 @@ must be a scalar multiple of the identity."
 (simple-ball-inlay-cell-problem 3 0.1)
 
 ;; inlay adapted grid
-(plot (inlay-cell-problem 2 0.1) :refinements 0 :depth 2 :parametric (lagrange-mapping 3)
-	:coefficient 'FL.CDR::DIFFUSION :key (rcurry #'mref 0 0))
+(plot-diffusion (inlay-cell-problem 2 0.1)
+		:refinements 0 :depth 2 :parametric (lagrange-mapping 3))
 
 ;; first order with lu-solver
 (setq *result*
@@ -298,6 +294,7 @@ must be a scalar multiple of the identity."
   (cell-solve (inlay-cell-problem 2 0.1) :level 2
 		:order 1 :parametric (lagrange-mapping 2)))
 (plot (getbb *result* :mesh)) ; :plot :file :format "tiff")
+(fe-extreme-values (getbb *result* :rhs)) ; :plot :file :format "tiff")
 
 ;; higher order
 (time
@@ -315,11 +312,12 @@ must be a scalar multiple of the identity."
 	  (make-instance '<multi-iteration> :base *gauss-seidel* :nr-steps 10)
 	  :smoother smoother :pre-steps 2 :post-steps 2))
        :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
-       :failure-if `(> :step 20))))))
+       :failure-if `(> :step 20)
+       :output t)
+      ))))
 
 ;; (l=2, o=4, cgs=10 ILU, 3 smooth, fmg)*2=146.7 URT
-(effective-tensor *result*)
-(plot (getbb *result* :solution) :index 1)
+(assert (< (abs (- (mref (effective-tensor *result*) 0 0) 0.723)) 0.002))
 
 ;;; an adaptive calculation (working?)
 #+(or)

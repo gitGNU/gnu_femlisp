@@ -73,16 +73,17 @@ uniform refinement."))
 	 :problem
 	 (elasticity-model-problem
 	  (n-cube-domain dim) :lambda 1.0 :mu 1.0
-	  :force (constant-coefficient (make-array dim :initial-element (ones 1))))
-       
+	  :force (ellsys-one-force-coefficient dim 1))
 	 ;;        :fe-class (lagrange-fe 1 :nr-comps dim)
 	 ;;        :solver (make-instance '<linear-solver> :iteration (make-instance '<stueben>
 	 ;; 									 :cg-max-size 10 :output t)
 	 ;; 			      :success-if '(and (> :step 1) (< :defnorm 1.0e-10)))
 	 :output t :success-if '(> :nr-levels 2))))))
-  (plot (getbb *result* :solution))
-  (plot (getbb *result* :solution) :component 1)
-
+  (plot (getbb *result* :solution) :component 'fl.elasticity::u :rank 1 :shape 2)
+  (fe-extreme-values (getbb *result* :solution) :component 'fl.elasticity::u)
+  (dbg-on :graphic)
+  (plot (getbb *result* :solution) :component 1 :rank 0 :shape nil)
+  (dbg-off)
 )
 
 ;;; (fl.application::test-elasticity-model-problem)

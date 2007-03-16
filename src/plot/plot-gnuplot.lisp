@@ -88,16 +88,16 @@ graphs."
      (apply #'concatenate 'string
 	    "plot "
 	    (loop for polygon in (ensure-polygons polygons)
-	       and i from 0 unless (zerop i) collect ", " end
-	       collect
-		 (multiple-value-bind (name type)
-		     (destructure-polygon polygon)
-		   (format nil "~S index ~D title ~S with ~A lw ~D"
-			   gnuplot-file i (or name (format nil "data-~D" i))
-			   (ecase type
-			     (:polygon "lines")
-			     (:vectorfield "vectors"))
-			   linewidth)))))))
+		  and i from 0 unless (zerop i)
+		  collect ", " collect
+		  (multiple-value-bind (name type)
+		      (destructure-polygon polygon)
+		    (format nil "~S index ~D title ~S with ~A lw ~D"
+			    gnuplot-file i (or name (format nil "data-~D" i))
+			    (ecase type
+			      (:polygon "lines")
+			      (:vectorfield "vectors"))
+			    linewidth)))))))
 
 (defmethod plot ((polygons list) &rest rest &key &allow-other-keys)
   (apply #'graphic-output polygons :gnuplot rest))

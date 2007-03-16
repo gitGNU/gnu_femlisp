@@ -60,9 +60,7 @@ aligned grids."
     (let ((eps (float (user-input "eps: " #'read-from-string #'realp) 1.0)))
       (defparameter *result*
 	(solve (blackboard
-		:problem
-		(cdr-model-problem
-		 2 :diffusion (constant-coefficient (diag (double-vec eps 1.0))))
+		:problem (cdr-model-problem 2 :diffusion (diag (double-vec eps 1.0)))
 		:output t :plot-mesh t
 		:success-if `(> :time 10.0)
 		:fe-class (lagrange-fe 1) :base-level 1

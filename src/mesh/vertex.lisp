@@ -78,6 +78,14 @@ position."
     (make-instance '<constant-function> :domain-dimension 0
 		   :image-dimension (length position) :value position)))
 
+(defmethod barycentric-coordinates ((vtx <vertex>) local-pos)
+  (declare (ignore local-pos))
+  #d(1.0))
+
+(defmethod barycentric-gradients ((vtx <vertex>) local-pos)
+  (declare (ignore local-pos))
+  #m(()))
+
 (defmethod l2g ((vtx <vertex>) local-pos)
   "Same as local->global for vertices."
   (assert (equalp local-pos (double-vec)))
@@ -134,7 +142,7 @@ position."
   "Creates a cell of class CELL-CLASS having the given VERTICES."
   (with-cell-class-information (reference-cell nr-of-vertices
 					       boundary-indices-of-subcells)
-    cell-class
+      cell-class
     (assert (= nr-of-vertices (length vertices)))
     ;; replace the refcell-subcells step by step with newly created ones
     ;; having the given vertices
@@ -143,11 +151,11 @@ position."
 	  and k downfrom (1- (length subcells)) to 0 do
 	  (setf (aref subcells k)
 		(if vlist
-		    (car vlist)
-		    (make-instance
-		     (class-of (aref subcells k))
-		     :boundary (map 'cell-vec (curry #'aref subcells)
-				    (aref boundary-indices-of-subcells k)))))
+		(car vlist)
+		(make-instance
+		 (class-of (aref subcells k))
+		 :boundary (map 'cell-vec (curry #'aref subcells)
+				(aref boundary-indices-of-subcells k)))))
 	  finally (return (aref subcells 0)))))
 
 (defun make-cell-from-corners (cell-class corners)

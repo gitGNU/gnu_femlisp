@@ -46,16 +46,17 @@
      (nzval (* :double))
      (nrhs :int)
      (rhs (* :double))
-     (sol (* :double)))
+     (sol (* :double))
+     (orientation :int))
   :returning :int)
 
 #+umfpack
-(defun umfpack (m n nnz cs ri store nrhs rhs sol)
+(defun umfpack (m n nnz cs ri store nrhs rhs sol orientation)
   "Calls UMFPACK."
   (fl.port:foreign-call-wrapper
    (c-umfpack m n nnz (vector-sap cs) (vector-sap ri)
 	      (vector-sap store) nrhs (vector-sap rhs)
-	      (vector-sap sol))))
+	      (vector-sap sol) orientation)))
 
 ;;; Testing
 

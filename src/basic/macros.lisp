@@ -38,7 +38,7 @@
    "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF"
    "AAND" "ACOND" "_F" "DELETEF" "IT" "ENSURE" "ECHO"
    "REMOVE-THIS-METHOD"
-   "FOR" "FOR<" "MULTI-FOR" "DEFINLINE"
+   "FOR" "FOR<" "MULTI-FOR" "INLINING" "DEFINLINE"
    "?1" "?2" "?3"
    "DELAY" "FORCE"
    "FLUID-LET" "LRET" "LRET*" "SHOW-CALL")
@@ -255,13 +255,15 @@ upto @arg{end}.  Example:
     `(let ((,form ,delayed-form))
       (if (functionp ,form) (funcall ,form) ,form))))
 
+(defmacro inlining (&rest definitions)
+  "Declaims the following definitions inline together with executing them."
+  `(progn ,@(loop for def in definitions when (eq (first def) 'defun) collect
+		  `(declaim (inline ,(second def))) collect def)))
+
 (defmacro definline (name &rest rest)
   "Short form for defining an inlined function.  It should probably be
-deprecated, because it won't be recognized by default by editors."
-  `(progn
-    (declaim (inline ,name))
-    (defun ,name ,@rest)
-    ))
+deprecated, because it won't be recognized by default by some IDEs.  Better
+use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
 
 ;;; some macros for choosing between possibilities
 (defmacro ?1 (&rest args)

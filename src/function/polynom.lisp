@@ -190,18 +190,22 @@ represented as nested lists."))
 	  (when (and (not (single? mono)) (not (every #'zerop (cdr mono))))
 	    (princ "*" stream)))))))
 
+(defun print-polynomial (poly &optional (stream *standard-output*) reversed)
+  (let ((monomials (split-into-monomials (coefficients poly))))
+    (loop with start-flag = t
+	  for coeff&mono in (if reversed (reverse monomials) monomials)
+	  unless (zerop (car coeff&mono)) do
+	  (if start-flag
+	      (setq start-flag nil)
+	      (princ " + " stream))
+	  (write-monomial coeff&mono stream))))
+
 (defmethod print-object ((poly polynomial) stream)
   (let ((*print-circle* nil))
     (print-unreadable-object
      (poly stream :type t :identity t)
      (format stream "{")
-     (loop with start-flag = t
-	   for coeff&mono in (split-into-monomials (coefficients poly))
-	   unless (zerop (car coeff&mono)) do
-	   (if start-flag
-	       (setq start-flag nil)
-	       (princ " + " stream))
-	   (write-monomial coeff&mono stream))
+     (print-polynomial poly stream)
      (format stream " }"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -358,6 +362,7 @@ represented as nested lists."))
       (setf (aref result index)
 	    (evaluate (differentiate poly index) x)))))
 
+#|
 (defmethod k-jet ((poly polynomial) (k integer) (dim integer))
   (loop for order upto k
 	for Di = poly then
@@ -378,7 +383,7 @@ represented as nested lists."))
 	(if (zerop i)
 	    (evaluate poly x)
 	    (tensor-map (full-tensor 'double-float) (rcurry #'evaluate x) Di))))
-
+|#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Diversities
@@ -460,8 +465,8 @@ Examples:
     (gradient p-1-x3)
     (evaluate-gradient p-1-x3 #(1.0 2.0 3.0))
     (make-polynomial '(4))
-    (k-jet p 2 2)
-    (evaluate-k-jet (make-polynomial '(1 2 ((1 2 3)))) 2 #(0.0 0.0))
+    ;;(k-jet p 2 2)
+    ;;(evaluate-k-jet (make-polynomial '(1 2 ((1 2 3)))) 2 #(0.0 0.0))
     ))
 
 ;;; (test-polynom)

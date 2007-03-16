@@ -143,6 +143,7 @@ functionals of the children on the parent shape functions."
 (with-memoization (:id 'local-imatrix)
   (defun local-imatrix (rule fe &optional (type :local))
     "Memoized call of compute-local-imatrix."
+    (assert (discretization fe))
     (assert (eq (reference-cell rule) (reference-cell fe)))
     (dbg :fe "Generating imatrix for rule ~A and fe ~A" rule fe)
     (memoizing-let ((rule rule) (disc (discretization fe)) (type type))
@@ -153,13 +154,16 @@ functionals of the children on the parent shape functions."
 finite element class.  This function is called for computing an
 interpolation matrix.")
 
-(defun local-interpolation-matrix (cell h-mesh fe-class type)
+(defun local-interpolation-matrix (cell ansatz-space type)
   "Returns a local interpolation matrix for interpolating the given
 @arg{fe-class} from @arg{cell} to its children in @arg{h-mesh}.  If
 @arg{type} is :local, interpolation extends only to the interior children."
   (aif *local-interpolation-matrix*
-       (funcall it cell h-mesh fe-class type)
-       (local-imatrix (refinement-rule cell h-mesh) (get-fe fe-class cell) type)))
+       (funcall it cell ansatz-space type)
+       (local-imatrix
+	(refinement-rule cell (hierarchical-mesh ansatz-space))
+	(get-fe ansatz-space cell)
+	type)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Projection
@@ -249,13 +253,14 @@ in the local projection matrix."
 finite element class.  This function is called for computing a projection
 matrix.")
 
-(defun local-projection-matrix (cell h-mesh fe-class)
+(defun local-projection-matrix (cell ansatz-space)
   "Returns a local projection matrix for projecting the given
-@arg{fe-class} from the children of @arg{cell in @arg{h-mesh} to
+@arg{fe-class} from the children of @arg{cell} in @arg{h-mesh} to
 @arg{cell}."
   (aif *local-projection-matrix*
-       (funcall it cell h-mesh fe-class)
-       (local-pmatrix (refinement-rule cell h-mesh) (get-fe fe-class cell))))
+       (funcall it cell ansatz-space)
+       (local-pmatrix (refinement-rule cell (hierarchical-mesh ansatz-space))
+		      (get-fe ansatz-space cell))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Transfer between different fe-spaces
@@ -264,6 +269,7 @@ matrix.")
 (with-memoization ()
   (defun local-transfer-matrix (fe-from fe-to)
     "Computes a local transfer matrix between different FE spaces."
+    (assert (= 1 (nr-of-components fe-from) (nr-of-components fe-to)))
     (memoizing-let ((fe-from fe-from) (fe-to fe-to))
       (assert (eq (reference-cell fe-from) (reference-cell fe-to)))
       (let ((local-mat (make-real-matrix (nr-of-dofs fe-to) (nr-of-dofs fe-from))))
@@ -282,6 +288,8 @@ matrix.")
 	 (fe (order &optional comp (dim 1))
 	   (get-fe (lagrange-fe order :nr-comps comp)
 		   (n-cube dim))))
+    (fe 1)
+    (local-imatrix (refrule 1) (fe 1))
     (let ((local-imat (local-imatrix (refrule 1) (fe 1))))
       (show local-imat)
       (tensor-ref local-imat 0 1))

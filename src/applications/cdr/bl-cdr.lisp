@@ -52,11 +52,11 @@ $x_n=0$."
      #'(lambda (patch)
 	 (cond ((and (= (dimension patch) (1- dim))
 		     (bl-patch-on-artificial-boundary bl-cell-domain patch))
-		(list 'FL.CDR::SOURCE (constant-coefficient 1.0)))
+		(list (scalar-source 1.0)))
 	       ((bl-patch-on-lower-boundary bl-cell-domain patch)
-		(list 'CONSTRAINT (constant-coefficient 0.0)))
+		(list (constraint-coefficient 1 1)))
 	       ((= (dimension patch) dim)
-		(list 'FL.CDR::DIFFUSION (identity-diffusion-tensor dim)))
+		(list (scalar-diffusion dim 1.0)))
 	       (t nil))))))
 
 (defun sinusoidal-boundary-layer-cell-problem (dim &rest key-args)
@@ -74,7 +74,8 @@ oscillating domain."
   "Observe list for Cbl.")
 
 (defun cdr-bl-computation (dim/domain order max-levels &rest rest
-			   &key output plot solver &allow-other-keys)
+			   &key output plot (plot-mesh t) solver
+			   &allow-other-keys)
   "Performs the bl-diffusion demo."
   (let ((*output-depth* output)
 	(domain (if (numberp dim/domain)
@@ -92,7 +93,7 @@ oscillating domain."
 	      (make-instance '<largest-eta-indicator> :pivot-factor 0.01
 			     :from-level 1 :block-p t)
 	      :solver solver
-	      :plot-mesh t
+	      :plot-mesh plot-mesh
 	      :observe (append *stationary-fe-strategy-observe*
 			       (list *cbl-observe* *eta-observe*))
 	      :success-if `(= :max-level ,(1- max-levels)))))
@@ -104,7 +105,17 @@ oscillating domain."
 	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil
 	:solver (lu-solver) :output :all)
 
+
 #|
+(require :sb-sprof)
+
+(sb-sprof:reset)
+(sb-sprof:with-profiling
+    (:max-samples 10000 :mode :alloc :report :flat :loop t)
+  (cdr-bl-computation
+    2 4 5 :plot nil :plot-mesh nil :amplitude 0.15 :shift 1.0 :extensible nil
+    :solver (lu-solver) :output :all))
+
  (prof:with-profiling (:type :time)
 	 (cdr-bl-computation
 	  2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil
@@ -128,7 +139,7 @@ oscillating domain."
 (profile:profile fl.mesh::l2g)
 (profile:profile fl.mesh::l2Dg)
 (profile:profile fl.matlisp::gesv!)
-(profile:profile fl.matlisp::gemm-nn!)
+(profile:profile fl.matlisp::gemm!)
 (profile:profile fl.mesh::euclidean->barycentric)
 (profile:profile fl.mesh::weight-vector-product-cell)
 (profile:profile fl.mesh::corners)
@@ -173,7 +184,7 @@ functional."))
 ;;;; Testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-cdr-bl ()
+(defun test-bl-cdr ()
   
   (loop
    repeat 2 do
@@ -243,3 +254,6 @@ functional."))
   
   (describe (sinusoidal-boundary-layer-cell-problem 2))
   )
+
+;;; (test-bl-cdr)
+;;; (fl.tests:adjoin-test 'test-bl-cdr)

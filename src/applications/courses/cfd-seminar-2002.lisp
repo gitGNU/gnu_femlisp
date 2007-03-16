@@ -153,8 +153,7 @@
 #+(or)
 (progn
   #+(or)
-  (plot (inlay-cell-problem 2 0.1) :refinements 2
-	:coefficient 'FL.CDR::DIFFUSION :key (rcurry #'mref 0 0))
+  (plot-diffusion (inlay-cell-problem 2 0.1) :refinements 2 :depth 0)
   ;; first order approximation
   (effective-tensor
    (cell-solve (inlay-cell-problem 2 0.1 0) :level 1
@@ -179,7 +178,7 @@
 (defun convection-problem (dim eps)
   (cdr-model-problem dim
    :diffusion (scalar-diffusion dim eps)
-   :convection (constant-coefficient (make-real-matrix (unit-vector dim 0)))))
+   :convection (make-real-matrix (unit-vector dim 0))))
 
 ;;; *** dominant convection, choose eps = 1, 1/10, 1/64, 1/128, 1/200, 1/1000
 #+(or)

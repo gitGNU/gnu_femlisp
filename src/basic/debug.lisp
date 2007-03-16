@@ -64,16 +64,19 @@ altogether."
   `(when (member ,id *dbg-ids*)
     ,@body))
 
-(defun dbg (id format-string &rest args)
-  "When debugging on @arg{id} print out the arguments @arg{args} using the
-format in @arg{format-string}."
-  (dbg-when id (format *debug-io* "~&~?" format-string args)
-	    (force-output *debug-io*)))
+(defgeneric dbg (id format-string &rest args)
+  (:documentation "When debugging on @arg{id} print out the arguments
+@arg{args} using the format in @arg{format-string}.")
+  (:method (id format-string &rest args)
+    (dbg-when id
+      (format *debug-io* "~&~?" format-string args)
+      (force-output *debug-io*))))
 
-(defun dbg-indent (id indent format-string &rest args)
-  "When debugging @arg{id}, print out the arguments @arg{args} using the
-format in @arg{format-string} with indentation given by @arg{indent}."
-  (dbg-when id (format *debug-io* "~&~VT~?" indent format-string args)
-	    (force-output *debug-io*)))
-
-
+(defgeneric dbg-indent (id indent format-string &rest args)
+  (:documentation "When debugging @arg{id}, print out the arguments
+@arg{args} using the format in @arg{format-string} with indentation given
+by @arg{indent}.")
+  (:method (id indent format-string &rest args)
+    (dbg-when id
+      (format *debug-io* "~&~VT~?" indent format-string args)
+      (force-output *debug-io*))))

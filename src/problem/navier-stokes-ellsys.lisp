@@ -4,7 +4,7 @@
 ;;; navier-stokes.lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2007 Nicolas Neuss, University of Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -33,43 +33,64 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-package :cl-user)
-(defpackage "FL.NAVIER-STOKES"
+(defpackage "FL.NAVIER-STOKES-ELLSYS"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH" "FL.PROBLEM")
+	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH"
+	"FL.PROBLEM" "FL.ELLSYS")
   (:export
    "<NAVIER-STOKES-PROBLEM>" "NO-SLIP-BOUNDARY"
    "STANDARD-NAVIER-STOKES-PROBLEM"
    "NAVIER-STOKES-VISCOSITY-COEFFICIENT"
-   "NAVIER-STOKES-INERTIA-COEFFICIENT"
-   "NAVIER-STOKES-UNIT-VECTOR-FORCE"
+   "NAVIER-STOKES-PRESSURE-AND-CONTINUITY-COEFFICIENT"
+   "NAVIER-STOKES-INERTIA-COEFFICIENTS"
    "DRIVEN-CAVITY" "PERIODIC-CAVITY")
-  (:documentation "Defines the class of Navier-Stokes problems."))
-(in-package "FL.NAVIER-STOKES")
+  (:documentation "Defines incompressible Navier-Stokes problems as a
+special case of general elliptic systems."))
+
+(in-package "FL.NAVIER-STOKES-ELLSYS")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <navier-stokes-problem>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <navier-stokes-problem> (<pde-problem>)
+(defclass <navier-stokes-problem> (<ellsys-problem>)
   ()
   (:documentation "Navier-Stokes problem."))
 
 (defmethod shared-initialize :after
     ((problem <navier-stokes-problem>) slot-names &key &allow-other-keys)
   (declare (ignore slot-names))
-  (setf (slot-value problem 'components)
-	(list (list 'u (dimension (domain problem)))
-	      (list 'p 1))))
+  (let ((dim (dimension (domain problem))))
+    (unless (slot-boundp problem 'components)
+      (setf (slot-value problem 'components)
+	    `((u ,dim) (p 1))))
+    ;; consistency check
+    (destructuring-bind (udef pdef)
+	(slot-value problem 'components)
+      (assert (and (listp udef) (= (second udef) dim)
+		   (or (symbolp pdef) (= (second pdef) 1)))))))
 
-;;; Warning: in elasticity-fe we handle incompressible Navier-Stokes with a
-;;; viscosity term of the form nu*Delta u.  For non-Dirichlet boundary
-;;; conditions for the velocity one should use instead a term of the form
-;;; div(nu*eps(u)) with eps denoting the strain tensor.  We will switch to
-;;; this alternative form soon.
+;;; Warning: in navier-stokes-fe we handle incompressible Navier-Stokes
+;;; with a viscosity term of the form nu*Delta u.  For non-Dirichlet
+;;; boundary conditions for the velocity one should use instead a term of
+;;; the form div(nu*eps(u)) with eps denoting the strain tensor.  We will
+;;; switch to this alternative form soon.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generation of a standard Navier-Stokes problem
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; We generate the Quasi-Newton linearization in the form
+;;; Lu + N(u) = f  ->  Lu + N(u0)+ N'(u0)(u-u0) = f
+;;;  <=> Lu + N'(u0) u = f-N(u0)+N'(u0)u0
+;;; where N' is an approximation to the derivative
+;;;
+;;; Here N(u) = Re u . grad u
+;;; Choosing N'(u0) u = a Re u0 . grad u + b Re u . grad u0 
+;;; we obtain
+;;; - mu Delta u + a Re u0 . grad u + b Re u . grad u0 + grad p =
+;;;       = f + (a + b - 1) Re u0 . grad u0
+;;; div u = 0
 
 (defun no-slip-boundary (dim)
   (let ((flags (make-array (1+ dim) :initial-element t))
@@ -77,39 +98,59 @@
     (setf (aref flags dim) nil)
   (constant-coefficient 'CONSTRAINT flags values)))
 
-(defun navier-stokes-viscosity-coefficient (viscosity)
-  (ensure-coefficient 'FL.NAVIER-STOKES::VISCOSITY viscosity))
+(defun navier-stokes-viscosity-coefficient (dim viscosity)
+  (isotropic-diffusion-coefficient
+   dim (loop for i below dim collect viscosity)))
 
-(defun navier-stokes-inertia-coefficient (reynolds)
-  (make-instance
-   '<coefficient> :name 'FL.NAVIER-STOKES::REYNOLDS
-   :demands (unless (zerop reynolds) '((:fe-parameters :solution)))
-   :eval #'(lambda (&key &allow-other-keys)
-	     ;; note: there is a special treatment
-	     ;; inside discretization which takes
-	     ;; care of the nonlinearity
-	     reynolds)))
-
-(defun navier-stokes-unit-vector-force (dim &optional (direction 0))
+(defun navier-stokes-pressure-and-continuity-coefficient (dim)
   (constant-coefficient
-   'FL.NAVIER-STOKES::FORCE
-   (let ((result (make-array (1+ dim) :initial-element (zeros 1))))
-     (setf (aref result direction) (eye 1))
-     result)))
+   'FL.ELLSYS::C
+   (lret ((pc (make-instance '<sparse-tensor> :rank 2)))
+     (dotimes (i dim)
+       (let ((direction (ensure-matlisp (unit-vector dim i))))
+	 (setf (tensor-ref pc i dim) direction)
+	 (setf (tensor-ref pc dim i) direction))))))
+
+(defvar *alpha* 1.0
+  "Weight for the convective part in the Quasi-Newton linearization of the
+Navier-Stokes equation.")
+
+(defvar *beta* 1.0
+    "Weight for the reactive part in the Quasi-Newton linearization of the
+Navier-Stokes equation.")
+
+(defun navier-stokes-inertia-coefficients (dim reynolds)
+  "Yields a quasi-Newton linearization of the term @math{u . grad u} which
+has the form
+@math{a Re u0 . grad u + b Re u . grad u0 = (a + b - 1) Re u0 . grad u0}
+a and b are given by the values of the special variables @var{*alpha*} and
+@var{*beta*}."
+  (declare (ignore dim reynolds))
+  #+(or)
+  (unless (zerop reynolds)
+    (list
+     (defcoeff C (u)
+       (diagonal-sparse-tensor (scal (* *alpha* reynolds) u) dim))
+     (defcoeff R (u du)
+       (scal (* *beta* reynolds) du))
+     (defcoeff F (u du)
+       (scal (* (+ *alpha* *beta* -1) reynolds) du u))))
+  )
 
 (defun standard-navier-stokes-problem (domain &key (viscosity 1.0) (reynolds 0.0) force)
   (let ((dim (dimension domain)))
     (make-instance
      '<navier-stokes-problem>
-     :domain domain
+     :domain domain :components `((u ,dim) p)
      :patch->coefficients
      #'(lambda (patch)
 	 (cond ((member-of-skeleton? patch (domain-boundary domain))
 		(list (no-slip-boundary dim)))
 	       ((= dim (dimension patch))
-		(list (navier-stokes-viscosity-coefficient viscosity)
-		      (navier-stokes-inertia-coefficient reynolds)
-		      (ensure-coefficient 'FL.NAVIER-STOKES::FORCE force)))
+		(list* (navier-stokes-viscosity-coefficient dim viscosity)
+		       (navier-stokes-pressure-and-continuity-coefficient dim)
+		       (ensure-coefficient 'FL.ELLSYS::F force)
+		       (navier-stokes-inertia-coefficients dim reynolds)))
 	       (t ()))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -126,9 +167,6 @@
       (setf (aref values 0) #m(1.0)))
     (constant-coefficient 'CONSTRAINT flags values)))
 
-(defun driven-cavity-force (dim)
-  (navier-stokes-unit-vector-force dim 0))
-
 (defun driven-cavity (dim &key (viscosity 1.0) (reynolds 0.0) smooth-p)
   (let ((domain (n-cube-domain dim)))
     (make-instance
@@ -139,13 +177,14 @@
 	 (let ((midpoint (midpoint patch)))
 	   (cond
 	     ((= dim (dimension patch)) ; interior coefficients
-	      (list (navier-stokes-viscosity-coefficient viscosity)
-		    (navier-stokes-inertia-coefficient reynolds)))
+	      (list* (navier-stokes-viscosity-coefficient dim viscosity)
+		     (navier-stokes-pressure-and-continuity-coefficient dim)
+		     (navier-stokes-inertia-coefficients dim reynolds)))
 	     ;; upper boundary
 	     ((and (= (dimension patch) (1- dim))
 		   (= (aref midpoint (1- dim)) 1.0))
 	      (list* (driven-cavity-upper-boundary dim smooth-p)
-		     (when smooth-p (list (driven-cavity-force dim)))))
+		     (when smooth-p (list (unit-vector-force-coefficient 0)))))
 	     ;; lower corner sets also pressure to zero:
 	     ((mzerop midpoint)
 	      (list (constraint-coefficient (1+ dim) 1)))
@@ -158,7 +197,7 @@
 
 (defun oscillating-force (dim)
   (function->coefficient
-   'FL.NAVIER-STOKES::FORCE
+   'FL.ELLSYS::F
    #'(lambda (x)
     (let ((result (make-array (1+ dim) :initial-element nil)))
       (dotimes (i (1+ dim) result)
@@ -175,9 +214,10 @@
      :patch->coefficients
      #'(lambda (patch)
 	 (when (= (dimension patch) dim)
-	   (list (navier-stokes-viscosity-coefficient viscosity)
-		 (navier-stokes-inertia-coefficient reynolds)
-		 (oscillating-force dim)))))))
+	   (list* (navier-stokes-viscosity-coefficient dim viscosity)
+		  (navier-stokes-pressure-and-continuity-coefficient dim)
+		  (oscillating-force dim)
+		  (navier-stokes-inertia-coefficients dim reynolds)))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -207,8 +247,9 @@ velocity profile is a solution to @math{-\Delta u = constant}."
 	 (let ((dir-coordinate (aref (midpoint patch) direction)))
 	   (cond
 	     ((= dim (dimension patch)) ; interior coefficients
-	      (list (navier-stokes-viscosity-coefficient viscosity)
-		    (navier-stokes-inertia-coefficient reynolds)))
+	      (list* (navier-stokes-viscosity-coefficient dim viscosity)
+		     (navier-stokes-pressure-and-continuity-coefficient dim)
+		     (navier-stokes-inertia-coefficients dim reynolds)))
 	     ((and (= (1- dim) (dimension patch))
 		   (not (/= dir-coordinate 0.0 1.0)))
 	      (list (simple-pressure-boundary-conditions
@@ -222,15 +263,8 @@ velocity profile is a solution to @math{-\Delta u = constant}."
   (describe
    (standard-navier-stokes-problem
     (n-cube-domain 2)
-    :force (navier-stokes-unit-vector-force 2 0)))
+    :force (unit-vector-force-coefficient 0)))
   (describe (driven-cavity 2 :smooth-p nil :reynolds 1.0))
-  (describe
-   (make-instance '<navier-stokes-problem>
-		  :domain (n-cube-domain 2) :multiplicity 2
-		  :patch->coefficients
-		  `((:d-dimensional
-		     (,(navier-stokes-viscosity-coefficient 1.0)
-		      ,(navier-stokes-inertia-coefficient 0.0))))))
   )
 
 ;;; (test-navier-stokes)

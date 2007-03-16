@@ -159,7 +159,7 @@ the unit cell, but may create problems in other situations."
 
 (defclass <interface> (<skeleton>)
   ((neighbors :accessor neighbors :initarg :neighbors
-	      :type (simple-array (*) '<skeleton>)))
+	      :type (simple-array <skeleton> (*))))
   (:documentation "Not in use up to now.  Interface structure for domain
 decomposition approaches.  Might be used also for parallelization in the
 future.  Cells are mapped to identified cells in the neighboring

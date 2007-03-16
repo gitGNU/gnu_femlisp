@@ -95,67 +95,61 @@ setting given on the blackboard."))
 ;;;; Iteration methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod initially :after ((fe-strategy <fe-approximation>) blackboard)
-  "Constructs a finite element ansatz space and a first approximation to
-the solution.  If a mesh is not provided on the blackboard and if the
-domain is curved, we use precise cell mappings if these are available.
-Otherwise, an isoparametric approximation is used with order (max 2,p+1).
-This is reasonable, because the dual problem for the
-duality-error-estimator is discretized with p+1, and because the refinement
-near the boundary works significantly better with p>=2."
-  (with-items (&key domain problem mesh multiplicity
-		    ansatz-space base-level solution)
+(defun ensure-ansatz-space (blackboard)
+  "Ensures a finite element ansatz space on the blackboard.  If a
+discretization is not provided, it is selected depending on the problem.
+If a mesh is not provided and if the domain is curved, we use precise cell
+mappings if these are available.  Otherwise, an isoparametric approximation
+is used with order @math{max(2,p+1)} where p is the discretization order.
+This is reasonable, because the dual problem for estimators based on
+duality is discretized with @math{p+1}, and because the refinement near the
+boundary works significantly better with @math{p>=2}."
+  (with-items (&key problem mesh ansatz-space fe-class base-level)
       blackboard
-    ;; ensure slot fe-class
-    (unless (slot-boundp fe-strategy 'fe-class)
-      (setf (slot-value fe-strategy 'fe-class)
-	    (or (getbb blackboard :fe-class)
-		(select-discretization problem blackboard))))
-    ;; ensure maximal information directly on the blackboard
-    (when ansatz-space
-      (ensure mesh (mesh ansatz-space))
-      (ensure problem (problem ansatz-space))
-      (ensure multiplicity (multiplicity ansatz-space)))
-    (when mesh (ensure domain (domain mesh)))
-    (when problem
-      (ensure domain (domain problem))
-      (ensure multiplicity (multiplicity problem)))
-    ;; build more information
-    (ensure mesh
-	    (let ((parametric
-		   (let ((chars (domain-characteristics domain)))
-		     (and (getf chars :curved)
-			  (if (getf chars :exact)
-			      :from-domain
-			      (lagrange-mapping
-			       (max 2 (1+ (discretization-order (fe-class fe-strategy))))))))))
-	    (if (find-cell #'(lambda (cell) (typep cell '<boundary-cell>))
-			   domain)
-		(change-class (triangulate domain :parametric parametric) '<hierarchical-mesh>)
-		(uniformly-refined-hierarchical-mesh domain (or base-level 0)
-						     :parametric parametric))))
-    (ensure multiplicity 1)
-    (ensure ansatz-space
-	    (make-instance
-	     '<ansatz-space> :fe-class (fe-class fe-strategy)
-	     :mesh mesh :problem problem :multiplicity multiplicity))
-    (ensure solution (choose-start-vector ansatz-space problem))
+    (unless ansatz-space
+      (assert problem)
+      (ensure fe-class (select-discretization problem blackboard))
+      (ensure mesh (let* ((domain (domain problem))
+			  (parametric
+			   (let ((chars (domain-characteristics domain)))
+			     (and (getf chars :curved)
+				  (if (getf chars :exact)
+				      :from-domain
+				      (lagrange-mapping
+				       (max 2 (1+ (discretization-order fe-class)))))))))
+		     (if (find-cell (rcurry #'typep '<boundary-cell>) domain)
+			 (change-class (triangulate domain :parametric parametric) '<hierarchical-mesh>)
+			 (uniformly-refined-hierarchical-mesh domain (or base-level 0)
+							      :parametric parametric))))
+      (ensure ansatz-space (make-fe-ansatz-space fe-class problem mesh)))
+    ;; Ensure consistency of items on blackboard.  This might be dropped
+    ;; later, because probably the ansatz-space should be considered the
+    ;; fundamental approximation entity
+    (ensure problem (problem ansatz-space))
+    (ensure mesh (mesh ansatz-space))
+    (ensure fe-class (fe-class ansatz-space))
+    ))
+    
+(defmethod initially :after ((fe-strategy <fe-approximation>) blackboard)
+  "Ensures a finite element ansatz space and a first approximation to the
+solution on the blackboard."
+  (with-items (&key ansatz-space solution)
+      blackboard
+    (ensure-ansatz-space blackboard)
+    (ensure solution (choose-start-vector ansatz-space))
     ;; ensure data correctness and compatibility
-    (check mesh)
-    (assert (eq mesh (mesh ansatz-space)))
-    (when problem
-      (assert (eq problem (problem ansatz-space)))
-      (assert (eq domain (domain problem))))
-    (assert (eq domain (domain mesh)))
+    (check (mesh ansatz-space))
     ;;
     (with-slots (estimator indicator) fe-strategy
       (unless (slot-boundp fe-strategy 'estimator)
-	(setq estimator (select-estimator problem blackboard)))
+	(setq estimator (select-estimator (problem ansatz-space) blackboard)))
       (unless (slot-boundp fe-strategy 'indicator)
-	(setq indicator (select-indicator problem blackboard))))
+	(setq indicator (select-indicator (problem ansatz-space) blackboard))))
     ;;
     (whereas ((mesh-plotter (slot-value fe-strategy 'plot-mesh)))
-      (if (functionp mesh-plotter) (funcall mesh-plotter mesh) (plot mesh)))))
+      (if (functionp mesh-plotter)
+	  (funcall mesh-plotter (mesh ansatz-space))
+	  (plot (mesh ansatz-space))))))
 
 (defmethod intermediate ((fe-strategy <fe-approximation>) blackboard)
   "Approximates and estimates the error for the current ansatz-space."

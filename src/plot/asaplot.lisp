@@ -1,4 +1,4 @@
-;;; -*- mode: lisp; -*-
+;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; asaplot.lisp - plotting of ansatz-space-automorphism graphs
@@ -79,12 +79,8 @@ Display (image);
     ;; write connections
     (format stream "object 2 class array type int rank 1 shape ~D items ~D data follows~%"
 	    2 (nr-of-entries asa))
-    (for-each-key
-     #'(lambda (row-key col-key)
-	 (format stream "~D ~D "
-		 (gethash row-key node-indices)
-		 (gethash col-key node-indices)))
-     asa)
+    (dovec ((nil rk ck) asa)
+      (format stream "~D ~D " (gethash rk node-indices) (gethash ck node-indices)))
     (format stream "~%attribute \"element type\" string \"lines\"~%")
     (format stream "attribute \"ref\" string \"positions\"~%"))
   ;; write epilogue

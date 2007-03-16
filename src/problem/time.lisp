@@ -49,10 +49,6 @@ time-dependent version."))
 given by stationary-problem."))
 |#
 
-(defmethod interior-coefficients ((problem <time-dependent-problem>))
-  "Derived interior coefficients for a time-dependent problem."
-  (cons 'INITIAL (call-next-method)))
-
 (defmethod self-adjoint-p ((problem <time-dependent-problem>))
   nil)
 

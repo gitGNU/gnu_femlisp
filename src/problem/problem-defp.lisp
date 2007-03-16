@@ -35,8 +35,8 @@
 (in-package "COMMON-LISP-USER")
 
 (defpackage "FL.PROBLEM"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.MESH" "FL.ALGEBRA" "FL.FUNCTION")
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
+	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION" "FL.MESH")
   (:export				; problem.lisp
    "<PROBLEM>" "GET-PROPERTY" "LINEAR-P" "<NONLINEAR-PROBLEM>"
    "<SOLVER>" "SOLVE" "SELECT-SOLVER" "SELECT-LINEAR-SOLVER"
@@ -55,10 +55,11 @@
    "PATCH->COEFFICIENTS" "MULTIPLICITY"
    "SELF-ADJOINT-P" "DUAL-PROBLEM"
    "COEFFICIENTS-OF-PATCH" "COEFFICIENTS-OF-CELL"
-   "COEFFICIENTS" "INTERIOR-COEFFICIENTS" "BOUNDARY-COEFFICIENTS"
-   "INTERIOR-COEFFICIENT-P" "BOUNDARY-COEFFICIENT-P" "COEFFICIENT-P"
-   "CONSTRAINT"
-   "<COEFFICIENT>" "DEMANDS"
+   "COMPONENTS-OF-PATCH" "COMPONENTS-OF-CELL" "COMPONENT-POSITION"
+   "COEFFICIENTS" "COMPONENTS" "NR-OF-COMPONENTS"
+   "EXTRACTION-INFORMATION"
+   "CONSTRAINT" "CONSTRAINT-P" "INITIAL" "SIGMA"
+   "<COEFFICIENT>" "COEFFICIENT-NAME" "DEMANDS" "COPY-COEFFICIENT"
    "F[X]->COEFFICIENT" "F[U]->COEFFICIENT" "F[XU]->COEFFICIENT"
    "FUNCTION->COEFFICIENT" "ENSURE-COEFFICIENT"
    "CONSTANT-COEFFICIENT" "CONSTRAINT-COEFFICIENT" "ZERO-CONSTRAINTS"
@@ -66,6 +67,9 @@
   (:export				; time.lisp
    "<TIME-DEPENDENT-PROBLEM>" "STATIONARY-PROBLEM" "STATIONARY-PROBLEM-CLASS"
    "INITIAL" "ALPHA")
+  (:export   ; pdef.lisp
+   "MAKE-COEFFICIENTS-FOR" "COEFF" "EXTRACT-FROM"
+   "PREPARE-COEFFICIENT-ARGUMENTS" "CREATE-PROBLEM" "SELECT-ON-PATCH")
   (:documentation " The @package{FL.PROBLEM} package introduces the
 general class @class{<problem>} and some subclasses.  The most interesting
 subclass is @class{<pde-problem>}.  A @class{<pde-problem>} is defined on a
@@ -76,5 +80,3 @@ Several subclasses of @class{<pde-problem>} are defined in own packages,
 e.g. @class{<cdr-problem>} in @package{FL.CDR},
 @class{<elasticity-problem>} in @package{FL.ELASTICITY} and
 @class{<navier-stokes-problem} in @package{FL.NAVIER-STOKES}."))
-
-

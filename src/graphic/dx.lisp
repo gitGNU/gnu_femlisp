@@ -130,11 +130,14 @@ This is a trick to make @arg{dx} redraw the picture.")
 (defun dx-commands-data (&key (foreground :white) dimension shape range
 			 &allow-other-keys)
   (let ((axis-color (ecase foreground (:black "black")(:white "white")))
-	(graph-color (ecase foreground (:black "black")(:white "yellow"))))
+	(graph-color (ecase foreground (:black "black")(:white "white"))))
     (case dimension
       (1 (list
 	  "data = Options(data, \"mark\", \"circle\");"
-	  (format nil "data = Color(data,~S);" graph-color)
+	  ;; workaround for a DX bug, see bug-2.dx 
+	  (if (eq foreground :white)
+	      (format nil "data = Color(data);" graph-color)
+	      (format nil "data = Color(data,~S);" graph-color))
 	  (format nil "image = Plot(data, colors=~S);" axis-color)
 	  ;;"xyplot = Plot(data);"
 	  ;;"camera = AutoCamera(xyplot);"

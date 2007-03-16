@@ -34,16 +34,13 @@
 
 (in-package :fl.application)
 
-(defun heat-equation-computation (domain order levels &key (output 1) plot)
+(defun heat-equation-computation (domain order levels &key (output 1) plot (steps 20))
   "Performs the heat equation demo."
-  (let* ((problem (cdr-model-problem
-		   domain :initial (constant-coefficient 1.0)
-		   :reaction (constant-coefficient 0.0)
-		   :source (constant-coefficient #m(0.0))))
+  (let* ((problem (cdr-model-problem domain :initial 1.0))
 	 (rothe (make-instance
 		 '<rothe> :model-time 0.0 :time-step 0.01
 		 :stationary-success-if `(> :nr-levels ,levels)
-		 :success-if '(>= :step 20)
+		 :success-if `(>= :step ,steps)
 		 :output output :plot plot)))
   (defparameter *result*
     (iterate rothe (blackboard

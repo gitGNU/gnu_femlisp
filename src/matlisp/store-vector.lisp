@@ -49,20 +49,26 @@ vector which can be obtained by calling the function
 BLAS operations are possible because the store is a simple and uniform
 array."))
 
-(defun store-vector (type &key dynamic)
-  (let ((class-name
-	 (intern (format nil "~A" (list 'store-vector type :dynamic dynamic))
-		 "FL.MATLISP")))
-    (or (find-class class-name nil)
-	(prog1
-	    (eval `(defclass ,class-name (,(if dynamic
-					       'store-vector
-					       'static-store-vector))
-		    ()))
-	  (eval `(defmethod element-type ((vector ,class-name))
-		  ',type))
-	  (eval `(defmethod scalar-type ((vector ,class-name))
-		  ',type))))))
+(with-memoization (:type :local :size 2 :id 'store-vector :test 'equal :debug t)
+  (defun store-vector (type &key dynamic)
+    (memoizing-let ((type type) (dynamic dynamic))
+      (let ((class-name
+	     (intern (format nil "~A" (list 'store-vector type :dynamic dynamic))
+		     "FL.MATLISP")))
+	(or (find-class class-name nil)
+	    (prog1
+		(compile-and-eval
+		 `(defclass ,class-name
+		   (,(if dynamic 'store-vector 'static-store-vector))
+		   ()))
+	      (compile-and-eval
+	       `(defmethod element-type ((vector ,class-name)) ',type))
+	      (compile-and-eval
+	       `(defmethod scalar-type ((vector ,class-name)) ',type))))))))
+
+#+(or)  ; here is a performance problem (memoization, shared-initialize, etc)
+(time (let ((class (store-vector 'double-float)))
+	(loop repeat 100000 do (make-instance class :store nil))))
 
 (defmethod shared-initialize :after ((vec static-store-vector) slot-names
 				     &key &allow-other-keys)
@@ -214,6 +220,8 @@ specialized BLAS routines should be used whenever possible."
     (copy! x y)
     (describe x)
     (m+! y x)
+    (axpy! -1.0 x y)
+    ;; (axpy! -1 x y) ; leads to segfault for Allegro CL - not nice
     (scal! 0.5 x))
   (test-blas 'copy! 1 :generator (store-vector-generator '(complex double-float)))
   (test-blas 'm+! 1000 :generator (store-vector-generator 'single-float))

@@ -36,11 +36,11 @@
 
 (defparameter *rothe-observe*
   (list (list "Step" "~4D"
-	      #'(lambda (blackboard) (getbb blackboard :step)))
+	      (lambda (blackboard) (getbb blackboard :step)))
 	*time-observe*
 	(list "    Time" "~8,2F"
-	      #'(lambda (blackboard)
-		  (getbb blackboard :model-time))))
+	      (lambda (blackboard)
+		(getbb blackboard :model-time))))
   "Standard observe quantities for Rothe.")
 
 (defclass <rothe> (<iteration>)

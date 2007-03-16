@@ -55,7 +55,9 @@
 (defmethod element-type ((x vector))
   (array-element-type x))
 (defmethod scalar-type ((x vector))
-  (array-element-type x))
+  (if (plusp (length x))
+      (scalar-type (vref x 0))
+      'number))
 
 (defmethod vref ((vec vector) index)
   (aref vec index))
@@ -78,8 +80,11 @@
 (defmethod for-each-key (func (x vector))
   (dotimes (i (length x)) (funcall func i)))
 (defmethod for-each-key (func (array array))
-  (dotimes (i (array-total-size array))
-    (funcall func i)))
+  (dotuple (index (array-dimensions array))
+    (apply func index)))
+(defmethod for-each-entry-and-vector-index (func (array array))
+  (dotuple (index (array-dimensions array))
+    (funcall func (apply #'aref array index) index)))
 
 (defmethod for-each-entry (func (seq sequence))
   (map nil func seq))
@@ -87,13 +92,12 @@
   (dotimes (i (array-total-size array))
     (funcall func (row-major-aref array i))))
 
-(defmethod for-each-key-and-entry (func (x vector))
+(defmethod for-each-entry-and-key (func (x vector))
   (dotimes (i (length x))
-    (funcall func i (aref x i))))
-
-(defmethod for-each-key-and-entry (func (array array))
-  (dotuple (index (array-dimensions array))
-    (funcall func index (apply #'aref array index))))
+    (funcall func (aref x i) i)))
+(defmethod for-each-entry-and-vector-index (func (x vector))
+  (dotimes (i (length x))
+    (funcall func (aref x i) i)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Matlisp operations for arrays
@@ -108,6 +112,10 @@
   (dotimes (i (array-total-size array) result)
     (setf (row-major-aref result i)
 	  (copy (row-major-aref array i)))))
+
+(defmethod for-each-entry-and-key (func (x array))
+  (dotuple (index (array-dimensions x))
+    (apply func (apply #'aref x index) index)))
 
 ;;; BLAS level 1 for Lisp vectors
 
@@ -130,7 +138,7 @@
 			   (concatenate
 			    'vector
 			    (list
-			     (fl.amop:compile-and-eval
+			     (compile-and-eval
 			      (subst element-type 'element-type
 				     '(lambda ,(mapcar #'car args)
 				       (declare (type (simple-array element-type (*)) ,@vec-args))
@@ -237,8 +245,13 @@ then result is set to increment."
     (scal 0.5
 	  (m- (axpy 0.01 x y)
 	      (axpy -0.01 x y)))
-    (norm #(1.0 2.0) 1)
-  ))
+    (norm #(1.0 2.0) 1))
+  (let ((x (make-array '(2 2) :initial-element (double-vec 1.0))))
+    (for-each-entry-and-vector-index
+     (lambda (entry indices)
+       (format t "~A ~A~%" entry indices))
+     x))
+  )
 
 ;;; (test-arrays)
 (fl.tests:adjoin-test 'test-arrays)

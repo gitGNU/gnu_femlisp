@@ -41,7 +41,59 @@
 ;;; Class definition and basic methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass full-tensor ()
+(defclass tensor ()
+  ()
+  (:documentation "Tensor superclass."))
+
+;;; Reader and writers
+(defgeneric tensor-ref (tensor &rest indices)
+  (:documentation "Reader for a tensor entry.")
+  (:method (object &rest indices)
+     (declare (ignore object indices))
+     (assert "Not implemented."))
+  (:method :around (object &rest indices)
+	   (if (null indices)
+	       object
+	       (call-next-method))))
+
+(defgeneric (setf tensor-ref) (value x &rest indices)
+  (:documentation "Writer for a tensor entry."))
+
+(defgeneric tensor-map (func tensor)
+  (:documentation "Maps @arg{tensor} with @arg{func} to a tensor of the
+same type.")
+  (:method (func tensor)
+    "Default method."
+    (lret ((result (make-analog tensor)))
+      (for-each-entry-and-key
+       (lambda (entry &rest indices)
+	 (setf (apply #'tensor-ref result indices)
+	       (funcall func entry)))
+       tensor))))
+
+;;; for vectors
+
+(defmethod tensor-ref ((vec vector) &rest indices)
+  (apply #'tensor-ref (aref vec (car indices)) (cdr indices)))
+
+(defmethod (setf tensor-ref) (value (vec vector) &rest indices)
+  (destructuring-bind (first . rest) indices
+    (if rest
+	(setf (apply #'tensor-ref (aref vec first) rest) value)
+	(setf (vref vec first) value))))
+
+;;; for matlisp matrices
+(defmethod tensor-ref ((mat standard-matrix) &rest indices)
+  (if (single? indices)
+      (vref mat (first indices))
+      (apply #'mref mat indices)))
+      
+(defmethod (setf tensor-ref) (value (mat standard-matrix) &rest indices)
+  (if (single? indices)
+      (setf (vref mat (first indices)) value)
+      (setf (apply #'mref mat indices) value)))
+
+(defclass full-tensor (tensor)
   ((dimensions :reader dimensions :initarg :dimensions :type fixnum-vec
 	       :documentation "The dimensions of the tensor.")
    (offset0 :reader offset0 :initform 0 :initarg :offset0 :type fixnum
@@ -78,6 +130,9 @@ is internal information computed at tensor construction time."))
 given @arg{dimensions}."
   (make-instance (full-tensor 'double-float) :dimensions dimensions))
 
+(defmethod make-analog ((tensor full-tensor))
+  (make-instance (class-of tensor) :dimensions (dimensions tensor)))
+
 (defun list->real-tensor (tree)
   (assert (tree-uniformp tree))
   (let ((tensor (make-real-tensor (coerce (tree-uniform-number-of-branches tree) 'fixnum-vec)))
@@ -107,6 +162,11 @@ given @arg{dimensions}."
 		   (coerce indices 'fixnum-vec))))
     (setf (aref (store tensor) (compute-offset index (offset0 tensor) (offsets tensor)))
 	  value)))
+
+(defmethod vref ((tensor tensor) indices)
+  (apply #'tensor-ref tensor indices))
+(defmethod (setf vref) (value (tensor tensor) indices)
+  (setf (apply #'tensor-ref tensor indices) value))
 
 (defmethod rank ((tensor full-tensor)) (length (dimensions tensor)))
 (defun make-tensor-index (tensor) (make-fixnum-vec (rank tensor)))
@@ -146,6 +206,17 @@ given @arg{dimensions}."
 ;;; Tensor iteration
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;; very slow
+(defmethod for-each-entry-and-key (func (tensor tensor))
+  (dotuple (index (coerce (dimensions tensor) 'list))
+    (apply func (apply #'tensor-ref tensor index) index)))
+
+(defmethod for-each-entry-and-vector-index (func (tensor tensor))
+  (for-each-entry-and-key
+   (lambda (entry &rest indices) (funcall func entry indices))
+   tensor))
+
+;;; fast
 (definline for-each-index (func dims)
   (declare (type fixnum-vec dims))
   (loop with rank of-type fixnum = (length dims)
@@ -232,18 +303,6 @@ given @arg{dimensions}."
      (dimensions a) (offset0 a) (offsets a) (offset0 b) (offsets b)))
   b)
 
-(defmethod tensor-map (tensor-class (func function) &rest tensor-args)
-  (assert (same-p tensor-args :key #'dimensions :test #'equalp))
-  (let* ((dims (dimensions (car tensor-args)))
-	 (result (make-instance tensor-class :dimensions dims)))
-    (for-each-index
-     #'(lambda (i)
-	 (setf (tensor-ref result i)
-	       (apply func (mapcar #'(lambda (tensor) (tensor-ref tensor i))
-				   tensor-args))))
-     dims)
-    result))
-     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Transposition
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -396,8 +455,14 @@ contracted index pair fit."
 
 ;;; Testing
 (defun test-tensor ()
+  (let ((x (vector (eye 1))))
+    (tensor-ref x 0 0)
+    (setf (tensor-ref x 0 0) 2.0)
+    (tensor-ref x 0 0))
+
   (let ((t1 (list->real-tensor '((1.0 2.0) (3.0 4.0))))
 	(t2 (list->real-tensor '((1.0 2.0) (3.0 4.0)))))
+    (make-analog t1)
     (slice t1 '((0 . 1)))
     (m+ t1 t2)
     (rearrange-tensor t1 #(1 0))
@@ -407,8 +472,7 @@ contracted index pair fit."
 	(t2 (list->real-tensor '(1.0 2.0))))
     (t* t1 t2 '((0 . 0)))
     (t* t1 t2 '())
-    (tensor-map (full-tensor 'double-float) #'1+ t1)
-    (tensor-map (full-tensor 'double-float) #'+ t1 t2)
+    (tensor-map #'1+ t1)
     (copy! t1 t2))
   
   ;; performance test

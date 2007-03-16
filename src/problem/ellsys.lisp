@@ -35,18 +35,23 @@
 (in-package :cl-user)
 
 (defpackage "FL.ELLSYS"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES"
-	"FL.MATLISP" "FL.ALGEBRA"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
+	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION"
 	"FL.MESH" "FL.PROBLEM")
-  (:export "<ELLSYS-PROBLEM>" "NR-OF-COMPONENTS"
-	   "DIAGONAL-TENSOR" "ISOTROPIC-DIFFUSION" "ELLSYS-MODEL-PROBLEM")
+  (:export "<ELLSYS-PROBLEM>" "NR-OF-COMPONENTS" "LINEARIZATION"
+	   "ISOTROPIC-DIFFUSION" "ISOTROPIC-DIFFUSION-COEFFICIENT"
+	   "DIAGONAL-REACTION-COEFFICIENT"
+	   "ELLSYS-ONE-FORCE-COEFFICIENT"
+	   "UNIT-VECTOR-FORCE-COEFFICIENT"
+	   "ELLSYS-MODEL-PROBLEM")
   (:documentation "This package contains the problem definition of systems
 of convection-diffusion-reaction equations.  The system is given in the
 following form which is suited for a fixed-point iteration:
 
 @math{-div(a(x,u_old,\nabla u_old) \nabla u)
  - div(b(x,u_old,\nabla u_old) u) +
- + c(x,u_old,\nabla u_old) u
+ + c(x,u_old,\nabla u_old) \nabla u +
+ + r(x,u_old,\nabla u_old) u
 = f(x,u_old, \nabla u_old) 
 - div(g(x,u_old, \nabla u_old))
 - div(a(x,u_old,\nabla u_old) h(x,u_old, \nabla u_old)) }
@@ -63,14 +68,10 @@ constraints are posed."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <ellsys-problem> (<pde-problem>)
-  ((nr-of-components :reader nr-of-components :initform 1 :initarg :nr-of-components))
+  ()
   (:documentation "Systems of convection-diffusion-reaction equations.  The
 coefficients should be vector-valued functions in this case."))
 
-(defmethod interior-coefficients ((problem <ellsys-problem>))
-  "Coefficients for a CDR system."
-  '(A B C F G H CONSTRAINT))
-  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generation of standard ellsys problems
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -83,41 +84,87 @@ the amount of diffusion in each component."
     (diagonal-sparse-tensor
      (map 'vector #'(lambda (val) (scal val (eye dim))) values))))
 
+(defun isotropic-diffusion-coefficient (dim values)
+  (constant-coefficient 'FL.ELLSYS::A (isotropic-diffusion dim values)))
+
+(defun diagonal-reaction-coefficient (values)
+  (constant-coefficient
+   'FL.ELLSYS::R
+    (diagonal-sparse-tensor
+     (map 'vector #'(lambda (val) (if (numberp val) (scal val (ones 1)) val))
+	  values))))
+
+(defun ellsys-one-force-coefficient (nr-comps multiplicity)
+  (constant-coefficient
+   'FL.ELLSYS::F
+   (make-array nr-comps :initial-element (ones 1 multiplicity))))
+
+(defun unit-vector-force-coefficient (direction)
+  (constant-coefficient
+   'FL.ELLSYS::F
+   (lret ((result (make-instance '<sparse-tensor> :rank 1)))
+     (setf (tensor-ref result direction) (eye 1)))))
+
 (defun ellsys-model-problem
-    (domain ncomps
-     &key a b c f g h dirichlet initial evp properties derived-class)
+    (domain components
+     &key a b c d r f g h dirichlet initial sigma evp properties derived-class)
   "Generates a rather general elliptic problem on the given domain."
+  (when (numberp components)
+    (setq components (list (list 'u components))))
+  (unless a
+    (warn "Note that the diffusion coefficient a is assumed to be zero."))
   (setq domain (ensure-domain domain))
   (apply #'fl.amop:make-programmatic-instance
 	 (remove nil (list (or derived-class '<ellsys-problem>)
-			   (and initial '<time-dependent-problem>)))
-	 :nr-of-components ncomps
+			   (and initial sigma '<time-dependent-problem>)))
+	 :components components
 	 :properties properties
 	 :domain domain :patch->coefficients
 	 `((:external-boundary
-	    ,(when dirichlet
-		   `(CONSTRAINT ,(ensure-coefficient dirichlet))))
+	    (,(or dirichlet
+		  (let ((nr-comps (loop for comp in components summing
+					(if (listp comp) (second comp) 1))))
+		    (constraint-coefficient nr-comps 1)))))
 	   (:d-dimensional
 	    ,(macrolet ((coefflist (&rest coeffs)
 				   `(append
 				     ,@(loop for sym in coeffs collect
-					     `(when ,sym (list ',sym (ensure-coefficient ,sym)))))))
-		       (coefflist a b c f g h initial))))
+					     `(when ,sym (list (ensure-coefficient ',sym ,sym)))))))
+		       (coefflist a b c d r f g h initial sigma))))
 	 (append
 	  (when evp (destructuring-bind (&key lambda mu) evp
 		      (list :lambda lambda :mu mu))))
 	 ))
 
-;;; Testing: (test-ellsys)
+(with-memoization (:type :local :id :linearize :size 1)
+  (defun linearization (reaction-jet)
+    "Returns a list of two functions namely @math{u \mapsto R(u)-DR(u)u}
+and @math{u \mapsto -DR(u)} which can be used directly in the
+discretization as source and reaction term."
+    (flet ((linearize (u)
+	     (memoizing-let ((u u))
+	       (dbg :disc "Evaluating reaction jet")
+	       (destructuring-bind (R DR)
+		   (funcall reaction-jet u)
+		 (list (gemm -1.0 DR u +1.0 R)
+		       (scal -1.0 DR))))))
+      (list (compose #'first #'linearize)
+	    (compose #'second #'linearize)))))
+
+;;; Testing
 
 (defun test-ellsys ()
-  (ellsys-model-problem 
-   2 2
-   :a (isotropic-diffusion 2 #(1.0 2.0))
-   :b (vector #m((1.0) (0.0)) #m((0.0) (1.0)))
-   :f (vector #m(1.0) #m(1.0))
-   :dirichlet (constraint-coefficient 2 1))
+  (let ((problem
+	 (ellsys-model-problem 
+	  2 '(u v)
+	  :a (isotropic-diffusion 2 #(1.0 2.0))
+	  :b (vector #m((1.0) (0.0)) #m((0.0) (1.0)))
+	  :f (vector #m(1.0) #m(1.0))
+	  :dirichlet (constraint-coefficient 2 1))))
+    (assert (components problem))
+    problem)
   )
 
+;;; (test-ellsys)
 (fl.tests:adjoin-test 'test-ellsys)
 

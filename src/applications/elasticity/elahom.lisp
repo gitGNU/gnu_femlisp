@@ -37,6 +37,7 @@
 (defun elasticity-cell-problem-gamma (dim)
   "Returns a right-hand side for an elasticity cell problem."
   (ensure-coefficient
+   'FL.ELLSYS::H
    (let* ((gamma (make-array dim :initial-element nil)))
      (dotimes (j dim)
        (setf (aref gamma j)
@@ -49,10 +50,6 @@
 				1.0)))))
 	       entry)))
      gamma)))
-
-(defun elasticity-cell-problem-tensor (dim value)
-  (constant-coefficient
-   (isotropic-elasticity-tensor :dim dim :lambda value :mu value)))
 
 (defun elasticity-inlay-cell-problem (domain &key (inlay-p #'patch-in-inlay-p)
 				      (interior 100.0))
@@ -75,15 +72,14 @@ N^{lr}_q = \int_Y \div_{x_j} A^{lk}_{ji} N^{lr}_q = F[k*dim+i]
 \cdot N[r*dim+q].}"
   (let ((dim (dimension domain)))
     (make-instance
-     '<ellsys-problem> :domain domain
-     :nr-of-components dim :multiplicity (* dim dim)
+     '<ellsys-problem> :domain domain :components `((u ,dim double-float))
+     :multiplicity (* dim dim)
      :patch->coefficients
      #'(lambda (patch)
 	 (when (= (dimension patch) dim)
-	   (list
-	    'FL.ELLSYS::A (elasticity-cell-problem-tensor
-			   dim (if (funcall inlay-p patch) interior 1.0))
-	    'FL.ELLSYS::H (elasticity-cell-problem-gamma dim)))))))
+	   (list (isotropic-elasticity-tensor-coefficient
+		  dim (if (funcall inlay-p patch) interior 1.0))
+		 (elasticity-cell-problem-gamma dim)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; utilities
@@ -171,6 +167,7 @@ with dim^3 components which are plotted one after the other."
 (elasticity-interior-effective-coeff-demo
  (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2))
  :order 4 :levels 2 :output :all)
+
 
 #|
 (prof:with-profiling (:type :time)
@@ -260,7 +257,7 @@ Parameters: order=~D, levels=~D~%~%"
     (let ((average-tensor
 	   (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A))
 	  (correction-tensor
-	   (convert-correction
+	   (convert-elasticity-correction
 	    (correction-tensor solution rhs)))
 	  (dim (dimension mesh)))
       (check-elasticity-tensor average-tensor dim 0.0)

@@ -46,7 +46,7 @@
   (loop with prod of-type double-float = 1.0
 	for i below (nrows lr) do
 	(setq prod (* prod (mref lr i i)))
-	(unless (= (aref pivot i) (1+ i)) (setq prod (- prod)))
+	(unless (= (aref pivot i) i) (setq prod (- prod)))
 	finally (return prod)))
 
 (defun det (mat)
@@ -131,7 +131,7 @@ double-float array."
   (zero-vector (nrows A) (array-element-type x)))
 
 (defmethod gemm-nn! (alpha (A standard-matrix) (x vector) beta (y vector))
-  (gemm-nn! alpha A (ensure-matlisp x) beta (ensure-matlisp y))
+  (gemm! alpha A (ensure-matlisp x) beta (ensure-matlisp y))
   y)
 
 (defmethod getrs! ((lr standard-matrix) (b vector) &optional ipiv)

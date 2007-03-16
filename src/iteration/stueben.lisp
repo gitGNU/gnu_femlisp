@@ -98,8 +98,8 @@ for several discussions on AMG."))
        matrix)
       
       #+(or)
-      (for-each-key-and-entry
-       #'(lambda (row-key col-key entry)
+      (for-each-entry-and-key
+       #'(lambda (entry row-key col-key)
 	   (and (gethash row-key filtered-keys)
 		(gethash col-key filtered-keys)
 		(or (not theta) (strong-p row-key col-key entry))
@@ -139,7 +139,8 @@ corresponding index."))
     (loop until (< index (fill-pointer table)) do
 	  (if (< index (array-dimension table 0))
 	      (setf (fill-pointer table) (1+ index))
-	      (adjust-array table (* 2 (array-dimension table 0)) :initial-element ())))
+	      (setq table (adjust-array table (* 2 (array-dimension table 0))
+					:initial-element ()))))
     (unless (aref table index)
       (setf (aref table index) (make-dll)))
     ;; we insert obj in the suitable slot of the table, the dll-item returned is

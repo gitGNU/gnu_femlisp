@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; rothe-cdr.lisp - Rothe adaption for cdr problems
+;;; rothe-ellsys.lisp - Rothe adaption for elliptic systems
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2005 Nicolas Neuss, University of Heidelberg.
@@ -34,80 +34,71 @@
 
 (in-package :fl.strategy)
 
-(defun cdr-initial-value-interpolation-coefficients (rothe coeffs)
+(defun ellsys-initial-value-interpolation-coefficients (rothe problem coeffs)
   "Return a coefficient list for the initial value interpolation problem to
 be solved at the beginning."
   (declare (ignore rothe))
-  (map-coefficients
-   #'(lambda (coeff-name coeff)
-       (case coeff-name
-	 (CONSTRAINT (values coeff-name coeff))
-	 (FL.CDR::INITIAL (values 'FL.CDR::SOURCE coeff))
-	 (FL.CDR::REACTION (values coeff-name (constant-coefficient 1.0)))
-	 (t (values nil nil))))
-   coeffs))
+  (let ((initial (get-coefficient coeffs 'INITIAL))
+	(sigma (get-coefficient coeffs 'SIGMA))
+	(constraints (remove-if-not #'constraint-p coeffs)))
+    (if initial
+	(list* (copy-coefficient initial :name 'FL.ELLSYS::F)
+	       (if sigma
+		   (copy-coefficient sigma :name 'FL.ELLSYS::R)
+		   (constant-coefficient 'FL.ELLSYS::R
+					 (diagonal-sparse-tensor
+					  #m(1.0) (nr-of-components problem))))
+	       constraints)
+	constraints)))
    
-(defmethod initial-value-interpolation-problem ((rothe <rothe>) (problem <cdr-problem>))
+(defmethod initial-value-interpolation-problem ((rothe <rothe>) (problem <ellsys-problem>))
   "Returns a stationary problem for interpolating the initial value."
   (make-instance
-   '<cdr-problem>
+   '<ellsys-problem>
    :domain (domain problem)
    :multiplicity (multiplicity problem)
+   :components (components problem)
    :coefficients
    (map-hash-table
     #'(lambda (patch coeffs)
-	(values patch (cdr-initial-value-interpolation-coefficients rothe coeffs)))
+	(values patch (ellsys-initial-value-interpolation-coefficients
+		       rothe problem coeffs)))
     (coefficients problem))
    :linear-p t))
 
-(defun cdr-time-step-coefficients (rothe coeffs)
+(defun ellsys-time-step-coefficients (rothe coeffs)
   "Return a coefficient list for the stationary problem to be solved at
 each time step."
-  (let ((coeffs (copy-seq coeffs)))
-    ;; source and reaction modification
-    (whereas ((reaction (get-coefficient coeffs 'FL.CDR::REACTION)))
-      (setf (getf coeffs 'FL.CDR::REACTION)
-	    (make-instance
-	     '<coefficient> :dimension (dimension reaction) :demands (demands reaction) :eval
-	     #'(lambda (&rest args)
-		 (let ((reaction (evaluate reaction args))
-		       (increment (/ (ecase (time-stepping-scheme rothe)
-				       (:implicit-euler 1.0)
-				       (:crank-nicolson 2.0))
-				     (time-step rothe))))
-		   (if (numberp reaction)
-		       (+ reaction increment)
-		       (m+ reaction (ensure-matlisp increment)))))))
-      (let ((source (get-coefficient coeffs 'FL.CDR::SOURCE)))
-	(setf (getf coeffs 'FL.CDR::SOURCE)
-	      (make-instance
-	       '<coefficient> :dimension (dimension source)
-	       :demands (add-fe-parameters-demand (demands source) '(:old-solution))
-	       :eval
-	       #'(lambda (&rest args &key old-solution &allow-other-keys)
-		   (axpy (/ (time-step rothe)) old-solution (evaluate source args)))))))
-    ;; inclusion of time variable
-    (loop for (coeff-name coeff) on coeffs by #'cddr
-	  for demands = (demands coeff)
-	  collect coeff-name collect
-	  (if (find :time demands)
-	      (make-instance
-	       '<coefficient> :dimension (dimension coeff) :demands demands
-	       :eval #'(lambda (&rest args)
-			 (evaluate coeff (list* :time (model-time rothe) args))))
-	      coeff))))
+  (let ((sigma (get-coefficient coeffs 'SIGMA)))
+    (if sigma
+	(list* (make-instance '<coefficient> :name 'FL.ELLSYS::R :demands ()
+			      :eval (lambda (&rest args)
+				      (scal (/ (ecase (time-stepping-scheme rothe)
+						 (:implicit-euler 1.0)
+						 (:crank-nicolson 2.0))
+					       (time-step rothe))
+					    (evaluate sigma args))))
+	       (make-instance '<coefficient> :name 'FL.ELLSYS::F
+			      :demands '((:fe-parameters :old-solution))
+			      :eval (lambda (&rest args &key old-solution &allow-other-keys)
+				      (let ((old-solution (first old-solution)))
+					(gemm (/ (time-step rothe)) (evaluate sigma args) old-solution
+					      0.0 old-solution))))
+	       coeffs)
+	coeffs)))
 
-(defmethod time-step-problem ((rothe <rothe>) (problem <cdr-problem>))
+(defmethod time-step-problem ((rothe <rothe>) (problem <ellsys-problem>))
   "Returns a stationary problem corresponding to a step of the Rothe
 method."
   (make-instance
-   '<cdr-problem>
+   '<ellsys-problem>
    :domain (domain problem)
+   :components (components problem)
    :multiplicity (multiplicity problem)
    :coefficients
    (map-hash-table
     #'(lambda (patch coeffs)
-	(values patch (cdr-time-step-coefficients rothe coeffs)))
+	(values patch (ellsys-time-step-coefficients rothe coeffs)))
     (coefficients problem))))
 
 (defvar *u_1/4-observe*
@@ -118,32 +109,39 @@ method."
 		   (val (fe-value sol (make-double-vec dim 0.25))))
 	      (vref (aref val 0) 0)))))
 
-(defun test-rothe-cdr ()
-
+(defun test-rothe-ellsys ()
+  ;; the same test as in rothe-cdr
   (let* ((dim 1) (levels 1) (order 4) (end-time 0.1) (steps 64)
-	 (problem (cdr-model-problem
-		   dim :initial #'(lambda (x) #I(sin(2*pi*x[0])))
-		   :reaction (constant-coefficient 0.0)
-		   :source (constant-coefficient #m(0.0))))
+	 (problem (ellsys-model-problem
+		   dim '((u 1))
+		   :initial (lambda (x) (vector (ensure-matlisp #I(sin(2*pi*x[0])))))
+		   :sigma (diagonal-sparse-tensor (vector (eye 1)))
+		   :a (isotropic-diffusion 1 1.0)
+		   :r (diagonal-sparse-tensor (vector #m(0.0)))
+		   :f (vector #m(0.0))
+		   :dirichlet (constraint-coefficient 1 1)))
 	 (rothe (make-instance
 		 '<rothe> :model-time 0.0 :time-step (/ end-time steps)
 		 :stationary-success-if `(> :nr-levels ,levels)
 		 :success-if `(>= :step ,steps)
 		 :output t :plot t
 		 :observe (append *rothe-observe* (list *u_1/4-observe*)))))
-    ;;(time-step-problem rothe problem))
+    ;;(time-step-problem rothe problem)
     (let ((result
-	   (iterate rothe (blackboard
-			   :problem problem :fe-class (lagrange-fe order)
-			   :plot-mesh nil :output t
-			   ))))
+	   (iterate
+	    rothe
+	    (blackboard
+	     :problem problem :fe-class (lagrange-fe order :nr-comps 1)
+	     :plot-mesh nil :output :all
+	     ))))
       ;; the correct value is #I(exp(-0.1*4*pi*pi))=0.019296302911016777
       ;; but implicit Euler is extremely bad
       (assert (< (abs (- 2.1669732216e-02  ; value computed by CMUCL
 			 (vref (aref (fe-value (getbb result :solution) #d(0.25))
 				     0) 0)))
-		 1.0e-12))))
+		 1.0e-12))
+      ))
   )
 
-;;; (test-rothe-cdr)
-(fl.tests:adjoin-test 'test-rothe-cdr)
+;;; (test-rothe-ellsys)
+(fl.tests:adjoin-test 'test-rothe-ellsys)

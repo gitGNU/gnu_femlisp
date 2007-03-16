@@ -39,6 +39,9 @@
    ;; UNIX environment
    "FIND-EXECUTABLE" "GETENV" "UNIX-CHDIR"
    
+   ;; runtime compilation
+   "COMPILE-SILENTLY"
+   
    ;; process communication
    "RUN-PROGRAM" "PROCESS-INPUT" "PROCESS-OUTPUT"
    "PROCESS-CLOSE" "PROCESS-STATUS"
@@ -77,6 +80,24 @@ functionality of Femlisp you should provide it in the file
     (ecase *portability-problem-handling*
       (:error (error message))
       (:warn (warn message)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Runtime compilation with warning suppression
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun compile-silently (name source)
+  "Compiles @arg{source} silently."
+  ;; ANSI version
+  (let ((*compile-print* nil)
+	(*compile-verbose* nil))
+    (compile name source))
+  ;; posted by C. Rhodes 5.6.07 in the SBCL mailing list; however, it does
+  ;; not work here
+  #+(or)
+  (handler-bind ((warning #'muffle-warning)
+		 #+sbcl (sb-ext:compiler-note #'muffle-warning))
+    (compile name source))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; UNIX environment access
@@ -274,7 +295,7 @@ functionality of Femlisp you should provide it in the file
 (defmacro foreign-call-wrapper (&rest body)
   "Ensures a safe environment for a foreign function call, especially so
 that no GC changes array pointers obtained by @function{vector-sap}."
-  #+(or allegro ecl) `(progn ,@body)
+  #+(or allegro ecl) `(locally ,@body)
   #+cmu `(system:without-gcing ,@body)
   #+sbcl `(sb-sys:without-gcing ,@body)
   #-(or allegro cmu ecl sbcl)

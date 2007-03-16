@@ -63,7 +63,7 @@ rhs.")
   "Distributional rhs for the dual problem of the article by
 Heuveline&Rannacher.  We distribute it to several points to
 ensure that all surrounding cells contribute."
-  (let ((rhs (make-local-vec fe))
+  (let ((rhs (zeros (nr-of-dofs fe) 1))
 	(local (global->local cell *HR-evaluation-point*))
 	(delta *HR-delta*))
     (when (every #'(lambda (c) (<= (- delta) c (+ 1.0 delta))) local)
@@ -86,10 +86,9 @@ ensure that all surrounding cells contribute."
 (defun heuveline-rannacher-dual-problem-fe-rhs ()
   #'(lambda (cell)
       (when (= (dimension cell) 2)
-	(list 'FL.CDR::FE-RHS
-	      (make-instance
-	       '<coefficient> :demands '(:cell :fe) :eval
-	       #'heuveline-rannacher-dual-problem-rhs)))))
+	(list (make-instance
+	       '<coefficient> :name 'FL.ELLSYS::FE-RHS :demands '(:cell :fe)
+	       :eval #'heuveline-rannacher-dual-problem-rhs)))))
 
 (defun heuveline-rannacher-dual-problem ()
   "Only for testing purposes, otherwise such a problem is
@@ -159,6 +158,8 @@ Parameters of the computation: order=~D, levels=~D." order levels)))
    77      1834     57159  113.0   1.0261721980d+00   3.8444739754d-08
 |#
 
+;;; Testing
+
 (defun test-heuveline-rannacher ()
 
   (time
@@ -184,4 +185,7 @@ Parameters of the computation: order=~D, levels=~D." order levels)))
        (defparameter *result* (getrs (sparse-ldu mat) rhs)))))
   (plot *result*)
 
-  )  
+  )
+
+;;; (test-heuveline-rannacher)
+(fl.tests:adjoin-test 'test-heuveline-rannacher)

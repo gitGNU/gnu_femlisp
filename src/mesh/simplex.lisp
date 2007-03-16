@@ -202,13 +202,14 @@ vector and fills the barycentric-corners field."
 		(assert create)
 		(return
 		  (let ((refine-info (refine-info simplex)))
-		    (adjust-array refine-info (1+ (length refine-info))
-				  :initial-element
-				  (make-<child-info>
-				   :reference-cell
-				   (ensure-simplex (1- (length corners-of-sub-simplex)))
-				   :barycentric-corners (list corners-of-sub-simplex)
-				   :boundary-paths nil))
+		    (setq refine-info
+			  (adjust-array refine-info (1+ (length refine-info))
+					:initial-element
+					(make-<child-info>
+					 :reference-cell
+					 (ensure-simplex (1- (length corners-of-sub-simplex)))
+					 :barycentric-corners (list corners-of-sub-simplex)
+					 :boundary-paths nil)))
 		    ;; return reversed path
 		    (nreverse (cons i path))))))))
 

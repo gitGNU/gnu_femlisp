@@ -4,7 +4,8 @@
 ;;; sparse.lisp
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2006 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2007- Nicolas Neuss, University of Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -37,7 +38,7 @@
 ;;;; uses hash-table sparse matrices which allow for O(1) random access and
 ;;;; indexing over arbitrary key sets.
 
-;;;(declaim (optimize (safety 3) (debug 3)))
+;;; (declaim (optimize (safety 3) (debug 3)))
 
 (in-package :fl.algebra)
 
@@ -74,14 +75,22 @@ sides and solutions simultaneously."))
    '<sparse-vector> :key->size (key->size svec) :print-key (print-key svec)
    :multiplicity (multiplicity svec)))
 
+(defmethod in-pattern-p ((svec <sparse-vector>) &rest indices)
+  (destructuring-bind (key) indices
+    (with-slots (blocks key->size) svec
+      (or (gethash key blocks)
+	  (plusp (funcall key->size key))))))
+
 (defmethod vref ((svec <sparse-vector>) key)
   "Random access to vector components.  Fast version."
   ;;(declare (values real-matrix))
   (let ((blocks (slot-value svec 'blocks)))
     (or (gethash key blocks)
 	(setf (gethash key blocks)
-	      (make-real-matrix (funcall (key->size svec) key)
-				(multiplicity svec))))))
+	      (if (plusp (funcall (key->size svec) key))
+		  (make-real-matrix (funcall (key->size svec) key)
+				    (multiplicity svec))
+		  (error "Request for an empty matrix"))))))
 
 (defmethod (setf vref) (value (svec <sparse-vector>) key)
   "Inserts a vector block into the sparse vector."
@@ -91,16 +100,17 @@ sides and solutions simultaneously."))
 (defmethod for-each-key ((fn function) (svec <sparse-vector>))
   (loop for key being the hash-keys of (slot-value svec 'blocks) do
 	(funcall fn key)))
-(defmethod for-each-key-and-entry ((fn function) (svec <sparse-vector>))
-  (maphash fn (slot-value svec 'blocks)))
+(defmethod for-each-entry-and-key ((fn function) (svec <sparse-vector>))
+  (maphash
+   (lambda (key value) (funcall fn value key))
+   (slot-value svec 'blocks)))
 (defmethod for-each-entry ((fn function) (svec <sparse-vector>))
   (loop for val being the hash-values of (slot-value svec 'blocks) do
 	(funcall fn val)))
 
 (defmethod keys ((svec <sparse-vector>))
-  (let ((keys ()))
-    (dovec ((key) svec) (push key keys))
-    (nreverse keys)))
+  (loop for key being the hash-keys of (slot-value svec 'blocks)
+	collecting key))
 
 (defmethod show ((svec <sparse-vector>) &key keys (zeros t) &allow-other-keys)
   (format t "~&Sparse vector with ~D allocated components:~%"
@@ -260,11 +270,8 @@ indexed by general keys."))
 
 (defmethod total-entries ((mat <sparse-matrix>))
   (let ((entries 0))
-    (for-each-entry
-     #'(lambda (entry)
-	 (unless entry (break))
-	 (incf entries (* (nrows entry) (ncols entry))))
-     mat)
+    (dovec (entry mat)
+      (incf entries (* (nrows entry) (ncols entry))))
     entries))
 
 (defmethod nr-nonempty-rows (mat) (nrows mat))
@@ -332,21 +339,31 @@ indexed by general keys."))
   (aand (matrix-row smat row-key)
 	(gethash col-key it)))
 
+(defmethod in-pattern-p ((smat <sparse-matrix>) &rest indices)
+  (destructuring-bind (row-key col-key) indices
+    (plusp (number-nonzero-entries (funcall (keys->pattern smat)
+					    row-key col-key)))))
+
 (defmethod mref ((smat <sparse-matrix>) row-key col-key)
   "If the matrix-block indexed by row-key/col-key exists, it is returned.
 Otherwise, a new matrix block is created according to the pattern specified
 for this index."
   (or (matrix-block smat row-key col-key)
       (setf (mref smat row-key col-key)
-	    (let ((pattern (funcall (keys->pattern smat) row-key col-key)))
-	      (with-slots (nrows ncols store-size) pattern
-		(cond
-		  ((or (zerop nrows) (zerop ncols))
-		   (error "No sparse matrix entry allowed here!"))
-		  ((= store-size (* nrows ncols))
-		   (make-real-matrix nrows ncols))
-		  (t (make-instance (crs-matrix 'double-float) :pattern pattern
-				    :store (make-double-vec store-size)))))))))
+	    (let* ((pattern (funcall (keys->pattern smat) row-key col-key))
+		   (sizes (slot-value pattern 'sizes))
+		   (store-size (number-nonzero-entries pattern)))
+	      (cond
+		((some #'zerop sizes)
+		 (error "Request for an empty matrix."))
+		((= store-size (reduce #'* sizes))
+		 (make-real-matrix (aref sizes 0) (aref sizes 1)))
+		(t
+		 ;; warning: the following use of make-instance with
+		 ;; keyword parameters on a runtime-computed class might be
+		 ;; a performance problem
+		 (make-instance (compressed-matrix 'double-float)
+				:pattern pattern)))))))
 
 (defmethod (setf mref) (value (smat <sparse-matrix>) row-key col-key)
   "Inserts a matrix block into the sparse matrix.  Note: using this routine
@@ -413,7 +430,7 @@ means a lot of consing."
   (maphash
    #'(lambda (row-key row-dic)
        (loop for col-key being each hash-key of row-dic do
-	     (funcall fn (cons row-key col-key))))
+	     (funcall fn row-key col-key)))
    (row-table smat)))
 
 (defmethod for-each-entry ((fn function) (smat <sparse-matrix>))
@@ -421,10 +438,10 @@ means a lot of consing."
 	(loop for entry being the hash-values of row-dic do
 	      (funcall fn entry))))
 
-(defmethod for-each-key-and-entry ((fn function) (smat <sparse-matrix>))
+(defmethod for-each-entry-and-key ((fn function) (smat <sparse-matrix>))
   (maphash #'(lambda (row-key row-dic)
 	       (maphash #'(lambda (col-key entry)
-			    (funcall fn (cons row-key col-key) entry))
+			    (funcall fn entry row-key col-key))
 			row-dic))
 	   (row-table smat)))
 
@@ -479,15 +496,13 @@ means a lot of consing."
 
 (defmethod symmetric-p ((smat <sparse-matrix>) &key (threshold 0.0) output)
   (let ((flag t))
-    (for-each-key-and-entry
-     #'(lambda (keys entry)
-	 (let ((entry2 (mref smat (cdr keys) (car keys))))
-	   (when (> (norm (m- entry2 (transpose entry))) threshold)
-	     (when output
-	       (format t "~&Mismatch~%(i,j)=~A:~%Aij=~A~%Aji=~A~%~%"
-		       keys entry entry2))
-	     (setq flag nil))))
-     smat)
+    (dovec ((entry rk ck) smat)
+      (let ((entry2 (mref smat ck rk)))
+	(when (> (norm (m- entry2 (transpose entry))) threshold)
+	  (when output
+	    (format t "~&Mismatch~%(i,j)=(~A,~A):~%Aij=~A~%Aji=~A~%~%"
+		    rk ck entry entry2))
+	  (setq flag nil))))
     flag))
 
 (defmethod matrix-transpose-instance ((smat <sparse-matrix>))
@@ -500,11 +515,8 @@ means a lot of consing."
 
 
 (defmethod transpose! ((x <sparse-matrix>) (y <sparse-matrix>))
-  (for-each-key-and-entry
-     #'(lambda (keys entry)
-	 (setf (mref y (cdr keys) (car keys)) (transpose entry)))
-     x)
-  y)
+  (dovec ((entry rk ck) x y)
+    (setf (mref y ck rk) (transpose entry))))
 
 (defmethod show ((smat <sparse-matrix>) &key keys (zeros t) &allow-other-keys)
   (assert (null keys))
@@ -565,25 +577,19 @@ means a lot of consing."
 
 (defmethod mat-diff ((smat1 <sparse-matrix>) (smat2 <sparse-matrix>))
   (format t "Missing in [2]~%")
-  (for-each-key-and-entry
-   #'(lambda (keys entry)
-       (unless (matrix-block smat2 (car keys) (cdr keys))
-	 (format t "~A:~%~A~%" keys entry)))
-   smat1)
+  (dovec ((entry i j) smat1)
+    (unless (matrix-block smat2 i j)
+      (format t "(~A,~A):~%~A~%" i j entry)))
   (format t "Missing in [1]~%")
-  (for-each-key-and-entry
-   #'(lambda (keys entry)
-       (unless (matrix-block smat1 (car keys) (cdr keys))
-	 (format t "~A:~%~A~%" keys entry)))
-   smat2)
+  (dovec ((entry i j) smat2)
+    (unless (matrix-block smat1 i j)
+      (format t "(~A,~A):~%~A~%" i j entry)))
   (format t "Differences~%")
-  (for-each-key-and-entry
-   #'(lambda (keys entry)
-       (whereas ((entry2 (matrix-block smat2 (car keys) (cdr keys))))
-	 (unless (mzerop (m- entry entry2))
-	   (format t "~A :~%" keys)
-	   (format t "~A~%~A~%" entry entry2))))
-   smat1))
+  (dovec ((entry i j) smat1)
+    (whereas ((entry2 (matrix-block smat2 i j)))
+      (unless (mzerop (m- entry entry2))
+	(format t "(~A,~A) :~%" i j)
+	(format t "~A~%~A~%" entry entry2)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Transformation of unknowns
@@ -724,14 +730,12 @@ sparse, the complexity of this routine is much lower."))
 	   (ecase job
 	     ((:nn :nt) (row-table A))
 	     ((:tn :tt) (column-table A)))))
-      (:B (for-each-key-and-entry
-	   #'(lambda (i bi)
-	       (whereas ((row-or-column (ecase job
-					  ((:nn :nt) (matrix-column A i))
-					  ((:tn :tt) (matrix-row A i)))))
-		 (maphash #'(lambda (j Aij) (gemm! 1.0 Aij bi 1.0 (vref result j) job))
-			  row-or-column)))
-	   B)))
+      (:B (dovec ((bi i) B)
+	    (whereas ((row-or-column (ecase job
+				       ((:nn :nt) (matrix-column A i))
+				       ((:tn :tt) (matrix-row A i)))))
+	      (maphash #'(lambda (j Aij) (gemm! 1.0 Aij bi 1.0 (vref result j) job))
+		       row-or-column)))))
     result))
 
 
@@ -796,16 +800,13 @@ sparse, the complexity of this routine is much lower."))
 
 (defmethod extract-if ((test function) (smat <sparse-matrix>) &key &allow-other-keys)
   "Extracts a sub-matrix from a sparse matrix."
-  (let ((sub-mat (make-analog smat)))
-    (for-each-key-and-entry
-     #'(lambda (keys entry)
-	 (when (funcall test (car keys) (cdr keys) entry)
-	   (setf (vref sub-mat keys) entry)))
-     smat)
-    sub-mat))
+  (lret ((sub-mat (make-analog smat)))
+    (dovec ((entry i j) smat)
+      (when (funcall test entry i j)
+	(setf (mref sub-mat i j) entry)))))
 
 (defmethod extended-extract ((svec <sparse-vector>) (keys hash-table) &key &allow-other-keys)
-  (extract-if #'(lambda (key entry)
+  (extract-if #'(lambda (entry key)
 		  (declare (ignore entry))
 		  (gethash key keys))
 	      svec))
@@ -814,7 +815,7 @@ sparse, the complexity of this routine is much lower."))
 			     &key (row? t) (col? t))
   "Extracts a sub-matrix from a sparse matrix.  This routine could be
 accelerated by taking member-checks out of column or row loop."
-  (extract-if #'(lambda (row-key col-key entry)
+  (extract-if #'(lambda (entry row-key col-key)
 		  (declare (ignore entry))
 		  (and (or (not row?) (gethash row-key keys))
 		       (or (not col?) (gethash col-key keys))))
@@ -824,7 +825,7 @@ accelerated by taking member-checks out of column or row loop."
 (defmethod extract-matrix-block ((smat <sparse-matrix>) row-keys col-keys)
   "Extracts a sub-matrix from a sparse matrix.  row-keys=nil or
 col-keys=nil means to allow every key."
-  (extract-if #'(lambda (row-key col-key entry)
+  (extract-if #'(lambda (entry row-key col-key)
 		  (declare (ignore entry))
 		  (or (and row-keys (not (gethash row-key row-keys)))
 		      (and col-keys (not (gethash col-key col-keys)))))
@@ -840,7 +841,7 @@ col-keys=nil means to allow every key."
       do (whereas ((row (matrix-row smat rk)))
 	   (loop+ (j (ck col-keys))
 	     do (setf (aref result i j)
-		      (gethash j row)))))
+		      (gethash ck row)))))
     result))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1024,8 +1025,8 @@ problem."
       ;; end of testing environment
       ))
   ;; sparse matrices with crs entries
-  (let* ((offdiag (make-instance 'crs-pattern
-				 :nrows 2 :ncols 2
+  (let* ((offdiag (make-instance 'compressed-pattern
+				 :sizes #(2 2) :orientation :row
 				 :pattern '( ((a . 0))  ((a . 1)) )))
 	 (diag (full-crs-pattern 2 2))
 	 (n 3)

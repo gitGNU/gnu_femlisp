@@ -59,7 +59,7 @@ with either <correction-scheme> or <fas>."))
   "Choose the smoothing method as either Gauss-Seidel or SSC depending on
 discretization order."
   (let* ((as (ansatz-space matrix))
-	 (order (discretization-order (fe-class as))))
+	 (order (discretization-order as)))
     (if (and (numberp order) (= order 1))
 	(make-instance '<gauss-seidel>)
 	(select-smoother mgit (problem as)))))

@@ -82,6 +82,13 @@ default form when an argument should be supplied."
         (setq plist (cddr plist))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Booleans
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun xor (a b)
+  (not (eql (not a) (not b))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Numbers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -144,6 +151,11 @@ computed."
 partial sums."
   (let ((sum 0))
     (map (type-of seq) #'(lambda (x) (incf sum x)) seq)))
+
+(defmacro mapf (var func)
+  "Replaces the value of the variable @arg{var} by setting it to its map
+with @arg{func}."
+  `(setf ,var (map (type-of ,var) ,func ,var)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Vectors
@@ -236,19 +248,6 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 	(not (find-if-not #'(lambda (elem) (funcall test item (funcall key elem)))
 			  sequence)))))
 
-(defun flatten (tree)
-  "Flatten a tree.  Example:
-@lisp
-  (flatten '((1 2) (3) ((4))))  @result{}  (1 2 3 4)
-@end lisp"
-  (labels ((rec (tree acc)
-	     (cond ((null tree) acc)
-		   ((not (consp tree)) (cons tree acc))
-		   (t (rec (car tree) (rec (cdr tree) acc))))))
-    (rec tree ())))
-
-(defun flatten-1 (lst) (apply #'append lst))
-
 (defun modify (lst &key add remove)
   (union add (set-difference lst remove)))
 
@@ -298,18 +297,14 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
   "Wraps @arg{obj} in a list, if it is not already a list."
   (if (listp obj) obj (list obj)))
 
-(defun tree-uniform-number-of-branches (tree)
-  (if (listp tree)
-      (cons (length tree)
-	    (tree-uniform-number-of-branches (car tree)))))
+(defun check-properties (place properties)
+  "Checks if all of the @arg{properties} are in the property list
+@arg{place}."
+  (every (curry #'getf place) properties))
 
-(defun tree-uniformp (trees)
-  (labels ((rec (trees dims)
-	     (if (listp trees) 
-		 (and (listp dims) (= (car dims) (length trees))
-		      (every #'(lambda (tree) (rec tree (cdr dims))) trees))
-		 (null dims))))
-    (rec trees (tree-uniform-number-of-branches trees))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tree operations
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun on-leaves (func tree)
   "Executes @arg{func} on the leaves of @arg{tree}."
@@ -318,6 +313,18 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 		 (mapc #'rec node)
 		 (funcall func node))))
     (rec tree)))
+
+(defun find-leaf-if (test tree &key (key #'identity))
+  "Finds a leaf in @arg{tree} where @arg{test} returns true."
+  (on-leaves (lambda (leaf)
+	       (when (funcall test (funcall key leaf))
+		 (return-from find-leaf-if leaf)))
+	     tree)
+  nil)
+
+(defun find-leaf (atom tree &key (key #'identity) (test #'eql))
+  "Finds atom in @arg{tree}."
+  (find-leaf-if (curry test atom) tree :key key))
 
 (defun map-tree (func tree)
   "Maps @arg{tree} using @arg{func}.  Example:
@@ -333,13 +340,34 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 	       (funcall func item)))
        tree)))
 
-(defun check-properties (place properties)
-  "Checks if all of the @arg{properties} are in the property list
-@arg{place}."
-  (every (curry #'getf place) properties))
+(defun flatten (tree)
+  "Flatten a tree.  Example:
+@lisp
+  (flatten '((1 2) (3) ((4))))  @result{}  (1 2 3 4)
+@end lisp"
+  (labels ((rec (tree acc)
+	     (cond ((null tree) acc)
+		   ((not (consp tree)) (cons tree acc))
+		   (t (rec (car tree) (rec (cdr tree) acc))))))
+    (rec tree ())))
+
+(defun flatten-1 (lst) (apply #'append lst))
+
+(defun tree-uniform-number-of-branches (tree)
+  (if (listp tree)
+      (cons (length tree)
+	    (tree-uniform-number-of-branches (car tree)))))
+
+(defun tree-uniformp (trees)
+  (labels ((rec (trees dims)
+	     (if (listp trees) 
+		 (and (listp dims) (= (car dims) (length trees))
+		      (every #'(lambda (tree) (rec tree (cdr dims))) trees))
+		 (null dims))))
+    (rec trees (tree-uniform-number-of-branches trees))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Queues (from Graham's book)
+;;; Queues
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass queue ()
@@ -351,15 +379,24 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 (defgeneric enqueue (object queue)
   (:documentation "Puts @arg{object} into the @arg{queue}.")
   (:method (object (queue queue))
-    (if (null (head queue))
-	(setf (tail queue) (setf (head queue) (list object)))
-	(setf (cdr (tail queue)) (list object)
-	      (tail queue) (cdr (tail queue))))))
+    (with-slots (head tail) queue
+      (if (null head)
+	  (setf tail (setf head (list object)))
+	  (setf (cdr tail) (list object)
+		tail (cdr tail)))
+      nil)))
+
+(defgeneric emptyp (queue)
+  (:documentation "Tests if @arg{queue} is empty.")
+  (:method ((queue queue))
+    (not (head queue))))
 
 (defgeneric dequeue (queue)
-  (:documentation "Pops an object from @arg{queue}.")
+  (:documentation "Pops an object from @arg{queue}.  Returns as second
+value T if the queue was empty.")
   (:method ((queue queue))
-    (pop (head queue))))
+    (let ((emptyp (emptyp queue)))
+      (values (pop (head queue)) emptyp))))
 
 (defun queue->list (queue)
   "Transforms @arg{queue} to a list."
@@ -472,12 +509,13 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 	  (value (if (atom looping-var)
 		     (gensym)
 		     (car (last looping-var)))))
-      `(maphash
-	#'(lambda (,key ,value)
-	    ,@(when (atom looping-var) `((declare (ignore ,value))))
-	    ,@(when (single? looping-var) `((declare (ignore ,key))))
-	    ,@body)
-	,hash-table))))
+      `(block nil
+	(maphash
+	 #'(lambda (,key ,value)
+	     ,@(when (atom looping-var) `((declare (ignore ,value))))
+	     ,@(when (single? looping-var) `((declare (ignore ,key))))
+	     ,@body)
+	 ,hash-table)))))
 
 (defun map-hash-table (func hash-table)
   "Call @arg{func} given in the first argument on each key of
@@ -855,7 +893,8 @@ according to @math{result[i] = v[perm[i]]}."
     (dohash ((key value) ht)
 	    (format t "~&~A -> ~A~%" key value))
     (dohash (key ht) (format t "~A~%" key))
-    (dohash ((value) ht) (format t "~A~%" value)))
+    (dohash ((value) ht) (format t "~A~%" value)
+	    (return)))
   (let ((alist ()))
     (setf (geta alist :test) 1)
     (setf (geta alist :hello) 2)

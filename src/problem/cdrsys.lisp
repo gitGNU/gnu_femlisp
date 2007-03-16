@@ -65,14 +65,14 @@ n-dimensional unit cube."
   (setq domain (ensure-domain domain))
   (let ((dim (dimension domain)))
     (ellsys-model-problem
-     domain ncomps
+     domain `((u ,ncomps))
      :derived-class '<cdrsys-problem>
      :a (if diffusion-p
 	    diffusion
 	    (isotropic-diffusion
-	     dim (coerce (loop repeat ncomps collect 1.0) 'vector)))
+	     dim (make-double-vec ncomps 1.0)))
      :b convection
-     :c reaction
+     :r reaction
      :f (if source-p
 	    source
 	    (coerce (loop repeat ncomps collect
@@ -83,7 +83,6 @@ n-dimensional unit cube."
 		    dirichlet
 		    (constraint-coefficient ncomps 1))
      :initial initial :evp evp)))
-
 
 ;;; Testing: (test-cdrsys)
 

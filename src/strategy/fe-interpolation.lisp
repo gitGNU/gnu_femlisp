@@ -52,9 +52,9 @@ element approximation."))
 (defun interpolate-function (as func &optional solution)
   "Interpolates @arg{func} with the ansatz-space @arg{as}."
   (ensure solution (make-ansatz-space-vector as))
-  (with-slots (mesh fe-class) as
+  (with-slots (mesh) as
     (doskel (cell mesh)
-      (let ((fe (get-fe fe-class cell)))
+      (let ((fe (get-fe as cell)))
 	(unless (zerop (nr-of-inner-dofs fe))
 	  (setf (vref solution (cell-key cell mesh))
 		(interpolate-on-refcell
@@ -64,18 +64,17 @@ element approximation."))
 (defmethod approximate ((fe-strategy <fe-interpolation>) blackboard)
   "Interpolates a given function.  Does only Lagrange interpolation at the
 moment."
-  (with-items (&key mesh problem solution) blackboard
-    (let ((fe-class (fe-class fe-strategy)))
-      (doskel (cell mesh)
-	(let ((fe (get-fe fe-class cell)))
-	  (unless (zerop (nr-of-inner-dofs fe))
-	    (let* ((patch (patch-of-cell cell mesh))
-		   (coeff (getf (coefficients-of-patch patch problem)
-				(slot-value fe-strategy 'coefficient))))
-	      (setf (vref solution (cell-key cell mesh))
-		    (interpolate-on-refcell
-		     fe #'(lambda (x)
-			    (evaluate coeff (list :global (local->global cell x)))))))))))))
+  (with-items (&key mesh problem ansatz-space solution) blackboard
+    (doskel (cell mesh)
+      (let ((fe (get-fe ansatz-space cell)))
+	(unless (zerop (nr-of-inner-dofs fe))
+	  (let* ((patch (patch-of-cell cell mesh))
+		 (coeff (get-coefficient (coefficients-of-patch patch problem)
+					 (slot-value fe-strategy 'coefficient))))
+	    (setf (vref solution (cell-key cell mesh))
+		  (interpolate-on-refcell
+		   fe #'(lambda (x)
+			  (evaluate coeff (list :global (local->global cell x))))))))))))
 
 ;;;; Testing
 
@@ -85,19 +84,20 @@ moment."
 	   (let* ((domain (n-cube-domain dim))
 		  (problem (make-instance
 			    '<interpolation-problem> :domain domain
+			    :components `((u ,(nr-of-components fe-class)))
 			    :patch->coefficients
 			    #'(lambda (patch)
 				(princ patch) (terpri)
-				(list 'INITIAL
-				      (function->coefficient
+				(list (function->coefficient
+				       'INITIAL
 				       #'(lambda (x)
 					(let ((phi (* 2 pi (aref x 0))))
 					  (vector (cos phi) (sin phi)))))))))
 		  (strategy (make-instance
-			     '<fe-interpolation> :fe-class fe-class :coefficient 'INITIAL
+			     '<fe-interpolation> :coefficient 'INITIAL
 			     :indicator (make-instance '<uniform-refinement-indicator>)
 			     :success-if `(>= :nr-levels ,levels) :plot-mesh nil :output t)))
-	     (solve strategy (blackboard :problem problem)))))
+	     (solve strategy (blackboard :problem problem :fe-class fe-class)))))
     (let ((bb (test 1 (lagrange-fe 4) 3)))
       (plot (getbb bb :solution)))
     (let ((bb (test 1 (lagrange-fe 4 :nr-comps 2) 3)))

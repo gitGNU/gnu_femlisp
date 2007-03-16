@@ -50,29 +50,28 @@ the given depth."
   (apply #'fl.graphic::dx-commands-data rest))
 
 (defmethod plot ((asv <ansatz-space-vector>) &rest rest
-		 &key depth component index key transformation
-		 rank shape &allow-other-keys)
+		 &key depth (index 0) (component 0) key transformation
+		 (rank 0) shape &allow-other-keys)
   "Plots a certain component of the ansatz space vector @arg{asv},
 e.g. pressure for Navier-Stokes equations.  @arg{index} chooses one of
 several solutions if @arg{asv} has multiplicity larger 1."
-  (let* ((fe-class (fe-class (ansatz-space asv)))
-	 (mesh (mesh asv))
-	 (dim (embedded-dimension mesh))
-	 (nr-comps (nr-of-components fe-class)))
+  (let* ((as (ansatz-space asv))
+	 (mesh (mesh as))
+	 (problem (problem as))
+	 (dim (embedded-dimension mesh)))
     (ensure depth
 	    #'(lambda (cell)
-		(let ((order (discretization-order (get-fe fe-class cell))))
-		  (when (and (arrayp order) component)
-		    (setq order (aref order component)))
-		  (case order
-		    ((0 1) 0)
-		    ((2) 1)
-		    ((3 4) 2)
-		    (t 3)))))
-    (ensure component (when (= 1 nr-comps) 0))
-    (ensure index (when (= (multiplicity asv) 1) 0))
-    (ensure rank (if (and component index) 0 1))
-    (ensure shape (unless (zerop rank) nr-comps))
+		(let* ((components (components-of-cell cell mesh problem))
+		       (pos (component-position components component))
+		       (order (discretization-order (get-fe as cell))))
+		  (when (arrayp order)
+		    (setq order (aref order pos)))
+			(case order
+			  ((0 1) 0)
+			  ((2) 1)
+			  ((3 4) 2)
+			  (t 3)))))
+    ;; (ensure rank (if (and component index) 0 1))
     (apply #'graphic-output asv :dx
 	   :depth depth
 	   :cells (plot-cells mesh)
@@ -81,30 +80,24 @@ several solutions if @arg{asv} has multiplicity larger 1."
 	   :rank rank :shape shape
 	   :cell->values
 	   #'(lambda (cell)
-	       (let* ((fe (get-fe fe-class cell))
-		      (local-vec (get-local-from-global-vec cell fe asv))
-		      (depth (if (numberp depth) depth (funcall depth cell)))
-		      (m (nr-of-refinement-vertices cell depth))
-		      (components (components fe)))
-		 ;; not very nice: scalar-fe is special
-		 (unless (vectorp local-vec)
-		   (setq local-vec (vector local-vec)))
-		 (let ((all (loop for k below (length components) collect
-				  (vector-map (rcurry #'m*-tn (aref local-vec k))
-					      (local-evaluation-matrix (aref components k) depth)))))
-		   ;; we have to extract a one component value array
-		   (if key
-		       (coerce (loop for i below m collecting
-				     (funcall key (map 'vector (rcurry #'vref i) all)))
-			       'vector)
-		       (if component
-			   (map 'vector (lambda (vals) (vref vals index))
-				(elt all component))
-			   (coerce (loop for i below m collecting
-					 (map 'vector (lambda (x) (vref x index))
-						(map 'vector (rcurry #'vref i) all)))
-				   'vector))))))
-	   rest)))
+	       (let ((fe (get-fe as cell))
+		     (local-vec (get-local-from-global-vec cell asv))
+		     (depth (if (numberp depth) depth (funcall depth cell)))
+		     ;;(m (nr-of-refinement-vertices cell depth))
+		     )
+		 (let ((values
+			(multiple-evaluate-local-fe
+			 local-vec (local-evaluation-matrix fe depth)))
+		       (components (components-of-cell cell mesh problem)))
+		   (multiple-value-bind (pos length)
+		       (component-position components component)
+		     (vector-map (lambda (vals)
+				   (let ((value (extract-from vals pos length nil index)))
+				     (if key (funcall key value) value)))
+				 values)))))
+	   ;; other paramters
+	   rest
+	   )))
 
 #| Test of 1d plotting with dx
 dx -script

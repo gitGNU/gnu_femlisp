@@ -39,8 +39,10 @@
 	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH"
 	"FL.PROBLEM" "FL.ELLSYS")
   (:export
-   "<ELASTICITY-PROBLEM>" "ISOTROPIC-ELASTICITY-TENSOR"
-   "CHECK-ELASTICITY-TENSOR"
+   "<ELASTICITY-PROBLEM>"
+   "ISOTROPIC-ELASTICITY-TENSOR" "CHECK-ELASTICITY-TENSOR"
+   "ISOTROPIC-ELASTICITY-TENSOR-COEFFICIENT"
+   "ELASTICITY-UNIT-VECTOR-FORCE"
    "ELASTICITY-MODEL-PROBLEM")
   (:documentation "Defines elasticity problems."))
 
@@ -55,11 +57,11 @@
   (:documentation "An elasticity problem is a special instance of an
 elliptic sytems."))
 
-(defmethod shared-initialize :after ((problem <elasticity-problem>) slot-names
-				     &key &allow-other-keys)
+(defmethod shared-initialize :after
+    ((problem <elasticity-problem>) slot-names &key &allow-other-keys)
   (declare (ignore slot-names))
-  (setf (slot-value problem 'nr-of-components)
-	(dimension (domain problem))))
+  (setf (slot-value problem 'components)
+	(list (list 'u (dimension (domain problem))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Generation of standard elasticity problems
@@ -101,15 +103,19 @@ delta_{kl} + delta_{kj} delta_{il})}."
 	(check-permutation #(2 1 0 3))))
     tensor))
 
+(defun isotropic-elasticity-tensor-coefficient (dim &optional (lambda 1.0) (mu lambda))
+  (constant-coefficient
+   'FL.ELLSYS::A
+   (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu)))
+
 (defun elasticity-model-problem (domain &key (lambda 1.0) (mu 1.0) force)
   (let* ((domain (if (numberp domain) (n-cube-domain domain) domain))
-	 (dim (dimension domain))
-	 (force (or force (constant-coefficient (make-array dim :initial-element (ones 1))))))
+	 (dim (dimension domain)))
     (ellsys-model-problem
-     domain dim
+     domain `((u ,dim))
      :derived-class '<elasticity-problem>
-     :a (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu)
-     :f (or force (coerce (loop repeat dim collect #m(1.0)) 'vector))
+     :a (isotropic-elasticity-tensor-coefficient dim lambda mu)
+     :f (or force (ellsys-one-force-coefficient dim 1))
      :dirichlet (constraint-coefficient dim 1))))
 
 ;;; Testing: (test-elasticity)
@@ -121,10 +127,14 @@ delta_{kl} + delta_{kj} delta_{il})}."
      (isotropic-elasticity-tensor :dim dim :lambda 1.0 :mu 2.0)
      dim))
   ;; the following should be equal to (cdr-model-problem 1)
-  (let ((dim 1))
-    (elasticity-model-problem
-     dim :lambda 1.0 :mu 1.0
-     :force (constant-coefficient (make-array dim :initial-element (zeros 1)))))
+  (let* ((dim 2)
+	 (problem (elasticity-model-problem
+		   dim :lambda 1.0 :mu 1.0
+		   :force (constant-coefficient
+			   'FL.ELLSYS::F
+			   (make-array dim :initial-element (zeros 1))))))
+    (assert (= (nr-of-components problem) dim))
+    problem)
   )
 
 (fl.tests:adjoin-test 'test-elasticity)

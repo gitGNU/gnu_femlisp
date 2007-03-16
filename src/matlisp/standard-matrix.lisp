@@ -100,7 +100,9 @@ If content is a 2d array, the dimensions can be deduced."
 	  (assert (and (= n (length store))
 		       (subtypep (upgraded-array-element-type type)
 				 (array-element-type store))))
-	  (setq store (zero-vector n type)))
+	  (setq store (if (subtypep type 'number)
+			  (zero-vector n type)
+			  (make-array n :element-type type))))
       (when content
 	(etypecase content
 	  (sequence
@@ -118,10 +120,14 @@ If content is a 2d array, the dimensions can be deduced."
     "Defines the programmatic class @class{standard-matrix} for element type
 @arg{type} as extensions of the programmatic class @class{store-vector}."
     (memoizing-let ((type type))
-      (assert (subtypep type 'number))
       (fl.amop:find-programmatic-class
        (list 'standard-matrix (store-vector type))
        (intern (format nil "~A" (list 'STANDARD-MATRIX type)) "FL.MATLISP")))))
+
+(inlining
+ (defun standard-matrix-p (obj)
+   "Tests if @arg{obj} is a @class{standard-matrix}."
+   (typep obj 'standard-matrix)))
 
 (defun make-real-matrix (&rest args)
   "Generates a real matrix as specified by its arguments.  If two arguments
@@ -129,16 +135,16 @@ are provided, they should be numbers which are interpreted as rows and
 columns.  If only one argument is provided, it should be either a number
 meaning the rows and columns of a square matrix or a nested list or vector
 structure defining the contents matrix."
-  (let ((class (standard-matrix 'double-float)))
-    (cond
-      ((= (length args) 1)
-       (let ((arg (car args)))
-	 (cond ((typep arg class) (copy arg))
-	       ((numberp arg) (make-instance class :nrows arg :ncols arg))
-	       (t (make-instance class :content arg)))))
-      ((= (length args) 2)
-       (make-instance class :nrows (first args) :ncols (second args)))
-      (t (error "Too many arguments.")))))
+  (declare (optimize speed))
+  (cond
+    ((single? args)
+     (let ((arg (car args)))
+       (cond ((numberp arg) (zeros arg arg))
+	     (t (make-instance (standard-matrix 'double-float)
+			       :content arg)))))
+    ((single? (cdr args))
+     (zeros (first args) (second args)))
+    (t (error "Too many arguments."))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (set-dispatch-macro-character
@@ -157,7 +163,6 @@ structure defining the contents matrix."
 
 (defun complex-to-real-vector (cvec)
   (declare (type (simple-array (complex double-float) *) cvec))
-  (declare (optimize speed (safety 0)))
   (let* ((n (length cvec))
 	 (n2 (* 2 n)))
     (let ((dvec (make-double-vec n2)))
@@ -242,28 +247,53 @@ is not available, NIL is returned."
 ;;; conversion of vectors to standard-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ensure-matlisp (vec &optional (type :column))
-  (etypecase vec
-    (vector
-     (let ((element-type (array-element-type vec)))
-       (assert (subtypep element-type 'number)) ; preliminary
-       #+(or ecl gcl)
-       (progn
-	 (when (eq element-type 'long-float)
-	   (setq element-type 'double-float))
-	 (when (eq element-type 'short-float)
-	   (setq element-type 'single-float)))
+(defun uniform-number-type (vec)
+  "Tries to find a uniform type for the numbers contained in @arg{vec}."
+  (lret ((element-type (array-element-type vec)))
+    (unless (subtypep element-type 'number)
+      (when (plusp (length vec))
+	(setq element-type nil)
+	(loop for x across vec
+	      unless (subtypep (type-of x) element-type)
+	      do (setq element-type
+		       (upgraded-array-element-type
+			`(or ,element-type ,(type-of x)))))))))
+
+(defgeneric ensure-matlisp (obj &optional type)
+  (:documentation "Tries to coerce @arg{obj} into Matlisp format.")
+  (:method ((obj standard-matrix) &optional type)
+    (declare (ignore type))
+    obj)
+  (:method ((obj number) &optional type)
+    (declare (ignore type))
+    (ensure-matlisp (vector obj)))
+  (:method ((obj vector) &optional (type :column))
+    (let ((element-type (uniform-number-type obj)))
+      (unless (subtypep (array-element-type obj) element-type)
+	(setq obj (coerce obj `(simple-array ,element-type (*)))))
+      #+(or ecl gcl)
+      (progn
+	(when (eq element-type 'long-float)
+	  (setq element-type 'double-float))
+	(when (eq element-type 'short-float)
+	  (setq element-type 'single-float)))
+      (?2
        (make-instance
 	(standard-matrix element-type)
-	:store vec
-	:nrows (if (eq type :column) (length vec) 1)
-	:ncols (if (eq type :row) (length vec) 1))))
-    (number
-     (let ((result (make-instance (standard-matrix (type-of vec)) :nrows 1 :ncols 1)))
-       (setf (vref result 0) vec)
-       result))
-    (standard-matrix vec)
-    ))
+	:store obj 
+	:nrows (if (eq type :column) (length obj) 1)
+	:ncols (if (eq type :row) (length obj) 1))
+       ;; this branch avoids calling make-instance with keyword arguments
+       ;; on a class unknown at compile time, because this is a
+       ;; performance problem for several CL implementations
+       (lret ((result (make-instance (standard-matrix element-type))))
+	 (with-slots (store nrows ncols) result
+	   (setf store obj
+		 nrows (if (eq type :column) (length obj) 1)
+		 ncols (if (eq type :row) (length obj) 1)))))))
+  (:method ((obj list) &optional (type :column))
+    (ensure-matlisp (coerce obj 'vector) type))
+    )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Access to the entries
@@ -314,7 +344,7 @@ stream @arg{stream}."))
 (defmethod print-element ((matrix standard-matrix) element stream)
   (if *print-matrix-element-format*
       (format stream *print-matrix-element-format* element)
-      (format stream "~A" element)))
+      (format stream "~S" element)))
 
 (defun print-matrix (matrix stream)
   (if *print-matrix*
@@ -358,25 +388,48 @@ stream @arg{stream}."))
 
 ;;; Constructors for special standard matrices
 
-(defmethod eye (n &optional m (type 'double-float))
-  "Returns the nxn identity matrix.  The value is freshly allocated."
-  (let ((result (make-instance (standard-matrix type) :nrows n :ncols (or m n)))
-	(one (coerce 1 type)))
-    (dotimes (i (if m (min n m) n) result)
-      (setf (mref result i i) one))))
-
-(defmethod zeros (n &optional m (type 'double-float))
+(defmethod zeros (n &optional (m n) (type 'double-float))
   "Returns nxn or (if m is provided) nxm zeros.  The value is freshly
 allocated."
-  (make-instance (standard-matrix type) :nrows n :ncols (or m n)))
+  (?2 (make-instance (standard-matrix type) :nrows n :ncols m)
+      ;; this branch avoids calling make-instance with keyword arguments on
+      ;; a class unknown at compile time, because this is a performance
+      ;; problem for several CL implementations
+      (lret ((result (make-instance (standard-matrix type))))
+	(with-slots (store nrows ncols) result
+	  (setf nrows n ncols m
+		store (make-array (* n m) :element-type type
+				  :initial-element (coerce 0 type)))))))
 
-(defmethod ones (n &optional m (type 'double-float))
+(defmethod eye (n &optional (m n) (type 'double-float))
+  "Returns the nxn identity matrix.  The value is freshly allocated."
+  (let ((result (zeros n m type))
+	(one (coerce 1 type)))
+    (dotimes (i (min n m) result)
+      (setf (mref result i i) one))))
+
+(defmethod ones (n &optional (m n) (type 'double-float))
   "Returns nxn or (if m is provided) nxm ones.  The value is freshly
 allocated."
-  (unless m (setq m n))
-  (make-instance (standard-matrix type) :nrows n :ncols m
-		 :store (make-array (* n m) :element-type type
-				    :initial-element (coerce 1 type))))
+  (let ((vec (make-array (* n m) :element-type type
+			 :initial-element (coerce 1 type))))
+    (?2 (make-instance (standard-matrix type) :nrows n :ncols m :store vec)
+	;; this branch avoids calling make-instance with keyword arguments
+	;; on a class unknown at compile time, because this is a
+	;; performance problem for several CL implementations
+	(lret ((result (make-instance (standard-matrix type))))
+	  (with-slots (store nrows ncols) result
+	    (setf nrows n ncols m store vec))))))
+
+(defun column (&rest values)
+  (lret ((result (zeros (length values) 1)))
+    (loop for value in values and i from 0 do
+	  (setf (vref result i) value))))
+
+(defun row (&rest values)
+  (lret ((result (zeros 1 (length values))))
+    (loop for value in values and i from 0 do
+	  (setf (vref result i) value))))
 
 (defmethod mrandom ((n integer) &optional m (type 'double-float) (range 1.0))
   "Returns a random nxn or (if m is provided) nxm matrix.  The value is
@@ -387,20 +440,18 @@ freshly allocated."
 (defmethod diag (vec)
   "Returns a diagonal matrix with diagonal entries from vec."
   (let* ((n (vlength vec))
-	 (result (make-instance (standard-matrix (element-type vec))
-				:nrows n :ncols n)))
+	 (result (zeros n n (element-type vec))))
     (dotimes (i n result)
       (setf (mref result i i) (vref vec i)))))
 
 (defun laplace-full-matrix (n)
   "Generates the matrix for a 1-dimensional Laplace problem discretized
 with the 3-point stencil on a structured mesh."
-  (let ((result (make-instance (standard-matrix 'double-float) :nrows n :ncols n)))
+  (lret ((result (zeros n n 'double-float)))
     (dotimes (i n)
       (setf (mref result i i) 2.0)
       (when (> i 0) (setf (mref result i (1- i)) -1.0))
-      (when (< i (1- n)) (setf (mref result i (1+ i)) -1.0)))
-    result))
+      (when (< i (1- n)) (setf (mref result i (1+ i)) -1.0)))))
 
 (defmethod make-analog ((x standard-matrix))
   "Constructs a zero matrix with the same size as X."
@@ -413,9 +464,7 @@ with the 3-point stencil on a structured mesh."
 (defmethod join ((x standard-matrix) (y standard-matrix) &optional (orientation :horizontal))
   "Joins standard matrices X and Y either horizontally or vertically
 depending on the value of ORIENTATION."
-  (flet ((layout (m n)
-	   (make-instance (standard-matrix (element-type x))
-			  :nrows m :ncols n)))
+  (flet ((layout (m n) (zeros m n (element-type x))))
     (ecase orientation
       (:horizontal
        (join-horizontal! x y (layout (nrows x) (+ (ncols x) (ncols y)))))
@@ -445,14 +494,10 @@ depending on the value of ORIENTATION."
   "Loop through column keys."
   (dotimes (i (ncols mat))
     (funcall fn i)))
-(defmethod for-each-key (fn (mat standard-matrix))
+(defmethod for-each-entry-and-key (fn (mat standard-matrix))
   (dotimes (i (nrows mat))
     (dotimes (j (ncols mat))
-      (funcall fn (cons i j)))))
-(defmethod for-each-key-and-entry (fn (mat standard-matrix))
-  (dotimes (i (nrows mat))
-    (dotimes (j (ncols mat))
-      (funcall fn i j (mref mat i j)))))
+      (funcall fn (mref mat i j) i j))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing
@@ -469,10 +514,10 @@ depending on the value of ORIENTATION."
     (describe (eye 1))
     (eye 2)
     (zeros 1)
-    (make-real-matrix `((,(cos 1.0))))
+    (row (cos 1.0))
     (make-real-matrix #((2.0 3.0) (4.0 5.0)))
     (copy (eye 5))
-    (norm #m((1.0 2.0)) 1)
+    (norm (row 1.0 2.0) 1)
     )
   )
 

@@ -76,7 +76,7 @@
 	  (assert entry)
 	  (setf (mref U row-key row-key)
 		(typecase entry
-		  (crs-matrix (crs->matlisp entry))
+		  (compressed-matrix (compressed->matlisp entry))
 		  (t (copy entry)))))
     (loop for row-key across ordering do
 	  (for-each-key-and-entry-in-row
@@ -84,7 +84,7 @@
 	       (when (and (matrix-row U col-key) (not (mzerop entry)))
 		 (setf (mref U row-key col-key)
 		       (typecase entry
-			 (crs-matrix (crs->matlisp entry))
+			 (compressed-matrix (compressed->matlisp entry))
 			 (t (copy entry))))))
 	   A row-key))
 
@@ -262,9 +262,10 @@ completely."
       ;; return the result
       (values
        (let ((pattern (make-instance
-		       'ccs-pattern :nrows nrows :ncols ncols
-		       :column-starts column-starts :row-indices row-indices)))
-	 (make-instance (ccs-matrix 'double-float) :pattern pattern :store store))
+		       'compressed-pattern :sizes (vector ncols nrows)
+		       :starts column-starts :indices row-indices
+		       :orientation :column)))
+	 (make-instance (compressed-matrix 'double-float) :pattern pattern :store store))
        row-keys col-keys))))
 
 (defun key->index (mat keys type)
@@ -323,9 +324,9 @@ associated with each key."
 	;; next block column
 	(incf pos (* column-length column-width))))
     (let ((pattern (make-instance
-		    'ccs-pattern :nrows nrows :ncols nrows 
+		    'compressed-pattern :sizes (vector ncols nrows)
 		    :column-starts column-starts :row-indices row-indices)))
-      (make-instance (ccs-matrix 'double-float) :pattern pattern :store store))))
+      (make-instance (compressed-matrix 'double-float) :pattern pattern :store store))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; GESV!

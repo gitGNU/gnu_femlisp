@@ -59,12 +59,12 @@ discretizations of Navier-Stokes."))
 	     asa key)))
     ;; finally return the block together with the components
     (let ((extended-keys (concatenate 'vector keys (hash-table-keys outer)))
-	  (fe-class (fe-class asa)))
+	  (as (ansatz-space asa)))
       (values
        extended-keys
        (vector-map
 	#'(lambda (key)
-	    (let ((fe (get-fe fe-class (representative key))))
+	    (let ((fe (get-fe as (representative key))))
 	      (if (gethash key inner)
 		  (cons 0 (nr-of-inner-dofs fe))
 		  (let ((subcell-offsets (getf (properties fe) 'SUBCELL-OFFSETS)))

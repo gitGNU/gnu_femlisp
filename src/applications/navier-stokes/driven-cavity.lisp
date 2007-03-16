@@ -50,7 +50,9 @@ driven cavity."
     (solve 
      (blackboard
       :fe-class (navier-stokes-lagrange-fe order dim 1)
-      :problem (driven-cavity dim :reynolds reynolds :smooth-p smooth-p)
+      :problem
+      (?1 (driven-cavity dim :reynolds reynolds :smooth-p smooth-p)
+	  (fl.navier-stokes-ellsys:driven-cavity dim :reynolds reynolds :smooth-p smooth-p))
       :base-level (if (> order 1) 0 1)
       :success-if (if levels
 		      `(= :nr-levels ,levels)
@@ -123,7 +125,7 @@ for the Navier-Stokes equation using Taylor-Hood finite elements
 		    (vref (vref vec 1) 0))))
   (fe-extreme-values (getbb *result* :solution))
   (time (plot (getbb *result* :solution) :component 1))
-  (time (plot (component (getbb *result* :solution) 1)))
+  ;; (time (plot (component (getbb *result* :solution) 1)))
 )
 
 ;;; (test-driven-cavity)

@@ -34,7 +34,7 @@
 
 (in-package :fl.discretization)
 
-(defclass <discretization> ()
+(defclass <discretization> (property-mixin)
   ()
   (:documentation "Discretization base class."))
 

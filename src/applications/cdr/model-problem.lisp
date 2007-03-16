@@ -87,12 +87,12 @@ for the value u(1/2,1/2,1/2).
 				 (* k1 k2 k3 (+ (* k1 k1) (* k2 k2) (* k3 k3)))))))))))
 
 
-(defun model-problem-computation (domain &key (output 1) plot)
+(defun model-problem-computation (domain &key (output 1) plot (time 5.0))
   "Performs the model problem demo."
   (defparameter *result*
     (solve (blackboard
 	    :problem (cdr-model-problem domain)
-	    :plot-mesh t :output output :success-if `(> :time 5.0))))
+	    :plot-mesh t :output output :success-if `(> :time ,time))))
   (when plot
     (plot (getbb *result* :solution))))
   
@@ -118,6 +118,11 @@ after a step."))
 (make-model-problem-demo (n-cube-domain 3) "unit-cube")
 
 (defun test-laplace-model-problem ()
+  (model-problem-computation (n-cube-domain 2) :plot t :time 2.0)
+  (dbg-on :graphic)
+  (plot (getbb *result* :solution))
+  (dbg-off)
+  
   ;;; Elementary testing
   (let* ((dim 2) (order 1) (level 2)
 	 (problem (cdr-model-problem dim))

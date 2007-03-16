@@ -44,35 +44,86 @@
   (:documentation "Number of matrix rows."))
 
 (defgeneric mref (A i j)
-  (:documentation "Returns the matrix element @code{A[i,j]}."))
+  (:documentation "Returns the matrix element @code{A[i,j]}.")
+  (:method ((x vector) i (j (eql 0)))
+    (vref x i))
+  (:method ((x <vector>) i (j (eql 0)))
+    (vref x i)))
+
 (defgeneric (setf mref) (value A i j)
-  (:documentation "Writes the matrix element @code{A[i,j]}."))
+  (:documentation "Writes the matrix element @code{A[i,j]}.")
+  (:method (value (x vector) i (j (eql 0)))
+    (setf (vref x i) value))
+  (:method (value (x <vector>) i (j (eql 0)))
+    (setf (vref x i) value)))
 
-(defmethod vref ((mat <matrix>) (index-pair cons))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; specializations of vector methods
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod vref ((mat <matrix>) (indices list))
   "Vector referencing on matrices is done by default by matrix referencing
-a pair of index-pair.  Some matrices may allow for other vector indexing
-schemes."
-  (mref mat (car index-pair) (cdr index-pair)))
+a list of indices."
+  (apply #'mref mat indices))
 
-(defmethod (setf vref) (value (mat <matrix>) (index-pair cons))
+(defmethod (setf vref) (value (mat <matrix>) (indices list))
   "Vector referencing on matrices is done by default by matrix referencing
-a pair of index-pair."
-  (setf (mref mat (car index-pair) (cdr index-pair)) value))
+a list of indices."
+  (setf (apply #'mref mat indices) value))
 
+(defmethod for-each-key (fn (mat <matrix>))
+  (dotimes (i (nrows mat))
+    (dotimes (j (ncols mat))
+      (funcall fn i j))))
+
+(defmethod for-each-entry ((fn function) (mat <matrix>))
+  (dotimes (i (nrows mat))
+    (dotimes (j (ncols mat))
+      (funcall fn (mref mat i j)))))
+
+(defmethod for-each-entry-and-key ((fn function) (mat <matrix>))
+  (dotimes (i (nrows mat))
+    (dotimes (j (ncols mat))
+      (funcall fn (mref mat i j) i j))))
+
+(defmethod for-each-entry-and-vector-index (func (mat <matrix>))
+  (for-each-entry-and-key
+   (lambda (entry i j) (funcall func entry (list i j)))
+   mat))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; special matrix methods
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; BLAS Level 3
 (defgeneric gemm-nn! (a x y b z)
-  (:documentation "General matrix-matrix multiplication: Z <- alpha * X * Y
-+ beta * Z"))
+  (:documentation "General matrix-matrix multiplication:
+@math{Z <- alpha * X * Y + beta * Z}"))
 (defgeneric gemm-nt! (a x y b z)
-  (:documentation "General matrix-matrix multiplication: Z <- alpha * X * Y'
-+ beta * Z"))
+  (:documentation "General matrix-matrix multiplication:
+@mathLZ <- alpha * X * Y' + beta * Z}"))
 (defgeneric gemm-tn! (a x y b z)
-  (:documentation "General matrix-matrix multiplication: Z <- alpha * X' * Y
-+ beta * Z"))
+  (:documentation "General matrix-matrix multiplication:
+@math{Z <- alpha * X' * Y + beta * Z}"))
 (defgeneric gemm-tt! (a x y b z)
-  (:documentation "General matrix-matrix multiplication: Z <- alpha * X' * Y'
-+ beta * Z"))
+  (:documentation "General matrix-matrix multiplication:
+@math{Z <- alpha * X' * Y' + beta * Z}"))
+
+(defmacro define-default-gemm! (name At yt)
+  (multiple-value-bind (i j)
+      (if At (values 'j 'i) (values 'i 'j))
+    `(defmethod ,name (alpha A y beta z)
+      (unless (= beta 1) (scal! beta z))
+      (dovec ((entry i j) A z)
+	(dotimes (l (multiplicity z))
+	  (setf (mref z ,i l)
+		(,name alpha entry (mref y ,@(if yt `(l ,j) `(,j l)))
+		       1.0 (mref z ,i l))))))))
+
+(define-default-gemm! gemm-nn! nil nil)
+(define-default-gemm! gemm-nt! nil t)
+(define-default-gemm! gemm-tn! t nil)
+(define-default-gemm! gemm-tt! t t)
 
 (defgeneric m*-product-instance (x y)
   (:documentation "Returns a zero matrix for storing the product of X and Y."))
@@ -168,13 +219,6 @@ starting from position @arg{offset}."))
 			       'for-each-key-and-entry-in-row))))
     `(,row-for-each #'(lambda ,(remove nil loop-vars) ,@body) ,row)))
 
-#|
-;;; vector-matrix operations (deprecated)
-(defgeneric x<-Ay (x A y))
-(defgeneric x+=Ay (x A y))
-(defgeneric x-=Ay (x A y))
-|#
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; General methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -187,11 +231,14 @@ default."
 (defmethod matrix-transpose-instance (x)
   (make-instance (class-of x) :nrows (ncols x) :ncols (nrows x)))
 
-(defun transpose (x)
-  "Rewriting for TRANSPOSE."
-  (transpose! x (matrix-transpose-instance x)))
+(defgeneric transpose (x)
+  (:documentation "Transpose the matrix @arg{x}.")
+  (:method (x)
+    "The default method casts performs a combination of
+@function{transpose!} and @function{matrix-transpose-instance}."
+    (transpose! x (matrix-transpose-instance x))))
 
-(declaim (inline gemm!))
+(declaim (inline gemm gemm!))
 (defun gemm! (alpha x y beta z &optional (job :nn))
   "Dispatches on the optional job argument (member :nn :tn :nt :tt) and
 calls the corresponding generic function, e.g. GEMM-NN!."
@@ -201,7 +248,7 @@ calls the corresponding generic function, e.g. GEMM-NN!."
     (:tn (gemm-tn! alpha x y beta z))
     (:tt (gemm-tt! alpha x y beta z))))
 
-(definline gemm (alpha x y beta z  &optional (job :nn))
+(defun gemm (alpha x y beta z  &optional (job :nn))
   "Rewriting of GEMM in terms of GEMM!."
   (gemm! alpha x y beta (copy z) job))
 
@@ -222,12 +269,13 @@ calls the corresponding generic function, e.g. GEMM-NN!."
   "By default M*-TN is rewritten in terms of GEMM-TN!."
   (gemm-tn! (coerce 1 (scalar-type x)) x y
 	    (coerce 0 (scalar-type x)) (m*-product-instance-tn x y)))
-  
-(definline getrf (x &optional ipiv)
+
+(declaim (inline getrf getrs gesv))
+(defun getrf (x &optional ipiv)
   "Rewriting for GETRF  in terms of GETRF!."
   (getrf! (copy x) ipiv))
 
-(definline getrs (lu b &optional ipiv)
+(defun getrs (lu b &optional ipiv)
   "Rewriting for GETRS in terms of GETRS!."
   (getrs! lu (copy b) ipiv))
 
@@ -239,7 +287,7 @@ calls the corresponding generic function, e.g. GEMM-NN!."
 	(error "argument A given to GESV! is singular to working machine precision")
 	(getrs! LR b ipiv))))
 
-(definline gesv (x b)
+(defun gesv (x b)
   "Rewriting for GESV in terms of GESV!."
   (gesv! x (copy b)))
 
@@ -277,19 +325,10 @@ access is slow.  They are indexed with ordinary integers."))
   (multiple-value-bind (i j) (floor k (nrows submat))
     (setf (mref submat i j) value)))
 
-(defmethod for-each-key ((fn function) (mat <submatrix>))
-  (dotimes (i (* (nrows mat) (ncols mat)))
-    (funcall fn i)))
-
-(defmethod for-each-key-and-entry ((fn function) (mat <submatrix>))
+(defmethod for-each-entry-and-key (func (mat <submatrix>))
   (dotimes (i (nrows mat))
     (dotimes (j (ncols mat))
-      (funcall fn (+ (* j (nrows mat)) i) (mref mat i j)))))
-
-(defmethod for-each-entry ((fn function) (mat <matrix>))
-  (dotimes (i (nrows mat))
-    (dotimes (j (ncols mat))
-      (funcall fn (mref mat i j)))))
+      (funcall func (mref mat i j) i j))))
 
 (defmethod nrows ((mat <submatrix>)) (length (row-keys mat)))
 

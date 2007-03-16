@@ -57,8 +57,6 @@ slot."))
 ;(defmethod evaluate ((f' <functional>) f)
 ;  (funcall (functional f') f))
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -441,8 +439,9 @@ parameter."
   "Returns a matrix A suitable for describing the ellipse as (Ax,x)=1."
   (let ((ev1 (make-real-matrix `(,(cos phi) ,(- (sin phi)))))
 	(ev2 (make-real-matrix `(,(sin phi) ,(cos phi)))))
-    (gemm-nt! #I"((1+excentricity)/radius)^^2" ev1 ev1
-	      #I"((1-excentricity)/radius)^^2" (m* ev2 (transpose ev2)))))
+    (gemm! #I"((1+excentricity)/radius)^^2" ev1 ev1
+	   #I"((1-excentricity)/radius)^^2" (m* ev2 (transpose ev2))
+	   :nt)))
 
 (defun project-to-ellipsoid (midpoint A)
   "Returns a function which projects to the ellipsoid given by
@@ -461,8 +460,7 @@ A."
 		(Az (m* A z))
 		(Qz (dot z Az))
 		(norm-z (sqrt Qz)))
-	   #-(or)(gemm-nt! (/ -1 norm-z Qz) z Az
-			   (/ norm-z) (eye dim))
+	   #-(or)(gemm! (/ -1 norm-z Qz) z Az (/ norm-z) (eye dim) :nt)
 	   #+(or)(m- (scal (/ norm-z) (eye dim))
 	       (scal (/ 1 norm-z Qz) (m* z (transpose Az)))))))))
 
@@ -519,9 +517,65 @@ isometrically to @math{S^1}."
      '<special-function> :domain-dimension 1 :image-dimension 2
      :evaluator evaluator :gradient (numerical-gradient evaluator))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Sparse functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro sparse-function (args &body components)
+  (with-gensyms (result)
+    `(lambda ,args
+      (declare (ignorable ,@args))
+      (lret ((,result (make-instance '<sparse-tensor> :rank 1)))
+	,@(loop+ ((comp components) i)
+		 unless (eql comp 0) collect
+		 `(setf (tensor-ref ,result ,i) ,comp))))))
+
+(let ((real-shift (coerce (sqrt least-positive-short-float) 'double-float)))
+  (defun sparse-real-derivative (sparse-f)
+    "Warning: works only for real-valued functions!"
+    (lambda (&rest args)
+      (lret ((result (make-instance '<sparse-tensor> :rank 2)))
+	(let ((base-value (apply sparse-f args))
+	      (new-args (copy-seq args)))
+	  (loop for i from 0
+		and rest on new-args
+		for comp = (the double-float (car rest)) do
+		;; shift
+		(setf (car rest) (complex comp real-shift))
+		(let ((shifted-value (apply sparse-f new-args)))
+		  (for-each-entry-and-key
+		   (lambda (delta k)
+		     (unless (zerop delta)
+		       (setf (tensor-ref result k i)
+			     (/ (imagpart delta) real-shift))))
+		   (m- shifted-value base-value)))
+		;; set back
+		(setf (car rest) comp)))))))
+
 ;;;; Testing
 
 (defun test-function ()
+  (let* ((f (sparse-function (x) (- 2.0 (* x x))))
+	 (df (sparse-real-derivative f))
+	 (s (sparse-function () 1))
+	 (x 1.0))
+    (let ((f (funcall f x))
+	  (df (funcall df x)))
+      (show df)
+      (show (axpy -1.0 (m* df (vector x)) f)))
+    (show (funcall f 0.0))
+    (assert (= (tensor-ref (funcall df 1.0) 0 0)
+	       -2.0)))
+  
+  (let* ((alpha 1.0)
+	 (f (sparse-function (glc g6p)
+	      0
+	      (/ g6p (+ 1.0 (* g6p alpha)))))
+	 (df (sparse-real-derivative f)))
+    (show (funcall f 1.0 1.0))
+    (show (funcall df 1.0 1.0)))
+
   (let ((project (project-to-sphere #d(0.5 0.5) 0.5)))
     (evaluate project #d(2.0 0.5))
     (evaluate-gradient project #d(2.0 0.5)))
