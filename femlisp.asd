@@ -154,7 +154,7 @@
      (:file "time" :depends-on ("pde-problem"))
      (:file "ellsys" :depends-on ("evp" "time"))
      (:file "cdr" :depends-on ("ellsys"))
-     (:file "cdrsys" :depends-on ("cdr"))
+     ;;(:file "cdrsys" :depends-on ("cdr"))
      (:file "elasticity" :depends-on ("ellsys"))
      (:file "navier-stokes" :depends-on ("ellsys"))
      (:file "navier-stokes-ellsys" :depends-on ("ellsys"))
@@ -209,7 +209,7 @@
      (:file "ellsys-fe" :depends-on ("fedisc"))
      (:file "elasticity-fe" :depends-on ("system-fe"))
      (:file "navier-stokes-fe" :depends-on ("system-fe"))
-     (:file "cdrsys-fe" :depends-on ("system-fe"))
+     ;;(:file "cdrsys-fe" :depends-on ("system-fe"))
      ))
    (:module
     "special-iteration"

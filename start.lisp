@@ -4,7 +4,8 @@
 ;;; start.lisp - Femlisp start file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003-2005 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2005 Nicolas Neuss, University Heidelberg.
+;;; Copyright (C) 2006- Nicolas Neuss, University Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
