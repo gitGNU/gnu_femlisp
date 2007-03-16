@@ -42,7 +42,7 @@
 #include "umfpack.h"
 
 int c_umfpack (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
-               int nrhs, double *B, double *X)
+               int nrhs, double *B, double *X, int orientation)
 {
     int i, status;
     double Control [UMFPACK_CONTROL], Info [UMFPACK_INFO];
@@ -64,7 +64,8 @@ int c_umfpack (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
     if (status!=UMFPACK_OK) goto cleanup_and_return;
     for (i=0; i<nrhs; i++)
     {
-        status = umfpack_di_solve (UMFPACK_A, Ap, Ai, Ax, X+i*n, B+i*m, Numeric, Control, Info);
+        status = umfpack_di_solve ((orientation==0)?UMFPACK_A:UMFPACK_At,
+                                   Ap, Ai, Ax, X+i*n, B+i*m, Numeric, Control, Info);
         if (status!=UMFPACK_OK) goto cleanup_and_return;
     }
     
@@ -77,6 +78,42 @@ int c_umfpack (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
 
 #ifdef __TESTING__
 #include <stdio.h>
+
+void fill (double *x, int n, double s)
+{
+    int i;
+    for (i=0; i<n; i++) x[i] = s;
+}
+
+void print_vector (double *x, int n)
+{
+    int i;
+    for (i=0; i<n; i++) printf("%lf\n", x[i]);
+    printf("\n");
+}
+
+/* Test example:
+   
+   s=19; u=21; p=16; e=5; r=18; l= 12;
+   A=[s,0,u,u,0; l,u,0,0,0; 0,l,p,0,0; 0,0,0,e,u; l,l,0,0,r];
+   A\[1,1,1,1,1]'
+   A'\[1,1,1,1,1]'
+
+   Should give:
+   
+-0.031250
+0.065476
+0.013393
+0.062500
+0.032738
+
+0.033298
+0.045232
+0.018797
+0.060150
+-0.014620
+   
+*/
 
 int main(int argc, char *argv[])
 {
@@ -100,12 +137,17 @@ int main(int argc, char *argv[])
 
     nrhs = 1;
     if (!(rhs = malloc(m*nrhs*sizeof(double)))) return -1;
-    for (i = 0; i < m*nrhs; ++i) rhs[i] = 1.0;
+
     sol = rhs;  /* rhs is overwritten */
     
-    c_umfpack (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+    fill(rhs, m*nrhs, 1.0);
+    c_umfpack (m, n, nnz, xa, asub, a, nrhs, rhs, sol, 0);
+    print_vector (sol,m*nrhs);
 
-    for (i=0; i<m; i++)    printf("%lf\n", sol[i]);
+    fill(rhs, m*nrhs, 1.0);
+    c_umfpack (m, n, nnz, xa, asub, a, nrhs, rhs, sol, 1);
+    print_vector (sol,m*nrhs);
+
     return 0;
 }
 #endif

@@ -2,6 +2,38 @@
 
 * From Femlisp-0.9.9 to Femlisp-0.9.10:
 
+There is a new approach of problem definition in @file{problem;pdef.lisp}
+with the help of a macro @macro{create-problem}.  Old definitions are still
+used, but may finally be replaced.  The performance impact should be traced
+carefully when doing this step.  However, the new form in principle offers
+even more possibilities for optimization.
+
+The FE discretization of @class{<ellsys>} problems handles multiple
+coefficients of the same type additively.  The Rothe time-stepping scheme
+was simplified using this feature.
+
+General elliptic systems: @class{<cdr-problem>},
+@classs{<elasticity-problem>}, and @class{<navier-stokes-problem>} have
+been changed into special cases of @class{<ellsys-problem>}.  This should
+result finally in considerably less source code.  However, at the moment,
+the old Navier-Stokes code is still used, and the new code is in a separate
+package called @package{navier-stokes-ellsys}.
+
+Generalized fe discretization: the vector form is now used everywhere but
+in internal fe operations.
+
+Structural improvement: the necessary local<->global matrix/vector
+extraction information is computed lazily in @file{sparseif.lisp}, where it
+is needed.
+
+Performance improvement: avoiding to call @function{make-instance} with
+keyword arguments in functions like @function{zeros}, @function{ones},
+@function{ensure-matlisp} leads to a noticeably higher overall performance
+(something like 20%), especially for CMUCL and SBCL.
+
+I changed the color of 1d plots in DX, because yellow axes and white graphs
+did not work in some situations (probably due to a bug in DX).
+
 Depending on the parameter @var{fl.graphic::*show-dx-window*}, DX windows
 do not pop up when plotting.
 

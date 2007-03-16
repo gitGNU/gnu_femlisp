@@ -49,7 +49,7 @@
 #include "dsp_defs.h"
 
 int c_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
-               int nrhs, double *rhs, double *sol)
+               int nrhs, double *rhs, double *sol, int orientation)
 {
     SuperMatrix A, B, L, U;
     int *perm_r; /* row permutations from partial pivoting */
@@ -58,12 +58,16 @@ int c_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
     superlu_options_t options;
     SuperLUStat_t stat;
 
+    if ((orientation!=0)&&(orientation!=1)) return -1;
+    
     /* copy rhs to solution */
     if (sol!=rhs)
         for (i=0; i<m*nrhs; i++) sol[i] = rhs[i];
     
     /* Create matrix A in the format expected by SuperLU. */
-    dCreate_CompCol_Matrix(&A, m, n, nnz, Ax, Ai, Ap, SLU_NC, SLU_D, SLU_GE);
+    dCreate_CompCol_Matrix(&A, m, n, nnz, Ax, Ai, Ap,
+                           (orientation==0)?SLU_NC:SLU_NR,
+                           SLU_D, SLU_GE);
     /* Create right-hand side matrix B (same as X). */
     dCreate_Dense_Matrix(&B, m, nrhs, sol, m, SLU_DN, SLU_D, SLU_GE);
 	
@@ -88,7 +92,7 @@ int c_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
 #include <stdlib.h>
 
 int call_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
-                  int nrhs, double *rhs, double *sol)
+                  int nrhs, double *rhs, double *sol, int orientation)
 {
     FILE *file;
     char command[255];
@@ -105,8 +109,8 @@ int call_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
     fclose(file);
 
     // call solve
-    sprintf(command, "cat superlu.lgs | superlu %d %d %d %d | cat > superlu.solution",
-            m, n, nnz, nrhs);
+    sprintf(command, "cat superlu.lgs | superlu %d %d %d %d %d | cat > superlu.solution",
+            m, n, nnz, nrhs, orientation);
     system(command);
 
     // read solution
@@ -125,7 +129,7 @@ int call_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
 
 int main(int argc, char *argv[])
 {
-    int nrhs, m, n, nnz;
+    int nrhs, m, n, nnz, orientation;
     int *asub, *xa;
     double *a, *rhs, *sol;
 	
@@ -134,6 +138,7 @@ int main(int argc, char *argv[])
     if (sscanf (argv[2], "%d", &n)!=1) return -3;
     if (sscanf (argv[3], "%d", &nnz)!=1) return -4;
     if (sscanf (argv[4], "%d", &nrhs)!=1) return -5;
+    if (sscanf (argv[5], "%d", &orientation)!=1) return -6;
 
     if (!(xa = malloc ((n+1)*sizeof(int)))) return -6;
     if (!(asub = malloc (nnz*sizeof(int)))) return -7;
@@ -148,15 +153,52 @@ int main(int argc, char *argv[])
 	
     sol = rhs;  /* rhs is overwritten */
 
-    c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
+    if (c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol, orientation) != 0)
+        return -10;
     
     /* write out solution */
     fwrite (rhs, sizeof(double), m*nrhs, stdout);
-	
+    
     return 0;
 }
 
 #else
+
+void fill_vector (double *x, int n, double s)
+{
+    int i;
+    for (i=0; i<n; i++) x[i] = s;
+}
+
+void print_vector (double *x, int n)
+{
+    int i;
+    for (i=0; i<n; i++) printf("%lf\n", x[i]);
+    printf("\n");
+}
+
+/* Test example:
+   
+   s=19; u=21; p=16; e=5; r=18; l= 12;
+   A=[s,0,u,u,0; l,u,0,0,0; 0,l,p,0,0; 0,0,0,e,u; l,l,0,0,r];
+   A\[1,1,1,1,1]'
+   A'\[1,1,1,1,1]'
+
+   Should give:
+   
+-0.031250
+0.065476
+0.013393
+0.062500
+0.032738
+
+0.033298
+0.045232
+0.018797
+0.060150
+-0.014620
+   
+*/
 
 int main(int argc, char *argv[])
 {
@@ -180,16 +222,24 @@ int main(int argc, char *argv[])
 
     nrhs = 1;
     if (!(rhs = malloc(m*nrhs*sizeof(double))))	return -1;
-    for (i = 0; i < m*nrhs; ++i) rhs[i] = 1.0;
     sol = rhs;  /* rhs is overwritten */
-	
-#ifdef __TEST_FILTER__
-    call_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
-#else
-    c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol);
-#endif
 
-    for (i=0; i<m; i++)	printf("%lf\n", sol[i]);
+    fill_vector (rhs, m*nrhs, 1.0);
+#ifdef __TEST_FILTER__
+    call_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol, 0);
+#else
+    c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol, 0);
+#endif
+    print_vector (sol,m*nrhs);
+    
+    fill_vector (rhs, m*nrhs, 1.0);
+#ifdef __TEST_FILTER__
+    call_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol, 1);
+#else
+    c_superlu (m, n, nnz, xa, asub, a, nrhs, rhs, sol, 1);
+#endif
+    print_vector (sol, m*nrhs);
+    
     return 0;
 }
 #endif

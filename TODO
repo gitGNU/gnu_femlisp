@@ -3,10 +3,9 @@
 Femlisp needs the following more or less urgently:
 --------------------------------------------------
 
-* Removal of known bugs, see the file BUGS
+* Remove the Femlisp-related bugs from the file BUGS
 
 * Discretization
- - scalar fe as special case of vector fe
  - all problems/discretizations as special cases of ellsys
  - tensor-product fe and associated quadrature rules
  - sparse interpolation/projection matrices
@@ -24,7 +23,7 @@ Femlisp needs the following more or less urgently:
  - better solution of eigenvalue problems
 
 * Parallelization
- - does not work well on SMP machines at the moment (no good speedup)
+ - far from complete on SMP machines (only assembly)
  - not yet started on clusters
 
 

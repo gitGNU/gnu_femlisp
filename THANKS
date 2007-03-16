@@ -1,7 +1,12 @@
 # -*- mode: text; -*-
 
-Femlisp owes thanks mainly to the following people, groups, and
+Femlisp owes special thanks mainly to the following people, groups, and
 institutions (in reverse chronological order):
+
+- Christian Wieners and the University of Karlsruhe for allowing me to
+  continue the work on Femlisp,
+
+- the SBCL developers for making SBCL such a powerful Lisp implementation,
 
 - Franz Inc. for giving me access to an evaluation copy of Allegro CL,
 
@@ -36,6 +41,7 @@ institutions (in reverse chronological order):
 
  Heidelberg, 28.9.2003
  Warwick, 29.6.2005
+ Karlsruhe, 25.1.2007
 
  Nicolas Neuss
 
