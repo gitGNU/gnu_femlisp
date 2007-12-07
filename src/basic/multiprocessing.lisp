@@ -39,11 +39,15 @@
    ;; threading
    "MAKE-THREAD" "MAKE-MUTEX" "WITH-MUTEX"
    "MAKE-WAITQUEUE" "CONDITION-WAIT" "CONDITION-NOTIFY"
-
+   
    "MUTEX-MIXIN" "WITH-LOCK"
    "WITH-MUTUAL-EXCLUSION"
+
+   "LOCKED-REGION-MIXIN"
+   "WITH-REGION-DO" "WITH-REGION"
    "MPQUEUE" "PARQUEUE"
    "*THREAD-LOCAL-MEMOIZATION-TABLE*"
+   "*NUMBER-OF-THREADS*" "*CHUNK-SIZE*"
    "WITH-WORKERS" "WORK-ON")
   (:documentation
    "This package provides an interface for allowing parallel execution in
@@ -87,7 +91,7 @@ processes have to run."
   #+allegro system:*current-process*
   #+cmu (mp:current-process)
   #+sb-thread sb-thread:*current-thread*
-  #-(or allegro cmu sb-thread) :main-thread
+  #-(or allegro cmu sb-thread) (list :main-thread)
   )
 
 (defun thread-name (thread)
@@ -103,7 +107,7 @@ processes have to run."
   #+allegro mp:*all-processes*
   #+cmu (mp:all-processes)
   #+sb-thread (sb-thread:list-all-threads)
-  #-(or allegro cmu sb-thread) :main-thread
+  #-(or allegro cmu sb-thread) (list :main-thread)
   )
 
 (defun terminate-thread (thread)
@@ -184,14 +188,69 @@ interfering."
   ((waitqueue :reader waitqueue :initform (make-waitqueue)))
   (:documentation "Waitqueue mixin."))
 
-(defgeneric wait (waitqueue-object &key while until)
+(defgeneric wait (waitqueue-object &key while until perform)
   (:documentation "Waits on @arg{waitqueue-object} while @arg{while} is
-satisfied or until @arg{until} is satisfied.")
-  (:method ((wq waitqueue-mixin) &key while until)
+satisfied or until @arg{until} is satisfied.  After this, if it is given,
+the function @perform is called.")
+  (:method ((wq waitqueue-mixin) &key while until perform)
     (with-mutual-exclusion (wq)
       (loop while (or (and while (funcall while wq))
 		      (and until (not (funcall until wq))))
-	    do (condition-wait (waitqueue wq) (mutex wq))))))
+	    do (condition-wait (waitqueue wq) (mutex wq)))
+      (awhen perform (funcall it)))))
+
+(defgeneric notify (waitqueue-object &optional n)
+  (:documentation "Notifies @arg{waitqueue-object}.")
+  (:method ((wq waitqueue-mixin) &optional (n t))
+    ;;(mp-dbg "notifying ~A" wq)
+    (condition-notify (waitqueue wq) n)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; locked-region
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass locked-region-mixin (waitqueue-mixin)
+  ((locked-region :reader locked-region :initform (make-hash-table))))
+
+(defmethod lock-region ((object locked-region-mixin) keys)
+  "Should not be used externally.  Use WITH-REGION instead."
+  (with-mutual-exclusion (object)
+    (let ((table (locked-region object)))
+      (loop+ ((key keys)) do
+	 (awhen (gethash key table)
+	   (assert (eq it (current-thread))))
+	 (setf (gethash key table)
+	       (current-thread))))))
+
+(defmethod unlock-region ((object locked-region-mixin) keys)
+  (with-mutual-exclusion (object)
+    (let ((table (locked-region object)))
+      (loop+ ((key keys)) do
+	 (remhash key table)))))
+
+(defparameter *count* (cons 0 0))
+(defmethod with-region-do ((object locked-region-mixin) keys perform)
+  (with-mutual-exclusion (object)
+    (wait object
+	  :until
+	  (lambda (object)
+	    (let ((table (locked-region object)))
+	      (lret ((result (notany (lambda (key)
+				       (aand (gethash key table)
+					     (not (eq it (current-thread)))))
+				     keys)))
+		(if result
+		    (incf (car *count*))
+		    (incf (cdr *count*)))))))
+    (lock-region object keys))
+  (funcall perform)
+  (unlock-region object keys)
+  (notify object))
+
+(defmacro with-region ((object keys) &body body)
+  `(with-region-do ,object ,keys
+		   (lambda () ,@body)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Multithreaded debugging
@@ -206,14 +265,10 @@ satisfied or until @arg{until} is satisfied.")
     (call-next-method)))
 
 (defun mp-dbg (format &rest args)
-  (apply #'dbg :mp (concatenate 'string "~A: " format)
-	 (current-thread) args))
+  (funcall #'dbg :mp "~A:~%~?" (current-thread) format args))
 
-(defgeneric notify (waitqueue-object &optional n)
-  (:documentation "Notifies @arg{waitqueue-object}.")
-  (:method ((wq waitqueue-mixin) &optional (n t))
-    (mp-dbg "notifying ~A" wq)
-    (condition-notify (waitqueue wq) n)))
+#+(or)
+(format t "~A:~%~?" 'THREAD "working on ~A" '((1 2 3)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -273,7 +328,7 @@ satisfied or until @arg{until} is satisfied.")
   (with-mutual-exclusion (pq)
     (loop
      (mp-dbg "trying to dequeue ~A (finished: ~A, empty: ~A, top: ~A)"
-	     pq (finished-p pq) (emptyp pq) (fl.utilities::head pq))
+	     pq (finished-p pq) (emptyp pq) (car (fl.utilities::head pq)))
      (cond ((or (finished-p pq) (not (emptyp pq)))
 	    (multiple-value-bind (value emptyp)
 		(call-next-method)
@@ -305,7 +360,7 @@ queue."))
   "Dynamic variable specialized for each worker thread separately.  Should
 not be used globally.")
 
-(defmethod add-worker ((group work-group) &optional work)
+(defmethod add-worker ((group work-group))
   (with-mutual-exclusion (group)
     (push (make-thread
 	   (lambda ()
@@ -315,10 +370,34 @@ not be used globally.")
 		(multiple-value-bind (args emptyp)
 		    (dequeue (tasks group))
 		  (when emptyp (return))
-		  (mp-dbg "working on ~A ..." args)
-		  (apply (or work (work group)) args)
+		  (mp-dbg "working on ~A" args)
+		  (apply (work group) args)
+		  (mp-dbg "finished working on ~A." args)
 		  (thread-yield)))
-	       (mp-dbg "... done")
+	       (mp-dbg "...done")
+	       (remove-worker group (current-thread))))
+	   :name "femlisp-worker")
+	  (threads group))))
+
+#+(or)
+(defmethod add-worker ((group work-group) &optional multiple-args)
+  (with-mutual-exclusion (group)
+    (push (make-thread
+	   (lambda ()
+	     (mp-dbg "starting...")
+	     (let ((*thread-local-memoization-table* ()))
+	       (loop
+		(multiple-value-bind (args emptyp)
+		    (dequeue (tasks group))
+		  (when emptyp (return))
+		  (mp-dbg "working on ~A" args)
+		  (if multiple-args
+		      (dolist (args args)
+			(apply (work group) args))
+		      (apply (work group) args))
+		  (mp-dbg "finished working on ~A." args)
+		  (thread-yield)))
+	       (mp-dbg "...done")
 	       (remove-worker group (current-thread))))
 	   :name "femlisp-worker")
 	  (threads group))))
@@ -337,12 +416,25 @@ not be used globally.")
   "Send a task to the work-group."
   (enqueue task (tasks group)))
 
-(defparameter *number-of-threads* nil
+(defvar *number-of-threads* nil  ; (optimal-thread-number)
   "The number of threads in which Femlisp tries to split the work for some
 computationally intensive tasks.  If NIL, no threading is used.")
 
+;; (setq *number-of-threads* 2)
+
+(defvar *chunk-size* nil
+  "NIL means no argument grouping, a number means that the arguments are
+  grouped in chunks of this size.")
+
 (defun execute-in-parallel (work &key arguments distribute
 			    (number-of-threads *number-of-threads*))
+  "Executes work in parallel distributed on @arg{number-of-threads}
+threads.  The arguments for work are taken from the argument-lists in
+@arg{arguments}.  Alternatively, @arg{distribute} may contain a function
+which generates the argument-lists by calling the function
+@function{work-on}.  If group-size is non-nil, it is used as a chunk-size.
+This is important, if the amount of work on each argument list is not
+large."
   (if number-of-threads
       ;; parallel execution
       (let ((group (make-instance 'work-group :work work)))
@@ -356,7 +448,47 @@ computationally intensive tasks.  If NIL, no threading is used.")
       (if distribute
 	  (funcall distribute work)
 	  (loop for arglist in arguments
-		   do (apply work arglist)))))
+	       do (apply work arglist)))))
+
+#+(or)
+(defun execute-in-parallel (work &key arguments distribute
+			    (number-of-threads *number-of-threads*)
+			    (chunk-size *chunk-size*))
+  "Executes work in parallel distributed on @arg{number-of-threads}
+threads.  The arguments for work are taken from the argument-lists in
+@arg{arguments}.  Alternatively, @arg{distribute} may contain a function
+which generates the argument-lists by calling the function
+@function{work-on}.  If chunk-size is non-nil, it is used as a size.  This
+is important, if the amount of work on each argument list is not large."0
+  (if number-of-threads
+      ;; parallel execution
+      (let ((group (make-instance 'work-group :work work)))
+	;; generate worker threads
+	(loop repeat number-of-threads do
+	     (add-worker group chunk-size))
+	;; generate work
+	(let ((chunk ())
+	      (current-size 0))
+	  (flet ((collect-and-send (&rest args)
+		   (cond ((null chunk-size)
+			  (send-task group args))
+			 ((= current-size chunk-size)
+			  (send-task group chunk)
+			  (setf chunk () current-size 0))
+			 (t (push args chunk)
+			    (incf current-size)))))
+	    (if distribute
+		(funcall distribute #'collect-and-send)
+		(mapc #'collect-and-send arguments))
+	    (when chunk
+	      (send-task group chunk))))
+	(finish (tasks group))
+	(wait group :while #'threads))
+      ;; sequential execution
+      (if distribute
+	  (funcall distribute work)
+	  (loop for arglist in arguments
+	       do (apply work arglist)))))
 
 (defun femlisp-workers ()
   (remove "femlisp-worker" (list-all-threads)
@@ -366,19 +498,17 @@ computationally intensive tasks.  If NIL, no threading is used.")
   (dolist (thread (femlisp-workers))
     (terminate-thread thread)))
 
-(defmacro with-workers ((work &key number-of-threads) &body body)
+(defmacro with-workers ((work) &body body)
   "This macro distributes work generated in body with calling the locally
 bound function @function{work-on} on some arguments to several working
 threads which call @arg{func} on those arguments."
   (with-gensyms (send-work)
     `(execute-in-parallel
       ,work
-      :number-of-threads ,number-of-threads
       :distribute
       (lambda (,send-work)
 	(flet ((work-on (&rest args) (apply ,send-work args)))
 	 ,@body)))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Find optimal threading parameter for this architecture
@@ -431,7 +561,7 @@ threads which call @arg{func} on those arguments."
     (sleep 0.5)
     result)
 
-  (assert (null (femlisp-workers)))
+  (assert (null (femlisp-workers)) () "workers remained - A")
   ;; (terminate-workers)
 
   (time
@@ -442,8 +572,9 @@ threads which call @arg{func} on those arguments."
 			(enqueue k q)))
 	 (loop for k below n do (work-on k))))
      :done))
-
-  (assert (null (femlisp-workers)))
+  
+  (sleep 0.5)
+  (assert (null (femlisp-workers)) () "workers remained - B")
   ;; (terminate-workers)
 
   (let ((k 100000)
@@ -462,7 +593,8 @@ threads which call @arg{func} on those arguments."
 	 (loop repeat *number-of-threads* do (work-on k)))
        (format t "Sum: ~A" sum))))
   
-  (assert (null (femlisp-workers)))
+  (sleep 0.5)
+  (assert (null (femlisp-workers)) () "workers remained - C")
   ;;; (terminate-workers)
 
   ;; no tasks for 3 threads
@@ -471,7 +603,8 @@ threads which call @arg{func} on those arguments."
 	 :arguments ()
 	 :number-of-threads 3))
 
-  (assert (null (femlisp-workers)))
+  (sleep 0.5)
+  (assert (null (femlisp-workers)) () "workers remained - D")
   ;; (terminate-workers)
 
   (let ((n (expt 2 27)))
@@ -483,17 +616,19 @@ threads which call @arg{func} on those arguments."
 		 :arguments (make-list i :initial-element (list n))
 		 :number-of-threads i))))
 
-  (assert (null (femlisp-workers)))
+  (sleep 0.5)
+  (assert (null (femlisp-workers)) () "workers remained - E")
   ;; (terminate-workers)
 
   (let ((n (expt 2 27)))
     (loop for i from 1 upto 5 do
-	  (format t "~R thread~:P~%" i)
-	  (time (with-workers ((lambda (k) (loop repeat k sum 1))
-			       :number-of-threads i)
-		  (loop repeat i do (work-on n))))))
+	 (format t "~R thread~:P~%" i)
+	 (let ((*number-of-threads* i))
+	   (time (with-workers ((lambda (k) (loop repeat k sum 1)))
+		   (loop repeat i do (work-on n)))))))
 
-  (assert (null (femlisp-workers)))
+  (sleep 0.5)
+  (assert (null (femlisp-workers)) () "workers remained - F")
   ;; (list-all-threads)
   ;; (terminate-workers)
   

@@ -35,7 +35,7 @@
 (defpackage "FL.MACROS"
   (:use "COMMON-LISP")
   (:export
-   "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF"
+   "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF" "BIF"
    "AAND" "ACOND" "_F" "DELETEF" "IT" "ENSURE" "ECHO"
    "REMOVE-THIS-METHOD"
    "FOR" "FOR<" "MULTI-FOR" "INLINING" "DEFINLINE"
@@ -84,6 +84,13 @@ Naggum (c.l.l., 4.12.2002)."
 (defmacro aif (test-form then-form &optional else-form)
   `(let ((it ,test-form))
      (if it ,then-form ,else-form)))
+
+(defmacro bif ((bindvar boundform) yup &optional nope)
+  "Posted to cll by Kenny Tilton 22.4.2007."
+   `(let ((,bindvar ,boundform))
+       (if ,bindvar
+          ,yup
+          ,nope)))
 
 (defmacro awhen (test-form &body body)
   "Anaphoric macro from @cite{(Graham 1993)}."
@@ -313,6 +320,24 @@ use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
 	  (if (atom x)
 	      x
 	      (car x)))))
+
+;;; Macros posted by Kent Pitman on cll, 28.7.2007
+
+(defmacro quickly (&body forms) ;unconditional
+  `(locally (declare (optimize (speed 3)))
+     ,@forms))
+
+(defvar *usually* t)
+
+(defmacro usually-quickly (&body forms)
+  (if *usually* ;compile-time test
+      `(quickly ,@forms)
+      `(progn ,@forms)))
+
+(defmacro quickly-if (test &body forms)
+  `(if ,test ;runtime test
+       (quickly ,@forms)
+        (progn ,@forms)))
 
 ;;;; Testing:
 (defun test-macros ()

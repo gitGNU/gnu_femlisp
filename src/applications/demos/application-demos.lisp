@@ -44,8 +44,7 @@
    :short "Shows regular refinements of geometric bodies."
    :long
    "The refinement is done using Freudenthal's algorithm for
-simplex refinement in a form generalized to tensor product
-cells."))
+simplex refinement generalized to product cells."))
 
 (adjoin-demo *refinement-demos* *demo-root*)
 

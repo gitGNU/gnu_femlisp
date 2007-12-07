@@ -222,6 +222,9 @@ in a sparse vector value block corresponding to the subcell."
   (:documentation "Computes the quadrature rule to be used for the finite
 element @arg{fe}."))
 
+(defvar *quadrature-order* nil
+  "Quadrature order to be used.  NIL determines the order automatically.")
+
 (defmethod quadrature-rule ((fe <fe>))
   "Standard quadrature rule for fe."
   (let ((refcell (reference-cell fe))
@@ -229,7 +232,9 @@ element @arg{fe}."))
     (gauss-rule (mapcar #'dimension (factor-simplices refcell))
 		;; does not integrate reaction terms precisely
 		#+(or)(if (typep refcell '<simplex>) order (1+ order))
-		(1+ order))))
+		(if *quadrature-order*
+		    (ceiling (/ (+ *quadrature-order* 1) 2))
+		    (1+ order)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Interpolation

@@ -91,14 +91,15 @@ eigenvalue.")
 
 (defun test-evp ()
   ;; finding an eigenvalue/eigenfunction by a Wielandt iteration
-  (let* ((dim 3)
-	 (evp (make-instance '<ls-evp> :lambda (box 2.1)
-			     :A (laplace-full-matrix dim)
-			     :B (eye dim)))
-	 (bb (blackboard :solution (mrandom dim 1))))
+  (let* ((n 10)
+	 (evp (make-instance '<ls-evp> :lambda (box 0.0)
+			     :A (scal (expt (+ n 1.0) 2) (laplace-full-matrix n))
+			     :B (eye n)))
+	 (bb (blackboard :solution (mrandom n 1))))
     (with-items (&key linearization solution residual residual-p) bb
-      (loop initially (ensure-residual evp bb)
-	    until (< (norm residual) 1.0e-15) do
+      (loop repeat 20
+	 initially (ensure-residual evp bb)
+	 until (< (norm residual) 1.0e-10) do
 	    (let ((new-sol
 		   (ignore-errors
 		     (gesv (matrix linearization) solution))))
@@ -113,7 +114,9 @@ eigenvalue.")
 	    (ensure-residual evp bb)
 	    (format t "lambda   = ~A~%solution = ~A~%resnorm  = ~A~%~%"
 		    (unbox (slot-value evp 'lambda)) solution (norm residual)))
-      (values (unbox (slot-value evp 'lambda)) solution)))
+      (let ((lam (unbox (slot-value evp 'lambda))))
+	(assert (< (- lam (expt pi 2)) 0.01))
+	(values lam solution))))
   )
 
 ;;; (test-evp)

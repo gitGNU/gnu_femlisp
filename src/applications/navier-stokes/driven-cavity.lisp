@@ -34,41 +34,48 @@
 
 (in-package :fl.application)
 
+(defun watch-velocity-at-point (point)
+  "Returns a observe list for watching the velocity at @arg{point}."
+  (let ((dim (length point)))
+    (list (format nil "~{                 u~1D~}" (range<= 1 dim))
+	  "~{~19,10,2E~}"
+	  #'(lambda (blackboard)
+	      (with-items (&key solution) blackboard
+		(let ((val (fe-value solution point)))
+		  (loop for i below dim collect (vref (aref val i) 0))))))))
+
 (defun watch-dc-center-velocity (dim)
   "Returns a observe list for watching the velocity at the center of the
 driven cavity."
-  (list (format nil "~{                 u~1D~}" (range<= 1 dim))
-	"~{~19,10,2E~}"
-	#'(lambda (blackboard)
-	    (with-items (&key solution) blackboard
-	      (let ((val (fe-value solution (make-double-vec dim 0.5))))
-		(loop for i below dim collect (vref (aref val i) 0)))))))
+  (watch-velocity-at-point (make-double-vec dim 0.5)))
 
-(defun ns-driven-cavity-demo (dim order levels &key plot output (reynolds 0.0) smooth-p)
+(defun ns-driven-cavity-demo (dim order levels &key
+			      (plot-mesh t) plot output (reynolds 0.0) smooth-p
+			      (watch-points (list (make-double-vec dim 0.5))))
   "Performs the driven cavity demo."
   (defparameter *result*
     (solve 
      (blackboard
       :fe-class (navier-stokes-lagrange-fe order dim 1)
       :problem
-      (?1 (driven-cavity dim :reynolds reynolds :smooth-p smooth-p)
+      (?2 (driven-cavity dim :reynolds reynolds :smooth-p smooth-p)
 	  (fl.navier-stokes-ellsys:driven-cavity dim :reynolds reynolds :smooth-p smooth-p))
       :base-level (if (> order 1) 0 1)
       :success-if (if levels
 		      `(= :nr-levels ,levels)
 		      `(> :time ,*demo-time*))
-      :output output :observe
+      :plot-mesh plot-mesh :output output :observe
       (append *stationary-fe-strategy-observe*
-	      (list (watch-dc-center-velocity dim))))))
+	      (mapcar #'watch-velocity-at-point watch-points)))))
   (when plot
     ;; plot components of cell solution tensor
     (plot (getbb *result* :solution)
 	  :shape 2 :key #'(lambda (vec)
-			    (vector (vref (vref vec 0) 0)
-				    (vref (vref vec 1) 0))))
+			    (vector (tensor-ref vec 0 0)
+				    (tensor-ref vec 0 1))))
     (sleep 1.0)))
 
-;;; (ns-driven-cavity-demo 2 2 5 :output :all :plot nil :reynolds 100.0)
+;;; (ns-driven-cavity-demo 2 3 3 :output :all :plot t :reynolds 10.0)
 ;;; (plot (getbb *result* :solution) :component 0 :depth 2)
 
 (defun make-driven-cavity-demo (dim order reynolds)
@@ -95,7 +102,9 @@ for the Navier-Stokes equation using Taylor-Hood finite elements
 (defun test-driven-cavity ()
   (describe (driven-cavity 2))
   (describe (domain (driven-cavity 2 :smooth-p nil)))
-  (ns-driven-cavity-demo 2 1 4 :output :all :plot nil)
+  #+(or)
+  (ns-driven-cavity-demo 2 1 5 :output 1 :plot nil :plot-mesh nil
+			 :watch-points (list #d(0.5 0.5) #d(0.25 0.25)))
   (let ((sol (getbb *result* :solution)))
     (fe-value sol #d(0.5 0.5)))
   #+(or)

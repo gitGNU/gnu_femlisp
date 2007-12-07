@@ -121,8 +121,8 @@ with dim^3 components which are plotted one after the other."
 	 (*output-depth* output))
     (defparameter *result*
       (solve
-       (make-instance
-	'<stationary-fe-strategy>
+       (blackboard
+	:problem problem
 	:fe-class (lagrange-fe order :nr-comps dim :type :gauss-lobatto)
 	:estimator (make-instance '<projection-error-estimator>)
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
@@ -130,7 +130,7 @@ with dim^3 components which are plotted one after the other."
 	:solver
 	(make-instance
 	 '<linear-solver> :iteration
-	 (let ((smoother (if (>= dim 3)
+	 (let ((smoother (if (> dim 3)
 			     *gauss-seidel*
 			     (geometric-ssc))))
 	   (geometric-cs
@@ -142,17 +142,18 @@ with dim^3 components which are plotted one after the other."
 	    :gamma 2 :fmg t))
 	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
 	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (> :defnorm 1.0e-9)))
+	:plot-mesh plot
 	:observe
 	(append *stationary-fe-strategy-observe*
 		(list
 		 (list (format nil "~19@A~19@A~19@A" "A^00_00" "A^00_11" "A^10_10") "~57A"
 		       #'(lambda (blackboard)
 			   (let ((tensor (effective-tensor blackboard)))
-			     (format nil "~19,10,2E~19,10,2E~19,10,2E"
-				     (and tensor (mref (mref tensor 0 0) 0 0))
+			      (format nil "~19,10,2E~19,10,2E~19,10,2E"
+				      (and tensor (mref (mref tensor 0 0) 0 0))
 				     (and tensor (mref (mref tensor 0 0) 1 1))
 				     (and tensor (mref (mref tensor 1 0) 1 0)))))))))
-       (blackboard :problem problem)))
+		   ))
     (when plot
       ;; plot components of cell solution tensor
       (dotimes (j dim)
@@ -166,7 +167,7 @@ with dim^3 components which are plotted one after the other."
 #+(or)
 (elasticity-interior-effective-coeff-demo
  (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2))
- :order 4 :levels 2 :output :all)
+ :order 5 :levels 2 :plot nil :output 2)
 
 
 #|

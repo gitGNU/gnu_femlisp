@@ -51,7 +51,7 @@ is stored in the solution vector."))
      &key matrix rhs local-u local-v fe-parameters &allow-other-keys)
   "Local discretization for a pde system of the form described in the
 documentation of the package @package{ELLSYS}."
-
+  (declare (optimize debug))
   (assert (and (null local-u) (null local-v)))  ; NYI
 
   (let ((cell (getf fe-geometry :cell))
@@ -175,7 +175,7 @@ documentation of the package @package{ELLSYS}."
 		   :dirichlet (constraint-coefficient nr-comps 1)))
 	 (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (fedisc (lagrange-fe order :nr-comps nr-comps)))
-    (discretize-globally problem h-mesh fedisc)))
+    (time (discretize-globally problem h-mesh fedisc))))
 
 ;;;; Testing
 

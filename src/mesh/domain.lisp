@@ -180,7 +180,7 @@ cube domain."
 
 (defun n-cube-domain (dim)
   (change-class (skeleton (n-cube dim)) '<domain>
-		:classifiers (list (classify-top-bottom-lateral dim)
+		:classifiers (list (classify-top-bottom-lateral)
 				   (lambda (cell classifications)
 				     (when (mzerop (midpoint cell))
 				       (pushnew :origin classifications))
@@ -336,14 +336,27 @@ cube with its opposite sides identified."
 	  (seg3 (make-line vtx1 vtx2)))
       (make-instance '<domain> :cells (list (make-simplex (vector seg1 seg2 seg3)))))))
 
-(defun L-domain (dim)
-  "Creates an L-domain by cutting out a small cube of the uniform refinement of
+(defun cube-without-corner (dim)
+  "Creates a domain by cutting out one cube from the uniform refinement of
 the unit cube."
   (let* ((skel (refine (skeleton (n-cube dim))))
 	 (upper-right-cell
 	  (find-cell-from-position skel (make-double-vec dim 0.75))))
     (change-class (skeleton-without-cell skel upper-right-cell)
 		  '<domain>)))
+
+(defun L-domain (dim)
+  "Creates an L-domain by cutting out cubes from the uniform refinement of
+the unit cube."
+  (change-class
+   (skeleton (remove-if
+	      (lambda (cell)
+		(let ((midpoint (midpoint cell)))
+		  (and (> (aref midpoint 0) 0.5)
+		       (> (aref midpoint 1) 0.5))))
+	      (cells-of-highest-dim
+	       (refine (skeleton (n-cube dim))))))
+   '<domain>))
 
 
 ;;;; Testing
@@ -361,6 +374,9 @@ the unit cube."
   (let ((domain (n-cube-domain 3)))
     (doskel (cell domain)
       (print (patch-classification cell domain))))
+  (let* ((domain (n-cube-domain 3))
+	 (cell (find-cell (lambda (c) (mequalp (midpoint c) #d(0.5 0.5 0.0))) domain)))
+    (assert (member :bottom (patch-classification cell domain))))
   )
 
 ;;; (test-domain)

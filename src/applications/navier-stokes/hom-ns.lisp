@@ -95,10 +95,11 @@ components."
       (solve
        (make-instance
 	'<stationary-fe-strategy>
-	:fe-class (navier-stokes-lagrange-fe order dim delta)
+	:fe-class (print (navier-stokes-lagrange-fe order dim delta))
 	:estimator (make-instance '<projection-error-estimator>)
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
 	:success-if `(>= :nr-levels ,levels)
+	:plot-mesh plot
 	:solver
 	#+(or)(lu-solver)
 	#-(or)
@@ -135,7 +136,7 @@ components."
 
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 2)
-		   :order 4 :levels 2 :store-p nil :output :all :plot t :delta 1)
+		   :order 1 :levels 2 :store-p nil :output :all :plot nil :delta 1)
 
 #+(or)
 (let ((sol (getbb *result* :solution)))
@@ -192,7 +193,8 @@ Parameters: order=~D, max-levels=~D~%~%"
 (defun hom-ns-tests ()
   (stokes-darcy-demo
    (ns-hole-cell-problem 2)
-   :order 2 :levels 2 :plot nil :delta 1)
+   :order 1 :levels 2 :plot nil :delta 1)
+  
   (let ((tensor (permeability-tensor *result*)))
     (assert (< (abs (- (mref tensor 0 0) 0.019)) 1e-3)))
   )

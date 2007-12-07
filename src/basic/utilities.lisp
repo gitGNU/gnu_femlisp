@@ -201,6 +201,17 @@ with @arg{func}."
 ;;; Arrays
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defmacro with-array ((access array) &body body)
+  "Posted by Kent Pitman at cll,8.5.2007 as 'array-access'."
+  (let ((temp (gensym (symbol-name access))))
+   `(let ((,temp ,array))
+     (flet ((,access (&rest indexes)
+              (apply #'aref ,temp indexes))
+           ((setf ,access) (val &rest indexes)
+              (setf (apply #'aref ,temp indexes) val)))
+      (declare (inline #',access))
+      ,@body))))
+
 (defun for-each-tuple (func limits)
   "Calls @arg{func} on each tuple greater or equal to (0 ... 0) and below
 @arg{dims}."
@@ -409,6 +420,12 @@ value T if the queue was empty.")
     (setf (tail queue) (last (head queue)))
     queue))
 
+(defgeneric dequeue-all (queue)
+  (:documentation "Clears @arg{queue} and returns content as a list.")
+  (:method ((queue queue))
+    (prog1 (head queue) 
+      (setf (head queue) nil (tail queue) nil))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Doubly linked lists
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -551,6 +568,95 @@ two values.  Those pairs are stored in a new hash-table."
   "Collect the values of @arg{hash-table} into a list."
   (loop for val being the hash-values of hash-table
 	collect val))
+
+(defun collect-in-hash-table (list identifier &optional (type 'eql))
+  "Puts the items from @arg{list} in a hash-table identified by
+@arg{identifier}."
+  (lret ((table (make-hash-table :test type)))
+    (loop for item in list do
+	  (setf (gethash (funcall identifier item) table) item))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; iteration (loop+)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass range ()
+  ((from :initform 0 :initarg :from :documentation
+	 "Start of range, defaults to 0.")
+   (to :initform nil :initarg :to :documentation
+       "Inclusive end of range, defaults to infinity.")
+   (below :initform nil :initarg :below :documentation
+       "Exclusive end of range, defaults to infinity.")
+   (by :initform 1 :initarg :by :documentation
+       "Step size."))
+  (:documentation "Range of numbers for iteration."))
+
+(defun range (&rest args &key to below)
+  "Constructor for a range of numbers."
+  (when (and to below)
+    (error "Only one limit should be given."))
+  (apply #'make-instance 'range args))
+
+(defgeneric iterator (x)
+  (:documentation "Returns an iterator for @arg{x}.")
+  (:method ((x range)) (slot-value x 'from))
+  (:method ((x vector)) 0)
+  (:method ((x list)) x))
+
+(defgeneric iterator-next (vec iterator)
+  (:documentation "Returns an incremented @arg{iterator}.")
+  (:method ((range range) i) (+ i (slot-value range 'by)))
+  (:method ((vec vector) i) (1+ i))
+  (:method ((vec list) tail) (cdr tail)))
+
+(defgeneric iterator-end-p (vec iterator)
+  (:method ((range range) i)
+    (with-slots (from to below) range
+      (cond (to (> i to))
+	    (below (>= i below)))))
+  (:method ((vec vector) i) (>= i (length vec)))
+  (:method ((vec list) tail) (null tail)))
+  
+(defgeneric reference (vec iterator)
+  (:documentation "Reader for the element of @arg{vec} referenced by @arg{iterator}.")
+  (:method ((range range) i) i)
+  (:method ((vec vector) i) (aref vec i))
+  (:method ((vec list) tail) (car tail)))
+  
+(defgeneric (setf reference) (value vec iterator)
+  (:documentation "Setter for the element of @arg{vec} referenced by @arg{iterator}.")
+  (:method (value (vec vector) i)
+    (setf (aref vec i) value))
+  (:method (value (vec list) tail)
+    (setf (car tail) value)))
+
+(defmacro loop+ (items &body body)
+  "Iterates @arg{body} over @arg{items}.  Example:
+@lisp
+  (let ((x (make-array 10))
+	(y (make-list 10 :initial-element 1)))
+    (loop+ ((xc x) (yc y) i) doing
+       (setf xc (+ i yc))
+       finally (return x)))
+@end lisp"
+  (let ((vectors (loop for i below (length items)
+		      collect (gensym (format nil "V~D" i))))
+	(iterators (loop for i below (length items)
+		      collect (gensym (format nil "I~D" i)))))
+    `(let ,(mapcar #'(lambda (vector item)
+		       (list vector (if (listp item) (cadr item) `(range))))
+		   vectors items)
+       (symbol-macrolet ,(mapcar #'(lambda (vector iterator item)
+				     `(,(if (listp item) (car item) item)
+					(reference ,vector ,iterator)))
+				 vectors iterators items)
+	   (loop ,@(loop for iterator in iterators and vector in vectors appending
+			 `(for ,iterator = (iterator ,vector)
+			   then (iterator-next ,vector ,iterator)))
+		 ,@(loop for iterator in iterators and vector in vectors appending
+			 `(until (iterator-end-p ,vector ,iterator)))
+	    ,@body
+	 )))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Memoizing
@@ -869,6 +975,13 @@ according to @math{result[i] = v[perm[i]]}."
 	    (rotatef (aref perm i) (aref perm (aref perm i)))
 	    (setq result (- result))))))
 (declaim (ftype (function (array) (member -1 1)) permutation-signum))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; safe sorting
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun safe-sort (seq predicate &key (key #'identity))
+  (stable-sort (copy-seq seq) predicate :key key))
 
 ;;; Testing
 (defun test-utilities ()

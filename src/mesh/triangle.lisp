@@ -126,7 +126,6 @@ command 'make triangle' from the Femlisp main directory."))
 (defun read-triangle-mesh-for (mesh interior-patch)
   "Extends @arg{mesh} by the output from Triangle for meshing
 @arg{interior-patch}."
-  (declare (optimize (debug 3)))
   (let (nodes ; will be an array, its size is not yet known
 	(corners->cell (make-hash-table :test 'equalp)))
     ;; insert known part (the boundary)

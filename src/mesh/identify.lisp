@@ -46,6 +46,11 @@ the moment, it is used to describe identified boundaries and might be used
 later on for parallelization purposes.  Those identifications are refered
 to in the properties of each cell."))
 
+(defmethod print-object :after ((id identification) stream)
+  "Print the cells in the identification."
+  (when *print-cell*
+    (format stream "{~{~A~^,~}}" (slot-value id 'cells))))
+
 (definline cell-identification (cell skel)
   "Returns @arg{cell}'s identification in @arg{skel} or NIL."
   (get-cell-property cell skel 'IDENTIFIED))

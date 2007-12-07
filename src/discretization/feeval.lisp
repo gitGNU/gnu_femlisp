@@ -102,7 +102,7 @@ arguments @code{:solution} and @code{:global}."
 		   (map 'simple-vector #'m* shape-vals-transposed x-values)
 		   (m* shape-vals-transposed x-values))
      for value = (if coeff-func
-		     (evaluate coeff-func (list :solution xip :local local
+		     (evaluate coeff-func (list :solution (list xip) :local local
 						:global (local->global cell local)))
 		     xip)
      for contribution = (scal (* ip-weight
@@ -164,11 +164,15 @@ and even for those only approximate extrema are obtained."
 			(setf max_kj (max max_kj entry))))))))))))
   min/max)
 
-(defmethod fe-extreme-values ((asv <ansatz-space-vector>) &key cells skeleton (component 0))
+(defmethod fe-extreme-values ((asv <ansatz-space-vector>) &key cells skeleton component)
   "Computes the extreme values of a finite element function over the domain
 or some region.  The result is a pair, the car being the minimum values and
 the cdr the maximum values.  Each part is a matrix of the format ncomps x
 multiplicity."
+  (unless component
+    (setq component (first (components (problem asv))))
+    (when (listp component)
+      (setq component (first component))))
   (let ((min/max (cons nil nil)))
     (cond (cells
 	   (loop for cell in cells do

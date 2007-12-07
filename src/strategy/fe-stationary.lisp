@@ -72,3 +72,28 @@ solution strategies for continuous, stationary PDE problems."))
     (solve (slot-value fe-strategy 'solver) solver-blackboard)
     (setf solution (getbb solver-blackboard :solution))))
 
+(defun test-fe-stationary ()
+  (flet ((sqrt2-problem ()
+	   "Model problem solving @math{u*u=2} on a vertex."
+	   (create-problem
+	    :type '<ellsys-problem>
+	    :domain (n-cube-domain 0) :multiplicity 1
+	    :components '(u)
+	    :coefficients (select-on-patch
+			   (t (coeff FL.ELLSYS::NONLINEAR-F (u)
+				(sparse-tensor `((,(- 2.0 (* u u)) 0)))))))))
+    (let* ((problem (sqrt2-problem))
+	   (domain (domain problem))
+	   (mesh (uniformly-refined-hierarchical-mesh domain 0))
+	   (as (lagrange-ansatz-space problem mesh :order 1))
+	   (x (special-ansatz-space-vector as :constant 1.0))
+	   (bb (blackboard :ansatz-space as :solution x
+			   :success-if '(>= :step 0) :output :all
+			   :plot-mesh nil)))
+      (setf (get-property problem :solution) x)
+      (with-items (&key solution matrix rhs) (solve bb)
+	(show solution)))))
+
+;;;; (test-fe-stationary)
+(fl.tests:adjoin-test 'test-fe-stationary)
+

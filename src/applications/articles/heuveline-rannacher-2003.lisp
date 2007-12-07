@@ -63,9 +63,10 @@ rhs.")
   "Distributional rhs for the dual problem of the article by
 Heuveline&Rannacher.  We distribute it to several points to
 ensure that all surrounding cells contribute."
-  (let ((rhs (zeros (nr-of-dofs fe) 1))
-	(local (global->local cell *HR-evaluation-point*))
-	(delta *HR-delta*))
+  (let* ((fe (component fe 0))
+	 (rhs (zeros (nr-of-dofs fe) 1))
+	 (local (global->local cell *HR-evaluation-point*))
+	 (delta *HR-delta*))
     (when (every #'(lambda (c) (<= (- delta) c (+ 1.0 delta))) local)
       ;; point is inside or very near the cell...
       (let ((nr-neighbors 
@@ -75,13 +76,12 @@ ensure that all surrounding cells contribute."
 			       local)))
 	    (Dphi^-1 (m/ (local->Dglobal cell local))))
 	(loop+ (i (shape (fe-basis fe))) do
-	   (setf (vref rhs i)
-		 (/ (vref (m* (ensure-matlisp (coerce (evaluate-gradient shape local) 'double-vec)
-					      :row)
-			      Dphi^-1)
-			  0)
-		    nr-neighbors)))))
-    rhs))
+	       (setf (vref rhs i)
+		     (/ (vref (m* (ensure-matlisp (evaluate-gradient shape local) :row)
+				  Dphi^-1)
+			      0)
+			nr-neighbors)))))
+    (vector rhs)))
 
 (defun heuveline-rannacher-dual-problem-fe-rhs ()
   #'(lambda (cell)
@@ -161,7 +161,9 @@ Parameters of the computation: order=~D, levels=~D." order levels)))
 ;;; Testing
 
 (defun test-heuveline-rannacher ()
-
+  
+  (heuveline-rannacher-computation 4 4 :output :all :plot t)
+  
   (time
    (let* ((order 4) (level 2)
 	  (problem (heuveline-rannacher-problem))
@@ -171,10 +173,10 @@ Parameters of the computation: order=~D, levels=~D." order levels)))
 	 (discretize-globally problem mesh fe-class)
        (defparameter *result* (getrs (sparse-ldu mat) rhs)))))
   (plot *result*)
-
-  (let ((gradx (vref (vref (fe-gradient *result* *HR-evaluation-point*) 0) 0)))
+  
+  (let ((gradx (tensor-ref (fe-gradient *result* *HR-evaluation-point*) 0 0)))
     (list gradx *HR-gradx-value* (- gradx *HR-gradx-value*)))
-
+  
   (time
    (let* ((order 4) (level 3)
 	  (problem (heuveline-rannacher-dual-problem))

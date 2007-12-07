@@ -225,7 +225,7 @@ pattern."
 		  (funcall fn (aref store l) i j)))))))
 
 (defmethod compressed->matlisp ((cm compressed-matrix))
-  (let ((result (zeros (nrows cm) (ncols cm) (element-type cm))))
+  (lret ((result (zeros (nrows cm) (ncols cm) (element-type cm))))
     (for-each-entry-and-key
      (lambda (value i j)
        (setf (mref result i j) value))

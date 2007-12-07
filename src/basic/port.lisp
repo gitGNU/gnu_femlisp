@@ -37,13 +37,13 @@
   (:export
    "PORTABILITY-WARNING"
    ;; UNIX environment
-   "FIND-EXECUTABLE" "GETENV" "UNIX-CHDIR"
+   "FIND-EXECUTABLE" "HOSTNAME" "GETENV" "UNIX-CHDIR"
    
    ;; runtime compilation
    "COMPILE-SILENTLY"
    
    ;; process communication
-   "RUN-PROGRAM" "PROCESS-INPUT" "PROCESS-OUTPUT"
+   "RUN-PROGRAM" "PROCESS-INPUT" "PROCESS-OUTPUT" "PROCESS-ERROR"
    "PROCESS-CLOSE" "PROCESS-STATUS"
 
    ;; load alien code
@@ -103,6 +103,12 @@ functionality of Femlisp you should provide it in the file
 ;;;; UNIX environment access
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun hostname ()
+  "Returns the hostname."
+  #+sbcl (sb-unix:unix-gethostname)
+  #-(or sbcl) (getenv "HOSTNAME")
+  )
+
 (defun find-executable (name)
   "Finds an executable in the current path."
   #-(or allegro cmu sbcl)
@@ -152,21 +158,23 @@ functionality of Femlisp you should provide it in the file
   (let ((program (namestring program)))
     (cond
       (wait (excl:run-shell-command (apply #'vector program program args) :wait t
-				    :directory directory :show-window :hide))
+				    :directory directory :show-window :hide
+				    ))
       (t
        #+mswindows (assert (and (eq input :stream) (eq output :stream)))
-       (multiple-value-bind (stream null proc-id)
+       (multiple-value-bind (istream ostream error-output proc-id)
            (excl:run-shell-command
             #-mswindows (apply #'vector program program args)
             #+mswindows (apply #'concatenate 'string program
                                (loop for arg in args collect " " collect arg))
             :wait nil :input input :output output
+	    :separate-streams t
             :error-output error-output :directory directory
             :show-window :normal) ; :hide
 	 (declare (ignore null))
 	 (list :allegro-process
-	       (if (eq input :stream) stream input)
-	       (if (eq output :stream) stream output)
+	       (if (eq input :stream) istream input)
+	       (if (eq output :stream) ostream output)
 	       error-output proc-id)))))
   #+clisp (ext:run-program program :arguments args :wait wait :input input :output output)
   #+(or cmu ecl gcl sbcl)
@@ -174,7 +182,8 @@ functionality of Femlisp you should provide it in the file
   #+cmu (ext:run-program program args :wait wait :input input :output output)
   #+(or gcl) (si:run-process (namestring program) args)
   #+ecl (si:run-program (namestring program) args)
-  #+sbcl (sb-ext:run-program program args :wait wait :input input :output output)
+  #+sbcl (sb-ext:run-program program args :wait wait
+			     :input input :output output :error error-output)
   #-(or allegro clisp cmu ecl gcl sbcl)
   (portability-warning 'run-program args wait input output error-output directory)
   )
@@ -195,10 +204,18 @@ functionality of Femlisp you should provide it in the file
   #+allegro (third process)
   #+cmu (ext:process-output process)
   #+ecl process
-  #+gcl (si::fp-input-stream process)
+  #+gcl (si::fp-output-stream process)
   #+sbcl (sb-ext:process-output process)
   #-(or allegro cmu ecl gcl sbcl)
   (portability-warning 'process-output process)
+  )
+
+(defun process-error (process)
+  "Process-output for @arg{process}."
+  #+cmu (ext:process-error process)
+  #+sbcl (sb-ext:process-error process)
+  #-(or cmu sbcl)
+  (portability-warning 'process-error process)
   )
 
 (defun process-close (process)
@@ -297,7 +314,9 @@ functionality of Femlisp you should provide it in the file
 that no GC changes array pointers obtained by @function{vector-sap}."
   #+(or allegro ecl) `(locally ,@body)
   #+cmu `(system:without-gcing ,@body)
-  #+sbcl `(sb-sys:without-gcing ,@body)
+  #+sbcl `(sb-int:with-float-traps-masked (:underflow :overflow :inexact :divide-by-zero :invalid)
+	    (sb-sys::without-gcing
+	      ,@body))
   #-(or allegro cmu ecl sbcl)
   (portability-warning 'foreign-call-wrapper ptr)
   )

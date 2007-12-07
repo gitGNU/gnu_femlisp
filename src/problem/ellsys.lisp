@@ -107,13 +107,19 @@ the amount of diffusion in each component."
 
 (defun ellsys-model-problem
     (domain components
-     &key a b c d r f g h dirichlet initial sigma evp properties derived-class)
+     &key a b c d r f g h (dirichlet nil dirichlet-p)
+     initial sigma evp properties derived-class)
   "Generates a rather general elliptic problem on the given domain."
   (when (numberp components)
     (setq components (list (list 'u components))))
   (unless a
     (warn "Note that the diffusion coefficient a is assumed to be zero."))
   (setq domain (ensure-domain domain))
+  (unless dirichlet-p
+    (setq dirichlet
+	  (let ((nr-comps (loop for comp in components summing
+				(if (listp comp) (second comp) 1))))
+	    (constraint-coefficient nr-comps 1))))
   (apply #'fl.amop:make-programmatic-instance
 	 (remove nil (list (or derived-class '<ellsys-problem>)
 			   (and initial sigma '<time-dependent-problem>)))
@@ -121,10 +127,7 @@ the amount of diffusion in each component."
 	 :properties properties
 	 :domain domain :patch->coefficients
 	 `((:external-boundary
-	    (,(or dirichlet
-		  (let ((nr-comps (loop for comp in components summing
-					(if (listp comp) (second comp) 1))))
-		    (constraint-coefficient nr-comps 1)))))
+	    ,(when dirichlet (list dirichlet)))
 	   (:d-dimensional
 	    ,(macrolet ((coefflist (&rest coeffs)
 				   `(append
@@ -167,4 +170,3 @@ discretization as source and reaction term."
 
 ;;; (test-ellsys)
 (fl.tests:adjoin-test 'test-ellsys)
-

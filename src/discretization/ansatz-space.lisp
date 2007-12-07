@@ -130,6 +130,10 @@ with a hierarchical mesh."
 
 (defun make-fe-ansatz-space (fe-class problem mesh)
   "Constructor of @class{<ansatz-space>}."
+  (let ((n1 (nr-of-components fe-class))
+	(n2 (nr-of-components problem)))
+    (when (and n1 n2 (/= n1 n2))
+      (error "Number of components of FE discretization and problem don't agree")))
   (make-instance '<ansatz-space> :fe-class fe-class :problem problem :mesh mesh))
 
 (defgeneric set-constraints (ansatz-space)
@@ -137,4 +141,22 @@ with a hierarchical mesh."
 Constraints arise partially because of the discretization, e.g. hanging
 nodes, and partially because of essential boundary conditions.  Of course,
 these matrices change when mesh or discretization are adapted."))
+
+(defun lagrange-ansatz-space (problem mesh &key (order 1) (type :uniform))
+  "A constructor for a problem-dependent Lagrange fe.  Here, the number of
+components may vary with the respective patch."
+  (assert (eq (domain problem) (domain mesh)))
+  (let ((disc (make-instance '<vector-fe-discretization>)))
+    (setf (slot-value disc 'cell->fe)
+	  (with-memoization ()
+	    (lambda (cell)
+	      (memoizing-let ((patch (patch-of-cell cell mesh))
+			      (refcell (reference-cell cell)))
+		(cell-lagrange-fe
+		 refcell
+		 (make-array (fl.problem::count-components (components-of-patch patch problem))
+			     :initial-element order)
+		 type)))))
+    ;; return the generated ansatz-space
+    (make-instance '<ansatz-space> :problem problem :mesh mesh :fe-class disc)))
 

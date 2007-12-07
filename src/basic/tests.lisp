@@ -34,7 +34,7 @@
 
 (defpackage "FL.TESTS"
   (:use "COMMON-LISP")
-  (:export "ADJOIN-TEST" "REMOVE-TEST" "TEST-FEMLISP")
+  (:export "ADJOIN-TEST" "SMALL-TEST" "REMOVE-TEST" "TEST-FEMLISP")
   (:documentation "This package provides routines for building a simple
 regression test suite.  Most files in @femlisp{} contain a test function at
 the end which checks several critical features which the file or module
@@ -50,6 +50,9 @@ test suite before a release."))
 (defvar *tests* ()
   "List of Femlisp tests.")
 
+(defvar *small-tests* ()
+  "List of small Femlisp tests.")
+
 (defvar *bugs* ()
   "List of Femlisp bugs, i.e. failing tests that have not yet been fixed.")
 
@@ -62,7 +65,13 @@ test suite before a release."))
 (defun adjoin-test (fsym)
   "Adjoins a test to the Femlisp test suite."
   (pushnew fsym *tests*))
-  
+
+(defmacro small-test (fsym &body body)
+  "At the moment small tests are ignored.  One might think of collecting
+them when compiling a certain file."
+  (declare (ignore fsym body))
+  nil)
+
 (defun remove-test (fsym)
   "Adjoins a test to the Femlisp test suite."
   (setq *tests* (remove fsym *tests*)))

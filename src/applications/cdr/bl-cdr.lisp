@@ -101,9 +101,9 @@ oscillating domain."
       (plot (getbb *result* :solution))))
   *result*)
 
-#+(or) (cdr-bl-computation
+#+(or) (time (cdr-bl-computation
 	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil
-	:solver (lu-solver) :output :all)
+	:solver (lu-solver) :output :all))
 
 
 #|

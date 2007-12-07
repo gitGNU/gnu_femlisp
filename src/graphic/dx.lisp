@@ -173,6 +173,10 @@ although it gets rid of black lines in dx pictures in some situations.
 E.g. it does not do xy-graphs correctly and fails for @lisp{(plot (n-cube
 1))}.  It can also kill the Xwindows interface on some computers.")
 
+(defparameter *pop-up-dx-window* nil
+  "If T, this should pop up the graphics window automatically.
+Unfortunately, it does not work on X11 on Mac OS X.")
+
 (defparameter *show-dx-window* t
   "Show the DX window when something is plotted.  This may be useful on
 Laptops when the window is hidden.")
@@ -198,10 +202,11 @@ Laptops when the window is hidden.")
       (if *dx-bug-workaround*
 	  (format stream "image = Options(image, \"rendering mode\", \"hardware\");~%")
 	  (format stream "image = Render(image,camera);"))
-      (let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
-	(when *show-dx-window*
-	  (format stream control width height 2))
-	(format stream control width height 1))
+      (when *pop-up-dx-window*
+	(let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
+	  (when *show-dx-window*
+	    (format stream control width height 2))
+	  (format stream control width height 1)))
       (if *dx-bug-workaround*
 	  ;; corresponding to the above problematic variant
 	  (format stream "Display (image, camera, where=where);~%")

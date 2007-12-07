@@ -42,13 +42,17 @@
 
 (in-package :fl.algebra)
 
+(defgeneric value-blocks-in-region (sparse-object region)
+  (:documentation "Gets all value-blocks associated with the keys in the
+vector region.  If necessary, those value-blocks are generated."))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; <sparse-vector>
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <sparse-vector> (fl.multiprocessing:mutex-mixin)
+(defclass <sparse-vector> (fl.multiprocessing:locked-region-mixin)
   ((blocks :initform (make-hash-table :test #'eq) :type hash-table
 	   :documentation "Table of blocks.")
    (key->size :reader key->size :initarg :key->size :type function
@@ -97,16 +101,34 @@ sides and solutions simultaneously."))
   ;;(declare (type real-matrix value))
   (setf (gethash key (slot-value svec 'blocks)) value))
 
+(defvar *parallel-algebra* nil
+  "Preliminary switch for allowing parallel linear algebra.  Will hopefully
+  become unnecessary in the long run.")
+
 (defmethod for-each-key ((fn function) (svec <sparse-vector>))
-  (loop for key being the hash-keys of (slot-value svec 'blocks) do
-	(funcall fn key)))
+  (if *parallel-algebra*
+      (with-workers (fn)
+	(loop for key being the hash-keys of (slot-value svec 'blocks) do
+	     (work-on key)))
+      (loop for key being the hash-keys of (slot-value svec 'blocks) do
+	   (funcall fn key))))
+
 (defmethod for-each-entry-and-key ((fn function) (svec <sparse-vector>))
-  (maphash
-   (lambda (key value) (funcall fn value key))
-   (slot-value svec 'blocks)))
+  (if *parallel-algebra*
+      (with-workers (fn)
+	(maphash (lambda (key value) (work-on value key)) ; change order
+		 (slot-value svec 'blocks)))
+      (maphash
+       (lambda (key value) (funcall fn value key))
+       (slot-value svec 'blocks))))
+
 (defmethod for-each-entry ((fn function) (svec <sparse-vector>))
-  (loop for val being the hash-values of (slot-value svec 'blocks) do
-	(funcall fn val)))
+  (if *parallel-algebra*
+      (with-workers (fn)
+	(loop for val being the hash-values of (slot-value svec 'blocks) do
+	     (work-on val)))
+      (loop for val being the hash-values of (slot-value svec 'blocks) do
+	   (funcall fn val))))
 
 (defmethod keys ((svec <sparse-vector>))
   (loop for key being the hash-keys of (slot-value svec 'blocks)
@@ -128,6 +150,13 @@ sides and solutions simultaneously."))
 
 (defmethod remove-keys (sobj keys)
   (loop for key in keys do (remove-key sobj key)))
+
+(defmethod value-blocks-in-region ((svec <sparse-vector>) (keys vector))
+  (map 'vector
+       (lambda (key)
+	 (and (in-pattern-p svec key)
+	      (vref svec key)))
+       keys))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; transformation to matlisp matrices
@@ -213,7 +242,7 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <sparse-matrix> (<matrix> fl.multiprocessing:mutex-mixin)
+(defclass <sparse-matrix> (<matrix> fl.multiprocessing:locked-region-mixin)
   ((row-table :accessor row-table :initarg :row-table
 	      :initform (make-hash-table :test #'eq) :type hash-table
 	      :documentation "Table of rows.")
@@ -449,6 +478,11 @@ means a lot of consing."
   "Loop through row keys."
   (loop for key being the hash-keys of (row-table smat) do
 	(funcall fn key)))
+(defmethod parallel-for-each-row-key ((fn function) (smat <sparse-matrix>))
+  (with-workers (fn)
+    (loop for key being the hash-keys of (row-table smat) do
+	(work-on key))))
+
 (defmethod for-each-col-key ((fn function) (smat <sparse-matrix>))
   "Loop through column keys."
   (loop for key being the hash-keys of (column-table smat) do
@@ -692,16 +726,15 @@ means a lot of consing."
      `(defmethod ,gemm-job
        (alpha (A <sparse-matrix>) (y <sparse-vector>) beta (x <sparse-vector>))
        (declare (optimize (speed 3) (space 2) (safety 1)))
-       (maphash
-	#'(lambda (x-key row-or-col-dic)
-	    (let ((x-values (vref x x-key)))
-	      (scal! beta x-values)
-	      (maphash
-	       #'(lambda (y-key mblock)
-		   (let ((y-values (vref y y-key)))
-		     (,gemm-job alpha mblock y-values 1.0 x-values)))
-	       row-or-col-dic)))
-	(,table-accessor A))
+       (with-workers ((lambda (x-key row-or-col-dic)
+			(let ((x-values (vref x x-key)))
+			  (scal! beta x-values)
+			  (maphash
+			   #'(lambda (y-key mblock)
+			       (let ((y-values (vref y y-key)))
+				 (,gemm-job alpha mblock y-values 1.0 x-values)))
+			   row-or-col-dic))))
+	 (maphash #'work-on (,table-accessor A)))
        x))))
 
 (mapc #'generate-sparse-matrix-vector-gemm!-template '(:nn :nt :tn :tt))
@@ -843,6 +876,18 @@ col-keys=nil means to allow every key."
 	     do (setf (aref result i j)
 		      (gethash ck row)))))
     result))
+
+(defmethod value-blocks-in-region ((smat <sparse-matrix>) (keys vector))
+  (let ((n (length keys)))
+    (lret ((result (make-array (twice n) :initial-element nil)))
+      (dotimes (i n)
+	(let ((row-key (aref keys i)))
+	  (dotimes (j n)
+	    (let ((col-key (aref keys j)))
+	      (when (in-pattern-p smat row-key col-key)
+		(setf (aref result i j)
+		      (mref smat row-key col-key))))))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; transformation to matlisp matrices

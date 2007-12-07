@@ -135,37 +135,38 @@ yields the fixed point iteration, 1.0 is full Newton approximation.")
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				  (coeff (eql 'FL.CDR::DIFFUSION))
 				  patch args eval)
-  (call-next-method problem 'FL.ELLSYS::A patch args
-		    (lambda (&rest args)
-		      (diagonal-sparse-tensor (apply eval args) 1))))
+  (make-coefficients-for problem 'FL.ELLSYS::A patch args
+			 (lambda (&rest args)
+			   (diagonal-sparse-tensor (apply eval args) 1))))
 		    
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				 (coeff (eql 'FL.CDR::ISOTROPIC-DIFFUSION))
 				  patch args eval)
-  (call-next-method problem 'FL.ELLSYS::A patch args
-		    (let ((dim (dimension (domain problem))))
-		      (lambda (&rest args)
-			(diagonal-sparse-tensor (scal (apply eval args) (eye dim)) 1)))))
+  (make-coefficients-for problem 'FL.ELLSYS::A patch args
+			 (let ((dim (dimension (domain problem))))
+			   (lambda (&rest args)
+			     (diagonal-sparse-tensor (scal (apply eval args) (eye dim)) 1)))))
 
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				 (coeff (eql 'FL.CDR::SCALAR-SOURCE)) patch args eval)
-  (call-next-method problem 'FL.ELLSYS::F patch args
-		    (lambda (&rest args)
-		      (vector (ensure-matlisp (apply eval args) :row-vector)))))
+  (make-coefficients-for problem 'FL.ELLSYS::F patch args
+			 (lambda (&rest args)
+			   (vector (ensure-matlisp (apply eval args) :row-vector)))))
 		    
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				 (coeff (eql 'FL.CDR::SCALAR-NONLINEAR-SOURCE))
 				  patch args eval)
-  (call-next-method problem 'FL.ELLSYS::NONLINEAR-F patch args
-		    (lambda (&rest args)
-		      (vector (ensure-matlisp (apply eval args) :row-vector)))))
-		    
+  (make-coefficients-for problem 'FL.ELLSYS::NONLINEAR-F patch args
+			 (lambda (&rest args)
+			   (sparse-tensor 
+			    `((,(apply eval args) 0))))))
+
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				 (coeff (eql 'FL.CDR::SCALAR-CONSTRAINT))
 				  patch args eval)
-  (call-next-method problem 'FL.PROBLEM::CONSTRAINT patch args
-		    (lambda (&rest args)
-		      (values #(t) (vector (ensure-matlisp (apply eval args) :row-vector))))))
+  (make-coefficients-for problem 'FL.PROBLEM::CONSTRAINT patch args
+			 (lambda (&rest args)
+			   (values #(t) (vector (ensure-matlisp (apply eval args) :row-vector))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Navier-Stokes problems
@@ -177,10 +178,10 @@ yields the fixed point iteration, 1.0 is full Newton approximation.")
     ((problem fl.navier-stokes-ellsys::<navier-stokes-problem>)
      (coeff (eql 'VISCOSITY)) patch args eval)
   (let ((dim (dimension (domain problem))))
-    (call-next-method problem 'FL.ELLSYS::A patch args
-		      (lambda (&rest args)
-			(diagonal-sparse-tensor
-			 (scal (apply eval args) (eye dim)) dim)))))
+    (make-coefficients-for problem 'FL.ELLSYS::A patch args
+			   (lambda (&rest args)
+			     (diagonal-sparse-tensor
+			      (scal (apply eval args) (eye dim)) dim)))))
 
 (defmethod make-coefficients-for
     ((problem fl.navier-stokes-ellsys::<navier-stokes-problem>)
@@ -245,11 +246,11 @@ definition correctly."
   (declare (ignore name args body))
   (error "Should not be called."))
 
-(defmacro create-problem (&key type domain components (multiplicity 1) coefficients)
+(defmacro create-problem (&key type domain components (multiplicity 1) coefficients properties)
   (with-gensyms (problem patch classification)
     `(lret ((,problem (fl.amop:make-programmatic-instance
 		       ,type :domain ,domain :multiplicity ,multiplicity
-		       :classify nil)))
+		       :classify nil :properties ,properties)))
       ,(if (eq (first components) 'select-on-patch)
 	     `(progn
 	       (setf (slot-value ,problem 'components) (make-hash-table))

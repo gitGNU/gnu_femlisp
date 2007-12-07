@@ -40,7 +40,7 @@
    "STANDARD-MATRIX" "STANDARD-MATRIX-P"
    "MAKE-REAL-MATRIX" "MAKE-REAL-VECTOR"
    "STORE"
-   "*PRINT-MATRIX*"
+   "*PRINT-MATRIX*" "*PRINT-MATRIX-ELEMENT-FORMAT*"
    "EYE" "ZEROS" "ONES" "DIAG" "COLUMN" "ROW" "LAPLACE-FULL-MATRIX"
    "MREF"
    "FILL!" "FILL-RANDOM!"
@@ -108,7 +108,7 @@
    "DOTENSOR" "TENSOR-FOR-EACH" "TENSOR-MAP"
    )
   (:documentation "This package provides a Common Lisp version of full
-matrices with elements being numbers of a given type.  Those classes are
+  matrices with elements being numbers of a given type.  Those classes are
 automatically generated when needed.  It provides also part of the BLAS and
 LAPACK operations for those matrices.  The corresponding methods are
 automatically compiled for the given matrix classes.  The interface is very

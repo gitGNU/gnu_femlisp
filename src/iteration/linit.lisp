@@ -215,9 +215,8 @@ parameter, eta is the diagonal enhancement."))
      :iterate
      #'(lambda (x b r)
 	 (declare (ignore b))
-	 (for-each-row-key
+	 (fl.algebra::parallel-for-each-row-key
 	  #'(lambda (row-key)
-;;	      (print row-key)
 	      (let ((rblock (vref r row-key)))
 		(unless (= damp 1.0) (scal! damp rblock))
 		(gesv! (mref mat row-key row-key) rblock)

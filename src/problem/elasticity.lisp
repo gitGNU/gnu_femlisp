@@ -108,7 +108,8 @@ delta_{kl} + delta_{kj} delta_{il})}."
    'FL.ELLSYS::A
    (isotropic-elasticity-tensor :dim dim :lambda lambda :mu mu)))
 
-(defun elasticity-model-problem (domain &key (lambda 1.0) (mu 1.0) force)
+(defun elasticity-model-problem (domain &key (lambda 1.0) (mu 1.0) force
+				 (dirichlet nil dirichlet-p))
   (let* ((domain (if (numberp domain) (n-cube-domain domain) domain))
 	 (dim (dimension domain)))
     (ellsys-model-problem
@@ -116,7 +117,9 @@ delta_{kl} + delta_{kj} delta_{il})}."
      :derived-class '<elasticity-problem>
      :a (isotropic-elasticity-tensor-coefficient dim lambda mu)
      :f (or force (ellsys-one-force-coefficient dim 1))
-     :dirichlet (constraint-coefficient dim 1))))
+     :dirichlet (if dirichlet-p
+		    dirichlet
+		    (constraint-coefficient dim 1)))))
 
 ;;; Testing: (test-elasticity)
 

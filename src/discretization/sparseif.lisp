@@ -67,10 +67,6 @@
 
 ;;; transfer between local and global vector
 
-(defgeneric local-value-blocks (cell svec)
-  (:documentation "Gets all value-blocks associated with the subcells.
-If necessary, those value-blocks are generated."))
-
 (defgeneric fill-local-from-global-vec (cell global-vec local-vec)
   (:documentation "Copies the region in global-vec determined by cell to
 local-vec."))
@@ -104,6 +100,9 @@ local-mat."))
 (defgeneric increment-global-by-local-mat (cell global-mat local-mat)
   (:documentation "Increments the region in global-mat determined by cell
 to the values of local-mat."))
+
+(defgeneric global-local-operation (cell sparse-object local-object operation)
+  (:documentation "Performs some operation interfacing global to local values."))
 
 ;;; The actual implementation for <sparse-vector> and <sparse-matrix>.
 
@@ -164,6 +163,7 @@ in the form component-index/in-component-index is computed."
 			    collecting iv))
 		'vector)))))
 
+#+(or)
 (defmethod local-value-blocks ((svec <sparse-vector>) (cell <cell>))
   (let ((mesh (mesh svec)))
     (map 'vector
@@ -174,20 +174,22 @@ in the form component-index/in-component-index is computed."
 	 (subcells cell))))
 
 (defmethod global-local-operation ((cell <cell>) (svec <sparse-vector>) local-vec operation)
-  (let ((vblocks (local-value-blocks svec cell))
-	(fe (get-fe (ansatz-space svec) cell)))
+  (let ((fe (get-fe (ansatz-space svec) cell)))
     (destructuring-bind (&key nr-dofs component-index in-component-index
 			      vblock-index in-vblock-index &allow-other-keys)
 	(fe-secondary-information fe)
-      (let ((multiplicity (multiplicity svec)))
-	(with-mutual-exclusion (svec)
-	  (dotimes (i nr-dofs)
-	    (let ((component-index (aref component-index i))
-		  (in-component-index (aref in-component-index i))
-		  (vblock-index (aref vblock-index i))
-		  (in-vblock-index (aref in-vblock-index i)))
-	      (dotimes (j multiplicity)
-		(symbol-macrolet
+      (let* ((mesh (mesh svec))
+	     (keys (vector-map (rcurry #'cell-key mesh) (subcells cell))))
+	(with-region (svec keys)
+	  (let ((vblocks (value-blocks-in-region svec keys))
+		(multiplicity (multiplicity svec)))
+	    (dotimes (i nr-dofs)
+	      (let ((component-index (aref component-index i))
+		    (in-component-index (aref in-component-index i))
+		    (vblock-index (aref vblock-index i))
+		    (in-vblock-index (aref in-vblock-index i)))
+		(dotimes (j multiplicity)
+		  (symbol-macrolet
 		      ((local (mref (aref local-vec component-index)
 				    in-component-index j))
 		       (global (mref (aref vblocks vblock-index)
@@ -196,7 +198,7 @@ in the form component-index/in-component-index is computed."
 		      (:local<-global (setq local global))
 		      (:global<-local (setq global local))
 		      (:global+=local (incf global local))
-		      (:global-=local (decf global local))))))))))))
+		      (:global-=local (decf global local)))))))))))))
 
 (defmethod fill-local-from-global-vec ((cell <cell>) (svec <sparse-vector>) local-vec)
   (global-local-operation cell svec local-vec :local<-global))
@@ -250,6 +252,7 @@ value arrays corresponding to the finite element."
 ;;; <sparse-matrix> interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+#+(or)
 (defmethod local-value-blocks ((smat <sparse-matrix>) (cell <cell>))
   (let* ((subcell-keys (vector-map (rcurry #'cell-key (mesh smat)) (subcells cell)))
 	 (n (length subcell-keys)))
@@ -264,8 +267,7 @@ value arrays corresponding to the finite element."
 
 (defmethod global-local-operation ((cell <cell>) (smat <sparse-matrix>) local-mat operation)
   (declare (optimize debug))
-  (let ((mblocks (local-value-blocks smat cell))
-	(domain-fe (get-fe (domain-ansatz-space smat) cell))
+  (let ((domain-fe (get-fe (domain-ansatz-space smat) cell))
 	(image-fe (get-fe (image-ansatz-space smat) cell)))
     (destructuring-bind
 	  (&key ((:nr-dofs nr-dofs-1))
@@ -274,31 +276,35 @@ value arrays corresponding to the finite element."
 		&allow-other-keys)
 	(fe-secondary-information image-fe)
       (destructuring-bind
-	  (&key ((:nr-dofs nr-dofs-2))
-		((:component-index component-index-2)) ((:in-component-index in-component-index-2))
-		((:vblock-index vblock-index-2)) ((:in-vblock-index in-vblock-index-2))
-		&allow-other-keys)
+	    (&key ((:nr-dofs nr-dofs-2))
+		  ((:component-index component-index-2)) ((:in-component-index in-component-index-2))
+		  ((:vblock-index vblock-index-2)) ((:in-vblock-index in-vblock-index-2))
+		  &allow-other-keys)
 	  (fe-secondary-information domain-fe)
-	(dotimes (i nr-dofs-1)
-	  (let ((comp-1 (aref component-index-1 i))
-		(in-comp-1 (aref in-component-index-1 i))
-		(vblock-index-1 (aref vblock-index-1 i))
-		(in-vblock-index-1 (aref in-vblock-index-1 i)))
-	    (dotimes (j nr-dofs-2)
-	      (let ((comp-2 (aref component-index-2 j))
-		    (in-comp-2 (aref in-component-index-2 j))
-		    (vblock-index-2 (aref vblock-index-2 j))
-		    (in-vblock-index-2 (aref in-vblock-index-2 j)))
-		(symbol-macrolet
-		      ((local (mref (mref local-mat comp-1 comp-2)
-				    in-comp-1 in-comp-2))
-		       (global (mref (aref mblocks vblock-index-1 vblock-index-2)
-				     in-vblock-index-1 in-vblock-index-2)))
-		    (ecase operation
-		      (:local<-global (setq local global))
-		      (:global<-local (setq global local))
-		      (:global+=local (incf global local))
-		      (:global-=local (decf global local))))))))))))
+	(let* ((mesh (mesh smat))
+	       (keys (vector-map (rcurry #'cell-key mesh) (subcells cell))))
+	  (with-region (smat keys)
+	    (let ((mblocks (value-blocks-in-region smat keys)))
+	      (dotimes (i nr-dofs-1)
+		(let ((comp-1 (aref component-index-1 i))
+		      (in-comp-1 (aref in-component-index-1 i))
+		      (vblock-index-1 (aref vblock-index-1 i))
+		      (in-vblock-index-1 (aref in-vblock-index-1 i)))
+		  (dotimes (j nr-dofs-2)
+		    (let ((comp-2 (aref component-index-2 j))
+			  (in-comp-2 (aref in-component-index-2 j))
+			  (vblock-index-2 (aref vblock-index-2 j))
+			  (in-vblock-index-2 (aref in-vblock-index-2 j)))
+		      (symbol-macrolet
+			  ((local (mref (mref local-mat comp-1 comp-2)
+					in-comp-1 in-comp-2))
+			   (global (mref (aref mblocks vblock-index-1 vblock-index-2)
+					 in-vblock-index-1 in-vblock-index-2)))
+			(ecase operation
+			  (:local<-global (setq local global))
+			  (:global<-local (setq global local))
+			  (:global+=local (incf global local))
+			  (:global-=local (decf global local)))))))))))))))
 
 (defmethod fill-local-from-global-mat ((cell <cell>) (smat <sparse-matrix>) local-mat)
   (global-local-operation cell smat local-mat :local<-global))

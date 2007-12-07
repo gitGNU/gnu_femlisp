@@ -104,6 +104,7 @@ determined by the keyword arguments."
      (* memory (daxpy-speed +N-long+))))
 
 (defun test-mflop ()
+  (daxpy-speed +N-short+)
   (daxpy-speed +N-long+)
   (common-lisp-speed)
   )
