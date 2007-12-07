@@ -30,19 +30,20 @@
 ###########################################################################
 
 SUPERLU_INCLUDE=/usr/include/superlu
-SUPERLU_LIB= #-L /usr/lib
-
+SUPERLU_LIBRARY=/usr/lib
 UMFPACK_INCLUDE=/usr/include/umfpack
-UMFPACK_LIB= #-L /usr/lib
-AMD_LIB= #-L /usr/lib
+UMFPACK_LIBRARY=/usr/lib
+
+SUPERLU_LIB=#-L $(SUPERLU_LIBRARY)
+AMD_LIB=#-L $(UMFPACK_LIBRARY)
 
 all: superlu umfpack
 
-superlu:
+superlu: $(SUPERLU_INCLUDE)/dsp_defs.h $(SUPERLU_LIBRARY)/libsuperlu.so
 	gcc -c -fPIC -I$(SUPERLU_INCLUDE) superlu.c;
 	ld -shared $(SUPERLU_LIB) -lsuperlu superlu.o -o superlu.so
 
-umfpack:
+umfpack: $(UMFPACK_INCLUDE)/umfpack.h
 	gcc -I$(UMFPACK_INCLUDE) -Wall -fPIC -c umfpack.c;
 	ld -shared $(UMFPACK_LIB) $(AMD_LIB) -lumfpack -lamd umfpack.o -o umfpack.so
 

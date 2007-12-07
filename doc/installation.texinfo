@@ -104,6 +104,9 @@ apt-get install slime
 # Documentation (recommended)
 apt-get install cmucl-doc cmucl-source hyperspec
 
+# for generating Femlisp documentation
+apt-get install texlive-generic-recommended
+
 # get Femlisp by CVS or FTP, it is extracted into a directory 'femlisp'
 #cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
 wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -

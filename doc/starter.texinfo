@@ -95,15 +95,27 @@ for approximating the solution has increased beyond 20 seconds.
 
 @lisp
 (let* ((problem
-        (standard-elasticity-problem
+        (elasticity-model-problem
          (n-cube-domain 2) :lambda 1.0 :mu 1.0
-         :force (constant-coefficient (vector #m(1.0) #m(0.0)))))
+         :force (vector #m(1.0) #m(0.0))))
        (blackboard
         (blackboard :problem problem :output t
                     :success-if '(> :time 20.0))))
-  (solve blackboard)
-  (plot (getbb blackboard :solution) :component 0)
-  (plot (getbb blackboard :solution) :component 1))
+  (defparameter *result* (solve blackboard)))
+@end lisp
+
+@lisp
+(plot (getbb *result* :solution))
+@end lisp
+now plots the x-component of the solution, whereas 
+@lisp
+(plot (getbb *result* :solution) :component 1)
+@end lisp
+plots the y-component.
+
+A vector plot can be achieved using
+@lisp
+(plot (getbb *result* :solution) :component 'fl.elasticity::u :rank 1 :shape 2)
 @end lisp
 
 @node Navier-Stokes problem, Heat equation, Elasticity problem, Solving problems
@@ -116,19 +128,20 @@ number 10.  During the approximation the velocity components at the
 midpoint @math{(0.5,0.5)} are printed.
 
 @verbatim
-(solve 
- (blackboard
-  :problem (driven-cavity 2 :reynolds 10.0) :base-level 0
-  :success-if '(> :time 20.0) :output t :observe
-  (append *stationary-fe-strategy-observe*
-          (list
-           (list (format nil "~{                 u~1D~}" '(1 2))
-                 "~{~19,10,2E~}"
-                 #'(lambda (blackboard)
-                     (let ((val (fe-value (getbb blackboard :solution)
-                                          #d(0.5 0.5))))
-                       (loop for i below dim collect
-                             (vref (aref val i) 0)))))))))
+(defparameter *result*
+  (solve 
+   (blackboard
+    :problem (driven-cavity 2 :reynolds 10.0) :base-level 0
+    :success-if '(> :time 20.0) :output t :observe
+    (append *stationary-fe-strategy-observe*
+	    (list
+	     (list (format nil "~{                 u~1D~}" '(1 2))
+		   "~{~19,10,2E~}"
+		   #'(lambda (blackboard)
+		       (let ((val (fe-value (getbb blackboard :solution)
+                                    #d(0.5 0.5))))
+			 (loop for i below dim collect
+			      (vref (aref val i) 0))))))))))
 @end verbatim
 
 @node Heat equation, Eigenvalue problems, Navier-Stokes problem, Solving problems
@@ -143,8 +156,7 @@ zero right-hand side and some initial values:
 (let* ((dim 1) (levels 4) (order 2)
        (problem (cdr-model-problem
                  dim :initial #'(lambda (x) #I(sin(2*pi*x[0]^^2)))
-                 :reaction (constant-coefficient 0.0)
-                 :source (constant-coefficient #m(0.0))))
+                 :reaction 0.0 :source #m(0.0)))
        (rothe (make-instance
                '<rothe> :model-time 0.0 :time-step 0.01
                :stationary-success-if `(> :nr-levels ,levels)

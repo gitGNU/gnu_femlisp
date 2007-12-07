@@ -29,9 +29,9 @@ if test "$1" = "--save-core-and-die"; then
     # the following passing of a keyword is a kludge due to a bug in Allegro
     bash ./bin/femlisp $eval "(fl.port:save-femlisp-core-and-die :$FEMLISP_CORE)"
     if test -f $FEMLISP_CORE
-	then
+    then
 	echo "Built core in $FEMLISP_CORE"
-	else
+    else
 	echo "Building core file was not successful"
     fi
     exit 0

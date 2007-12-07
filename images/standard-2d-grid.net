@@ -1,7 +1,7 @@
 //
-// time: Thu Feb 24 16:30:52 2005
+// time: Tue Jun 12 11:07:43 2007
 //
-// version: 3.2.0 (format), 4.3.2 (DX)
+// version: 3.2.0 (format), 4.4.0 (DX)
 //
 //
 // MODULE main
@@ -127,8 +127,8 @@ main_Collect_3_out_1 =
     // input[5]: defaulting = 0, visible = 0, type = 8, value = [0.497929 0.497929 -9.31323e-10]
     // input[6]: defaulting = 0, visible = 0, type = 8, value = [0.497929 0.497929 3.65002]
     // input[7]: defaulting = 1, visible = 0, type = 5, value = 1.95604
-    // input[8]: defaulting = 0, visible = 0, type = 1, value = 1256
-    // input[9]: defaulting = 0, visible = 0, type = 5, value = 0.748
+    // input[8]: defaulting = 0, visible = 0, type = 1, value = 1891
+    // input[9]: defaulting = 0, visible = 0, type = 5, value = 0.586198
     // input[10]: defaulting = 0, visible = 0, type = 8, value = [0 1 0]
     // input[11]: defaulting = 0, visible = 0, type = 5, value = 30.0
     // input[12]: defaulting = 0, visible = 0, type = 1, value = 1
@@ -145,8 +145,8 @@ main_Collect_3_out_1 =
     // input[42]: defaulting = 0, visible = 0, type = 32, value = "Gridded_3D_1var_notseries"
     // page group: image
     // title: value = Gridded_3D_1var_notseries
-    // depth: value = 24
-    // window: position = (0.0000,0.0049), size = 0.9922x0.9580
+    // depth: value = 15
+    // window: position = (0.0000,0.0050), size = 0.9922x0.9583
     // internal caching: 1
     //
 main_Image_5_out_1,
@@ -562,13 +562,13 @@ macro Image(
         RECformat) [instance: 2, cache: 1];
 }
 main_Image_5_in_1 = "Image_5";
-main_Image_5_in_3 = "X24,,Gridded_3D_1var_notseries";
+main_Image_5_in_3 = "X15,,Gridded_3D_1var_notseries";
 main_Image_5_in_4 = 1;
 main_Image_5_in_5 = [0.497929 0.497929 -9.31323e-10];
 main_Image_5_in_6 = [0.497929 0.497929 3.65002];
 main_Image_5_in_7 = NULL;
-main_Image_5_in_8 = 1256;
-main_Image_5_in_9 = 0.748;
+main_Image_5_in_8 = 1891;
+main_Image_5_in_9 = 0.586198;
 main_Image_5_in_10 = [0 1 0];
 main_Image_5_in_11 = 30.0;
 main_Image_5_in_12 = 1;
@@ -607,6 +607,6 @@ main_Image_5_in_46 = NULL;
 main_Image_5_in_47 = NULL;
 main_Image_5_in_48 = NULL;
 main_Image_5_in_49 = NULL;
-Executive("product version 4 3 2");
+Executive("product version 4 4 0");
 $sync
 main();

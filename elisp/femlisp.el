@@ -4,19 +4,12 @@
 
 (require 'slime)
 
-(defvar *femlisp-additional-startup-files* ()
-  "List of additional files which are loaded by M-x femlisp.")
-
 (defun femlisp ()
   "Start femlisp by loading the file start.lisp from the directory in
 *femlisp-root*."
   (interactive)
   (slime-start-and-load (concat *femlisp-root* "start.lisp")
 			"FL.APPLICATION")
-  ;; does not work, because slime-start-and-load returns before loading
-  ;; femlisp:
-  ;; (dolist (file *femlisp-additional-startup-files*)
-  ;; (slime-interactive-eval (format "(load %S)" file)))
   )
 
 ;;; Improved DEFMETHOD indenting

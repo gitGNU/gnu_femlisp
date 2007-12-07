@@ -2,6 +2,9 @@
 
 * From Femlisp-0.9.9 to Femlisp-0.9.10:
 
+Fixed an hideous bug in domain.lisp which lead to the wrong
+characterization of the bottom of a cube domain.
+
 There is a new approach of problem definition in @file{problem;pdef.lisp}
 with the help of a macro @macro{create-problem}.  Old definitions are still
 used, but may finally be replaced.  The performance impact should be traced

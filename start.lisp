@@ -50,10 +50,4 @@
 
 (pushnew :femlisp *features*)
 
-#-(or ecl gcl)
-(let ((asdf::*compile-file-failure-behaviour* :error)
-      (private (probe-file #p"femlisp:private;start.lisp")))
-  (when private (load private)))
-
 (fl.start:femlisp-banner)
-
