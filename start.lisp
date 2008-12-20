@@ -43,7 +43,9 @@
 			     :name :wild :type :wild :version :wild))))))
 
 ;;; ensure ASDF
-(require :asdf #p"femlisp:external;asdf.lisp")
+#-asdf
+(or (ignore-errors (require :asdf))
+    (load #p"femlisp:external;asdf.lisp"))
 
 (let ((asdf::*compile-file-failure-behaviour* :error))
   (asdf:operate 'asdf::load-op :femlisp))

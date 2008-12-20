@@ -38,6 +38,7 @@
 
 (defmethod nrows ((obj number)) 1)
 (defmethod ncols ((obj number)) 1)
+(defmethod multiplicity ((obj number)) 1)
 
 (defmethod for-each-entry (func (num number))
   (funcall func num))
@@ -87,7 +88,7 @@
 
 (defmethod mequalp ((x number) (y number)) (= x y))
 
-(defmethod mzerop ((x number) &optional (threshold 0.0))
+(defmethod mzerop ((x number) &optional (threshold *mzerop-threshold*))
   "Tests if the number @arg{x} is lower or equal to @arg{threshold}."
   (<= (abs x) threshold))
 

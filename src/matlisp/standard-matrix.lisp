@@ -135,16 +135,16 @@ are provided, they should be numbers which are interpreted as rows and
 columns.  If only one argument is provided, it should be either a number
 meaning the rows and columns of a square matrix or a nested list or vector
 structure defining the contents matrix."
-  (declare (optimize speed))
-  (cond
-    ((single? args)
-     (let ((arg (car args)))
-       (cond ((numberp arg) (zeros arg arg))
-	     (t (make-instance (standard-matrix 'double-float)
-			       :content arg)))))
-    ((single? (cdr args))
-     (zeros (first args) (second args)))
-    (t (error "Too many arguments."))))
+  (quickly
+    (cond
+      ((single? args)
+       (let ((arg (car args)))
+	 (cond ((numberp arg) (zeros arg arg))
+	       (t (make-instance (standard-matrix 'double-float)
+				 :content arg)))))
+      ((single? (cdr args))
+       (zeros (first args) (second args)))
+      (t (error "Too many arguments.")))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (set-dispatch-macro-character
@@ -160,89 +160,6 @@ structure defining the contents matrix."
   (make-instance (standard-matrix 'double-float)
 		 :nrows dim :ncols 1
 		 :content (make-double-vec dim value)))
-
-(defun complex-to-real-vector (cvec)
-  (declare (type (simple-array (complex double-float) *) cvec))
-  (let* ((n (length cvec))
-	 (n2 (* 2 n)))
-    (let ((dvec (make-double-vec n2)))
-      (dotimes (i n)
-	(let ((c (aref cvec i))
-	      (k (* 2 i)))
-	  (setf (aref dvec k) (realpart c))
-	  (setf (aref dvec (1+ k)) (imagpart c))))
-      dvec)))
-
-(defun real-to-complex-vector (dvec)
-  (declare (type double-vec dvec))
-  (declare (optimize speed (safety 0)))
-  (let ((n2 (length dvec)))
-    (assert (evenp n2))
-    (let ((n  (/ n2 2)))
-      (declare (type fixnum n))
-      (let ((cvec (make-array n :element-type '(complex double-float))))
-	(dotimes (i n)
-	  (setf (aref cvec i)
-		(let ((k (* 2 i)))
-		  (complex (aref dvec k) (aref dvec (1+ k))))))
-	cvec))))
-
-(defun extend-matlisp-function (func)
-  "If @package{MATLISP} is available, and the argument @arg{func} is a
-generic function in this package, this function is extended to be
-applicable to matrices in @arg{FL.MATLISP}.  This is done by defining a
-method for @function{no-applicable-method} which converts the arguments,
-calls @arg{func} and reconverts the returned values.  If @package{MATLISP}
-is not available, NIL is returned."
-  (whereas ((matlisp-package (find-package "MATLISP")))
-    (when (and (typep func 'generic-function)
-	       (eq (symbol-package (fl.amop::generic-function-name func))
-		   matlisp-package))
-      (destructuring-bind (standard-matrix real-matrix complex-matrix
-					   nrows ncols store)
-	  (mapcar (rcurry #'intern matlisp-package)
-		  '("STANDARD-MATRIX" "REAL-MATRIX" "COMPLEX-MATRIX"
-		    "NROWS" "NCOLS" "STORE"))
-	(defmethod no-applicable-method ((gf (eql func)) &rest args)
-	  (let (alist)
-	    ;; setup translation table with arguments
-	    (loop for obj in args do
-		 (when (and (typep obj 'fl.matlisp:standard-matrix)
-			    (not (assoc obj alist)))
-		   (push
-		    (cons obj
-			  (if (eq (element-type obj) 'double-float)
-			      (make-instance real-matrix
-					     :nrows (nrows obj) :ncols (ncols obj) :store (store obj))
-			      (make-instance complex-matrix
-					     :nrows (nrows obj) :ncols (ncols obj) :store
-					     (complex-to-real-vector (store obj)))))
-		    alist)))
-	    (unless alist
-	      (error "No matching method for the generic function ~S, when called with arguments ~S."
-		     gf args))
-	    (let ((return-values
-		   (multiple-value-list
-		    (apply gf (loop for obj in args collect
-				   (or (geta alist obj) obj))))))
-	      ;; augment translation table with returned values
-	      (loop for obj in return-values do
-		   (when (and (typep obj standard-matrix)
-			      (not (rassoc obj alist)))
-		     (push (cons (make-instance (fl.matlisp:standard-matrix
-						 (cond ((typep obj real-matrix) 'double-float)
-						       ((typep obj complex-matrix) '(complex double-float))
-						       (t (error "Unknown Matlisp matrix."))))
-						:nrows (funcall nrows obj) :ncols (funcall ncols obj)
-						:store (let ((store (funcall store obj)))
-							 (if (typep obj real-matrix)
-							     store
-							     (real-to-complex-vector store))))
-				 obj)
-			   alist)))
-	      (apply #'values (loop for obj in return-values collect
-				   (or (car (rassoc obj alist)) obj))))))))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; conversion of vectors to standard-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -335,7 +252,8 @@ elements.")
   "T means that a newline is printed after each row.")
 
 (defvar *print-matrix-element-format* nil
-  "Size of matrix element field to be printed.")
+  "Format of matrix element field to be printed.  A useful format is
+  \"~10,2,2E\" for debugging purposes.")
 
 (defgeneric print-element (matrix element stream)
   (:documentation "Prints the element @arg{element} of @arg{matrix} to the
@@ -388,7 +306,7 @@ stream @arg{stream}."))
 
 ;;; Constructors for special standard matrices
 
-(defmethod zeros (n &optional (m n) (type 'double-float))
+(defun zeros (n &optional (m n) (type 'double-float))
   "Returns nxn or (if m is provided) nxm zeros.  The value is freshly
 allocated."
   (?2 (make-instance (standard-matrix type) :nrows n :ncols m)
@@ -401,14 +319,14 @@ allocated."
 		store (make-array (* n m) :element-type type
 				  :initial-element (coerce 0 type)))))))
 
-(defmethod eye (n &optional (m n) (type 'double-float))
+(defun eye (n &optional (m n) (type 'double-float))
   "Returns the nxn identity matrix.  The value is freshly allocated."
   (let ((result (zeros n m type))
 	(one (coerce 1 type)))
     (dotimes (i (min n m) result)
       (setf (mref result i i) one))))
 
-(defmethod ones (n &optional (m n) (type 'double-float))
+(defun ones (n &optional (m n) (type 'double-float))
   "Returns nxn or (if m is provided) nxm ones.  The value is freshly
 allocated."
   (let ((vec (make-array (* n m) :element-type type
@@ -431,45 +349,106 @@ allocated."
     (loop for value in values and i from 0 do
 	  (setf (vref result i) value))))
 
-(defmethod mrandom ((n integer) &optional m (type 'double-float) (range 1.0))
+(defun mrandom (n &optional m (type 'double-float) (range 1.0))
   "Returns a random nxn or (if m is provided) nxm matrix.  The value is
 freshly allocated."
   (unless m (setq m n))
   (fill-random! (zeros n m) (coerce range type)))
 
-(defmethod diag (vec)
+(defun diag (vec)
   "Returns a diagonal matrix with diagonal entries from vec."
   (let* ((n (vlength vec))
 	 (result (zeros n n (element-type vec))))
     (dotimes (i n result)
       (setf (mref result i i) (vref vec i)))))
 
-(defun laplace-full-matrix (n)
-  "Generates the matrix for a 1-dimensional Laplace problem discretized
-with the 3-point stencil on a structured mesh."
-  (lret ((result (zeros n n 'double-float)))
+(defmethod diagonal ((A standard-matrix))
+  "Returns the diagonal of @arg{A} as a vector."
+  (lret* ((n (min (nrows A) (ncols A)))
+	  (result (zero-vector n (element-type A))))
     (dotimes (i n)
-      (setf (mref result i i) 2.0)
-      (when (> i 0) (setf (mref result i (1- i)) -1.0))
-      (when (< i (1- n)) (setf (mref result i (1+ i)) -1.0)))))
+      (setf (aref result i) (mref A i i)))))
+
+(defun stencil-matrix (stencil sizes)
+  "@arg{stencil} should be an array of rank dim, each dimension being 3,
+@arg{sizes} is either an integer or an integer vector of length dim.  Each
+size denotes the number of interior mesh-points in the respective
+dimension."
+  (declare (optimize debug))
+  (let ((dim (array-rank stencil)))
+    (when (numberp sizes)
+      (setq sizes (make-list dim :initial-element sizes)))
+    (let* ((n (reduce #'* sizes))
+	   (offsets (loop for k from 0
+		       and size in sizes
+		       for offset = 1 then (* offset size)
+		       collect offset))
+	   (result (zeros n)))
+      (flet ((ind->off (indices)
+	       (loop for k in indices and off in offsets
+		  summing (* k off))))
+	(dotuple (i sizes)
+	  (let ((ind_i (ind->off i)))
+	    (dotuple (j (make-list dim :initial-element 3))
+	      (let ((ij (mapcar (lambda (x y) (+ x y -1)) i j)))
+		(when (every (lambda (x s) (< -1 x s)) ij sizes)
+		  (let ((ind_ij (ind->off ij)))
+		    (setf (mref result ind_i ind_ij)
+			  (apply #'aref stencil j)))))))))
+      result)))
+
+(defun laplace-stencil (dim)
+  "Returns the @{2*dim+1}-point stencil for the Laplace matrix on a uniform
+mesh as an array of rank @arg{dim}."
+  (lret ((result (make-array (make-list dim :initial-element 3)
+			     :initial-element 0.0)))
+    (setf (apply #'aref result (make-list dim :initial-element 1))
+	  (* 2.0 dim))
+    (flet ((ind (k dir)
+	     (append (make-list k :initial-element 1)
+		     (list (ecase dir (+ 2) (- 0)))
+		     (make-list (- dim k 1) :initial-element 1))))
+      (loop for k below dim do
+	   (setf (apply #'aref result (ind k '+)) -1.0
+		 (apply #'aref result (ind k '-)) -1.0)))))
+
+(defun laplace-full-matrix (n &optional (dim 1))
+  "Generates the matrix for a @arg{dim}-dimensional Laplace problem
+discretized with the @math{2*@arg{dim}+1}-point stencil on a structured
+mesh with Dirichlet boundary conditions."
+  (stencil-matrix (laplace-stencil dim)
+		  (make-list dim :initial-element n)))
 
 (defmethod make-analog ((x standard-matrix))
   "Constructs a zero matrix with the same size as X."
   (zeros (nrows x) (ncols x) (element-type x)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Matrix combination
+;;;; Join of standard matrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod join ((x standard-matrix) (y standard-matrix) &optional (orientation :horizontal))
-  "Joins standard matrices X and Y either horizontally or vertically
-depending on the value of ORIENTATION."
-  (flet ((layout (m n) (zeros m n (element-type x))))
-    (ecase orientation
-      (:horizontal
-       (join-horizontal! x y (layout (nrows x) (+ (ncols x) (ncols y)))))
-      (:vertical
-       (join-vertical! x y (layout (+ (nrows x) (nrows y)) (ncols x)))))))
+(defmethod join-instance (orientation (matrix standard-matrix) &rest matrices)
+  (let (etype m n)
+    (loop for mat in (cons matrix matrices) do
+	 (cond ((null etype)
+		(setq  etype (element-type mat)
+		       m (nrows mat)
+		       n (ncols mat)))
+	       (t
+		(assert (equalp etype (element-type mat)))
+		(ecase orientation
+		  (:horizontal (assert (= m (nrows mat)))
+			       (incf n (ncols mat)))
+		  (:vertical (assert (= n (ncols mat)))
+			     (incf m (nrows mat)))))))
+    (zeros m n etype)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; LAPACK routines
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod fl.lapack::lapack-convert ((mat standard-matrix))
+  (fl.port::vector-sap (store mat)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Iteration
@@ -508,6 +487,7 @@ depending on the value of ORIENTATION."
   ;; wrapped in an EVAL-WHEN
   (defun test-standard-matrix ()
     ;;(setq *print-matrix* nil)
+    (join-instance :horizontal #m(1.0) #m(1.0))
     (make-instance (standard-matrix 'integer) :content #2a((2 3) (4 5)))
     (describe (standard-matrix 'double-float))
     (standard-matrix 'single-float)

@@ -5,6 +5,9 @@ Femlisp needs the following more or less urgently:
 
 * Remove the Femlisp-related bugs from the file BUGS
 
+* Data and Images directory should not(!) be in the Femlisp directory
+  (because of multiple users), also the logfile should be written elsewhere
+
 * Discretization
  - all problems/discretizations as special cases of ellsys
  - tensor-product fe and associated quadrature rules

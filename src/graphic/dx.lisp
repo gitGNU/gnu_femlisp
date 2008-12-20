@@ -90,7 +90,7 @@ This is a trick to make @arg{dx} redraw the picture.")
   "Returns the output file for @program{dx}."
   (declare (ignore object))
   (make-pathname :name "output.dx"
-		 :directory (pathname-directory (images-pathname))))
+                 :directory (pathname-directory (images-pathname))))
 
 (defmethod graphic-output :after (object (program (eql :dx)) &key &allow-other-keys)
   (declare (ignore object))
@@ -136,7 +136,7 @@ This is a trick to make @arg{dx} redraw the picture.")
 	  "data = Options(data, \"mark\", \"circle\");"
 	  ;; workaround for a DX bug, see bug-2.dx 
 	  (if (eq foreground :white)
-	      (format nil "data = Color(data);" graph-color)
+	      (format nil "data = Color(data);")  ; ??
 	      (format nil "data = Color(data,~S);" graph-color))
 	  (format nil "image = Plot(data, colors=~S);" axis-color)
 	  ;;"xyplot = Plot(data);"
@@ -188,7 +188,7 @@ Laptops when the window is hidden.")
   (whereas ((stream (dx-input-stream)))
     (when (dbg-p :graphic)
       (setq stream (make-broadcast-stream stream *trace-output*)))
-    (let ((dx-file (namestring (probe-file (graphic-file-name object :dx)))))
+    (let ((dx-file (graphic-file-name object :dx :system-p t)))
       (dbg :graphic "File: ~A~%" dx-file)
       (format stream "data = Import(~S);~%" dx-file)
       (format stream "data = Options(data, \"cache\", ~D);~%" *dx-toggle*)

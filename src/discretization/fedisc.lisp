@@ -43,8 +43,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defgeneric discretize-locally (problem coeffs fe qrule fe-geometry
-				&key matrix rhs local-u local-v
-				mass-factor stiffness-factor fe-parameters)
+				&key matrix mass-matrix rhs local-u local-v
+				fe-parameters)
   (:documentation "Computes a local stiffness matrix and right-hand side.
 The algorithm will usually work as follows:
 
@@ -61,9 +61,7 @@ The algorithm will usually work as follows:
   @end enumerate
 @end enumerate
 
-@arg{mass-factor} and @arg{stiffness-factor} are weights for mass and
-stiffness matrix which are used for solving eigenvalue and time-dependent
-problems.  If @arg{local-u} and @arg{local-v} are set, then
+If @arg{local-u} and @arg{local-v} are set, then
 @arg{local-v}*@arg{local-mat}*@arg{local-u} and
 @arg{local-v}*@arg{local-rhs} is computed.  This feature may be used later
 on for implementing matrixless computations."))
@@ -71,40 +69,43 @@ on for implementing matrixless computations."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Interior assembly
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun assemble-cell (cell ansatz-space &key mass-matrix)
+  (let* ((h-mesh (hierarchical-mesh ansatz-space))
+         (problem (problem ansatz-space))
+         (patch (patch-of-cell cell h-mesh))
+         (patch-properties (skel-ref (domain h-mesh) patch)))
+    ;; for the moment, we assume that the problem is resolved by the
+    ;; domain structure, i.e. that distributional coefficients occur
+    ;; only on patches.
+    (whereas ((coeffs (filter-applicable-coefficients
+                       (coefficients-of-cell cell h-mesh problem)
+                       cell patch :constraints nil)))
+      (dbg :disc "Coefficients: ~A" coeffs)
+      (let* ((fe (get-fe ansatz-space cell))
+             (qrule (quadrature-rule fe))
+             (geometry (fe-cell-geometry
+                        cell (integration-points qrule)
+                        :weights (integration-weights qrule)
+                        :metric (getf patch-properties 'FL.MESH::METRIC)
+                        :volume (getf patch-properties 'FL.MESH::VOLUME)))
+             (local-mat (make-local-mat ansatz-space cell))
+             (local-mass-mat (and mass-matrix (make-local-mat ansatz-space cell)))
+             (local-rhs (make-local-vec ansatz-space cell))
+             (fe-paras (loop for obj in (required-fe-functions coeffs)
+                          collect obj collect
+                          (get-local-from-global-vec
+                           cell (get-property problem (car obj))))))
+        (dbg :disc "FE-parameters: ~A" fe-paras)
+        (discretize-locally
+         problem coeffs fe qrule geometry
+         :matrix local-mat :rhs local-rhs :mass-matrix local-mass-mat
+         :fe-parameters fe-paras)
+        (dbg :disc "Matrix:~%~A~&Rhs:~%~A" local-mat local-rhs)
+        (values local-mat local-rhs local-mass-mat)))))
   
-(defparameter *static-condensation* nil
-  "This is experimental and usually switched off, because several things
-like error estimators or multigrid do not yet work correctly.")
-
-(defun static-condensation (mat &optional rhs)
-  "Does static condensation destructively on mat and rhs, i.e. essentially
-eliminate all equations for highest-dimensional cells from the system.  The
-system should be completely equivalent to the original one."
-  (declare (optimize debug safety))
-  (let ((dim (dimension (mesh mat))))
-    (for-each-row-key
-     #'(lambda (i)
-	 (when (= (dimension (representative i)) dim)
-	   (let ((Aii-inv (m/ (mref mat i i)))
-		 (f_i (when rhs (vref rhs i))))
-	     (for-each-key-in-col
-	      #'(lambda (l)
-		  (unless (eq l i)
-		    (let ((B (m* (mref mat l i) Aii-inv)))
-		      (when rhs (gemm! -1.0 B  f_i 1.0 (vref rhs l)))
-		      (for-each-key-in-row
-		       #'(lambda (j)
-			   (unless (eq j i)
-			     (gemm! -1.0 B (mref mat i j) 1.0 (mref mat l j))))
-		       mat i))
-		    (remove-entry mat l i)))
-	      mat i))))
-     mat)))
-
-
 (defun assemble-interior (ansatz-space &key level (where :surface)
-			  matrix rhs
-			  (mass-factor 0.0) (stiffness-factor 1.0))
+			  matrix mass-matrix rhs)
   "Assemble the interior, i.e. ignore constraints arising from boundaries
 and hanging nodes.  Discretization is done using the ansatz space
 @arg{ansatz-space} on level @arg{level}.  The level argument will usually
@@ -113,61 +114,32 @@ number when assembling coarse level matrices for multigrid.  The argument
 @arg{where} is a flag indicating where assembly is to be done.  It should
 be one of the keywords @code{:surface}, @code{:refined}, @code{:all}.  The
 arguments @arg{matrix}, @arg{rhs} should contain vectors/matrices where the
-local assembly is accumulated.  The numbers @arg{mass-factor} and
-@arg{stiffness-factor} determine weights for mass and stiffness matrix
-which is used when solving time-dependent and eigenvalue problems.
-Boundary conditions and constraints are not taken into account within this
-routine.
+local assembly is accumulated.  Boundary conditions and constraints are not
+taken into account within this routine.
 
 In general, this function does most of the assembly work.  Other steps like
-handling constraints are intricate, but usually of lower complexity."
-  (dbg :disc "Mass-factor=~A Stiffness-factor=~A" mass-factor stiffness-factor)
-  (let* ((h-mesh (hierarchical-mesh ansatz-space))
-	 (problem (problem ansatz-space))
-	 (level-skel (if level (cells-on-level h-mesh level) h-mesh)))
-    (with-workers
-	((lambda (cell)
-	   (let* ((patch (patch-of-cell cell h-mesh))
-		  (patch-properties (skel-ref (domain h-mesh) patch)))
-	     ;; for the moment, we assume that the problem is resolved by the
-	     ;; domain structure, i.e. that distributional coefficients occur
-	     ;; only on patches.
-	     (whereas ((coeffs (filter-applicable-coefficients
-				(coefficients-of-cell cell h-mesh problem)
-				cell patch :constraints nil)))
-	       (dbg :disc "Coefficients: ~A" coeffs)
-	       (let* ((fe (get-fe ansatz-space cell))
-		      (qrule (quadrature-rule fe))
-		      (geometry (fe-cell-geometry
-				 cell (integration-points qrule)
-				 :weights (integration-weights qrule)
-				 :metric (getf patch-properties 'FL.MESH::METRIC)
-				 :volume (getf patch-properties 'FL.MESH::VOLUME)))
-		      (local-mat (and matrix (make-local-mat matrix cell)))
-		      (local-rhs (and rhs (make-local-vec rhs cell)))
-		      (fe-paras (loop for obj in (required-fe-functions coeffs)
-				      collect obj collect
-				      (get-local-from-global-vec
-				       cell (get-property problem (car obj))))))
-		 (dbg :disc "FE-parameters: ~A" fe-paras)
-		 (discretize-locally
-		  problem coeffs fe qrule geometry
-		  :matrix local-mat :rhs local-rhs
-		  :mass-factor mass-factor :stiffness-factor stiffness-factor
-		  :fe-parameters fe-paras)
-		 ;; accumulate to global matrix and rhs (if not nil)
-		 (when rhs (increment-global-by-local-vec cell rhs local-rhs))
-		 (when matrix (increment-global-by-local-mat cell matrix local-mat)))))))
-      ;; fill pipeline for workers
+handling constraints are intricate, but usually of lower computational
+complexity."
+  (with-workers
+      ((lambda (cell)
+         (multiple-value-bind (local-mat local-rhs local-mass-mat)
+             (assemble-cell cell ansatz-space :mass-matrix mass-matrix)
+           ;; accumulate to global matrix and rhs (if not nil)
+           (when (and rhs local-rhs)
+             (increment-global-by-local-vec cell rhs local-rhs))
+           (when (and matrix local-mat)
+             (increment-global-by-local-mat cell matrix local-mat))
+           (when (and mass-matrix local-mass-mat)
+             (increment-global-by-local-mat cell mass-matrix local-mass-mat)))))
+    ;; fill pipeline for workers
+    (let* ((h-mesh (hierarchical-mesh ansatz-space))
+           (level-skel (if level (cells-on-level h-mesh level) h-mesh)))
       (doskel (cell level-skel)
-	(when (ecase where
-		(:refined (refined-p cell h-mesh))
-		(:surface (not (refined-p cell h-mesh)))
-		(:all t))
-	  (work-on cell))))
-    ;;  experimental: static condensation, should also be parallelized
-    (when *static-condensation*
-      (static-condensation matrix rhs))))
+        (when (ecase where
+                (:refined (refined-p cell h-mesh))
+                (:surface (not (refined-p cell h-mesh)))
+                (:all t))
+          (work-on cell))))))
 
 #+(or)  ; new, not yet active
 (defun compute-interior-level-matrix (interior-mat sol level)
@@ -189,9 +161,6 @@ multigrid."
 	  while constraints-p do
 	  (add-local-part! mat interior-mat (column-table constraints)
 			   :directions '(:right)))
-    ;; experimental: static condensation
-    (when *static-condensation*
-      (static-condensation mat))
     ;; and return the result
     mat))
 
@@ -204,29 +173,27 @@ multigrid."
   "Finite element discretization for a linear problem or the linearization
 of a nonlinear problem."
   (with-items (&key ansatz-space cells (assemble-constraints-p t)
-		    matrix rhs solution interior-matrix interior-rhs
+		    matrix mass-matrix rhs solution
+		    interior-matrix interior-rhs interior-mass-matrix
 		    discretized-problem)
       blackboard
-    (let ((problem (problem ansatz-space))
-	  (mass-factor 0.0)
-	  (stiffness-factor 1.0))
-      (typecase problem
-	(<evp-mixin>
-	 (setf mass-factor (- (unbox (slot-value problem 'lambda)))
-	       stiffness-factor (unbox (slot-value problem 'mu)))))
+    (let ((problem (problem ansatz-space)))
       (setq interior-matrix (make-ansatz-space-automorphism ansatz-space))
       (setq interior-rhs (make-ansatz-space-vector ansatz-space))
-      (assert (every #'(lambda (obj) (or (not obj) (eq ansatz-space (ansatz-space obj))))
-		     (list interior-matrix interior-rhs solution)))
+      (when (typep problem '<evp-mixin>)
+	(setf interior-mass-matrix (make-ansatz-space-automorphism ansatz-space)))
+      (assert (same-p (remove nil (list interior-matrix interior-mass-matrix interior-rhs solution))
+		      :key #'ansatz-space))
       ;; interior assembly
       (assert (null cells) () "TBI: assembly on cells")
-      (assemble-interior ansatz-space
-			 :matrix interior-matrix :rhs interior-rhs :where :surface
-			 :mass-factor (force mass-factor)
-			 :stiffness-factor (force stiffness-factor))
+      (assemble-interior ansatz-space :where :surface
+			 :matrix interior-matrix :rhs interior-rhs
+			 :mass-matrix interior-mass-matrix)
       (dbg-when :disc
 	(format t "Interior matrix:~%")
 	(show interior-matrix)
+	(format t "Interior mass matrix:~%")
+	(show interior-mass-matrix)
 	(format t "Interior rhs:~%")
 	(show interior-rhs))
       (when assemble-constraints-p (assemble-constraints ansatz-space))
@@ -237,64 +204,72 @@ of a nonlinear problem."
 	(multiple-value-bind (result-mat result-rhs)
 	    (eliminate-constraints interior-matrix interior-rhs
 				   ip-constraints-P ip-constraints-Q ip-constraints-r)
-	
 	  ;; We put the constraints in the matrix.  An alternative would be
 	  ;; to store the constraints in the ansatz space and to enforce them
 	  ;; after application of the operator
 	  (m+! constraints-P result-mat)
 	  (m-! constraints-Q result-mat)
 	  (m+! constraints-r result-rhs)
-	
+	  ;; ??? What about eigenvalue problems?
+	  
 	  ;; for nonlinear problems the solution vector is important
-	  (setf (getf (properties result-mat) :solution) solution)
-	  (setf (getf (properties result-rhs) :solution) solution)
+	  (setf (get-property result-mat :solution) solution
+		(get-property result-rhs :solution) solution)
 	  ;; we keep also interior-matrix and interior-rhs which may be of
 	  ;; use when assembling for local multigrid.  Note that they will
 	  ;; usually share most of their data with result-mat/result-rhs.
-	  (setf (getf (properties result-mat) :interior-matrix)
-		interior-matrix)
-	  (setf (getf (properties result-rhs) :interior-rhs)
-		interior-rhs)
+	  (setf (get-property result-mat :interior-matrix) interior-matrix
+		(get-property result-mat :interior-mass-matrix) interior-mass-matrix
+		(get-property result-rhs :interior-rhs)	interior-rhs)
 	  (setf matrix result-mat	; might be dropped later on
+		mass-matrix interior-mass-matrix
 		rhs result-rhs)
-	  (assert (and result-mat result-rhs))
-	  (setf discretized-problem (lse :matrix result-mat :rhs result-rhs))))))
+	  (assert (and result-mat result-rhs))))))
   ;; return blackboard
   blackboard)
 
 (defun fe-discretize (blackboard)
   "Finite element discretization for an ansatz space provided on the
 blackboard."
-  (with-items (&key ansatz-space solution)
+  (with-items (&key ansatz-space solution matrix mass-matrix rhs discretized-problem)
       blackboard
     (let ((problem (problem ansatz-space)))
-      (if (get-property problem 'linear-p)
-	  (fe-discretize-linear-problem blackboard)
-	  (setf (getbb blackboard :discretized-problem)
-		(let ((linearization
-		       #'(lambda (sol)
-			   (setf (get-property problem :solution) sol)
-			   (getbb (fe-discretize-linear-problem
-				   (blackboard :problem problem :ansatz-space ansatz-space :solution sol))
-				  :discretized-problem))))
-		  (if (typep problem '<evp-mixin>)
-		      (make-instance '<evp> :linearization linearization
-				     :lambda (slot-value problem 'lambda)
-				     :mu (slot-value problem 'mu)
-				     :initial-guess
-				     (or solution
-					 (random-ansatz-space-vector ansatz-space)))
-		      (make-instance '<nlse> :linearization linearization
-				     :initial-guess
-				     (or solution
-					 (make-ansatz-space-vector ansatz-space)))))))))
+      (setf discretized-problem
+	    (cond
+	      ((typep problem '<evp-mixin>)
+	       ;; eigenvalue problem
+	       (fe-discretize-linear-problem blackboard)
+	       (make-instance '<ls-evp>
+			      :stiffness-matrix matrix
+			      :mass-matrix mass-matrix
+			      :eigenvalues (slot-value problem 'eigenvalues)
+			      :multiplicity (multiplicity problem)
+			      :solution (or solution (random-ansatz-space-vector ansatz-space))))
+	      ((get-property problem 'linear-p)
+	       ;; standard linear problem
+	       (fe-discretize-linear-problem blackboard)
+	       (make-instance '<lse> :matrix matrix :rhs rhs))
+	      (t
+	       ;; nonlinear problem
+	       (make-instance '<nlse>
+			      :linearization
+			      #'(lambda (sol)
+				  (setf (get-property problem :solution) sol)
+				  (let ((bb (fe-discretize-linear-problem
+					     (blackboard :problem problem
+							 :ansatz-space ansatz-space
+							 :solution sol))))
+				    (with-items (&key matrix rhs) bb
+				      (make-instance '<lse> :matrix matrix :rhs rhs))))
+			      :solution
+			      (or solution (make-ansatz-space-vector ansatz-space))))))))
   blackboard)
 
 (defun discretize-globally (problem h-mesh fe-class)
   "Discretize @arg{problem} on the hierarchical mesh @arg{h-mesh} using
 finite elments given by @arg{fe-class}."
   (let ((ansatz-space (make-fe-ansatz-space fe-class problem h-mesh)))
-    (with-items (&key matrix rhs &allow-other-keys)
+    (with-items (&key matrix rhs)
       (fe-discretize (blackboard :ansatz-space ansatz-space))
       (destructuring-bind (&key ip-constraints-P ip-constraints-Q
 				ip-constraints-r &allow-other-keys)

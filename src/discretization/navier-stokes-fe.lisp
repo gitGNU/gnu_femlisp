@@ -54,10 +54,12 @@ order @math{k} in dimension @math{d}."
 			  order))
 		    (range<= 0 dim))))
 
+#+(or)  ; is provided by ellsys discretization
 (defvar *full-newton* t
   "If T, a full Newton linearization is used.  If NIL, the reaction term is
 dropped.")
 
+#+(or)  ; is provided by ellsys discretization
 (defmethod discretize-locally ((problem <navier-stokes-problem>) coeffs vecfe qrule fe-geometry
 			       &key matrix rhs local-u local-v
 			       fe-parameters &allow-other-keys)

@@ -48,7 +48,7 @@ $x_n=0$."
   (let ((dim (dimension bl-cell-domain)))
     (make-instance
      '<cdr-problem> :domain bl-cell-domain
-     :patch->coefficients
+     :coefficients
      #'(lambda (patch)
 	 (cond ((and (= (dimension patch) (1- dim))
 		     (bl-patch-on-artificial-boundary bl-cell-domain patch))
@@ -77,33 +77,33 @@ oscillating domain."
 			   &key output plot (plot-mesh t) solver
 			   &allow-other-keys)
   "Performs the bl-diffusion demo."
-  (let ((*output-depth* output)
-	(domain (if (numberp dim/domain)
-		    (apply #'sinusoidal-bl-cell dim/domain rest)
-		    dim/domain)))
-    (defparameter *result*
-      (solve (blackboard
-	      :problem (boundary-layer-cell-problem domain)
-	      :fe-class (lagrange-fe order)
-	      :estimator
-	      #+(or)(make-instance '<projection-error-estimator>)
-	      #-(or)(make-instance '<duality-error-estimator> :functional :load-functional)
-	      :indicator
-	      #+(or)(make-instance '<uniform-refinement-indicator>)
-	      (make-instance '<largest-eta-indicator> :pivot-factor 0.01
-			     :from-level 1 :block-p t)
-	      :solver solver
-	      :plot-mesh plot-mesh
-	      :observe (append *stationary-fe-strategy-observe*
-			       (list *cbl-observe* *eta-observe*))
-	      :success-if `(= :max-level ,(1- max-levels)))))
+  (lret* ((*output-depth* output)
+	  (domain (if (numberp dim/domain)
+		      (apply #'sinusoidal-bl-cell dim/domain rest)
+		      dim/domain))
+	  (result
+	   (solve (blackboard
+		   :problem (boundary-layer-cell-problem domain)
+		   :fe-class (lagrange-fe order)
+		   :estimator
+		   #+(or)(make-instance '<projection-error-estimator>)
+		   #-(or)(make-instance '<duality-error-estimator> :functional :load-functional)
+		   :indicator
+		   #+(or)(make-instance '<uniform-refinement-indicator>)
+		   (make-instance '<largest-eta-indicator> :pivot-factor 0.01
+							   :from-level 1 :block-p t)
+		   :solver solver
+		   :plot-mesh plot-mesh
+		   :observe (append *stationary-fe-strategy-observe*
+				    (list *cbl-observe* *eta-observe*))
+		   :success-if `(= :max-level ,(1- max-levels))))))
     (when plot
-      (plot (getbb *result* :solution))))
-  *result*)
+      (plot (getbb result :solution)))))
 
-#+(or) (time (cdr-bl-computation
-	2 4 3 :plot t :amplitude 0.15 :shift 1.0 :extensible nil
-	:solver (lu-solver) :output :all))
+#+(or)
+(time (cdr-bl-computation
+       2 4 3 :plot t :plot-mesh t :amplitude 0.15 :shift 1.0 :extensible nil
+       :solver (lu-solver) :output :all))
 
 
 #|
@@ -186,30 +186,26 @@ functional."))
 
 (defun test-bl-cdr ()
   
-  (loop
-   repeat 2 do
-   (cdr-bl-computation
-    2 4 3 :plot t :amplitude 0.15 :extensible nil :output :all)
-   finally
-   (let ((work (* (common-lisp-speed) (getbb *result* :time))))
-     ;; ensure that we have no dramatic performance drop.
-     ;; @var{work} was about 1000 for Femlisp-0.9.4 on ortler
-     (format t "~F ~F  ->  ~F~%"
-	     (common-lisp-speed :cache 0.0 :memory 1.0)
-	     (common-lisp-speed :cache 1.0 :memory 0.0)
-	     work)
+  (loop repeat 2 do
+       (storing (cdr-bl-computation
+		 2 4 3 :plot t :amplitude 0.15 :extensible nil :output :all))
+     finally
+       (let ((work (* (common-lisp-speed) (getbb *result* :time))))
+	 ;; ensure that we have no dramatic performance drop.
+	 ;; @var{work} was about 1000 for Femlisp-0.9.4 on ortler
+	 (format t "~F ~F  ->  ~F~%"
+		 (common-lisp-speed :cache 0.0 :memory 1.0)
+		 (common-lisp-speed :cache 1.0 :memory 0.0)
+		 work)
      ;;; 0.5/0.5 -> 2500 on ortler
-     (when (> work 2500)
-       (error "Performance problem: Work=~A, expected 1000+/-10%" work))))
+	 (when (> work 2500)
+	   (error "Performance problem: Work=~A, expected 1000+/-10%" work))))
   
   (multiple-value-bind (f Df)
       (cubic-spline #(1.2 1.2 1.2))
     (describe 
      (oscillating-boundary-domain
      2 f :grad-f Df)))
-  
-  (cdr-bl-computation (spline-interpolated-bl-cell #(1.2 1.2 1.2))
-		      2 2 :plot t :output :all)
   
   ;; testing if identification with only one cell width works
   (let* ((problem (sinusoidal-boundary-layer-cell-problem 2))
@@ -223,6 +219,10 @@ functional."))
 	    :depth 3)
       ))
 
+  (storing
+   (cdr-bl-computation (spline-interpolated-bl-cell #(1.2 1.2 1.2))
+		       2 2 :plot t :output :all))
+  
   (plot (getbb *result* :mesh))
   (plot (fl.strategy::eta->p2-vec (getbb *result* :eta) (getbb *result* :problem)
 			       (getbb *result* :mesh)))

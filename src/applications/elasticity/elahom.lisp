@@ -71,15 +71,15 @@ The correction to the arithmetic average has to be computed as
 N^{lr}_q = \int_Y \div_{x_j} A^{lk}_{ji} N^{lr}_q = F[k*dim+i]
 \cdot N[r*dim+q].}"
   (let ((dim (dimension domain)))
-    (make-instance
-     '<ellsys-problem> :domain domain :components `((u ,dim double-float))
-     :multiplicity (* dim dim)
-     :patch->coefficients
-     #'(lambda (patch)
-	 (when (= (dimension patch) dim)
-	   (list (isotropic-elasticity-tensor-coefficient
-		  dim (if (funcall inlay-p patch) interior 1.0))
-		 (elasticity-cell-problem-gamma dim)))))))
+    (create-problem '<elasticity-problem>
+	(:domain domain :multiplicity (expt dim 2))
+      (setup-coefficients (patch)
+	(let ((eps (if (funcall inlay-p patch) interior 1.0)))
+	  (select-on-patch (patch)
+	    (:d-dimensional
+	     (list
+	      (isotropic-elasticity-tensor-coefficient dim eps)
+	      (elasticity-cell-problem-gamma dim)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; utilities
@@ -119,7 +119,7 @@ with dim^3 components which are plotted one after the other."
   (let* ((domain (domain problem))
 	 (dim (dimension domain))
 	 (*output-depth* output))
-    (defparameter *result*
+    (storing
       (solve
        (blackboard
 	:problem problem

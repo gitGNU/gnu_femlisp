@@ -46,7 +46,7 @@
 ************************************************************************/
 
 #ifndef  __TEST_FILTER__
-#include "dsp_defs.h"
+#include "slu_ddefs.h"
 
 int c_superlu (int m, int n, int nnz, int *Ap, int *Ai, double *Ax,
                int nrhs, double *rhs, double *sol, int orientation)

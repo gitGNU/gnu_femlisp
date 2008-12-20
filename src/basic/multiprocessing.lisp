@@ -44,7 +44,7 @@
    "WITH-MUTUAL-EXCLUSION"
 
    "LOCKED-REGION-MIXIN"
-   "WITH-REGION-DO" "WITH-REGION"
+   "WITH-REGION"
    "MPQUEUE" "PARQUEUE"
    "*THREAD-LOCAL-MEMOIZATION-TABLE*"
    "*NUMBER-OF-THREADS*" "*CHUNK-SIZE*"
@@ -73,8 +73,10 @@ bindings given by @arg{initial-bindings}."
 	     (list :name name :initial-bindings initial-bindings)
 	     func)
   #+cmu (mp:make-process func :name name :initial-bindings initial-bindings)
+  #+lispworks (mp:process-run-function name nil func)
   #+sb-thread (sb-thread:make-thread func :name name)
-  #-(or allegro cmu sb-thread) nil
+  #+scl (thread:thread-create func :name name)
+  #-(or allegro cmu scl lispworks sb-thread) nil
   )
 
 (defun thread-yield (&optional absolutely)
@@ -90,31 +92,43 @@ processes have to run."
   "Returns the current thread."
   #+allegro system:*current-process*
   #+cmu (mp:current-process)
+  #+lispworks mp:*current-process*
   #+sb-thread sb-thread:*current-thread*
-  #-(or allegro cmu sb-thread) (list :main-thread)
+  #+scl thread:*thread*
+  #-(or allegro cmu lispworks sb-thread scl)
+  (load-time-value '(:main-thread))
   )
 
 (defun thread-name (thread)
   "Returns the name of the current thread."
   #+allegro (mp:process-name thread)
-  #+cmu (mp:process-name thread)
+  #+(or cmu lispworks) (mp:process-name thread)
   #+sb-thread (sb-thread:thread-name thread)
-  #-(or allegro cmu sb-thread) nil
+  #+scl (thread:thread-name thread)
+  #-(or allegro cmu lispworks sb-thread scl) nil
   )
 
 (defun list-all-threads ()
   "Returns a list of all threads"
   #+allegro mp:*all-processes*
   #+cmu (mp:all-processes)
+  #+lispworks (mp:list-all-processes)
   #+sb-thread (sb-thread:list-all-threads)
-  #-(or allegro cmu sb-thread) (list :main-thread)
+  #+scl
+  (lret ((result ()))
+    (thread:map-over-threads
+     (lambda (thread) (push thread result))))
+  #-(or allegro cmu lispworks sb-thread scl)
+  (list :main-thread)
   )
 
 (defun terminate-thread (thread)
   #+allegro (mp:process-kill thread)
   #+cmu (mp:destroy-process thread)
+  #+lispworks (mp:process-kill thread)
   #+sb-thread (sb-thread:terminate-thread thread)
-  #-(or allegro cmu sb-thread)
+  #+scl (thread:destroy-thread thread)
+  #-(or allegro cmu lispworks sb-thread scl)
   ;; no threading: thus only the main-thread which must not be killed
   (assert (null thread))
   )
@@ -125,16 +139,20 @@ processes have to run."
   (declare (ignorable name))
   #+allegro (mp:make-process-lock :name name)
   #+cmu (mp:make-lock name)
+  #+lispworks (mp:make-lock :name name)
   #+sb-thread (sb-thread:make-mutex :name name)
-  #-(or allegro cmu sb-thread) nil
+  #+scl (thread:make-lock name :type :recursive)
+  #-(or allegro cmu lispworks sb-thread scl) nil
   )
 
 (defmacro with-mutex ((mutex) &body body)
   (declare (ignorable mutex))
   #+allegro `(mp:with-process-lock (,mutex) ,@body)
   #+cmu `(mp:with-lock-held (,mutex) ,@body)
+  #+lispworks `(mp:with-lock (,mutex) ,@body)
   #+sb-thread `(sb-thread:with-recursive-lock (,mutex) ,@body)
-  #-(or allegro cmu sb-thread) `(locally ,@body))
+  #+scl `(thread:with-lock-held (,mutex) ,@body)
+  #-(or allegro cmu lispworks sb-thread scl) `(locally ,@body))
 
 ;;; waitqueues (following the SBCL interface)
 
@@ -142,7 +160,8 @@ processes have to run."
   "Generates a waitqueue."
   #+allegro (mp:make-gate nil)
   #+sb-thread (sb-thread:make-waitqueue)
-  #-(or allegro sb-thread) nil 
+  #+scl (thread:make-cond-var)
+  #-(or allegro sb-thread scl) nil
   )
 
 (defun condition-wait (waitqueue mutex)
@@ -156,7 +175,8 @@ on the waitqueue."
     (mp:process-wait "waiting for gate" #'mp:gate-open-p waitqueue)
     (mp:process-lock mutex))
   #+sb-thread (sb-thread:condition-wait waitqueue mutex)
-  #-(or allegro sb-thread) (thread-yield)
+  #+scl (thread:cond-var-wait waitqueue mutex)
+  #-(or allegro sb-thread scl) (thread-yield)
   )
 
 (defun condition-notify (waitqueue &optional (n 1))
@@ -167,7 +187,11 @@ on the waitqueue."
   (if (eq n t)
       (sb-thread:condition-broadcast waitqueue)
       (sb-thread:condition-notify waitqueue n))
-  #-(or allegro sb-thread) (thread-yield)
+  #+scl
+  (if (eq n t)
+      (thread:cond-var-signal waitqueue)
+      (thread:cond-var-broadcast waitqueue))
+  #-(or allegro sb-thread scl) (thread-yield)
   )
 
 ;;; nicer OO interface
@@ -213,7 +237,7 @@ the function @perform is called.")
 (defclass locked-region-mixin (waitqueue-mixin)
   ((locked-region :reader locked-region :initform (make-hash-table))))
 
-(defmethod lock-region ((object locked-region-mixin) keys)
+(defun lock-region (object keys)
   "Should not be used externally.  Use WITH-REGION instead."
   (with-mutual-exclusion (object)
     (let ((table (locked-region object)))
@@ -223,14 +247,15 @@ the function @perform is called.")
 	 (setf (gethash key table)
 	       (current-thread))))))
 
-(defmethod unlock-region ((object locked-region-mixin) keys)
+(defun unlock-region (object keys)
+  "Should not be used externally.  Use WITH-REGION instead."
   (with-mutual-exclusion (object)
     (let ((table (locked-region object)))
       (loop+ ((key keys)) do
 	 (remhash key table)))))
 
-(defparameter *count* (cons 0 0))
-(defmethod with-region-do ((object locked-region-mixin) keys perform)
+(defun perform-with-locked-region (object keys perform)
+  "Perform @arg{perform} while @arg{keys} are locked in @arg{object}."
   (with-mutual-exclusion (object)
     (wait object
 	  :until
@@ -239,17 +264,14 @@ the function @perform is called.")
 	      (lret ((result (notany (lambda (key)
 				       (aand (gethash key table)
 					     (not (eq it (current-thread)))))
-				     keys)))
-		(if result
-		    (incf (car *count*))
-		    (incf (cdr *count*)))))))
+				     keys)))))))
     (lock-region object keys))
   (funcall perform)
   (unlock-region object keys)
   (notify object))
 
 (defmacro with-region ((object keys) &body body)
-  `(with-region-do ,object ,keys
+  `(perform-with-locked-region ,object ,keys
 		   (lambda () ,@body)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -278,7 +300,7 @@ the function @perform is called.")
    (work :initarg :work :documentation "Function doing the actual work.")))
 
 (defmethod initialize-instance :after ((mt multithread) &key number-of-threads &allow-other-keys)
-  (with-slots (waitqueue mutex threads work) mt
+  (with-slots (threads work) mt
     (with-mutual-exclusion (mt)
       (setf threads
 	    (loop repeat number-of-threads collect
@@ -507,7 +529,9 @@ threads which call @arg{func} on those arguments."
       ,work
       :distribute
       (lambda (,send-work)
-	(flet ((work-on (&rest args) (apply ,send-work args)))
+	(flet ((work-on (&rest args)
+		 (declare (type function ,send-work))
+		 (apply ,send-work args)))
 	 ,@body)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -544,6 +568,7 @@ threads which call @arg{func} on those arguments."
 (defun femlisp-multiprocessing-tests ()
 
   (dbg-on :mp)
+  #-scl  ; does not work on SCL
   (let ((mutex (make-mutex))
 	(result ())
 	(pq (make-instance 'parqueue)))
@@ -554,16 +579,18 @@ threads which call @arg{func} on those arguments."
 	     (format t "~A done.~%" (current-thread))))
       (make-thread #'worker :name "femlisp-worker")
       (make-thread #'worker :name "femlisp-worker")
-      (make-thread #'worker :name "femlisp-worker"))
+      (make-thread #'worker :name "femlisp-worker")
+      )
     (loop for k from 1 upto 10 do
 	  (enqueue k pq))
     (finish pq)
     (sleep 0.5)
     result)
+  (dbg-off :mp)
 
   (assert (null (femlisp-workers)) () "workers remained - A")
   ;; (terminate-workers)
-
+  
   (time
    (let ((n 10000)
 	 (q (make-instance 'parqueue)))

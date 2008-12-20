@@ -41,7 +41,8 @@
 (defmethod graphic-commands (object (program (eql :gnuplot)) &rest paras)
   "Default gnuplot plotting command."
   (list (format nil "plot ~S title \"data\" with linespoints"
-		(namestring (apply #'graphic-file-name object program paras)))))
+                (apply #'graphic-file-name object program
+                       :system-p t paras))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Plotting of ordinary graphs (list of 2D-points)
@@ -83,21 +84,21 @@ graphs."
 
 (defmethod graphic-commands ((polygons list) (program (eql :gnuplot))
 			     &key (linewidth 1) &allow-other-keys)
-  (let ((gnuplot-file (namestring (truename (graphic-file-name t :gnuplot)))))
+  (let ((gnuplot-file (graphic-file-name t :gnuplot :system-p t)))
     (list
      (apply #'concatenate 'string
 	    "plot "
 	    (loop for polygon in (ensure-polygons polygons)
-		  and i from 0 unless (zerop i)
-		  collect ", " collect
-		  (multiple-value-bind (name type)
-		      (destructure-polygon polygon)
-		    (format nil "~S index ~D title ~S with ~A lw ~D"
-			    gnuplot-file i (or name (format nil "data-~D" i))
-			    (ecase type
-			      (:polygon "lines")
-			      (:vectorfield "vectors"))
-			    linewidth)))))))
+               and i from 0 unless (zerop i)
+               collect ", " collect
+               (multiple-value-bind (name type)
+                   (destructure-polygon polygon)
+                 (format nil "~S index ~D title ~S with ~A lw ~D"
+                         gnuplot-file i (or name (format nil "data-~D" i))
+                         (ecase type
+                           (:polygon "lines")
+                           (:vectorfield "vectors"))
+                         linewidth)))))))
 
 (defmethod plot ((polygons list) &rest rest &key &allow-other-keys)
   (apply #'graphic-output polygons :gnuplot rest))
@@ -124,7 +125,7 @@ graphs."
 	  (format stream "~,,,,,,'EG ~,,,,,,'EG~%" (index->xpos index)
 		  (if values (aref values index) 0.0)))))))
 
-;;;; Testing: (test-plot-gnuplot)
+;;;; Testing
 (defun test-plot-gnuplot ()
   (let ((graph '(("graph-1" :polygon #(1.0 2.0) #(3.0 4.0)))))
     (plot graph :debug t))
@@ -149,5 +150,6 @@ graphs."
    :left -1.7 :right 1.7 :top 1.15 :bottom -1.15 :linewidth 3)
   )
 
+;;; (test-plot-gnuplot)
 (fl.tests:adjoin-test 'test-plot-gnuplot)
 

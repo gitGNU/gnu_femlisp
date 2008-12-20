@@ -60,10 +60,10 @@ keyword parameters in @var{args}."
   (multiple-value-bind (A b)
       (apply #'model-problem-discretization args)
     (let ((x (random-ansatz-space-vector (ansatz-space A)))
-	  (ls (make-instance '<linear-solver> :iteration linit
-			     :success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps)))))
-      (setq *result* (solve ls (blackboard :problem (lse :matrix A :rhs b :solution x))))
-      (getbb *result* :report))))
+	  (ls (make-instance
+	       '<linear-solver> :iteration linit
+				:success-if `(or (< :defnorm 1.0e-12) (> :step ,maxsteps)))))
+      (solve ls (blackboard :problem (lse :matrix A :rhs b :solution x))))))
 
 (defun solve-laplace (problem level order &key parametric (solver (lu-solver)))
   "An old routine for solving the Laplace problem.  You should use the

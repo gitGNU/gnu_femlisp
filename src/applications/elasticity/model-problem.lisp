@@ -36,7 +36,7 @@
 
 (defun elasticity-model-problem-computation (domain &key (output 1) plot)
   "Performs the model problem demo."
-  (defparameter *result*
+  (storing
     (solve (blackboard
 	    :problem (elasticity-model-problem domain)
 	    :plot-mesh t :output output :success-if `(> :time ,fl.demo:*demo-time*))))
@@ -65,7 +65,7 @@ uniform refinement."))
 (defun test-elasticity-model-problem ()
 
   ;; Linear elasticity problem
-  (defparameter *result*
+  (storing
     (time
      (let ((dim 2))
        (solve

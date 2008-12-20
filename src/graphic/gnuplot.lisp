@@ -88,7 +88,7 @@
   "Returns the output file for @program{Gnuplot}."
   (declare (ignore object))
   (make-pathname :name "output.gnuplot"
-		 :directory (pathname-directory (images-pathname))))
+                 :directory (pathname-directory (images-pathname))))
 
 (defun wait-for-gnuplot ()
   (whereas ((stream (gnuplot-output-stream)))
@@ -105,7 +105,7 @@
 		    (make-broadcast-stream (gnuplot-input-stream) *trace-output*)
 		    (gnuplot-input-stream))))
 ;;    (format stream "set size 1.0,1.0;~%")
-;;    (format stream "set size square;~%")
+    (format stream "set size square;~%")
     (if (and left right)
 	(format stream "set xrange [~a:~a];~%" left right)
 	(format stream "set autoscale x;~%"))

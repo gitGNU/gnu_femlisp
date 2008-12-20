@@ -73,40 +73,41 @@ name being the symbol @arg{name}.")
 	   (rest-args (subseq template-args pos)))
       (let (matrices number-args numbers specialized-class element-type)
 	(loop for template-arg in primary-args
-	      and actual-arg in actual-args
-	      for arg = (if (consp template-arg)
-			    (car template-arg)
-			    template-arg)
-	      do
-	      (cond
-		((matrix-p template-arg)
-		 (cond (specialized-class
-			(unless (eq specialized-class (class-of actual-arg))
-			  (error "Template depends on different classes.")))
-		       (t
-			(setq specialized-class (class-of actual-arg))
-			(setq element-type (element-type actual-arg))))
-		 (push arg matrices))
-		((number-p template-arg)
-		 (push arg number-args)
-		 (push actual-arg numbers))
-		;; otherwise: do nothing
-		))
+	   and actual-arg in actual-args
+	   for arg = (if (consp template-arg)
+			 (car template-arg)
+			 template-arg)
+	   do
+	   (cond
+	     ((matrix-p template-arg)
+	      (cond (specialized-class
+		     (unless (eq specialized-class (class-of actual-arg))
+		       (error "Template depends on different classes.")))
+		    (t
+		     (setq specialized-class (class-of actual-arg))
+		     (setq element-type (element-type actual-arg))))
+	      (push arg matrices))
+	     ((number-p template-arg)
+	      (push arg number-args)
+	      (push actual-arg numbers))
+	     ;; otherwise: do nothing
+	     ))
 	(dolist (number numbers)
 	  (unless (subtypep (type-of number) element-type)
 	    (error "Type of number does not fit with element-type.")))
 	`(defmethod
-	  ,name
-	  (,@(loop for arg in primary-args collect
-		   (if (matrix-p arg)
-		       `(,(car arg) ,(class-name specialized-class))
-		       arg))
-	   ,@rest-args)
-	  (declare (type ,element-type ,@number-args))
-	  ,(subst element-type 'element-type
-		  `(macrolet ,blas-macros
-		    (declare (optimize (speed 3) (safety 0) (debug 0)))
-		    ,@body)))))))
+	     ,name
+	     (,@(loop for arg in primary-args collect
+		     (if (matrix-p arg)
+			 `(,(car arg) ,(class-name specialized-class))
+			 arg))
+	      ,@rest-args)
+	   (declare (type ,element-type ,@number-args))
+	   #+lispworks (declare (optimize (float 0)))
+	   (very-quickly
+	     ,(subst element-type 'element-type
+		     `(macrolet ,blas-macros
+			,@body))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
@@ -134,7 +135,7 @@ name being the symbol @arg{name}.")
 		       when (blas-macro ,instance-name sym)
 		       collect it)))
 	    ;; define specialized method
-	    (compile-and-eval
+	    (fl.port:compile-and-eval
 	     (new-blas-method-code
 	      ',name ',class-name ',template-args ,actual-args ,blas-macros
 	      ',(if (stringp (car body)) (cdr body) body)))

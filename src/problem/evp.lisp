@@ -38,43 +38,57 @@
  "This file provides definitions for eigenvalue problems.")
 
 (defclass <evp-mixin> ()
-  ((lambda :initarg :lambda :initform (box 0.0) :documentation
-       "The multiplier for the mass matrix, usually equal to the
-eigenvalue.")
+  ((multiplicity :reader multiplicity :initform 1 :initarg :multiplicity
+		 :documentation "The multiplicity of the eigenspace.")
+   (eigenvalues
+    :initarg :eigenvalues :initform nil :documentation
+    "The current approximation of the eigenvalues.")
    (mu :initform (box 1.0) :initarg :mu :documentation
        "The multiplier for the system matrix."))
   (:documentation "A mixin for eigenvalue problems."))
 
 (defmethod initialize-instance :after ((problem <evp-mixin>)
 				       &key &allow-other-keys)
-  (setf (getf (properties problem) 'linear-p) nil))
+  (with-slots (multiplicity eigenvalues) problem
+    (ensure eigenvalues (make-double-vec multiplicity)))
+  (setf (getf (properties problem) 'linear-p) nil)
+  )
 
 (defclass <evp> (<evp-mixin> <nonlinear-problem>)
   ()
   (:documentation "Standard class for discrete eigenvalue problems."))
 
 (defclass <ls-evp> (<evp>)
-  ((A :initarg :A :documentation "(Energy) matrix A.")
-   (B :initarg :B :documentation "(Mass) matrix B."))
+  ((stiffness-matrix :reader stiffness-matrix :initarg :stiffness-matrix)
+   (mass-matrix :reader mass-matrix :initarg :mass-matrix))
   (:documentation "Generalized eigenvalue problem for matrices."))
 
 (defmethod initialize-instance :after ((lsevp <ls-evp>) &key &allow-other-keys)
-  (with-slots (linearization initial-guess lambda mu A B) lsevp
+  (with-slots (multiplicity linearization solution eigenvalues mu
+			    stiffness-matrix mass-matrix) lsevp
     (setf linearization
-	  #'(lambda (solution)
-	      (declare (ignore solution))
-	      (lse :matrix (m- (scal (unbox mu) A) (scal (unbox lambda) B))
-		   :rhs (make-image-vector-for A))))
-    (ensure initial-guess (mrandom (nrows A) 1))))
+	  (lambda (solution)
+	    (let ((Ax (m* stiffness-matrix solution))
+		  (Bx (m* mass-matrix solution)))
+	      (loop for i from 0
+		 and stiffness across (diagonal (m*-tn solution Ax))
+		 and mass across (diagonal (m*-tn solution Bx)) do
+		 (setf (aref eigenvalues i) (/ stiffness mass)))
+	      ;; equation system for defect correction
+	      (lse :matrix stiffness-matrix
+		   :rhs (m* Bx (diag eigenvalues))))))
+    (ensure solution
+	    (fill-random! (make-domain-vector-for stiffness-matrix multiplicity)
+			  1.0))))
 
 (defgeneric mass (evp x)
   (:documentation
    "Evaluates the mass bilinear form for a generalized eigenvalue problem.")
   (:method ((evp <evp>) x)
-	   (with-slots (mu lambda)
+	   (with-slots (mu eigenvalues)
 	     evp
 	     (fluid-let (((unbox mu) 0.0)
-			 ((unbox lambda) -1.0))
+			 ((unbox eigenvalues) -1.0))
 	       (let ((lse (linearize evp x)))
 		 (dot x (m* (matrix lse) x)))))))
 
@@ -82,41 +96,36 @@ eigenvalue.")
   (:documentation
    "Evaluates the energy bilinear form for a generalized eigenvalue problem.")
   (:method ((evp <evp>) x)
-	   (with-slots (mu lambda)
+	   (with-slots (mu eigenvalues)
 	     evp
 	     (fluid-let (((unbox mu) 1.0)
-			 ((unbox lambda) 0.0))
+			 ((unbox eigenvalues) 0.0))
 	       (let ((lse (linearize evp x)))
 		 (dot x (m* (matrix lse) x)))))))
 
 (defun test-evp ()
   ;; finding an eigenvalue/eigenfunction by a Wielandt iteration
-  (let* ((n 10)
-	 (evp (make-instance '<ls-evp> :lambda (box 0.0)
-			     :A (scal (expt (+ n 1.0) 2) (laplace-full-matrix n))
-			     :B (eye n)))
+  (let* ((dim 1) (size 3) (n (expt size dim))
+	 (evp (make-instance
+	       '<ls-evp> :stiffness-matrix (laplace-full-matrix n)
+			 :mass-matrix (eye n)))
 	 (bb (blackboard :solution (mrandom n 1))))
     (with-items (&key linearization solution residual residual-p) bb
-      (loop repeat 20
-	 initially (ensure-residual evp bb)
-	 until (< (norm residual) 1.0e-10) do
-	    (let ((new-sol
-		   (ignore-errors
-		     (gesv (matrix linearization) solution))))
-	      (if new-sol
-		  (setf solution new-sol)
-		  (return)))
-	    (let ((mass (mass evp solution))
-		  (energy (energy evp solution)))
-	      (setf (unbox (slot-value evp 'lambda)) (/ energy mass))
-	      (scal! (/ (sqrt mass)) solution))
-	    (setf residual-p nil)
-	    (ensure-residual evp bb)
-	    (format t "lambda   = ~A~%solution = ~A~%resnorm  = ~A~%~%"
-		    (unbox (slot-value evp 'lambda)) solution (norm residual)))
-      (let ((lam (unbox (slot-value evp 'lambda))))
-	(assert (< (- lam (expt pi 2)) 0.01))
-	(values lam solution))))
+      (loop initially (ensure-residual evp bb)
+	    until (mzerop  residual 1.0e-15) do
+	   (aif (ignore-errors (gesv (matrix linearization) solution))
+		(setf solution it)
+		(return))
+	   (let ((mass (mass evp solution))
+		 (energy (energy evp solution)))
+	     (setf (aref (slot-value evp 'eigenvalues) 0)
+		   (/ energy mass))
+	     (scal! (/ (sqrt mass)) solution))
+	   (setf residual-p nil)
+	   (ensure-residual evp bb)
+	   (format t "eigenvalues   = ~A~%solution = ~A~%resnorm  = ~A~%~%"
+		   (slot-value evp 'eigenvalues) solution (norm residual)))
+      (values (slot-value evp 'eigenvalues) solution)))
   )
 
 ;;; (test-evp)

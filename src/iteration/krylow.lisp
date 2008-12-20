@@ -81,7 +81,7 @@ here wants to keep residual and rhs intact."))
 	  (w (make-image-vector-for mat))
 	  (q (and precond (make-domain-vector-for mat)))
 	  (alpha 0.0))
-      (assert (and p a w q))
+      (assert (and p a w))
       (with-slots (initialize iterate) precond
 	(make-instance
 	 '<iterator>
@@ -178,7 +178,8 @@ here wants to keep residual and rhs intact."))
   (time (let* ((n 32)
 	       (A (fl.matlisp::five-point-stencil-matrix n n))
 	       (b (ones (* n n) 1)))
-	  (linsolve A b :output t :iteration (make-instance '<cg>))))
+	  (linsolve A b :output t
+		    :iteration (make-instance '<cg>))))
   (let ((A #m((2.0 -1.0  0.0)
 	      (-1.0  2.0 -1.0)
 	      ( 0.0 -1.0  2.0)))
@@ -190,3 +191,6 @@ here wants to keep residual and rhs intact."))
     (linsolve A b :output t :iteration (make-instance '<bi-cgstab> :preconditioner (make-instance '<jacobi>))) ; converges
   )
   )
+
+;;; (test-krylow)
+(fl.tests:adjoin-test 'test-krylow)

@@ -43,26 +43,10 @@
 @class{<stationary-fe-strategy>} for solving PDE eigenvalue problems by a
 Wielandt iteration."))
 
-#+nil
-(defmethod mass ((evp <evp>) (solution <ansatz-space-vector>))
-  (let ((bb (blackboard :ansatz-space (ansatz-space solution) :solution solution
-			:mass-factor 1.0 :stiffness-factor 0.0)))
-    (fe-discretize bb)
-    (let ((lse (linearize (getbb bb :discretized-problem) solution)))
-      (dot solution (m* (matrix lse) solution)))))
-
-#+nil
-(defmethod energy ((evp <evp>) (solution <ansatz-space-vector>))
-  (let ((bb (blackboard :ansatz-space (ansatz-space solution) :solution solution
-			:mass-factor 0.0 :stiffness-factor 1.0)))
-    (fe-discretize bb)
-    (let ((lse (linearize (getbb bb :discretized-problem) solution)))
-      (dot solution (m* (matrix lse) solution)))))
-
 (defmethod approximate :after ((fe-strategy <fe-evp-strategy>) blackboard)
   "Ensures accuracy of the solution and the error estimate."
   (with-items (&key discretized-problem solver-blackboard
-		    solution residual output mass-factor stiffness-factor)
+		    solution residual output)
       blackboard
     ;; assemble (better would be a local assembly)
     (fe-discretize blackboard)

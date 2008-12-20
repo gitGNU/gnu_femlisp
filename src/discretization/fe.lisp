@@ -138,8 +138,7 @@ cells as keys."))
 	(incf (aref subcell-ndofs (dof-subcell-index dof))))
       (setf (getf properties 'SUBCELL-NDOFS) subcell-ndofs))
     (setf (getf properties 'INNER-DOF-INDICES)
-	  (coerce (loop+ ((i (range :below (nr-of-inner-dofs fe)))
-			  (dof (fe-dofs fe)))
+	  (coerce (loop+ ((dof (fe-dofs fe)))
 		     collecting (dof-in-vblock-index dof))
 		  'vector))))
 
@@ -169,10 +168,9 @@ of arrays which yield such an offset for every subcell."))
   (loop for fe across (components vecfe)
 	maximize (discretization-order fe)))
 
-(with-memoization (:type :global :test 'equalp)
-  (defun make-vector-fe (components)
-    (let ((components components))
-      (make-instance '<vector-fe> :components components))))
+(defun make-vector-fe (components)
+  (let ((components components))
+    (make-instance '<vector-fe> :components components)))
 
 ;;; property content
 (definline subcell-offsets (fe)
@@ -267,7 +265,7 @@ sparse vector."
 	(loop for value in values and i from 0 do
 	      (if (numberp value)
 		  (setf (vref vblock i) value)
-		  (minject vblock value i 0)))
+		  (minject! vblock value i 0)))
 	vblock))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -361,7 +359,8 @@ fe-functions to be evalutated."
     for (obj data) on fe-parameters by #'cddr
     collect (car obj) collect
     (list (map 'vector #'m*-tn values data)
-	  (map 'vector #'m*-tn gradients data)))))
+	  (map 'vector #'m*-tn gradients data)))
+   ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Polynomial spaces on cells
@@ -403,9 +402,9 @@ fe-functions to be evalutated."
 (defun gram-matrix (vectors functionals pairing)
   "Computes the Gram matrix of vectors and functionals wrt pairing."
   (make-real-matrix
-   (loop+ ((phi vectors))
-     collect (loop+ ((psi functionals))
-	       collect (funcall pairing psi phi)))))
+   (loop+ ((phi vectors)) collect
+      (loop+ ((psi functionals)) collect
+         (coerce (funcall pairing psi phi) 'double-float)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; dual basis

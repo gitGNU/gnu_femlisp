@@ -59,31 +59,53 @@
 (defmethod select-linear-solver ((problem fl.elasticity::<elasticity-problem>) blackboard)
   (declare (ignore blackboard))
   (let ((dim (dimension (domain problem))))
-    (make-instance
-     '<safe-linear-solver> :iteration
-     (let ((smoother (if (>= dim 3)
-			 *gauss-seidel*
-			 (geometric-ssc))))
-       (geometric-cs :smoother smoother	:pre-steps 1 :post-steps 1 :gamma 2 :fmg t))
-     :success-if `(or (zerop :defnorm)
-		   (and (>= :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)
-		     (> :reduction 1.0e-2)))
-     :failure-if `(and (> :step 1) (> :step-reduction 0.9))
-     )))
+    (declare (ignorable dim))
+    (?2
+     (lu-solver)
+     (make-instance
+      '<linear-solver>
+      :iteration
+      (let ((smoother (?1 *gauss-seidel* (geometric-ssc))))
+	(geometric-cs :smoother smoother
+		      :coarse-grid-iteration
+		      (make-instance '<multi-iteration> :base smoother :nr-steps 10)
+		      :pre-steps 2 :post-steps 2 :gamma 1 :fmg t))
+      :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
+      :failure-if `(and (> :step 2) (> :step-reduction 0.9) (> :defnorm 1.0e-9)))
+     (make-instance
+      '<safe-linear-solver>
+      :iteration
+      (let ((smoother (if (>= dim 3)
+			  *gauss-seidel*
+			  (geometric-ssc :store-p nil))))
+	(geometric-cs :smoother smoother	:pre-steps 2 :post-steps 2 :gamma 2 :fmg t))
+      :success-if `(or (zerop :defnorm)
+		       (and (>= :step 2) (> :step-reduction 0.9)
+			    (or (< :defnorm 1.0e-8) (< :reduction 1.0e-8))))
+      :failure-if `(and (>= :step 2) (> :step-reduction 0.9))))))
 
 (defmethod select-linear-solver ((problem fl.navier-stokes::<navier-stokes-problem>) blackboard)
   (declare (ignore blackboard))
   (make-instance
    '<safe-linear-solver> :iteration
-   (let ((smoother (make-instance '<vanka>)))
+   (let ((smoother
+          (make-instance
+           '<vanka>
+           :ordering
+           (flet ((coords (key)
+                    (midpoint (representative key))))
+             (let ((comparison (compare-lexicographically :direction '(:up :up))))
+               (lambda (p1 p2)
+                 (funcall comparison (coords p1) (coords p2))))))))
      (geometric-cs
       :coarse-grid-iteration
-      ;;(make-instance '<lu>) #+(or)
+      ;(make-instance '<lu>) #+(or)
       (make-instance '<multi-iteration> :nr-steps 1 :base smoother)
-      :smoother smoother :pre-steps 1 :post-steps 1 :gamma 2))
+      :smoother smoother :pre-steps 1 :post-steps 1 :gamma 1))
      :success-if `(or (zerop :defnorm)
-		   (and (>= :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-8)))
-   :failure-if `(and (> :step 2) (> :step-reduction 0.9))
+                      ;(and (>= :step 10) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
+                      (>= :step 10))
+   :failure-if `(and (> :step 10) (> :step-reduction 0.9))
    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -129,8 +151,7 @@ estimated, we refine those cells within some factor of the maximum error."
 blackboard describing the problem is passed and the solution method is
 open."
   (assert (null dummy))
-  (with-items (&key strategy problem ansatz-space matrix rhs
-		    fe-class solver estimator indicator)
+  (with-items (&key strategy problem ansatz-space matrix rhs)
       blackboard
     ;; the problem might be given already in a fixed ansatz-space
     (ensure problem (and ansatz-space (problem ansatz-space)))

@@ -35,13 +35,15 @@
 (defpackage "FL.MACROS"
   (:use "COMMON-LISP")
   (:export
-   "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF" "BIF"
+   "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF" "BIF" "STRINGCASE"
    "AAND" "ACOND" "_F" "DELETEF" "IT" "ENSURE" "ECHO"
    "REMOVE-THIS-METHOD"
-   "FOR" "FOR<" "MULTI-FOR" "INLINING" "DEFINLINE"
+   "NAMED-LET" "FOR" "FOR<" "MULTI-FOR" "INLINING" "DEFINLINE"
    "?1" "?2" "?3"
    "DELAY" "FORCE"
-   "FLUID-LET" "LRET" "LRET*" "SHOW-CALL")
+   "FLUID-LET" "LRET" "LRET*" "CHAIN" "_" "SHOW-CALL"
+   "QUICKLY" "SLOWLY" "VERY-QUICKLY" "*USUALLY*" "USUALLY-QUICKLY"
+   "QUICKLY-IF")
   (:documentation
    "This package contains some basic macro definitions used in Femlisp."))
 
@@ -122,6 +124,17 @@ Naggum (c.l.l., 4.12.2002)."
 		 ,@(cdr cl1))
                (acond ,@(cdr clauses)))))))
 
+(defmacro stringcase (string &body clauses)
+  "An analog to case using string comparison."
+  (with-gensyms (item)
+    `(let ((,item ,string))
+       (cond ,@(loop for (what . commands) in clauses
+                  collect
+                  (typecase what
+                    (cons `((member ,item (quote ,what) :test #'string=) ,@commands))
+                    (string `((string= ,item ,what) ,@commands))
+                    (t `(t ,@commands))))))))
+
 (defmacro _f (op place &rest args)
   "Macro from @cite{(Graham 1993)}.  Turns the operator @arg{op} into a
 modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}."
@@ -142,10 +155,9 @@ modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}."
 (define-modify-macro ensure (&rest args) or
    "Ensures that some place is set.  It expands as follows:
 @lisp
-  (ensure place value) @expansion{} (or place (setf place value))
-@end lisp
+  (ensure place value) @expansion{} (or place (setf place value)) @end lisp
 It is not clear if the implementation used here works everywhere.  If not,
-the workaround below the macro definition should be used.")
+the workaround below should be used.")
 
 #+(or)
 (defmacro ensure (place newval &environment env)
@@ -203,6 +215,12 @@ DEFMETHOD definition."
 	  (function ,gf-name)
 	  (find-method (function ,gf-name) (quote ,qualifiers)
 	   (mapcar #'find-class (quote ,specializers))))))))
+
+(defmacro named-let (name bindings &body body)
+  "Implements the named-let construct from Scheme."
+  `(labels ((,name ,(mapcar #'first bindings)
+              ,@body))
+     (,name ,@(mapcar #'second bindings))))
 
 (defmacro for ((var start end) &body body)
   "Loops for @arg{var} from @arg{start} upto @arg{end}."
@@ -321,10 +339,29 @@ use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
 	      x
 	      (car x)))))
 
+(defmacro chain (arg &body clauses)
+  "Anaphoric macro on the symbol _ which allows to express a chain of
+operations."
+  `(let ((_ ,arg))
+    ,@(loop for clause in clauses collect `(setq _ ,clause))
+    _))
+
 ;;; Macros posted by Kent Pitman on cll, 28.7.2007
 
-(defmacro quickly (&body forms) ;unconditional
-  `(locally (declare (optimize (speed 3)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Optimization
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro quickly (&body forms)
+  `(locally (declare (optimize (speed 3) #+lispworks (float 0)))
+     ,@forms))
+
+(defmacro very-quickly (&body forms)
+  `(locally (declare (optimize (safety 0) (space 0) (speed 3) #+lispworks (float 0)))
+     ,@forms))
+
+(defmacro slowly (&body forms)
+  `(locally (declare (optimize (speed 1)))
      ,@forms))
 
 (defvar *usually* t)
@@ -339,14 +376,27 @@ use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
        (quickly ,@forms)
         (progn ,@forms)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Readtables
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro in-syntax (variable)
+  "Posted by Kent M. Pitman to cll, 13.3.2008."
+  #-scl
+  (check-type variable (and symbol
+                            (not (satisfies constantp))
+                            (satisfies boundp))
+              "a defined variable")
+  `(eval-when (:execute :compile-toplevel :load-toplevel)
+     (setq *readtable* ,variable)))
+
+
 ;;;; Testing:
 (defun test-macros ()
   (let ((x 5))
     (ensure x 1))
   (let ((a 1) (b 2))
     (fluid-let ((a 3) (b 4))
-      (list a b))))
-
-
-
-
+      (list a b)))
+  
+  )

@@ -43,18 +43,18 @@
 
 ;;; generation of local vectors and matrices
 
-(defun make-local-vec (svec cell)
+(defun make-local-vec (ansatz-space cell)
   "Generates a local vector for local discretization."
-  (let ((fe (get-fe (ansatz-space svec) cell))
-	(multiplicity (multiplicity svec)))
+  (let ((fe (get-fe ansatz-space cell))
+	(multiplicity (multiplicity ansatz-space)))
     (map 'simple-vector
 	 #'(lambda (fe) (make-real-matrix (nr-of-dofs fe) multiplicity))
 	 (components fe))))
 
-(defun make-local-mat (smat cell)
-  "Generates a local matrix for local discretization."
-  (let* ((fe-1 (get-fe (image-ansatz-space smat) cell))
-	 (fe-2 (get-fe (domain-ansatz-space smat) cell))
+(defun make-local-mat (as1 cell &optional as2)
+  "Generates a local matrix discretization for the given ansatz-space(s)."
+  (let* ((fe-1 (get-fe as1 cell))
+	 (fe-2 (if as2 (get-fe as2 cell) fe-1))
 	 (comps-1 (components fe-1))
 	 (comps-2 (components fe-2)))
     (lret ((result (make-array (list (length comps-1) (length comps-2)))))
@@ -204,7 +204,7 @@ in the form component-index/in-component-index is computed."
   (global-local-operation cell svec local-vec :local<-global))
 
 (defmethod get-local-from-global-vec ((cell <cell>) (svec <sparse-vector>))
-  (lret ((local-vec (make-local-vec svec cell)))
+  (lret ((local-vec (make-local-vec (ansatz-space svec) cell)))
     (fill-local-from-global-vec cell svec local-vec)))
 
 (defmethod set-global-to-local-vec ((cell <cell>) (svec <sparse-vector>) local-vec)
@@ -216,18 +216,19 @@ in the form component-index/in-component-index is computed."
 (defun set-lagrange-ansatz-space-vector (asv func)
   "Sets an ansatz-space-vector to interpolate a given function.  This is
 still a suboptimal implementation for vector functions."
-  (doskel (cell (mesh asv) :where :surface :dimension :highest)
-    (let ((local-vec (make-local-vec asv cell)))
-      (let ((fe (get-fe (ansatz-space asv) cell)))
-	(loop for comp from 0
-	      and comp-fe across (components fe) do
-	      (do-dof (dof comp-fe)
-		(let ((value (funcall func (local->global cell (dof-gcoord dof)))))
-		  (setq value (fl.cdr::ensure-1-component-vector value))
-		  (dotimes (i (multiplicity asv))
-		    (setf (mref (aref local-vec comp) (dof-index dof) i)
-			  (mref (aref value comp) 0 i)))))))
-      (set-global-to-local-vec cell asv local-vec))))
+  (let ((ansatz-space (ansatz-space asv)))
+    (doskel (cell (mesh asv) :where :surface :dimension :highest)
+      (let ((local-vec (make-local-vec ansatz-space cell))
+            (fe (get-fe ansatz-space cell)))
+        (loop for comp from 0
+           and comp-fe across (components fe) do
+           (do-dof (dof comp-fe)
+             (let ((value (funcall func (local->global cell (dof-gcoord dof)))))
+               (setq value (fl.cdr::ensure-1-component-vector value))
+               (dotimes (i (multiplicity asv))
+                 (setf (mref (aref local-vec comp) (dof-index dof) i)
+                       (mref (aref value comp) 0 i))))))
+        (set-global-to-local-vec cell asv local-vec)))))
 
 (defun multiple-evaluate-local-fe (local-vec shape-values)
   "Evaluates the vector given in @arg{local-vec} at multiple points.  Here
@@ -310,7 +311,7 @@ value arrays corresponding to the finite element."
   (global-local-operation cell smat local-mat :local<-global))
 
 (defmethod get-local-from-global-mat ((cell <cell>) (smat <sparse-matrix>))
-  (lret ((local-mat (make-local-mat smat cell)))
+  (lret ((local-mat (make-local-mat (ansatz-space smat) cell)))
     (fill-local-from-global-mat cell smat local-mat)))
 
 (defmethod set-global-to-local-mat ((cell <cell>) (smat <sparse-matrix>) local-mat)

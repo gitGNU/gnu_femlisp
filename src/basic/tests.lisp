@@ -88,6 +88,19 @@ them when compiling a certain file."
   "Clears the Femlisp bug register."
   (setq *tests* ()))
 
+(defun test-function (func)
+  (catch 'trap
+    (handler-bind
+        ((serious-condition
+          #'(lambda (condition) (throw 'trap condition)))
+;;          #+cmu
+;;          (style-warning (constantly nil))
+         #-(or cmu scl)
+         (warning
+          #'(lambda (condition) (throw 'trap condition))))
+      (funcall func)
+      nil)))
+
 (defun test-femlisp (&key continue package
 		     (logfile #.(translate-logical-pathname #p"femlisp:fltest.log"))
 		     (demo t))
@@ -105,15 +118,12 @@ them when compiling a certain file."
 		   *tests*))))
     (setq *failed* nil))
   (flet ((run-tests ()
-	   (loop for fsym = (pop *testing*) while fsym do
-		 (let ((result
-			(catch 'trap
-			  (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
-			    (format t "~&~%***** Testing ~A *****~%~%" fsym)
-			    (funcall fsym)
-			    nil))))
-		   (when result (push (cons fsym result) *failed*)))
-	      finally (return *failed*))))
+	   (loop for fsym = (pop *testing*) while fsym
+              do
+                (format t "~&~%***** Testing ~A *****~%~%" fsym)
+                (let ((result (test-function fsym)))
+                  (when result
+                    (push (cons fsym result) *failed*))))))
     (let ((output-string
 	   (with-output-to-string (stream)
 	     (multiple-value-bind (secs mins hrs day month year)
@@ -128,14 +138,15 @@ them when compiling a certain file."
 	     (if *failed*
 		 (loop initially (format stream "~&~%The following tests failed:~%")
 		    for (sym . error) in *failed* do
-		      (format stream "~%~%Test: ~A.~%Result:~A~%" sym error))
+		      (format stream "~%~%Test: ~A.~%Condition: ~A~%" sym error))
 		 (format stream "~%All tests passed.~%"))
 	     (when *bugs*
 	       (format stream "The following bugs are still open:~%")
 	       (loop for sym in *bugs* do (format stream "~A~%" sym))))))
       (write-string output-string)
       (when logfile
-	(with-open-file (stream logfile :direction :output :if-exists :append)
+	(with-open-file (stream logfile :direction :output :if-exists :append
+                                #+scl :external-format #+scl :iso-8859-1)
 	  (write-string output-string stream))))))
 
 

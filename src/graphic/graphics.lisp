@@ -54,7 +54,16 @@
   (:documentation "Return the output stream for the graphic program."))
 
 (defgeneric graphic-file-name (object program &rest rest &key &allow-other-keys)
-  (:documentation "Return a filename for the data of this plot."))
+  (:documentation "Return a filename for the data of this plot.")
+  (:method :around (object program &key system-p &allow-other-keys)
+  "This around-method handles the system-p flag: if true,
+@function{graphic-file-name} returns a filename suitable for use in
+external programs."
+  (declare (ignore object program))
+  (let ((result (call-next-method)))
+    (if system-p
+        (fl.port::system-namestring (probe-file result))
+        result))))
 
 (defgeneric graphic-write-data (stream object program &rest rest &key &allow-other-keys)
   (:documentation "Write the data file for @arg{program} to

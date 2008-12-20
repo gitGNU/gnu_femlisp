@@ -67,10 +67,11 @@ Metric and volume should be functions depending on keyword arguments like
   "Preliminary.  Maybe it would be better to update the boundary
 automatically when inserting cells.  Unfortunately, it is not clear
 how this could be done in an easy way."
-  (setf (slot-value domain 'boundary) (skeleton-boundary domain))
-  (doskel (patch domain)
-    (when (get-cell-property patch domain 'EXTENSION)
-      (setf (get-property domain 'extensible-p) t))))
+  (with-slots (boundary extensible-p) domain
+    (setf boundary (skeleton-boundary domain))
+    (doskel (patch domain)
+      (when (get-cell-property patch domain 'EXTENSION)
+	(setf extensible-p t)))))
 
 (defun patch-classification (patch domain)
   "Returns a list of classifications for @arg{patch} in @arg{domain}."
@@ -78,6 +79,34 @@ how this could be done in an easy way."
 	     (and classifiers
 		  (funcall (car classifiers) patch (classify (cdr classifiers))))))
     (classify (slot-value domain 'classifiers))))
+
+#+(or)
+(defun test-condition (condition classifications)
+  "Test if @arg{condition} which at the moment should be either an AND or
+an OR combination of symbols in the list @arg{classification} holds."
+  (cond
+    ((eq t condition))
+    ((symbolp condition) (member condition classifications))
+    ((consp condition)
+     (funcall (ecase (car condition)
+		(and #'subsetp)
+		(or #'intersection))
+	      (cdr condition)
+	      classifications))
+    (t (error "Unknown patch classification scheme."))))
+
+(defun test-condition (condition classifications)
+  "Test if @arg{condition} holds for @arg{classifications}.
+@arg{condition} should be a logical combination of the keyword symbols in
+the list @arg{classification}."
+   (funcall (eval `(lambda (classifications)
+		     (declare (ignorable classifications))
+		     ,(map-tree (lambda (leaf)
+				  (if (keywordp leaf)
+				      `(find ,leaf classifications)
+				      leaf))
+				condition)))
+	    classifications))
 
 (defmethod initialize-instance :after ((domain <domain>) &key cells &allow-other-keys)
   "When a domain is constructed from a list of cells, we assume that its
@@ -116,6 +145,12 @@ definition is finished and setup the boundary slot."
   (loop for classifier in classifiers do
        (pushnew classifier (slot-value domain 'classifiers))))
 
+(defun make-classifier (test classification)
+  "Returns a classifier for patches."
+   (lambda (patch classifiers)
+     (if (funcall test patch)
+         (adjoin classification classifiers)
+         classifiers)))
 
 (defun domain-characteristics (domain)
   "Returns a property list of characteristics.  The property curved means
@@ -134,10 +169,9 @@ assumed to be provided in an exact form."
     properties))
 
 (defmethod describe-object :after ((domain <domain>) stream)
-  (format stream "~&Characteristics: ~A" (domain-characteristics domain))
-  (format stream "~&Classifications: ~A~%" (domain-characteristics domain))
+  (format stream "~&Characteristics: ~S" (domain-characteristics domain))
   (doskel (patch domain)
-    (format t "~A ->~% ~A~%" patch (patch-classification patch domain))))
+    (format t "~A ->~% ~S~%" patch (patch-classification patch domain))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Frequently used domains
@@ -163,14 +197,17 @@ assumed to be provided in an exact form."
 cube domain."
   (lambda (cell classifications)
     (let* ((midpoint (midpoint cell))
-	   (dim (length midpoint)))
-      (when (< (dimension cell) dim)
+	   (dim (length midpoint))
+           (cell-dim (dimension cell)))
+      (when (and (= cell-dim 0) (mzerop midpoint))
+        (pushnew :origin classifications))
+      (when (< cell-dim dim)
 	(let ((coord (aref midpoint (1- dim))))
 	  (pushnew (cond ((= coord top) :top)
 			 ((= coord bottom) :bottom)
 			 (t :lateral))
 		   classifications))
-	(when (< (dimension cell) (1- dim))
+	(when (< cell-dim (1- dim))
 	  (pushnew :lateral classifications))
 	;; special information for 2d problems
 	(when (= dim 2)
@@ -377,6 +414,9 @@ the unit cube."
   (let* ((domain (n-cube-domain 3))
 	 (cell (find-cell (lambda (c) (mequalp (midpoint c) #d(0.5 0.5 0.0))) domain)))
     (assert (member :bottom (patch-classification cell domain))))
+  
+  (assert (not (test-condition '(and :d-dimensional (not :inlay))
+			       '(:d-dimensional :inlay))))
   )
 
 ;;; (test-domain)

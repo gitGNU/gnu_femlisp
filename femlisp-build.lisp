@@ -1,10 +1,10 @@
-;;; -*- mode: lisp; -*-
+;;; -*- mode: lisp; fill-column: 64; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; multi-processing.lisp - not much yet
+;;; femlisp-build.lisp - build a Femlisp binary
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2007 Nicolas Neuss, University Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -32,25 +32,12 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defpackage "FL.MULTIPROCESSING"
-  (:use "COMMON-LISP")
-  (:export "BATCH" "FEMLISP-YIELD"))
+(in-package "COMMON-LISP-USER")
 
-(in-package "FL.MULTIPROCESSING")
+#+lispworks (load-all-patches)
 
-#+(or)
-(defmacro batch (&body body)
-  `(progn
-    (let ((mp::*idle-process* nil))
-      (declare (special mp::*idle-process*))
-      (mp:make-process
-       #'(lambda ()
-	   ,@body)))))
+(unless (ignore-errors (load "start.lisp"))
+  #+allegro (exit)
+  #-allegro (quit))
 
-#+(or)
-(defun femlisp-yield () (mp::process-yield))
-
-;;; Testing
-(defun femlisp-multiprocessing-tests ()
-  )
-
+(fl.port:save-femlisp-core-and-die)

@@ -4,7 +4,8 @@
 ;;; general.lisp - globally useful definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2003-2006 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2006- Nicolas Neuss, University of Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -21,14 +22,14 @@
 ;;; THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
 ;;; WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 ;;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
-;;; NO EVENT SHALL THE AUTHOR, THE UNIVERSITY OF HEIDELBERG OR OTHER
-;;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-;;; EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-;;; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-;;; PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-;;; LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;; NO EVENT SHALL THE AUTHOR, THE UNIVERSITIES HEIDELBERG AND KARLSRUHE OR
+;;; OTHER CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+;;; SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+;;; LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+;;; DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+;;; THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+;;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+;;; OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -56,18 +57,14 @@ describes the use of the respective file."
 this object."))
   (:documentation "A mixin which adds a slot of properties to the class."))
 
+;;; old interface: deprecated
+
+#+(or)
 (defun property-set-p (object property)
   "Returns T if @arg{property} is found in the object's properties."
   (get-properties (slot-value object 'properties) (list property)))
 
-(defun get-property (object property)
-  "Gets @arg{property} for @arg{object}."
-  (getf (slot-value object 'properties) property))
-
-(defun (setf get-property) (value object property)
-  "Sets the property @arg{property} of @arg{problem} to @arg{value}."
-  (setf (getf (slot-value object 'properties) property) value))
-
+#+(or)
 (defmacro with-properties (properties object &body body)
   "Work with @arg{properties} on the property list of @arg{object}."
   (with-gensyms (obj)
@@ -76,24 +73,48 @@ this object."))
 			      `(,prop (getf (properties ,obj) ',prop)))
 	 ,@body))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Runtime compilation
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; old/new interface
 
-(defun runtime-compile (source)
-  "Calls compile on the provided @arg{source}.  When :compile is activated
-for debugging, the source code is printed."
-  (let ((*print-circle* nil))
-    (dbg :compile "Compiling source: ~%~S~%" source))
-  (funcall (if (dbg-p :compile) #'compile #'fl.port:compile-silently)
-	   nil source))
+(defun get-property (object property)
+  "Gets @arg{property} for @arg{object}.  Returns NIL also if
+@arg{property} is not available."
+  (getf (slot-value object 'properties) property))
 
-(defun compile-and-eval (source)
-  "Compiles and evaluates the given @arg{source}.  This should be an ANSI
-compatible way of ensuring method compilation."
-  (dbg :compile "Compiling and evaluating: ~%~S~%" source)
-  (funcall (funcall (if (dbg-p :compile) #'compile #'fl.port:compile-silently)
-		    nil `(lambda () ,source))))
+(defun (setf get-property) (value object property)
+  "Sets the property @arg{property} of @arg{problem} to @arg{value}."
+  (setf (getf (slot-value object 'properties) property) value))
+
+;;; new interface using CLOS
+(defmethod shared-initialize :after ((object property-mixin) slot-names
+				     &rest initargs &key &allow-other-keys)
+  (declare (ignore slot-names))
+  (let* ((class (class-of object))
+	 (ordinary-slot-initargs (mappend #'fl.amop:slot-definition-initargs
+					  (fl.amop:compute-slots class))))
+    (loop for (key value) on initargs by #'cddr
+	 unless (member key ordinary-slot-initargs) do
+	 (setf (slot-value object (intern (symbol-name key) *package*))
+	       value))))
+
+(defmethod slot-missing (class (object property-mixin) slot-name
+			 (operation (eql 'slot-value)) &optional new-value)
+  (declare (ignore class new-value))
+  (getf (slot-value object 'properties) slot-name))
+
+(defmethod slot-missing (class (object property-mixin) slot-name
+			 (operation (eql 'setf)) &optional new-value)
+  (declare (ignore class))
+  (setf (getf (slot-value object 'properties) slot-name) new-value))
+
+(defmethod slot-missing (class (object property-mixin) slot-name
+			 (operation (eql 'slot-boundp)) &optional new-value)
+  (declare (ignore class slot-name new-value))
+  t)
+
+(defmethod slot-missing (class (object property-mixin) slot-name
+			 (operation (eql 'slot-makunbound)) &optional new-value)
+  (declare (ignore class new-value))
+  (error "Property slot '~A' cannot be unbound" slot-name))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; generic dictionary access
@@ -115,6 +136,73 @@ compatible way of ensuring method compilation."
 ;;; Memoization
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;; Cache-dictionary list
+
+(defclass cd-item ()
+  ((key :initarg :key)
+   (value :initarg :value)
+   (pred :initform nil)
+   (succ :initform nil)))
+
+(defclass cd-list ()
+  ((first :initform nil)
+   (last :initform nil)))
+
+(defmethod emptyp ((cdl cd-list))
+  (with-slots (first) cdl
+    (null first)))
+
+(defmethod push-front ((cdi cd-item) (cdl cd-list))
+  (with-slots (first last) cdl
+    (with-slots (pred succ) cdi
+      (setf succ first pred nil))
+    (if first
+	(setf (slot-value first 'pred) cdi)
+	(setf last cdi))
+    (setf first cdi)))
+
+(defmethod delete-from ((cdi cd-item) (cdl cd-list))
+  (with-slots (pred succ) cdi
+    (with-slots (first last) cdl
+      (if pred
+	  (setf (slot-value pred 'succ) succ)
+	  (setf first succ))
+      (if succ
+	  (setf (slot-value succ 'pred) pred)
+	  (setf last pred)))
+    (setf pred nil succ nil))
+  cdi)
+
+(defmethod pop-front ((cdl cd-list))
+  (lret ((first (slot-value cdl 'first)))
+    (with-slots (pred succ) first
+      (setf (slot-value cdl 'first) succ)
+      (if succ
+	  (setf (slot-value succ 'pred) nil)
+	  (setf (slot-value cdl 'last) nil))
+      (setf pred nil succ nil))))
+
+(defmethod pop-rear ((cdl cd-list))
+  (lret ((last (slot-value cdl 'last)))
+    (with-slots (pred succ) last
+      (setf (slot-value cdl 'last) pred)
+      (if pred
+	  (setf (slot-value pred 'succ) nil)
+	  (setf (slot-value cdl 'first) nil))
+      (setf pred nil succ nil))))
+
+(defgeneric coerce-to (seq type)
+  (:documentation "Generic version of @arg{coerce}.")
+  (:method (seq type) (coerce seq type)))
+
+(defmethod coerce-to ((cdl cd-list) type)
+  (coerce (loop for item = (slot-value cdl 'first)
+	     then (slot-value item 'succ) while item
+	     collect (slot-value item 'object))
+	  type))
+
+;;; Cache dictionary
+
 (defclass cache-dictionary ()
   ((size :reader size :initform 1 :initarg :size)
    (test :initform #'eql :initarg :test)
@@ -124,16 +212,17 @@ compatible way of ensuring method compilation."
   (assert (plusp (size dic))))
 
 (defmethod dic-ref ((dic cache-dictionary) key)
-  (declare (optimize speed))
-  (with-slots (store test) dic
-    (loop for tail on store
-	  and prev-tail = nil then tail do
-	  (when (funcall test (caar tail) key)
-	    (when prev-tail
-	      (setf (cdr prev-tail) (cdr tail)
-		    (cdr tail) store
-		    store tail))
-	    (return (values (cdar store) t))))))
+  (quickly
+    (with-slots (store test) dic
+      (loop for tail on store
+	 and prev-tail = nil then tail do
+	 (when (slowly ; gets rid of an SBCL optimization note
+		 (funcall test (caar tail) key))
+	   (when prev-tail
+	     (setf (cdr prev-tail) (cdr tail)
+		   (cdr tail) store
+		   store tail))
+	   (return (values (cdar store) t)))))))
 
 (defmethod (setf dic-ref) (value (dic cache-dictionary) key)
   (with-slots (store size test) dic
@@ -225,7 +314,7 @@ threads, if @arg{type} is :local, it is special for each thread."
 ;;;; Testing
 
 (defun test-general ()
-  (loop+ ((i (range :below 0))) do (error "should not be reached"))
+  (loop+ ((i (range :below 0))) do (error "should not be reached: ~D" i))
   (let ((x (make-array 10 :initial-element 0))
 	(y (make-list 10 :initial-element 1)))
     (loop+ ((xc x) (yc y) i) doing
@@ -253,8 +342,8 @@ threads, if @arg{type} is :local, it is special for each thread."
    (macroexpand '(with-memoization ()
 		  (defun test (n)
 		    (memoizing-let ((k (* 2 n)))
-				   (sleep 1)
-				   (* k k))))))
+		      (sleep 1)
+		      (* k k))))))
   (with-memoization ()
     (flet ((test (n)
 	     (memoizing-let ((k (* 2 n))
@@ -264,22 +353,44 @@ threads, if @arg{type} is :local, it is special for each thread."
       (time (test 5))
       (time (test 5))))
   
-    (with-memoization (:type :local :size 2 :id 'test-memoization)
-      (flet ((test (n)
-	       (memoizing-let ((k (* 2 n))
-			       (l (* 3 n)))
-		 (sleep 1)
-		 (* k l))))
-	(time (test 5))
-	(time (test 5))))
+  (with-memoization (:type :local :size 2 :id 'test-memoization)
+    (flet ((test (n)
+	     (memoizing-let ((k (* 2 n))
+			     (l (* 3 n)))
+	       (sleep 1)
+	       (* k l))))
+      (time (test 5))
+      (time (test 5))))
 
-    (dbg-on :memoize)
-    (with-memoization (:id 'test)
-      (let* ((f (lambda (x) (sleep x) ))
-	     (memoized-f (memoizing f)))
-	(loop repeat 10 do (print (funcall memoized-f 1.0)))))
-    (dbg-off)
+  (dbg-on :memoize)
+  (with-memoization (:id 'test)
+    (let* ((f (lambda (x) (sleep x) ))
+	   (memoized-f (memoizing f)))
+      (loop repeat 10 do (print (funcall memoized-f 1.0)))))
+  (dbg-off)
+
+  #-cmu
+  (let ((x (make-instance 'property-mixin :properties (list :a 1))))
+    (assert (= (slot-value x :a) 1))
+    (setf (slot-value x :a) 3)
+    (assert (= (slot-value x :a) 3)))
+
+  (let ((x (make-instance 'property-mixin :properties '(:a 1)))
+	(n 100))
+    (time (loop repeat n do (get-property x :a)))
+    #-cmu (time (loop repeat n do (slot-value x :a)))
+    )
+  (let ((x (make-instance 'property-mixin)))
+    (describe x)
+    (with-slots (x) x
+      x))
+  
   )
+
+(with-memoization (:test 'equalp)
+  (defun lagrange-fe (order &key (nr-comps 1) (type :uniform))
+    (memoizing-let ((order order) (nr-comps nr-comps) (type type))
+      (list order nr-comps type))))
 
 ;;; (test-general)
 (fl.tests:adjoin-test 'test-general)

@@ -2,6 +2,39 @@
 
 * From Femlisp-0.9.9 to Femlisp-0.9.10:
 
+I separated the Femlisp ASDF system definition in @file{femlisp.asd} into
+ASDF systems called "femlisp-basic", "femlisp-matlisp", and "femlisp".
+Especially "femlisp-basic" can be used also from other applications, and
+"femlisp-matlisp" might develop into a Matlisp replacement.  All system
+definitions are still contained in @file{femlisp:femlisp.asd} (which should
+therefore be linked also under the names femlisp-basic.asd and
+femlisp-matlisp.asd in the ASDF systems directory, if those modules are
+used separately).
+
+Our institute has purchased a Lispworks license and I have ported Femlisp
+to Lispworks.  Unfortunately, my Allegro license has expired and I cannot
+test with Allegro any more at the moment.
+
+Included code for interfacing to LAPACK in @arg{matlisp;lapack.lisp}.
+Especially, an interface to the solution of generalized eigenvalue problems
+is available in @arg{matlisp;hegz.lisp} and @arg{matlisp;ggev.lisp}.
+
+The ordering of the matrix arguments of MEXTRACT has been changed to fit
+better with the intuitive language "extract X from Y".  MEXTRACT and
+MINJECT have been renamed to MEXTRACT! and MINJECT! to fit better with the
+naming of other destructive Matlisp functions.
+
+Restructuring of the module "basic" in @arg{femlisp.asd}.  
+
+Properties of @class{property-mixin} instances can now be accessed using
+@function{slot-value} and @function{with-slots}, in addition to
+@function{get-property}.  Such property slots are always bound: if they are
+not bound otherwise, they are bound to NIL.
+
+Dropped @function{extend-matlisp-function} after a discussion in
+comp.lang.lisp.  The functionality is now provided by @function{matlisp} in
+@file{call-matlisp.lisp}.
+
 Fixed an hideous bug in domain.lisp which lead to the wrong
 characterization of the bottom of a cube domain.
 

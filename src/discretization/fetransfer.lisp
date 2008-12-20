@@ -115,7 +115,7 @@ which can be used for implementing problem-dependent finite elements."
 the vector finite element @arg{vecfe}.  The algorithm evaluates the nodal
 functionals of the children on the parent shape functions."
   (assert (eq type :local))
-  (with-slots (refcell components properties)
+  (with-slots (refcell components)
     vecfe
     (let* ((children (inner-refcell-children refcell rule))
 	   (subcells (subcells refcell))
@@ -136,7 +136,7 @@ functionals of the children on the parent shape functions."
 		    for row-off = (aref (aref children-offsets comp) i)
 		    and col-off = (aref (aref subcell-offsets comp) j)
 		    when (in-pattern-p fe-imat i j) do
-		      (minject (tensor-ref fe-imat i j) mblock row-off col-off)
+		      (minject! (tensor-ref fe-imat i j) mblock row-off col-off)
 		    finally (setf (tensor-ref vecfe-imat i j) mblock))))
       vecfe-imat)))
 
@@ -217,7 +217,7 @@ in the local projection matrix."
 (defmethod compute-local-pmatrix (rule (vecfe <vector-fe>) child-disc)
   "Computes a local projection matrix for vector finite elements."
   (declare (optimize (debug 3)))
-  (with-slots (refcell discretization components properties)
+  (with-slots (refcell components)
       vecfe
     (let ((nr-parent-inner-dofs (nr-of-inner-dofs vecfe)))
       (when (plusp nr-parent-inner-dofs)
@@ -236,7 +236,7 @@ in the local projection matrix."
 		for child-off = (aref (aref children-offsets comp) i)
 		for parent-off = (aref (aref subcell-offsets comp) 0)
 		when (and pmat (in-pattern-p pmat i)) do
-		  (minject (tensor-ref pmat i) mblock parent-off child-off)
+		  (minject! (tensor-ref pmat i) mblock parent-off child-off)
 		finally (setf (tensor-ref vecfe-pmat i) mblock)))
 	  vecfe-pmat)))))
 

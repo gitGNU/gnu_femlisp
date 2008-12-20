@@ -44,7 +44,8 @@
    "<LSE>" "LSE" "MATRIX" "RHS" "ENSURE-SOLUTION" "ENSURE-RESIDUAL"
    "<NLSE>" "NLSE" "LINEARIZE")
   (:export				; evp.lisp
-   "<EVP-MIXIN>" "LAMBDA" "MU" "<EVP>" "<LS-EVP>" "MASS" "ENERGY")
+   "<EVP-MIXIN>" "EIGENVALUES" "MU" "<EVP>" "<LS-EVP>" "MASS" "ENERGY"
+   "STIFFNESS-MATRIX" "MASS-MATRIX")
   (:export				; pde-problem.lisp
    "<DOMAIN-PROBLEM>" "<INTERPOLATION-PROBLEM>" "<PDE-PROBLEM>"
    "GET-COEFFICIENT"
@@ -69,7 +70,9 @@
    "INITIAL" "ALPHA")
   (:export   ; pdef.lisp
    "MAKE-COEFFICIENTS-FOR" "COEFF" "EXTRACT-FROM"
-   "PREPARE-COEFFICIENT-ARGUMENTS" "CREATE-PROBLEM" "SELECT-ON-PATCH")
+   "PREPARE-COEFFICIENT-ARGUMENTS"
+   "CREATE-PROBLEM" "SETUP-COEFFICIENTS" "SETUP-COMPONENTS"
+   "PATCH-IF" "SELECT-ON-PATCH")
   (:documentation " The @package{FL.PROBLEM} package introduces the
 general class @class{<problem>} and some subclasses.  The most interesting
 subclass is @class{<pde-problem>}.  A @class{<pde-problem>} is defined on a

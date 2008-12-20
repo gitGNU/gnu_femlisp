@@ -101,16 +101,17 @@ decomposition."))
   (funcall (slot-value blockit 'block-setup) blockit smat))
 
 (defun compute-block-inverse (smat keys ranges)
-  (m/ (sparse-matrix->matlisp
-       smat :keys keys :ranges ranges)))
+  (m/ (sparse-matrix->matlisp smat :keys keys :ranges ranges)))
 
 (defun compute-block-inverses (smat blocks ranges)
   (dbg :iter "computing block-inverses")
   (loop for keys in blocks
-	and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
-	collecting (compute-block-inverse smat keys (car ranges-tail))))
+     ;; ranges may be NIL -> don't use ON in the following line
+     and ranges-tail = ranges then (cdr ranges-tail) 
+     collecting (compute-block-inverse smat keys (car ranges-tail))))
 
 (defmethod make-iterator ((iter <block-iteration>) (smat <sparse-matrix>))
+  (declare (optimize debug))
   (multiple-value-bind (blocks ranges)
       (setup-blocks iter smat)
     (dbg :iter "blocks=~A~%ranges=~A" blocks ranges)
@@ -131,34 +132,73 @@ decomposition."))
 			 (<ssc> (assert (= 1.0 (slot-value iter 'damp)))
 				(slot-value iter 'omega)))))
 	     (loop
-	      for block in blocks
-	      and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
-	      for block-ranges = (car ranges-tail)
-	      and diag-inverse in diagonal-inverses do
-	      ;; ssc: update residual on the block (disregarding ranges)
-	      (when (typep iter '<ssc>)
-		(loop for key across block do
-		      (copy! (vref b key) (vref r key))
-		      (for-each-key-and-entry-in-row
-		       #'(lambda (col-key mblock)
-			   #-(or)(gemm! -1.0 mblock (vref x col-key) 1.0 (vref r key))
-			   ;; warning: does not work
-			   #+(or)(x-=Ay (vref r key) mblock (vref x col-key)))
-		       smat key)))
-	      ;; solve for local block
-	      (let ((local-r (sparse-vector->matlisp r block block-ranges))
-		    (local-x (sparse-vector->matlisp x block block-ranges))
-		    (local-mat (sparse-matrix->ccs smat :keys block :ranges (car ranges-tail))))
-		(cond
-		  ((inner-iteration iter)
-		   (let ((bb (blackboard :problem (lse :matrix local-mat :rhs local-r))))
-		     (solve (inner-iteration iter) bb)
-		     (axpy! damp (getbb bb :solution) local-x)))
-		  (diag-inverse
-		   (gemm! damp diag-inverse local-r 1.0 local-x))
-		  (t (gesv! local-mat local-r)
-		     (axpy! damp local-r local-x)))
-		(set-svec-to-local-block x local-x block block-ranges))))
+                for block in blocks
+                and ranges-tail = ranges then (cdr ranges-tail) ; may be NIL
+                for block-ranges = (car ranges-tail)
+                and diag-inverse in diagonal-inverses do
+                (dbg-when :iter
+                  ;; check if read/write of local vectors works
+                  (let ((temp (sparse-vector->matlisp r block block-ranges)))
+                    (fill! temp 1.0)
+                    (set-svec-to-local-block r temp block block-ranges)
+                    (assert (mequalp (sparse-vector->matlisp r block block-ranges)
+                                     temp))))
+                ;; ssc: update residual on the block (disregarding ranges)
+                (when (typep iter '<ssc>)
+                  (loop for key across block do
+                       (copy! (vref b key) (vref r key))
+                       (for-each-key-and-entry-in-row
+                        #'(lambda (col-key mblock)
+                            (gemm! -1.0 mblock (vref x col-key) 1.0 (vref r key)))
+                        smat key)))
+                (dbg-when :iter
+                  ;; check if read of local matrices works
+                  (let ((mat1 (sparse-matrix->ccs smat :keys block :ranges block-ranges))
+                        (mat2 (sparse-matrix->matlisp smat :keys block :ranges block-ranges)))
+                    (dotimes (i (nrows mat1))
+                      (dotimes (j (ncols mat1))
+                        (unless (if (in-pattern-p mat1 i j)
+                                    (= (mref mat1 i j) (mref mat2 i j))
+                                    (= 0.0 (mref mat2 i j)))
+                          (format t "Mat-problem: ~A ~A ~A ~A ~A~%"
+                                  i j (in-pattern-p mat1 i j) (mref mat1 i j) (mref mat2 i j)))))))
+                ;; solve for local block
+                (let ((local-r (sparse-vector->matlisp r block block-ranges))
+                      (local-x (sparse-vector->matlisp x block block-ranges))
+                      (local-mat (?2 (sparse-matrix->ccs smat :keys block :ranges block-ranges)
+                                     (sparse-matrix->matlisp smat :keys block :ranges block-ranges)
+                                     )))
+                  (cond
+                    ((inner-iteration iter)
+                     (let ((bb (blackboard :problem (lse :matrix local-mat :rhs local-r))))
+                       (solve (inner-iteration iter) bb)
+                       (axpy! damp (getbb bb :solution) local-x)))
+                    (diag-inverse
+                     (gemm! damp diag-inverse local-r 1.0 local-x))
+                    (t (let ((local-r-2 (copy local-r)))
+                         (gesv! local-mat local-r)
+                         (dbg-when :iter
+                           (let ((diff-norm (norm (m- (m* local-mat local-r) local-r-2))))
+                             (when (> diff-norm 1.0e-10)
+                               (format t "Solving problem: ~A ~A~%" diff-norm damp))))
+                         (axpy! damp local-r local-x)
+                         ))
+                       )
+                  (set-svec-to-local-block x local-x block block-ranges))
+                ;; debugging
+                (dbg-when :iter
+                  ;; check if the defect vanishes on the block
+                  (when (typep iter '<ssc>)
+                    (loop for key across block do
+                         (copy! (vref b key) (vref r key))
+                         (for-each-key-and-entry-in-row
+                          #'(lambda (col-key mblock)
+                              (gemm! -1.0 mblock (vref x col-key) 1.0 (vref r key)))
+                          smat key))
+                    (unless (mzerop (sparse-vector->matlisp r block block-ranges) 1.0e-10)
+                      (format t "Problem: ~A~%" (norm r)))
+                    ))
+                ))
 	   x)
        :residual-after nil))))
 

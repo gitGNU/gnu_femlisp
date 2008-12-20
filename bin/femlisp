@@ -2,11 +2,11 @@
 #PBS -l nodes=1:ppn=2,mem=2gb
 
 if test -z "$FEMLISP_CL"; then
-    FEMLISP_CL=/usr/local/bin/sbcl
+    FEMLISP_CL=/home/neuss/bin/lw-console
 fi
 
 if test -z "$FEMLISP_CL_TYPE"; then
-    FEMLISP_CL_TYPE=sbcl
+    FEMLISP_CL_TYPE=lispworks
 fi
 
 if test -z "$FEMLISP_DIR"; then
@@ -16,20 +16,31 @@ fi
 case $FEMLISP_CL_TYPE in
     acl) core="-I"; load="-L"; eval="-e"; noinit="-qq";;
     cmucl) core="-core"; load="-load"; eval="-eval"; noinit="-nositeinit -noinit";;
+    scl) core="-core"; load="-load"; eval="-eval"; noinit="-nositeinit -noinit";;
+    lispworks) core=""; load="-init"; noinit="-init - -siteinit -";;
     sbcl) core="--core"; load="--load"; eval="--eval"; noinit="--sysinit /dev/null --userinit /dev/null";;
     ecl) core=""; load="-load"; eval="-eval"; noinit="-norc";;
     gcl) core=""; load="-load"; eval="-eval";;
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
 esac
 
+case $FEMLISP_CL_TYPE in
+    lispworks) build="-build";;
+    *) build=$load;;
+esac
+
 cd $FEMLISP_DIR
-FEMLISP_CORE=bin/femlisp-$FEMLISP_CL_TYPE.core;
+FEMLISP_CORE=bin/femlisp-$FEMLISP_CL_TYPE.core
+
 if test "$1" = "--save-core-and-die"; then
     rm -f $FEMLISP_CORE
     # the following passing of a keyword is a kludge due to a bug in Allegro
-    bash ./bin/femlisp $eval "(fl.port:save-femlisp-core-and-die :$FEMLISP_CORE)"
+    $FEMLISP_CL $build femlisp-build.lisp
     if test -f $FEMLISP_CORE
     then
+	if test -z "$core"; then
+	    chmod +x $FEMLISP_CORE
+	fi
 	echo "Built core in $FEMLISP_CORE"
     else
 	echo "Building core file was not successful"
@@ -37,14 +48,28 @@ if test "$1" = "--save-core-and-die"; then
     exit 0
 fi
 
-case $FEMLISP_CL_TYPE in
-    ecl) corecall="";;
-    gcl) corecall="";;
-    *) corecall="$FEMLISP_CL $core";;
-esac
+if test "$1" = "--load"; then
+    case $FEMLISP_CL_TYPE in
+	lispworks) load="-init"; noinit="-nositeinit";;
+    esac
+    load_file_sequence="$load $2"
+fi
 
 if test -f $FEMLISP_CORE; then
-    exec $corecall $FEMLISP_CORE $eval "(fl.port:femlisp-restart)" "$@"
+    if test -z "$core"; then
+	call_sequence="$FEMLISP_CORE $noinit"
+    else
+	call_sequence="$FEMLISP_CL $core $FEMLISP_CORE $noinit"
+    fi
 else
-    exec $FEMLISP_CL $load start.lisp $eval "(in-package :fl.application)" "$@"
+    call_sequence="$FEMLISP_CL $load start.lisp"
 fi
+
+# if test -z "$eval"; then
+#     eval_sequence=""
+# else
+#     eval_sequence="$eval (fl.port:femlisp-restart)"
+# fi
+
+echo "$call_sequence $load_file_sequence" # $eval_sequence
+exec $call_sequence $load_file_sequence # $eval_sequence

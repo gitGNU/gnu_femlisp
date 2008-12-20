@@ -71,7 +71,7 @@ time-stepping problem is problem-specific and therefore contained in
 separate files.")
 
 (defmethod initially ((rothe <rothe>) blackboard)
-  (with-items (&key iv-ip-blackboard fe-class) blackboard
+  (with-items (&key iv-ip-blackboard) blackboard
     (ensure iv-ip-blackboard (blackboard))
     (transfer-bb blackboard iv-ip-blackboard '(:fe-class :mesh))
     (with-items (&key problem success-if failure-if) iv-ip-blackboard
@@ -92,10 +92,10 @@ separate files.")
 
 (defmethod next-step ((rothe <rothe>) blackboard)
   "Do one step by solving the stationary problem."
-  (with-items (&key step time-step-blackboard) blackboard
+  (with-items (&key time-step-blackboard) blackboard
     (ensure time-step-blackboard (blackboard))
     (with-items (&key success-if failure-if fe-class problem mesh
-		      interior-mat interior-rhs matrix rhs ansatz-space solution)
+		      ansatz-space solution)
 	time-step-blackboard
       (ensure success-if (slot-value rothe 'stationary-success-if))
       (ensure failure-if (slot-value rothe 'stationary-failure-if))

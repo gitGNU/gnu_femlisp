@@ -59,6 +59,20 @@ coefficients."))
 		   (setf (mref result i j)
 			 (tensor-ref solution (+ from i) j))))))))))
 
+(defun extract-from-gradient (gradient from ncomps)
+  "Extract a numbers or subvectors from the solution vector."
+  (let ((x (vref gradient from)))
+    (assert (= 1 (ncols x)) ()
+            "Multiplicity >1 is not allowed here - one would have to use
+            general tensors here and at several other places.")
+    (lret* ((dim (nrows x))
+            (result (zeros ncomps dim)))
+      (loop repeat ncomps
+         for i from from
+         for y = (vref gradient i) do
+           (dotimes (j dim)
+             (setf (mref result i j) (mref y j 0)))))))
+
 (defun prepare-coefficient-arguments (components args)
   "Prepares arguments for the given coefficient function."
   (let ((source
@@ -77,7 +91,9 @@ coefficients."))
 				      sym)))
 			(multiple-value-bind (from ncomps flag)
 			    (extraction-information components sym)
-			  `(extract-from (,(if grad-p 'second 'first) solution) ,from ,ncomps ,flag)))))))))))
+                          (if grad-p
+                              `(extract-from-gradient (second solution) ,from ,ncomps)
+                              `(extract-from (first solution) ,from ,ncomps ,flag))))))))))))
     (fl.debug:dbg :compile "Compiling:~%~A" source)
     (compile nil source)))
 	     
@@ -103,184 +119,65 @@ coefficients."))
 		  eval (apply prepare-args rest)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; nonlinear right-hand side for <ellsys-problem>
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defparameter *linearization-factor* 1.0
-  "Damping factor used for linearizing nonlinear right-hand sides.  0.0
-yields the fixed point iteration, 1.0 is full Newton approximation.")
-
-(defmethod make-coefficients-for ((problem fl.ellsys::<ellsys-problem>)
-				  (coeff (eql 'FL.ELLSYS::NONLINEAR-F))
-				  patch args eval)
-  (let ((grad (sparse-real-derivative eval)))
-    (append
-     (make-coefficients-for
-      problem 'FL.ELLSYS::R patch args
-      (lambda (&rest args)
-	;; Transform grad from args to components!
-	(scal (- *linearization-factor*) (apply grad args))))
-     (make-coefficients-for
-      problem 'FL.ELLSYS::F patch args
-      (lambda (&rest args)
-	(let* ((u (coerce args 'vector))
-	       (f (apply eval args))
-	       (Df (apply grad args)))
-	  (axpy (-  *linearization-factor*) (m* Df u) f)))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; cdr problems
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
-				  (coeff (eql 'FL.CDR::DIFFUSION))
-				  patch args eval)
-  (make-coefficients-for problem 'FL.ELLSYS::A patch args
-			 (lambda (&rest args)
-			   (diagonal-sparse-tensor (apply eval args) 1))))
-		    
-(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
-				 (coeff (eql 'FL.CDR::ISOTROPIC-DIFFUSION))
-				  patch args eval)
-  (make-coefficients-for problem 'FL.ELLSYS::A patch args
-			 (let ((dim (dimension (domain problem))))
-			   (lambda (&rest args)
-			     (diagonal-sparse-tensor (scal (apply eval args) (eye dim)) 1)))))
-
-(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
-				 (coeff (eql 'FL.CDR::SCALAR-SOURCE)) patch args eval)
-  (make-coefficients-for problem 'FL.ELLSYS::F patch args
-			 (lambda (&rest args)
-			   (vector (ensure-matlisp (apply eval args) :row-vector)))))
-		    
-(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
-				 (coeff (eql 'FL.CDR::SCALAR-NONLINEAR-SOURCE))
-				  patch args eval)
-  (make-coefficients-for problem 'FL.ELLSYS::NONLINEAR-F patch args
-			 (lambda (&rest args)
-			   (sparse-tensor 
-			    `((,(apply eval args) 0))))))
-
-(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
-				 (coeff (eql 'FL.CDR::SCALAR-CONSTRAINT))
-				  patch args eval)
-  (make-coefficients-for problem 'FL.PROBLEM::CONSTRAINT patch args
-			 (lambda (&rest args)
-			   (values #(t) (vector (ensure-matlisp (apply eval args) :row-vector))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Navier-Stokes problems
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(in-package :fl.navier-stokes-ellsys)
-
-(defmethod make-coefficients-for
-    ((problem fl.navier-stokes-ellsys::<navier-stokes-problem>)
-     (coeff (eql 'VISCOSITY)) patch args eval)
-  (let ((dim (dimension (domain problem))))
-    (make-coefficients-for problem 'FL.ELLSYS::A patch args
-			   (lambda (&rest args)
-			     (diagonal-sparse-tensor
-			      (scal (apply eval args) (eye dim)) dim)))))
-
-(defmethod make-coefficients-for
-    ((problem fl.navier-stokes-ellsys::<navier-stokes-problem>)
-     (coeff (eql 'REYNOLDS)) patch args eval)
-  (assert (null args))
-  (let ((reynolds (funcall eval))
-	(dim (dimension (domain problem))))
-    (list (make-coefficients-for
-	   problem 'FL.ELLSYS::C patch '(u)
-	   (lambda (u)
-	     (diagonal-sparse-tensor (scal (* *alpha* reynolds) u) dim)))
-	  (make-coefficients-for
-	   problem 'FL.ELLSYS::R patch '(du)
-	   (lambda (du)
-	     (scal (* *beta* reynolds) du)))
-	  (make-coefficients-for
-	   problem 'FL.ELLSYS::F patch '(u du)
-	   (lambda (u du)
-	     (scal (* (+ *alpha* *beta* -1) reynolds) (m* du u)))))))
-
-(defmethod make-coefficients-for ((problem fl.navier-stokes-ellsys::<navier-stokes-problem>)
-				 (coeff (eql 'FL.NAVIER-STOKES-ELLSYS::FORCE))
-				  patch args eval)
-  (make-coefficients-for problem 'FL.ELLSYS::F patch args
-			(lambda (&rest args)
-			  (vector (apply eval args)))))
-
-(defmethod make-coefficients-for ((problem fl.navier-stokes-ellsys::<navier-stokes-problem>)
-				 (coeff (eql 'FL.NAVIER-STOKES-ELLSYS::PRESCRIBED-VELOCITY))
-				 patch args eval)
-  (let ((dim (dimension (domain problem)))
-	(multiplicity (multiplicity problem)))
-    (make-coefficients-for
-     problem 'FL.PROBLEM::CONSTRAINT patch args
-     (lambda (&rest args)
-       (let ((velocity (apply eval args))
-	     (values (make-array (1+ dim) :initial-element (zeros 1 multiplicity)))
-	     (flags (make-array (1+ dim) :initial-element nil)))
-	 (dotimes (i dim)
-	   (mextract (aref values i) velocity i 0)
-	   (setf (aref flags i) t))
-	 (values flags values))))))
-		    
-(defmethod make-coefficients-for ((problem fl.navier-stokes-ellsys::<navier-stokes-problem>)
-				 (coeff (eql 'FL.NAVIER-STOKES-ELLSYS::NO-SLIP))
-				 patch args eval)
-  (declare (ignore eval))
-  (make-coefficients-for
-   problem 'FL.NAVIER-STOKES-ELLSYS::PRESCRIBED-VELOCITY patch args
-   (constantly (zeros (dimension (domain problem)) (multiplicity problem)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; problem definition macro
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :fl.problem)
+(with-gensyms (internal-problem internal-patch)
 
-(defmacro coeff (name args &body body)
-  "This macro defines a coefficient function inside a problem definition.
-It is mainly defined such that the Lisp editor indents the function
-definition correctly."
-  (declare (ignore name args body))
-  (error "Should not be called."))
+  (defmacro coeff (name args &body body)
+    "A local @macro{coeff} defines a coefficient function inside
+@macro{setup-coefficients}.  It is defined here at the toplevel such that
+the Lisp editor indents the definitions correctly."
+    `(make-coefficients-for
+      ,internal-problem ',name ,internal-patch ',args
+      (lambda ,args ,@body)))
 
-(defmacro create-problem (&key type domain components (multiplicity 1) coefficients properties)
-  (with-gensyms (problem patch classification)
-    `(lret ((,problem (fl.amop:make-programmatic-instance
-		       ,type :domain ,domain :multiplicity ,multiplicity
-		       :classify nil :properties ,properties)))
-      ,(if (eq (first components) 'select-on-patch)
-	     `(progn
-	       (setf (slot-value ,problem 'components) (make-hash-table))
-	       (doskel (,patch (domain ,problem))
-		 (let ((,classification (patch-classification ,patch (domain ,problem))))
-		   (setf (components-of-patch ,patch ,problem)
-			 (cond
-			   ,@(loop for (condition comps) in (rest components) collect
-				   `((test-condition ',condition ,classification) ,comps)))))))
-	     `(setf (slot-value ,problem 'components) ,components))
-      ,(if (eq (first coefficients) 'select-on-patch)
-	   `(progn
-	     (setf (slot-value ,problem 'coefficients) (make-hash-table))
-	     (doskel (,patch (domain ,problem))
-	       (let ((,classification (patch-classification ,patch (domain ,problem))))
-		 (setf (coefficients-of-patch ,patch ,problem)
-		       (cond
-			 ,@(loop for (condition . coeffs) in (rest coefficients) collect
-				 `((test-condition ',condition ,classification)
-				   (append
-				    ,@(loop for (coeff name args . body) in coeffs 
-					    do (assert (string-equal (symbol-name coeff) "COEFF"))
-					    collect
-					    `(make-coefficients-for
-					      ,problem ',name ,patch
-					      ',args (lambda ,args ,@body)))))))))))
-	   `(setf (slot-value ,problem 'coefficients) ,coefficients))
-      ;;
-      (classify-problem ,problem)
-      )))
+  (defmacro select-on-patch ((patch) &body clauses)
+    `(cond
+       ,@(loop for (pattern . coeffs) in clauses collect
+	      `((patch-if ,patch ',pattern) ,@coeffs))))
+  
+  (defmacro setup-components ((patch) &body patch-definitions)
+    "Defines components dispatching on @arg{patch}."
+    `(setf (slot-value ,internal-problem 'components)
+	 (memoize-1 (lambda (,internal-patch)
+		      (let ((,patch ,internal-patch))
+			,@patch-definitions)))))
+
+  (defmacro setup-coefficients ((patch) &body patch-definitions)
+    "Defines coefficients dispatching on @arg{patch}."
+    `(setf (slot-value ,internal-problem 'coefficients)
+           (memoize-1
+            (lambda (,internal-patch)
+              (flatten (let ((,patch ,internal-patch))
+                         ,@patch-definitions))))))
+
+  (defmacro create-problem (type (&key domain components (multiplicity 1) properties)
+			    &body body)
+    "Creates a PDE problem.  @arg{type} is the type of the problem which
+can be the name of a problem class or a list of class names.  @arg{domain}
+is the domain for this problem, @arg{multiplicity} is the multiplicity of
+the solution, e.g. the number of eigenvectors we search for.  In
+@arg{body}, patch-dependent coefficients should be defined with
+@macro{setup-coefficients}.  It is also possible to define patch-dependent
+components with @macro{setup-components}."
+  `(lret ((,internal-problem
+	   (fl.amop:make-programmatic-instance
+	    ,type :domain ,domain :multiplicity ,multiplicity
+	    :classify nil :properties ,properties
+	    :components ,components)))
+     (flet ((patch-if (patch condition)
+              (test-condition
+               condition (patch-classification
+                          patch (domain ,internal-problem)))))
+       ;; the missing of a call to this local function should not be
+       ;; reported, even if it is unusual for coefficients not to depend on
+       ;; a patch
+       (declare (ignorable #'patch-if))
+       ,@body)
+     (classify-problem ,internal-problem)
+     ))
+  )
 
 ;;;; Testing
 (defun test-pdef ()
@@ -303,65 +200,8 @@ definition correctly."
        (list :global #(1.0) :time 10.0
 	     :solution (list (vector #m(0.0) #m(0.0) #m(0.0) #m(0.0))
 			     (vector #m(0.0 0.0) #m(0.0 0.0) #m(0.0 0.0) #m(0.0 0.0)))
-	     )))
-    (let ((domain (n-cube-domain 1)))
-      (make-coefficients-for
-       (make-instance 'fl.cdr::<cdr-problem> :domain domain)
-       'fl.cdr::isotropic-diffusion
-       (central-patch domain) '() (constantly 1.0))))
+	     ))))
     
-  #+(or)
-  (let ((problem
-	 (create-problem
-	  :type 'FL.CDR::<CDR-PROBLEM>
-	  :domain (n-cube-domain 2) :components '(u) :multiplicity 1
-	  :coefficients
-	  (select-on-patch
-	   (:d-dimensional
-	    (coeff FL.CDR::ISOTROPIC-DIFFUSION () 1.0)
-	    (coeff FL.CDR::SCALAR-SOURCE () 1.0))
-	   (:external-boundary
-	    (coeff FL.CDR::SCALAR-CONSTRAINT () 0.0))))))
-    (defparameter *result*
-      (solve (blackboard :problem problem :solver (fl.iteration::lu-solver)
-			 :success-if '(> :step 3) :output :all))))
-
-  #+(or)
-  (fl.plot:plot (getbb *result* :solution))
-
-  ;; Navier-Stokes
-  #+(or)
-  (let ((problem
-	 (create-problem
-	  :type 'FL.NAVIER-STOKES-ELLSYS::<NAVIER-STOKES-PROBLEM>
-	  :domain (n-cube-domain 2) :components '((u 2) p) :multiplicity 1
-	  :coefficients
-	  (select-on-patch
-	   (:d-dimensional
-	    (coeff FL.NAVIER-STOKES-ELLSYS::VISCOSITY () 1.0)
-	    (coeff FL.NAVIER-STOKES-ELLSYS::REYNOLDS () 1.0))
-	   ((and :d-1-dimensional :upper)
-	    (coeff FL.NAVIER-STOKES-ELLSYS::PRESCRIBED-VELOCITY ()
-	      #m((1.0) (0.0))))
-	   (:external-boundary
-	    (coeff FL.NAVIER-STOKES-ELLSYS::NO-SLIP ()))))))
-    (describe problem))
-
-  (print(macroexpand-1
-   '(create-problem
-     :type 'FL.NAVIER-STOKES-ELLSYS::<NAVIER-STOKES-PROBLEM>
-     :domain (n-cube-domain 2) :components '((u 2) p) :multiplicity 1
-     :coefficients
-     (select-on-patch
-      (:d-dimensional
-       (coeff FL.NAVIER-STOKES-ELLSYS::VISCOSITY () 1.0)
-       (coeff FL.NAVIER-STOKES-ELLSYS::REYNOLDS () 1.0))
-      ((and :d-1-dimensional :upper)
-       (coeff FL.NAVIER-STOKES-ELLSYS::PRESCRIBED-VELOCITY ()
-	 #m((1.0) (0.0))))
-      (:external-boundary
-       (coeff FL.NAVIER-STOKES-ELLSYS::NO-SLIP ()))))))
-
   )
 
 ;;; (test-pdef)

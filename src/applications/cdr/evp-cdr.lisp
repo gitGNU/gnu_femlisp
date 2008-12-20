@@ -44,12 +44,11 @@ eigenvalue/eigenvector pairs for convection-diffusion-reaction problems.")
 (adjoin-demo *laplace-eigenvalue-demo* *laplace-demo*)
 
 (defun laplace-eigenvalue-computation
-    (domain &key output plot (lambda 0.0) (mu 1.0) (dirichlet 0.0))
+    (domain &key output plot (dirichlet 0.0))
   "Function performing the eigenvalue demo for the Laplace operator."
   (let ((problem (cdr-model-problem
-		  domain :evp (list :lambda (box lambda) :mu (box mu))
-		  :dirichlet dirichlet)))
-    (defparameter *result*
+		  domain :evp t :dirichlet dirichlet)))
+    (storing
       (solve (blackboard
 	      :problem problem :base-level 3
 	      :success-if '(or (>= :time 20) (>= :nr-levels 5))
@@ -57,7 +56,7 @@ eigenvalue/eigenvector pairs for convection-diffusion-reaction problems.")
 	      (append *stationary-fe-strategy-observe*
 		      (list (list "             lambda" "~19,10,2E"
 				  #'(lambda (bb) (declare (ignore bb))
-					    (unbox (slot-value problem 'lambda)))))))))
+					    (unbox (slot-value problem 'eigenvalues)))))))))
     (when plot
       (plot (getbb *result* :solution)))))
 
@@ -72,29 +71,49 @@ step." domain-name)))
 	   (make-demo
 	    :name title :short short :long long
 	    :execute (lambda ()
-		       (let ((lambda (user-input "Eigenvalue approximation: "
-				      #'read-from-string #'numberp)))
-			 (laplace-eigenvalue-computation
-			  domain :lambda lambda :plot t :output 1))))))
+		       (laplace-eigenvalue-computation
+			domain :plot t :output 1)))))
       (adjoin-demo demo *laplace-eigenvalue-demo*))))
 
 (make-laplace-eigenvalue-demo (n-simplex-domain 1) "unit-interval")
 (make-laplace-eigenvalue-demo (n-cube-domain 2) "unit-quadrangle")
 
+#+(or)
+(let ((problem (cdr-model-problem
+		(n-cube-domain 1)
+		:multiplicity 2
+		:reaction #m(1.0) :source nil :dirichlet nil :evp t)))
+  (storing
+    (solve (blackboard
+	    :problem problem :base-level 2
+	    :success-if '(>= :nr-levels 4)
+	    :output :all :observe
+	    (append *stationary-fe-strategy-observe*
+		    (list (list "             lambda" "~A"
+				#'(lambda (bb)
+				    (declare (ignore bb))
+				    (slot-value problem 'eigenvalues)))))))))
+
 ;;;; Testing
 
 (defun evp-cdr-test ()
   (plot (laplace-eigenvalue-computation
-	 (n-cube-domain 1) :dirichlet nil :lambda (* 9 pi pi) :output t :plot t))
+	 (n-cube-domain 1) :output t :plot t))
 
   ;; the following is used in the manual
-  (let ((problem (cdr-model-problem 2 :evp (list :lambda (box 50.0) :mu (box 1.0)))))
-    (defparameter *result*
+  (let ((problem (cdr-model-problem 2 :evp t)))
+    (storing
       (solve (blackboard :problem problem
 			 :success-if '(or (>= :time 5) (>= :nr-levels 5))
 			 :output 1))))
-  (slot-value (getbb *result* :problem) 'lambda)
+  (slot-value (getbb *result* :problem) 'eigenvalues)
   (plot (getbb *result* :solution))
+  
+  ;; bug shows up when using Lispworks
+  (let ((A #m((8.0 -12.0) (-12.0 18.0)))
+        (B (eye 2)))
+    (hegv A B :V))
+  
   )
 
 ;;; (evp-cdr-test)

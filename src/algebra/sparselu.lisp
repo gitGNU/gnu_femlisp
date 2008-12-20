@@ -240,7 +240,6 @@ completely."
 			    (type double-vec entry-store))
 		   (dotimes (i (the fixnum (aref row-sizes ri)))
 		     (declare (type fixnum i))
-		     (declare (optimize speed (safety 0)))
 		     (dotimes (j column-width)
 		       (declare (type fixnum j))
 		       (let ((k (the fixnum (+ pos1 (the fixnum (* j column-length))))))
@@ -281,8 +280,8 @@ completely."
 	 keys)
     (values numbering k)))
 
-#+(or)  ; old: only for testing purposes
-(defun sparse-matrix-to-ccs (smat keys)
+#+(or) ; old: only for testing purposes
+(defun sparse-matrix-to-ccs-old (smat keys)
   "Converts the sparse-matrix @arg{smat} to ccs format.  @arg{keys} is a
 list of index keys, @arg{ranges} can be nil or a list of ranges of the same
 length as @arg{keys} which specify subblocks of the block unknowns
@@ -390,4 +389,18 @@ associated with each key."
       (gesv! A rhs)
       (show rhs)
       (show (m* A rhs))))
+
+  (let ((A (make-sparse-matrix
+	    :row-key->size (constantly 2) :col-key->size (constantly 2)
+	    :keys->pattern (constantly (full-crs-pattern 2 2)))))
+    (setf (mref A 0 0) #m((1.0 2.0) (3.0 4.0)))
+    (let* ((block #(0))
+	   (ranges nil)
+	   (ccs (sparse-matrix->ccs A :keys block :ranges ranges))
+	   (m1 (compressed->matlisp ccs))
+	   (m2 (sparse-matrix->matlisp A :keys block :ranges ranges)))
+      (unless (mequalp m1 m2)
+	(mat-diff m1 m2)
+	(error "Not equal"))))
+  
   )

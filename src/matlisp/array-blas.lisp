@@ -52,6 +52,10 @@
   "For sequences @function{ncols} returns identically 1."
   1)
 
+(defmethod multiplicity ((x vector))
+  "Recursive definition."
+  (multiplicity (aref x 0)))
+
 (defmethod element-type ((x vector))
   (array-element-type x))
 (defmethod scalar-type ((x vector))
@@ -138,17 +142,17 @@
 			   (concatenate
 			    'vector
 			    (list
-			     (compile-and-eval
+			     (fl.port:compile-and-eval
 			      (subst element-type 'element-type
 				     '(lambda ,(mapcar #'car args)
+				       #+lispworks (declare (optimize (float 0)))
 				       (declare (type (simple-array element-type (*)) ,@vec-args))
 				       (declare (type element-type ,@number-args))
-				       (declare (optimize (speed 3) (safety 0)))
-				       ,@body))))
-			    ,functions)))))))
+				       (very-quickly ,@body))))
+			     ,functions))))))))
 	  (funcall (aref ,functions 0) ,@(mapcar #'car args)))))))
 
-(define-vector-blas-method copy! ((x vector) (y vector))
+(defmethod copy! ((x vector) (y vector))
   (dotimes (i (length x) y)
     (setf (aref y i) (aref x i))))
 

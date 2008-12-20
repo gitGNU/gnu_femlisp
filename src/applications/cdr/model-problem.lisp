@@ -57,11 +57,11 @@ for the value u(1/2,1/2).
 	  (sign0 (expt -1.0 (if (evenp N) 0 1))))
      (* (/ 16.0 (expt pi 4))
 	(loop for i1 from N downto 0
-	      for sign1 double-float = sign0 then (- sign1)
-	      for k1 double-float = (float (1+ (* 2 i1)) 1.0) summing
+	      for sign1 of-type double-float = sign0 then (- sign1)
+	      for k1 of-type double-float = (float (1+ (* 2 i1)) 1.0) summing
 	      (loop for i2 from N downto 0
 		    for sign = (* sign0 sign1) then (- sign)
-		    for k2 double-float = (float (1+ (* 2 i2)) 1.0)
+		    for k2 of-type double-float = (float (1+ (* 2 i2)) 1.0)
 		    sum (/ sign
 			   (* k1 k2 (+ (* k1 k1) (* k2 k2))))))))))
 
@@ -89,7 +89,7 @@ for the value u(1/2,1/2,1/2).
 
 (defun model-problem-computation (domain &key (output 1) plot (time 5.0))
   "Performs the model problem demo."
-  (defparameter *result*
+  (storing
     (solve (blackboard
 	    :problem (cdr-model-problem domain)
 	    :plot-mesh t :output output :success-if `(> :time ,time))))

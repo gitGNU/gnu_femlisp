@@ -154,6 +154,34 @@ discretization as source and reaction term."
       (list (compose #'first #'linearize)
 	    (compose #'second #'linearize)))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; new problem definition support
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defparameter *linearization-factor* 1.0
+  "Damping factor used for linearizing nonlinear right-hand sides.  0.0
+yields the fixed point iteration, 1.0 is full Newton approximation.")
+
+(defmethod make-coefficients-for ((problem fl.ellsys::<ellsys-problem>)
+				  (coeff (eql 'FL.ELLSYS::NONLINEAR-F))
+				  patch args eval)
+  (let ((grad (sparse-real-derivative eval)))
+    (append
+     (make-coefficients-for
+      problem 'FL.ELLSYS::R patch args
+      (lambda (&rest args)
+	;; Transform grad from args to components!
+	(scal (- *linearization-factor*) (apply grad args))))
+     (make-coefficients-for
+      problem 'FL.ELLSYS::F patch args
+      (lambda (&rest args)
+	(let* ((u (coerce args 'vector))
+	       (f (apply eval args))
+	       (Df (apply grad args)))
+	  (axpy (-  *linearization-factor*) (m* Df u) f)))))))
+
+
+
 ;;; Testing
 
 (defun test-ellsys ()

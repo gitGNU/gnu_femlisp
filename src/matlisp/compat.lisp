@@ -62,7 +62,7 @@
   "Computes the volume spanned by the columns of @arg{mat}."
   (sqrt (abs (det (m*-tn mat mat)))))
 
-(defmethod mzerop ((mat standard-matrix) &optional (threshold 0.0))
+(defmethod mzerop ((mat standard-matrix) &optional (threshold *mzerop-threshold*))
   (every #'(lambda (x) (<= (abs x) threshold))
 	 (slot-value mat 'store)))
 

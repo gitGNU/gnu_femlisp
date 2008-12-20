@@ -92,15 +92,14 @@ stored in a field :LINEAR-PROBLEM."
 
 (defgeneric linearize (problem solution)
   (:documentation "Linearize the nonlinear problem PROBLEM at the point
-SOLUTION.  The result should be a linear problem."))
-
-(defmethod linearize (problem solution)
-  "This default method throws an error for nonlinear problems and is the
+SOLUTION.  The result should be a linear problem.")
+  (:method (problem solution)
+    "This default method throws an error for nonlinear problems and is the
 identity on linear problems."
-  (declare (ignore solution))
-  (if (get-property problem 'linear-p)
-      problem
-      (error "No method LINEARIZE provided for this problem.")))
+    (declare (ignore solution))
+    (if (get-property problem 'linear-p)
+	problem
+	(error "No method LINEARIZE provided for this problem."))))
 
 (defmethod ensure-solution ((lse <lse>) blackboard)
   (setf (getbb blackboard :solution)
@@ -121,21 +120,21 @@ identity on linear problems."
 (defclass <nonlinear-problem> (<problem>)
   ((linearization :initarg :linearization
     :documentation "A function linearizing the problem.")
-   (initial-guess :initform nil :initarg :initial-guess :documentation
-		  "An initial guess for a solution."))
+   (solution :initform nil :initarg :solution :documentation
+		  "An approximation to the solution."))
   (:documentation "Class for nonlinear problems.  The linearization
 contains a function returning a linear problem."))
 
 (defmethod initialize-instance :after ((problem <nonlinear-problem>)
 				       &key &allow-other-keys)
-  (setf (getf (properties problem) 'linear-p) nil))
+  (setf (slot-value problem 'linear-p) nil))
 
 (defmethod linearize ((problem <nonlinear-problem>) solution)
   (funcall (slot-value problem 'linearization) solution))
 
 (defmethod ensure-solution ((nlpb <nonlinear-problem>) blackboard)
   (ensure (getbb blackboard :solution)
-	  (slot-value nlpb 'initial-guess)))
+	  (slot-value nlpb 'solution)))
 
 (defclass <nlse> (<nonlinear-problem>)
   ()
@@ -145,7 +144,7 @@ contains a function returning a linear problem."))
   "Constructs a standard NLSE."
   (apply #'make-instance '<nlse> args))
 
-;;; Testing: (test-problem)
+;;;; Testing
 
 (defun test-problem ()
   (describe (lse :matrix #m(1.0) :rhs #m(1.0)))
@@ -153,11 +152,13 @@ contains a function returning a linear problem."))
   (let* ((nlse
 	  (nlse :linearization
 		#'(lambda (solution)
+		    (assert solution)
 		    (let ((x (vref solution 0)))
 		      (lse :matrix (make-real-matrix (vector (* 2.0 x)))
 			   :rhs (make-real-matrix (vector (+ 2.0 (* x x)))))))
-		:initial-guess #m(1.4))))
+		:solution #m(1.4))))
     (solve (blackboard :problem nlse :output 1)))
   )
 
+;;; (test-problem)
 (fl.tests:adjoin-test 'test-problem)

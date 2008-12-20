@@ -208,7 +208,7 @@ should not cover any 2-dimensinal patches."
       (call-triangle)
       (read-triangle-mesh-for mesh patch))))
 
-;;;; Testing: (test-triangle)
+;;;; Testing:
 (defun test-triangle ()
   (dbg-off)
   (dbg-on :triangulate)
@@ -222,5 +222,6 @@ should not cover any 2-dimensinal patches."
 		     (if (< (norm (midpoint patch)) 0.8) 1 20))))
   )
 
-#-gcl
+;;; (test-triangle)
+
 (fl.tests:adjoin-test 'test-triangle)

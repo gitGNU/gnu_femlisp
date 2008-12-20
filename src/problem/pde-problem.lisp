@@ -130,6 +130,8 @@ system components to zero.")
 (defun constraint-p (coeff)
   (eq (coefficient-name coeff) 'CONSTRAINT))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defun sigma-p (coeff)
   (eq (coefficient-name coeff) 'SIGMA))
 
@@ -238,37 +240,18 @@ otherwise, @arg{obj} is made into a constant coefficient."
    (components :reader components :initarg :components
 	       :documentation "A list whose elements are lists of the form
 \(symbol dim) or \(symbol dim type) or \(symbol subcomponents) describing
-the components occuring in the pde, or a dictionary mapping patches to such
-lists.")
+the components occuring in the pde.  Alternatively, this slot can contain a
+function/dictionary mapping patches to such lists.")
    (multiplicity :reader multiplicity :initform 1 :initarg :multiplicity
 		 :documentation "Multiplicity of the right-hand side.")
-   (coefficients :accessor coefficients :initform (make-hash-table)
-		 :initarg :coefficients :documentation
-		 "A table which maps domain patches to coefficient lists."))
+   (coefficients :accessor coefficients :initarg :coefficients :documentation
+		 "A function mapping patches to coefficient lists."))
   ;;
   (:documentation "An instance of this class describes a problem posed on
-@slot{domain}.  @slot{coefficients} contains a table mapping domain patches
-to lists of coefficients.  When the problem instance is initialized this table
-is usually set up by calling the function @function{patch->coefficients}
-which has to be provided as a key argument.  The slot @slot{multiplicity}
-can be chosen as a positive integer @math{n} if the problem is posed with
-@math{n} different right hand sides simultaneously.
-
-Note that for nonlinear problems, where the coefficients depend on the
-solution, an approximate solution can be found in the properties of the
-problem."))
-
-(defun test-condition (condition classifications)
-  "Test if @arg{condition} which at the moment should be either an AND or
-an OR combination of symbols in the list @arg{classification} holds."
-  (cond
-    ((eq t condition))
-    ((symbolp condition) (member condition classifications))
-    ((consp condition)
-     (funcall
-      (ecase (car condition) (and #'subsetp) (or #'intersection))
-      (cdr condition) classifications))
-    (t (error "Unknown patch classification scheme."))))
+@slot{domain} with coefficients given on each patch of the domain.  The
+slot @slot{multiplicity} is a positive integer which denotes the number of
+right-hand sides and solutions (e.g. when computing several eigenvectors at
+once)."))
 
 (defun component-symbol (comp)
   (if (symbolp comp) comp (first comp)))
@@ -333,32 +316,35 @@ component is a scalar."
 				  
 (defmethod initialize-instance :after ((problem <domain-problem>)
 				       &key patch->coefficients &allow-other-keys)
-  "Setup the coefficient table, if the coefficients are given as a function
-mapping domain patches to coefficient property lists.  Instead of a
-function, this mapping can also be given as a list describing the
-association of patch classifications to coefficient functions."
-  (with-slots (domain coefficients components) problem
-    ;; compute coefficients, if patch->coefficients is given
+  "Checks @slot{components}, does @slot{coefficients} setup when the
+problem specification is given as a list in @arg{patch->coefficients}, and
+finally memoizes @slot{coefficients}."
+  (with-slots (domain coefficients) problem
+    ;; component name check
+    (doskel (patch domain)
+      (let ((components (components-of-patch patch problem)))
+	(assert (check-components components))
+	(when (some (lambda (comp)
+		      (let ((name (component-name comp)))
+			(or (string-equal name "X")
+			    (string-equal name "TIME")
+			    (string-equal (subseq name 0 1) "D"))))
+		    components)
+	  (error "Illegal component names."))))
+    ;; setup coefficients slot from old-style patch->coefficients
     (when patch->coefficients
-      (doskel (patch domain)
-	(setf (gethash patch coefficients)
-	      (typecase patch->coefficients
-		(function (funcall patch->coefficients patch))
-		(list (loop with classifications = (patch-classification patch domain)
-			    for (id coeffs) in patch->coefficients
-			    when (test-condition id classifications)
-			    do (return coeffs)))
-		(t (error "Unknown mapping."))))
-	(let ((components (components-of-patch patch problem)))
-	  (assert (check-components components))
-	  ;; component name check
-	  (when (some (lambda (comp)
-			(let ((name (component-name comp)))
-			  (or (string-equal name "X")
-			      (string-equal name "TIME")
-			      (string-equal (subseq name 0 1) "D"))))
-		      components)
-	    (error "Illegal component names.")))))))
+      (assert (listp patch->coefficients))
+      (setf coefficients
+	    (lambda (patch)
+	      (loop with classifications = (patch-classification patch domain)
+		 for (id coeffs) in patch->coefficients
+		 when (test-condition id classifications)
+		 do (return coeffs)))))
+    ;; memoize coefficients
+    (setf coefficients
+	  (if (slot-boundp problem 'coefficients)
+	      (memoize-1 coefficients)
+	      (constantly ())))))
 
 (defmethod domain-dimension ((problem <domain-problem>))
   (dimension (domain problem)))
@@ -401,13 +387,7 @@ association of patch classifications to coefficient functions."
 
 (defun coefficients-of-patch (patch problem)
   "Reader for the coefficients of @arg{patch} for @arg{problem}."
-  (with-slots (coefficients) problem
-    (the list (gethash patch coefficients))))
-
-(defun (setf coefficients-of-patch) (coeffs patch problem)
-  "Writer for the coefficients of @arg{patch} for @arg{problem}."
-  (with-slots (coefficients) problem
-    (setf (gethash patch coefficients) coeffs)))
+  (funcall (coefficients problem) patch))
 
 (defgeneric coefficients-of-cell (cell mesh problem)
   (:documentation
@@ -446,22 +426,15 @@ coefficient list."))
   (:documentation "Base-class for a pde-problem."))
 
 (defun classify-problem (problem)
-  "Classifies a problem.  The result is written in its property list."
-  (unless (property-set-p problem 'linear-p)
-    (setf (get-property problem 'linear-p) t)
-    (dohash ((coeffs) (coefficients problem))
-      (when (solution-dependent coeffs)
-	(setf (get-property problem 'linear-p) nil)
-	(return))))
-  (when (and (> (multiplicity problem) 1)
-	     (not (get-property problem 'linear-p)))
-    (error "Nonlinear problems cannot be solved simultaneously with
-multiple right-hand sides."))
-  ;; very coarse test which will be often false for systems
-  (unless (property-set-p problem 'coercive)
-    (dohash ((coeffs) (coefficients problem))
-      (when (member 'CONSTRAINT coeffs)
-	(setf (get-property problem 'coercive) t)))))
+  "Classifies a problem.  The result is written in its property list.
+Unfortunately, this is rater crude at the moment.  Ideally, it could also
+classify some cases of coerciveness automatically."
+  (with-slots (linear-p coefficients) problem
+    (setf linear-p t)
+    (doskel (patch (domain problem))
+      (when (solution-dependent (coefficients-of-patch patch problem))
+	(setf linear-p nil)
+	(return)))))
 
 (defmethod initialize-instance :after
     ((problem <pde-problem>)
@@ -489,7 +462,7 @@ that no check has been performed."
     (declare (ignore problem))
     (values nil nil)))
 
-;;; Testing: (test-pde-problem)
+;;; Testing
 
 (defun test-pde-problem ()
   (function->coefficient
@@ -498,4 +471,5 @@ that no check has been performed."
   (make-instance '<pde-problem> :domain (n-cube-domain 1) :components '(u))
   )
 
+;;; (test-pde-problem)
 (fl.tests:adjoin-test 'test-pde-problem)

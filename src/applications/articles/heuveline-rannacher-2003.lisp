@@ -42,7 +42,8 @@
 
 (defun heuveline-rannacher-rhs (x)
   "Smooth rhs for the problem -Delta u = rhs in the H-R article."
-  #I(-0.8125*pi*pi * sin(0.5*pi*(x[0]+1.0)) * sin(0.75*pi*(x[1]+1.0))))
+  (float #I(-0.8125*pi*pi * sin(0.5*pi*(x[0]+1.0)) * sin(0.75*pi*(x[1]+1.0)))
+         1.0))
 
 (defun heuveline-rannacher-domain ()
   (box-domain '((-1.0 1.0) (-1.0 3.0))))
@@ -98,7 +99,7 @@ automatically generated inside the error estimator cycle."
 
 (defun heuveline-rannacher-computation (order levels &key (output 1) plot)
   "Performs the Heuveline-Rannacher demo."
-  (defparameter *result*
+  (storing
     (let ((*output-depth* output))
       (solve
        (make-instance
@@ -143,7 +144,8 @@ Parameters of the computation: order=~D, levels=~D." order levels)))
 	    :execute (lambda ()
 		       (heuveline-rannacher-computation
 			order levels :output 1 :plot t)))))
-      (adjoin-demo demo *articles-demo*))))
+      (adjoin-demo demo *articles-demo*)
+      (adjoin-demo demo *adaptivity-demo*))))
 
 (make-heuveline-rannacher-demo 4 5)
 
@@ -171,7 +173,7 @@ Parameters of the computation: order=~D, levels=~D." order levels)))
 	  (mesh (uniformly-refined-hierarchical-mesh (domain problem) level)))
      (multiple-value-bind (mat rhs)
 	 (discretize-globally problem mesh fe-class)
-       (defparameter *result* (getrs (sparse-ldu mat) rhs)))))
+       (storing (getrs (sparse-ldu mat) rhs)))))
   (plot *result*)
   
   (let ((gradx (tensor-ref (fe-gradient *result* *HR-evaluation-point*) 0 0)))
@@ -184,7 +186,7 @@ Parameters of the computation: order=~D, levels=~D." order levels)))
 	  (mesh (uniformly-refined-hierarchical-mesh (domain problem) level)))
      (multiple-value-bind (mat rhs)
 	 (discretize-globally problem mesh fe-class)
-       (defparameter *result* (getrs (sparse-ldu mat) rhs)))))
+       (storing (getrs (sparse-ldu mat) rhs)))))
   (plot *result*)
 
   )

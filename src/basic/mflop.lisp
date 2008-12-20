@@ -52,28 +52,30 @@
   (declare (type fixnum n)
 	   (type (simple-array double-float (*)) x y)
 	   (type double-float a))
-  (declare (optimize (safety 0) (space 0) (debug 0) (speed 3)))
-  (loop for i of-type fixnum from 0 below n do
-	(incf (aref y i) (* a (aref x i)))))
+  #+lispworks (declare (optimize (float 0)))
+  (very-quickly
+   (loop for i of-type fixnum from 0 below n do
+	(incf (aref y i) (* a (aref x i))))))
 
 (defun ddot (x y n)
   (declare (type fixnum n)
 	   (type (simple-array double-float (*)) x y))
-  (declare (optimize (safety 0) (space 0) (debug 0) (speed 3)))
-  (loop for i of-type fixnum from 0 below n
-	summing (* (aref x i) (aref y i)) double-float))
+  #+lispworks (declare (optimize (float 0)))
+  (very-quickly
+    (loop for i of-type fixnum from 0 below n
+       summing (* (aref x i) (aref y i)) of-type double-float)))
 
 (defun measure-time (fn count &optional real-p)
   "Measures the time in secondswhich @arg{count}-time execution of @arg{fn}
 needs."
   (declare (type function fn) (type fixnum count))
-  (declare (optimize speed))
   (flet ((time-stamp ()
 	   (if real-p
 	       (get-internal-real-time)
 	       (get-internal-run-time))))
     (let ((before (time-stamp)))
-      (loop repeat count do (funcall fn))
+      (quickly
+	(dotimes (i count) (funcall fn)))
       ;; return time in seconds
       (float (/ (- (time-stamp) before)
 		internal-time-units-per-second)))))
@@ -108,3 +110,5 @@ determined by the keyword arguments."
   (daxpy-speed +N-long+)
   (common-lisp-speed)
   )
+
+;;; (test-mflop)

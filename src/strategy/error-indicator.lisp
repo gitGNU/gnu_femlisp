@@ -123,7 +123,7 @@ error estimator yields a large eta."
   (with-items (&key refinement-table) blackboard
     (let ((mesh (getbb blackboard :mesh))
 	  (eta (getbb blackboard :eta)))
-      (with-slots (fraction pivot-factor from-level block-p)
+      (with-slots (fraction pivot-factor from-level)
 	indicator
 	(let ((hash-table (make-hash-table)))
 	  (if (and (>= (top-level mesh) from-level) eta)

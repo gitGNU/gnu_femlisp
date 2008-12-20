@@ -156,7 +156,7 @@ and its norm are up-to-date."
 (defmethod finally ((itsolve <discrete-iterative-solver>) blackboard)
   "Put convergence rate into report."
   (call-next-method)
-  (with-items (&key report step status reduction) blackboard
+  (with-items (&key report step reduction) blackboard
     (setf (getbb report :convergence-rate)
 	  (if (and (plusp step) (numberp reduction))
 	      (expt reduction (/ step))

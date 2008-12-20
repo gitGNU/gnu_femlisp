@@ -90,7 +90,7 @@ non-identified value.  Other symbols can be used to identify entries."
 	      collect nr-entries into starts
 	      finally (return (values (cons 0 starts) indices offsets))))))
   ;; ensure that all slots are of the correct type
-  (with-slots (sizes starts indices offsets orientation) pattern
+  (with-slots (sizes starts indices offsets) pattern
     (assert (= (length starts) (1+ (aref sizes 0))))
     (assert (= (length indices) (number-nonzero-entries pattern)))
     (setq starts (coerce starts 'int-vec))
@@ -134,6 +134,15 @@ non-identified value.  Other symbols can be used to identify entries."
 (defun full-crs-pattern (nrows ncols)
   (full-compressed-pattern nrows ncols :row))
 
+(defmethod in-pattern-p ((pattern compressed-pattern) &rest rest)
+  (with-slots (starts indices orientation) pattern
+    (destructuring-bind (i j)
+        (ecase orientation
+          (:row rest)
+          (:column (reverse rest)))
+      (loop for k from (aref starts i) below (aref starts (1+ i))
+           thereis (= j (aref indices k))))))
+
 (defclass compressed-matrix (<matrix>)
   ((pattern :reader pattern :initarg :pattern :type compressed-pattern
 	  :documentation "A compressed pattern."))
@@ -151,7 +160,7 @@ entries."))
 
 (inlining
  (defun find-compressed-offset (cm i j)
-   (with-slots (store pattern) cm
+   (with-slots (pattern) cm
      (with-slots (starts indices orientation) pattern
        (when (eq orientation :row) (rotatef i j))
        (position i indices :start (aref starts j) :end (aref starts (1+ j)))))))
@@ -171,6 +180,9 @@ any ordering."
 (defmethod ncols ((cm compressed-matrix))
   (with-slots (sizes orientation) (pattern cm)
     (aref sizes (ecase orientation (:row 1) (:column 0)))))
+
+(defmethod in-pattern-p ((cm compressed-matrix) &rest indices)
+  (apply #'in-pattern-p (pattern cm) indices))
 
 (defmethod make-domain-vector-for ((cm compressed-matrix) &optional (multiplicity 1))
   (make-instance (standard-matrix (element-type cm))
@@ -215,14 +227,13 @@ pattern."
     (declare (type int-vec starts indices))
     (declare (type (or null int-vec) offsets))
     (dotimes (i (aref sizes 0))
-      (declare (optimize speed (safety 1)))
       (loop for k of-type int from (aref starts i) below (aref starts (1+ i)) do
-	    (let* ((j (aref indices k))
-		   (l (if offsets (aref offsets k) k)))
-	      (declare (type int j l))
-	      (if (eq orientation :row)
-		  (funcall fn (aref store l) j i)
-		  (funcall fn (aref store l) i j)))))))
+	   (let* ((j (aref indices k))
+		  (l (if offsets (aref offsets k) k)))
+	     (declare (type int j l))
+	     (if (eq orientation :row)
+		 (funcall fn (aref store l) i j)
+		 (funcall fn (aref store l) j i)))))))
 
 (defmethod compressed->matlisp ((cm compressed-matrix))
   (lret ((result (zeros (nrows cm) (ncols cm) (element-type cm))))
@@ -240,14 +251,13 @@ pattern."
 
 (inlining
  (defun compressed-gemm! (alpha x y beta z x-transposed y-transposed)
-   (declare (type compressed-matrix x)
-	    (type standard-matrix y z))
-   (unless (= beta 1) (scal! beta z))
+   (unless (= beta (coerce 1 (type-of beta))) (scal! beta z))
    (let ((ny (nrows y))
 	 (nz (nrows z))
 	 (multiplicity (ncols y))
 	 (storey (store y))
 	 (storez (store z)))
+     #+sbcl (declare (sb-ext:muffle-conditions sb-ext:code-deletion-note))
      (labels ((zref (j l)
 		(aref storez (+ j (* l nz))))
 	      ((setf zref) (value j l)

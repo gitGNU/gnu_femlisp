@@ -45,7 +45,7 @@
 
 (defun bratu-computation (dim &key (plot t) (time 5.0) (output 1))
   "Function performing the Bratu demo."
-  (defparameter *result*
+  (storing
     (solve (blackboard
 	    :problem (bratu-problem dim)
 	    :success-if `(> :time ,time) :output output

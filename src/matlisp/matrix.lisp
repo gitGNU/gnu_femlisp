@@ -92,6 +92,45 @@ a list of indices."
    mat))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; matrix tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric msquare-p (mat)
+  (:documentation "Returns T, iff @arg{mat} is square.")
+  (:method (mat)
+    (= (nrows mat) (ncols mat))))
+
+(defgeneric msymmetric-p (mat)
+  (:documentation "Returns T, if @arg{mat} is symmetric.")
+  (:method (mat)
+    (mequalp mat (transpose mat))))
+
+(defgeneric midentity-p (number &optional threshold)
+  (:documentation "Returns T, if @arg{mat} is the identity, i.e. if the
+  elementwise difference to the identity is not larger than
+  @arg{threshold}."))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; matrix printing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric show (matrix &rest args)
+  (:documentation "Shows the contents of @arg{matrix} in a readable form.")
+  (:method (matrix &rest args)
+    "The default method describes its argument."
+    (declare (ignore args))
+    (describe matrix)))
+
+(defgeneric display (matrix &rest args)
+  (:documentation "Formats the contents of @arg{matrix} in rectangular
+  form.")
+  (:method (matrix &rest args)
+    "The default method describes its argument."
+    (declare (ignore args))
+    (describe matrix)))
+  
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; special matrix methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -125,16 +164,19 @@ a list of indices."
 (define-default-gemm! gemm-tn! t nil)
 (define-default-gemm! gemm-tt! t t)
 
-(defgeneric m*-product-instance (x y)
-  (:documentation "Returns a zero matrix for storing the product of X and Y."))
-
 ;;; LAPACK
-(defgeneric getrf! (x &optional ipiv)
-  (:documentation "Computes the PLU decomposition of X (overwriting X).
-Returns X and as a second value the permuations vector."))
-(defgeneric getrs! (x b &optional ipiv)
-  (:documentation "Solves the given PLU decomposition for the rhs b while
-overwriting b."))
+(defgeneric getrf! (A &optional ipiv)
+  (:documentation "Computes the PA=LU decomposition of @arg{A} which is
+stored again in @arg{A}.  @arg{ipiv} can be a pre-allocated vector which
+the routine fills with the indices for column pivoting, or NIL which
+implies that the routine allocates such a vector itself.  If @arg{ipiv} is
+@symbol{:none}, no pivoting is done.  Returns @arg{A} as the first value,
+the pivot vector as a second value, and a boolean as the third value
+indicating that the decomposition succeeded."))
+
+(defgeneric getrs! (LU b &optional ipiv)
+  (:documentation "Solves the PA=LU decomposition specified by @arg{LU} and
+@arg{ipiv} for the rhs @arg{b}.  The result is stored in @arg{b}."))
 
 ;;; Special
 (defgeneric transpose! (x y)
@@ -144,18 +186,15 @@ overwriting b."))
 
 ;;; Matrix manipulation
 
-(defgeneric join (x y &optional orientation)
-  (:documentation "Joins X and Y horizontally or vertically depending on the
-value of orientation."))
-
-(defgeneric minject (x y row-offset col-offset)
+(defgeneric minject! (x y row-offset col-offset)
   (:documentation "Inject matrix X in matrix Y at the position given by
 ROW-OFFSET and COL-OFFSET."))
 
-(defgeneric mextract (x y row-offset col-offset)
-  (:documentation "Extract matrix Y out of matrix X from the position given
+(defgeneric mextract! (x y row-offset col-offset)
+  (:documentation "Extract matrix X out of matrix Y from the position given
 by ROW-OFFSET and COL-OFFSET."))
 
+;;; derived functionality
 (defgeneric vector-slice (x offset size)
   (:documentation "Extract a subvector of size @arg{size} out of @arg{x}
 starting from position @arg{offset}."))
@@ -164,6 +203,43 @@ starting from position @arg{offset}."))
   (:documentation "Extract a submatrix of size @arg{nrows} @math{times}
 @arg{ncols} out of @arg{x} starting from position
 @arg{from-row}/@arg{from-col}."))
+
+(defgeneric join-horizontal! (result &rest matrices)
+  (:documentation "Joins @arg{matrices} horizontally into result.")
+  (:method (result &rest matrices)
+    (loop with n = (nrows result) and k = 0
+       for mat in matrices do
+	 (assert (= n (nrows mat)))
+	 (minject! mat result 0 k)
+	 (incf k (ncols mat))
+       finally (assert (= k (ncols result))))
+    result))
+
+(defgeneric join-vertical! (result &rest matrices)
+  (:documentation "Joins @arg{matrices} vertically into result.")
+  (:method (result &rest matrices)
+    (loop with n = (ncols result) and k = 0
+       for mat in matrices do
+	 (assert (= n (ncols mat)))
+	 (minject! mat result k 0)
+	 (incf k (nrows mat))
+       finally (assert (= k (nrows result))))
+    result))
+
+(defgeneric join-instance (orientation matrix &rest matrices)
+  (:documentation "Compute an instance for storing the join of
+  @arg{orientation} applied to matrix and matrices."))
+
+(defun join (orientation &rest matrices)
+  "Joins @arg{matrices} either horizontally or vertically depending on
+@arg{orientation}.  Due to the call to @function{zeros} this is not yet a
+generic function."
+  (unless matrices (error "No arguments to join"))
+  (apply (ecase orientation
+	   (:horizontal #'join-horizontal!)
+	   (:vertical #'join-vertical!))
+	 (apply #'join-instance orientation matrices)
+	 matrices))
 
 ;;; Matrix-vector routines
 
@@ -223,9 +299,9 @@ starting from position @arg{offset}."))
 ;;;; General methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod multiplicity (vec)
-  "If @arg{vec} is a matrix, the multiplicity is the number of columns by
-default."
+(defmethod multiplicity ((vec <matrix>))
+  "If @arg{vec} should be a matrix, the multiplicity is the number of
+columns by default."
   (ncols vec))
   
 (defmethod matrix-transpose-instance (x)
@@ -238,7 +314,6 @@ default."
 @function{transpose!} and @function{matrix-transpose-instance}."
     (transpose! x (matrix-transpose-instance x))))
 
-(declaim (inline gemm gemm!))
 (defun gemm! (alpha x y beta z &optional (job :nn))
   "Dispatches on the optional job argument (member :nn :tn :nt :tt) and
 calls the corresponding generic function, e.g. GEMM-NN!."
@@ -252,25 +327,30 @@ calls the corresponding generic function, e.g. GEMM-NN!."
   "Rewriting of GEMM in terms of GEMM!."
   (gemm! alpha x y beta (copy z) job))
 
-(defmethod m*-product-instance (x y)
-  "Default method allocates an instance of class of Y."
-  (make-instance (class-of y) :nrows (nrows x) :ncols (ncols y)))
+(defgeneric m*-product-instance (x y)
+  (:documentation "Allocates an instance for the product of X and Y.")
+  (:method (x y)
+    (make-instance (class-of y) :nrows (nrows x) :ncols (ncols y))))
 
-(defmethod m*-product-instance-tn (x y)
-  "Default method allocates an instance of class of Y."
-  (make-instance (class-of y) :nrows (ncols x) :ncols (ncols y)))
-
-(defmethod m* (x y)
-  "By default M* is rewritten in terms of GEMM!."
-  (gemm-nn! (coerce 1 (scalar-type x)) x y
-	    (coerce 0 (scalar-type x)) (m*-product-instance x y)))
+(defgeneric m* (x y)
+  (:documentation "Multiply X by Y.")
+  (:method (x y)
+    "By default M* is rewritten in terms of GEMM!."
+    (gemm-nn! (coerce 1 (scalar-type x)) x y
+	      (coerce 0 (scalar-type x)) (m*-product-instance x y))))
   
-(defun m*-tn (x y)
-  "By default M*-TN is rewritten in terms of GEMM-TN!."
-  (gemm-tn! (coerce 1 (scalar-type x)) x y
-	    (coerce 0 (scalar-type x)) (m*-product-instance-tn x y)))
+(defgeneric m*-tn-product-instance (x y)
+  (:documentation "Allocates an instance for the product of X^t and Y.")
+  (:method (x y)
+    (make-instance (class-of y) :nrows (ncols x) :ncols (ncols y))))
 
-(declaim (inline getrf getrs gesv))
+(defgeneric m*-tn (x y)
+  (:documentation "Multiply X^t by Y.")
+  (:method (x y)
+    "By default, M*-TN is rewritten in terms of GEMM!."
+    (gemm-tn! (coerce 1 (scalar-type x)) x y
+	      (coerce 0 (scalar-type x)) (m*-tn-product-instance x y))))
+
 (defun getrf (x &optional ipiv)
   "Rewriting for GETRF  in terms of GETRF!."
   (getrf! (copy x) ipiv))
@@ -291,6 +371,12 @@ calls the corresponding generic function, e.g. GEMM-NN!."
   "Rewriting for GESV in terms of GESV!."
   (gesv! x (copy b)))
 
+(defmethod mat-diff (mat1 mat2)
+  (dovec ((entry i j) mat1)
+    (whereas ((entry2 (mref mat2 i j)))
+      (unless (mzerop (m- entry entry2))
+	(format t "(~A,~A) : ~A <--> ~A~%" i j entry entry2)))))
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Submatrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -336,6 +422,4 @@ access is slow.  They are indexed with ordinary integers."))
 
 (defmethod nr-of-entries ((submat <submatrix>))
   (* (nrows submat) (ncols submat)))
-
-
 

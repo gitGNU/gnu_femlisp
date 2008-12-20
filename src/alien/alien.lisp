@@ -76,6 +76,29 @@ around a CMUCL enum bug."
 	(loop for i from 0 and item in items collect
 	      `(defconstant ,item ,i))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; BLAS/LAPACK
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; BLAS
+
+(defun load-blas-library ()
+  (load-foreign-library fl.start::*blas-library*))
+
+(when fl.start::*blas-library*
+  (load-blas-library)
+  (pushnew 'load-blas-library *foreign-code-loaders*)
+  (pushnew :blas *features*))
+
+;;; LAPACK
+
+(defun load-lapack-library ()
+  (load-foreign-library fl.start::*lapack-library*))
+
+(when fl.start::*lapack-library*
+  (load-lapack-library)
+  (pushnew 'load-lapack-library *foreign-code-loaders*)
+  (pushnew :lapack *features*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Sparse solvers
@@ -105,6 +128,7 @@ around a CMUCL enum bug."
   (load-umfpack-library)
   (pushnew 'load-umfpack-library *foreign-code-loaders*)
   (pushnew :umfpack *features*))
+
 
 (defun direct-solver-test (solver)
   "Tests @arg{solver} on the simple example from the SuperLU User

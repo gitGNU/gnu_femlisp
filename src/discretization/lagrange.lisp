@@ -163,6 +163,7 @@ can be number or vector\), and a type symbol."
 (with-memoization (:test 'equalp)
   (defun lagrange-fe (order &key (nr-comps 1) (type :uniform))
     "Constructor for Lagrange fe."
+    (declare (notinline lagrange-fe))
     (when (and nr-comps (numberp order))
       (setq order (make-array nr-comps :initial-element order)))
     ;; (vectorp order) is now indicator for vector-fe/scalar-fe
@@ -171,15 +172,14 @@ can be number or vector\), and a type symbol."
 		    (if (vectorp order)
 			'<vector-fe-discretization>
 			'<scalar-fe-discretization>))))
-	(setf (get-property disc :type) type)
-	(setf (slot-value disc 'cell->fe)
-	      (rcurry #'cell-lagrange-fe order type disc))
-	(if (vectorp order)
-	    (setf (slot-value disc 'components)
-		  (vector-map (lambda (order)
-				(lagrange-fe order :nr-comps nil :type type))
-			      order))
-	    (setf (slot-value disc 'order) order))))))
+	(with-slots (components cell->fe) disc
+	  (setf (get-property disc :type) type)
+	  (setf cell->fe (rcurry #'cell-lagrange-fe order type disc))
+	  (if (vectorp order)
+	      (setf components
+		    (vector-map (rcurry #'lagrange-fe :nr-comps nil :type type)
+				order))
+	      (setf (slot-value disc 'order) order)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Isoparametric stuff
@@ -272,6 +272,7 @@ by interpolating the boundary map via Lagrange interpolation."
 
 ;;; Testing
 (defun test-lagrange ()
+  (shapes-and-dof-coords (factor-simplices (n-cube 2)) 2 :uniform)
   (get-fe (lagrange-fe 1 :nr-comps 2) (n-cube 0))
   (flet ((check-fe (fe-class refcell)
 	   (let* ((fe (get-fe fe-class refcell))

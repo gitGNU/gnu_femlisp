@@ -44,13 +44,20 @@
 
 (defclass <safe-linear-solver> (<linear-solver>)
   ((fallback :reader fallback :initarg :fallback :initform (make-instance '<lu>)
-	     :documentation "The fallback iteration."))
+	     :documentation "The fallback iteration.")
+   (fallback-p :accessor fallback-p :initform nil))
   (:documentation "If failure occurs, object of this class try an
 alternative iteration.  Usually this will be a direct decomposition."))
 
+
+(defmethod iteration ((solver <safe-linear-solver>))
+  (if (fallback-p solver)
+      (fallback solver)
+      (call-next-method)))
+
 (defmethod next-step ((itsolve <linear-solver>) blackboard)
   "Stepping for a linear solver."
-  (with-items (&key problem solution residual residual-p step iterator)
+  (with-items (&key problem solution residual residual-p iterator)
       blackboard
     (unless iterator ; initialize the inner iteration if necessary
       (dbg :iter "Linear solving: making iterator")
@@ -68,12 +75,13 @@ and failure have to be chosen more or less independent of the size of :step
 and :time."
   (call-next-method)
   (with-items (&key status iterator) blackboard
-    (when (eq status :failure)
-      (with-slots (iteration fallback) iter
-	(unless (eq iteration fallback)
-	  (dbg :iter "Changing solver iteration!")
-	  (setq iteration fallback)
-	  (setq iterator nil status nil))))
+    (with-slots (fallback-p) iter
+      (cond ((eq status :failure)
+	     (when fallback-p
+	       (error "The fallback iteration has failed."))
+	     (dbg :iter "Changing <safe-linear-solver> to fallback iteration")
+	     (setq fallback-p t iterator nil status nil))
+	    (t (setq fallback-p nil))))
     status))
 
 (defun lu-solver (&key (output nil output-p))

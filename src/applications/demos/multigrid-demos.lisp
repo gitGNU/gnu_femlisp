@@ -216,7 +216,7 @@ a Laplace model problem on cubes of different dimensions." smoother-name)))
 				:success-if `(or (< :defnorm 1.0e-12) (> :step 20))))
 	 (mesh (uniformly-refined-hierarchical-mesh (domain problem) level))
 	 (nr-comps (nr-of-components problem))
-	 (fedisc (lagrange-fe order :nr-comps (and (> nr-comps 1) nr-comps))))
+	 (fedisc (lagrange-fe order :nr-comps nr-comps)))
     (multiple-value-bind (A b)
 	(discretize-globally problem mesh fedisc)
       (setq *result*
@@ -248,6 +248,7 @@ problem ~A.~%Parameters: dim=~D, order=~D, level=~D,~%"
   (smoother-performance-test :dim 1 :order 1 :smoother (geometric-psc))
   (smoother-performance-test :dim 1 :order 6 :smoother (geometric-ssc))
   (smoother-performance-test :dim 3 :order 4 :level 2 :simplex t :smoother (geometric-ssc))
+  (bpx-demo-computation (cdr-model-problem 2) 1 2 '<jacobi>)
   (bpx-demo-computation (elasticity-model-problem 2) 1 4)
   )
 

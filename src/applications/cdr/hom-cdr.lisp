@@ -71,7 +71,7 @@ the diffusion tensor."
     (ensure diffusion (diagonal-sparse-tensor (eye dim) 1))
     (make-instance
      '<cdr-problem> :components '(u) :domain domain
-     :multiplicity dim :patch->coefficients
+     :multiplicity dim :coefficients
      #'(lambda (patch)
 	 (cond
 	   ((= (dimension patch) dim)
@@ -121,7 +121,7 @@ a chequerboard pattern."
 inlay and the component of the cell vector."
   (make-instance
    '<cdr-problem> :domain (n-cell-with-ball-inlay dim)
-   :multiplicity dim :patch->coefficients
+   :multiplicity dim :coefficients
    #'(lambda (patch)
        (when (= (dimension patch) dim)
 	 (list (scalar-diffusion dim (if (patch-in-inlay-p patch) eps 1.0))
@@ -146,47 +146,48 @@ in a nested iteration fashion.  The solution to the cell problem is a
 vector field whose components are plotted one after the other.  The setting
 has cubic symmetry, from which one can easily see that the effective tensor
 must be a scalar multiple of the identity."
-  (let ((*output-depth* output))
-    (setq *result*
-      (solve
-       (make-instance
-	'<stationary-fe-strategy> :fe-class (lagrange-fe order)
-	:estimator (make-instance '<projection-error-estimator>)
-	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
-	:success-if `(>= :nr-levels ,levels)
-	:solver
-	(make-instance
-	 '<linear-solver> :iteration
-	 (let ((smoother
-		(if (>= (domain-dimension problem) 3)
-		    *gauss-seidel*
-		    (geometric-ssc :store-p nil))))
-	   (geometric-cs
-	    :gamma 2 :fmg nil :coarse-grid-iteration
-	    (make-instance '<multi-iteration> :base smoother
-			   :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
-	    :smoother smoother :pre-steps 2 :post-steps 2))
-	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
-	 :failure-if `(> :step 20))
-	:observe
-	(append *stationary-fe-strategy-observe*
-		(list (list (format nil "~19@A" "Ahom") "~19,10,2E"
-			    #'(lambda (blackboard)
-				(mref (effective-tensor blackboard) 0 0))))))
-       (blackboard :problem problem)))
+  (lret ((*output-depth* output)
+	 (result
+	  (solve
+	   (make-instance
+	    '<stationary-fe-strategy> :fe-class (lagrange-fe order)
+	    :estimator (make-instance '<projection-error-estimator>)
+	    :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
+	    :success-if `(>= :nr-levels ,levels)
+	    :solver
+	    (make-instance
+	     '<linear-solver> :iteration
+	     (let ((smoother
+		    (if (>= (domain-dimension problem) 3)
+			*gauss-seidel*
+			(geometric-ssc :store-p nil))))
+	       (geometric-cs
+		:gamma 2 :fmg nil :coarse-grid-iteration
+		(make-instance '<multi-iteration> :base smoother
+			       :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
+		:smoother smoother :pre-steps 2 :post-steps 2))
+	     :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
+	     :failure-if `(> :step 20))
+	    :observe
+	    (append *stationary-fe-strategy-observe*
+		    (list (list (format nil "~19@A" "Ahom") "~19,10,2E"
+				#'(lambda (blackboard)
+				    (mref (effective-tensor blackboard) 0 0))))))
+	   (blackboard :problem problem))))
     ;; plot cell solutions and compute the homogenized coefficient
     (when plot
-      (let ((solution (getbb *result* :solution)))
+      (let ((solution (getbb result :solution)))
 	(plot solution :index 0)
 	(sleep 1.0)
 	(plot solution :index 1)))
     (format t "The effective tensor is:~%~A~%"
-	    (effective-tensor *result*))))
+	    (effective-tensor result))))
 
 ;;; Testing:
 #+(or)
 (let ((*output-depth* 2))
-	(cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t))
+  (storing (cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t)))
+
 #+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 2)
 #+(or)
 (let ((A (ellipse-matrix 0.25 0.3 0.7854)))

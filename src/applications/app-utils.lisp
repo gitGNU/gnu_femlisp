@@ -113,3 +113,7 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
 (defparameter *result* nil
   "Special variable used for storing the blackbboard of the last
 computation.")
+
+(defmacro storing (&body body)
+  "Stores the result of @arg{body} in @var{*result*}."
+  `(setq *result* (progn ,@body)))

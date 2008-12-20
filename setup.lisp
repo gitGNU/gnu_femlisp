@@ -5,29 +5,34 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2003-2005 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2006-2008 Nicolas Neuss, University of Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
 ;;; modification, are permitted provided that the following conditions are
 ;;; met:
 ;;; 
-;;; 1. Redistributions of source code must retain the above copyright
-;;; notice, this list of conditions and the following disclaimer.
+;;; 1. Redistributions of source code must retain the above
+;;; copyright notice, this list of conditions and the following
+;;; disclaimer.
 ;;; 
-;;; 2. Redistributions in binary form must reproduce the above copyright
-;;; notice, this list of conditions and the following disclaimer in the
-;;; documentation and/or other materials provided with the distribution.
+;;; 2. Redistributions in binary form must reproduce the above
+;;; copyright notice, this list of conditions and the following
+;;; disclaimer in the documentation and/or other materials
+;;; provided with the distribution.
 ;;; 
-;;; THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
-;;; WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-;;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
-;;; NO EVENT SHALL THE AUTHOR, THE UNIVERSITY OF HEIDELBERG OR OTHER
-;;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-;;; EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-;;; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-;;; PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-;;; LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+;;; THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR
+;;; IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+;;; PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+;;; AUTHOR, THE UNIVERSITIES HEIDELBERG OR KARLSRUHE, OR OTHER
+;;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+;;; SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+;;; NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+;;; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+;;; HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+;;; OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -42,7 +47,7 @@ during initialization of Femlisp."))
 
 (in-package :fl.start)
 
-(defparameter *femlisp-version* "0.9.9")
+(defparameter *femlisp-version* "0.9.10")
 (defparameter *process* nil
   "This variable should be set externally for identifying a certain process.")
 
@@ -97,7 +102,14 @@ location of this file when it is loaded.")
 
 ;;; INFIX
 (eval-when (:compile-toplevel :load-toplevel)
-  (require :infix #p"femlisp:external;infix.cl"))
+  (ignore-errors
+    (unless (member :infix *features*)
+      (require :infix)))
+  (ignore-errors
+    (unless (member :infix *features*)
+      (asdf:oos 'asdf:load-op :infix)))
+  (unless (member :infix *features*)
+    (load #p"femlisp:external;infix.cl")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; we want to work generally with double float numbers
@@ -130,7 +142,7 @@ location of this file when it is loaded.")
   (format
    t "~&~%*** Femlisp-~A ***
 
-Copyright (C) 2003-2006
+Copyright (C) 2003-2008
 Nicolas Neuss, University Heidelberg, University Karlsruhe.
 
 Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
@@ -138,6 +150,6 @@ file LICENSE in the Femlisp main directory.  This is free
 software, and you are welcome to redistribute it under certain
 conditions.
 
-You can enter \"(femlisp-demo)\" to get a guided tour through
-Femlisp, and enter \"(quit)\" to leave the program.~%~%"
+You can enter \"(fl.demo:femlisp-demo)\" to get a guided tour
+through Femlisp, and enter \"(quit)\" to leave the program.~%~%"
    *femlisp-version*))

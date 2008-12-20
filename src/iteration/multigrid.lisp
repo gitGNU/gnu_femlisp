@@ -208,7 +208,8 @@ level and clears the residual-p flag."
       (ensure-sol-rhs-res mg-it mg-data l-1)
       (if (getbb mg-data :r-vec)
 	  (gemm! 1.0 (R_ l-1) res_l 0.0 (res_ l-1))
-	  (gemm! 1.0 (I_ l-1) res_l 0.0 (res_ l-1) :tn)))))
+	  (gemm! 1.0 (I_ l-1) res_l 0.0 (res_ l-1) :tn))
+      (dbg :iter "~A" (norm (res_ l-1))))))
 
 (defmethod restrict :after ((mg-it <mg-iteration>) mg-data)
   (with-current-level-data (residual-p_l) mg-data
@@ -248,7 +249,7 @@ level for computing the correction to be prolongated."
 (defmethod prolongate :after ((mg-it <mg-iteration>) mg-data)
   (with-current-level-data (residual-p_l) mg-data
     (incf current-level)
-    (setf (residual-p_ current-level) nil)))
+    (setf residual-p_l nil)))
 
 (defmethod lmgc ((mg-it <mg-iteration>) mg-data)
   (with-items (&key base-level coarse-grid-it) mg-data

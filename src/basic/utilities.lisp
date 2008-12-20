@@ -43,26 +43,41 @@
 default form when an argument should be supplied."
   (error "A required argument was not supplied."))
 
-#+(or)
+ (defgeneric evaluate (f x)
+  (:documentation "Generic evaluation of functions on an argument.  Numbers and
+arrays are treated as constants.  Special evaluation is defined for multivariate
+polynomials on vectors and for <function> objects.")
+  (:method (object x)
+    "The default method treats object as a constant function.  This is a
+dubious feature on which one should probably not rely."
+    (declare (ignore x))
+    object)
+  (:method ((f function) x)
+    "Lisp functions are evaluated by @function{funcall}."
+    (funcall f x)))
+
+(defgeneric compose-2 (f g)
+  (:documentation "Composes two function objects @arg{f} and @arg{g}.")
+  (:method (f g)
+    #'(lambda (x) (evaluate f (evaluate g x)))))
+
 (defun compose (&rest functions)
   "Returns the composition of @arg{functions}."
-  (if (null functions)
-      #'identity
-      (destructuring-bind (func1 . rest) (reverse functions)
-	#'(lambda (&rest args)
-	    (reduce #'(lambda (v f) (funcall f v))
-		    rest
-		    :initial-value (apply func1 args))))))
+  (cond ((null functions) #'identity)
+	((single? functions) (car functions))
+	(t (compose-2 (car functions) (apply #'compose (cdr functions))))))
 
-(definline curry (func &rest args)
-  "Supplies @arg{args} to @arg{func} from the left."
-  #'(lambda (&rest after-args)
-      (apply func (append args after-args))))
+(inlining
+ (defun curry (func &rest args)
+   "Supplies @arg{args} to @arg{func} from the left."
+   #'(lambda (&rest after-args)
+       (apply func (append args after-args)))))
 
-(definline rcurry (func &rest args)
-  "Supplies @arg{args} to @arg{func} from the right."
-  #'(lambda (&rest before-args)
-      (apply func (append before-args args))))
+(inlining
+ (defun rcurry (func &rest args)
+   "Supplies @arg{args} to @arg{func} from the right."
+   #'(lambda (&rest before-args)
+       (apply func (append before-args args)))))
 
 (defun sans (plist &rest keys)
   "Removes the items marked by @arg{keys} from the property list
@@ -126,15 +141,15 @@ computed."
 
 (defun box (object)
   "Boxes an object."
-  (list object))
+  (vector object))
 
 (defun unbox (box)
   "Getter for a boxed object."
-  (car box))
+  (aref box 0))
 
 (defun (setf unbox) (value box)
   "Setter for a boxed object."
-  (setf (car box) value))
+  (setf (aref box 0) value))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Sequences
@@ -188,14 +203,21 @@ with @arg{func}."
       (setf (aref new-vec i)
 	    (aref vec (if (< i comp) i (1+ i)))))))
 
-(definline vector-last (vec)
-  "Returns the last element of @arg{vec}."
-  (aref vec (1- (length vec))))
+(inlining
+ (defun vector-last (vec)
+   "Returns the last element of @arg{vec}."
+   (aref vec (1- (length vec)))))
 
-(declaim (inline zero-vector))  ; useful for propagating type information
-(defun zero-vector (dim element-type)
+(inlining
+ (defun constant-vector (dim value)
+   "Returns a uniform constant vector of which all elements are @arg{value}."
+   (make-array dim :element-type (type-of value) :initial-element value)))
+
+(inlining  ; useful for propagating type information
+ (defun zero-vector (dim element-type)
   "Returns a uniform vector for the given element type filled with zeros."
-  (make-array dim :element-type element-type :initial-element (coerce 0 element-type)))
+  (make-array dim :element-type element-type
+	      :initial-element (coerce 0 element-type))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Arrays
@@ -279,17 +301,17 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 (definline thrice (x) (list x x x))
 (definline twice (x) (list x x))
 
-(defun splice (items lengths)
+(defun split-by-length (items lengths)
   "Breaks the list @arg{items} in pieces of lengths determined by
 @arg{nrins}.  Example:
 @lisp
-  (splice '(1 2 3 4) '(1 3)) @result{} ((1) (2 3 4))
+  (split-by-length '(1 2 3 4) '(1 3)) @result{} ((1) (2 3 4))
 @end lisp"
   (loop for l in lengths
 	and tail = items then (nthcdr l tail)
 	collect (take l tail)))
 
-(definline mappend (func &rest lists)
+(defun mappend (func &rest lists)
   "Map @function{func} over @arg{lists} while appending the results."
   (apply #'append (apply #'mapcar func lists)))
 
@@ -409,6 +431,11 @@ value T if the queue was empty.")
     (let ((emptyp (emptyp queue)))
       (values (pop (head queue)) emptyp))))
 
+(defgeneric finish (queue)
+  (:documentation "Finishes the queue.  Nothing can be written to it
+  afterwards.  This function is mostly useful when different threads write
+  and read from the queue."))
+
 (defun queue->list (queue)
   "Transforms @arg{queue} to a list."
   (head queue))
@@ -439,8 +466,12 @@ value T if the queue was empty.")
   (first nil)
   (last nil))
 
-(defun dll-front-insert (obj dll)
-  (let ((new (make-dll-item :object obj))
+(defun dll-front-insert (obj dll &optional insert-item-p)
+  "Inserts @arg{obj} in @arg{dll}.  It returns the newly created
+@class{dll-item}."
+  (let ((new (if (or insert-item-p (not (typep obj 'dll-item)))
+		 (make-dll-item :object obj)
+		 obj))
 	(first (dll-first dll)))
     (when first
       (setf (dli-pred first) new)
@@ -449,8 +480,10 @@ value T if the queue was empty.")
       (setf (dll-last dll) new))
     (setf (dll-first dll) new)))
 
-(defun dll-rear-insert (obj dll)
-  (let ((new (make-dll-item :object obj))
+(defun dll-rear-insert (obj dll &optional insert-item-p)
+  (let ((new (if (or insert-item-p (not (typep obj 'dll-item)))
+		 (make-dll-item :object obj)
+		 obj))
 	(last (dll-last dll)))
     (when last
       (setf (dli-succ last) new)
@@ -611,7 +644,7 @@ two values.  Those pairs are stored in a new hash-table."
 
 (defgeneric iterator-end-p (vec iterator)
   (:method ((range range) i)
-    (with-slots (from to below) range
+    (with-slots (to below) range
       (cond (to (> i to))
 	    (below (>= i below)))))
   (:method ((vec vector) i) (>= i (length vec)))
@@ -831,8 +864,6 @@ connected sets and the remaining disconnected ones.  Example:
 	    (return t)))
 	finally (return (values connected disconnected))))
 
-;;;(maximally-connected '(1 2) '((3 4) (2 3) (5 6)) :test #'intersection :combine #'union)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Ordered sets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -980,8 +1011,8 @@ according to @math{result[i] = v[perm[i]]}."
 ;;;; safe sorting
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun safe-sort (seq predicate &key (key #'identity))
-  (stable-sort (copy-seq seq) predicate :key key))
+(defun safe-sort (seq &rest args)
+  (apply #'stable-sort (copy-seq seq) args))
 
 ;;; Testing
 (defun test-utilities ()
@@ -1014,13 +1045,15 @@ according to @math{result[i] = v[perm[i]]}."
     (setf (geta alist :test) 3)
     (geta alist :test))
   (let ((blackboard (blackboard)))
-    (with-items (&key test hello) blackboard
+    (with-items (&key test) blackboard
       (describe blackboard)
       (setf test 2)
       (describe blackboard)
       (setf test 3)
       (describe blackboard))
       (getbb blackboard :test))
+  (maximally-connected '(1 2) '((3 4) (2 3) (5 6))
+                       :test #'intersection :combine #'union)
   (let ((a (box 1)))
     (list
      (fluid-let (((unbox a) 3))

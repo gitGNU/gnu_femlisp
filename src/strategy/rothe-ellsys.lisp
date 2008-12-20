@@ -59,11 +59,9 @@ be solved at the beginning."
    :multiplicity (multiplicity problem)
    :components (components problem)
    :coefficients
-   (map-hash-table
-    #'(lambda (patch coeffs)
-	(values patch (ellsys-initial-value-interpolation-coefficients
-		       rothe problem coeffs)))
-    (coefficients problem))
+   (lambda (patch)
+     (ellsys-initial-value-interpolation-coefficients
+      rothe problem (coefficients-of-patch patch problem)))
    :linear-p t))
 
 (defun ellsys-time-step-coefficients (rothe coeffs)
@@ -96,10 +94,9 @@ method."
    :components (components problem)
    :multiplicity (multiplicity problem)
    :coefficients
-   (map-hash-table
-    #'(lambda (patch coeffs)
-	(values patch (ellsys-time-step-coefficients rothe coeffs)))
-    (coefficients problem))))
+   (lambda (patch)
+     (ellsys-time-step-coefficients
+      rothe (coefficients-of-patch patch problem)))))
 
 (defvar *u_1/4-observe*
   (list (format nil "~19@A" "u(midpoint)") "~19,10,2E"
@@ -114,7 +111,9 @@ method."
   (let* ((dim 1) (levels 1) (order 4) (end-time 0.1) (steps 64)
 	 (problem (ellsys-model-problem
 		   dim '((u 1))
-		   :initial (lambda (x) (vector (ensure-matlisp #I(sin(2*pi*x[0])))))
+		   :initial (lambda (x)
+                              (vector (ensure-matlisp
+                                       (float #I(sin(2*pi*x[0])) 1.0))))
 		   :sigma (diagonal-sparse-tensor (vector (eye 1)))
 		   :a (isotropic-diffusion 1 1.0)
 		   :r (diagonal-sparse-tensor (vector #m(0.0)))

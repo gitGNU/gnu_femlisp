@@ -33,7 +33,7 @@
 (in-package :cl-user)
 
 (defpackage "FL.MATLISP"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG")
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG" "FL.LAPACK")
   (:export
    ;; Matlisp symbols
    "VLENGTH" "NROWS" "NCOLS"
@@ -41,14 +41,15 @@
    "MAKE-REAL-MATRIX" "MAKE-REAL-VECTOR"
    "STORE"
    "*PRINT-MATRIX*" "*PRINT-MATRIX-ELEMENT-FORMAT*"
-   "EYE" "ZEROS" "ONES" "DIAG" "COLUMN" "ROW" "LAPLACE-FULL-MATRIX"
+   "EYE" "ZEROS" "ONES" "DIAG" "DIAGONAL" "COLUMN" "ROW" "LAPLACE-FULL-MATRIX"
    "MREF"
    "FILL!" "FILL-RANDOM!"
-   "JOIN" "TRANSPOSE" "TRANSPOSE!"
+   "JOIN" "JOIN-INSTANCE" "JOIN-HORIZONTAL!" "JOIN-VERTICAL!"
+   "TRANSPOSE" "TRANSPOSE!"
    "COPY" "COPY!"
    "SCAL" "SCAL!" "M+" "M+!" "M-" "M-!" "M.*" "AXPY" "AXPY!"
    "GEMM!" "GEMM-NN!" "GEMM-NT!" "GEMM-TN!" "GEMM-TT!"
-   "GEMM" "M*" "M*-TN" "M*-PRODUCT-INSTANCE"
+   "GEMM" "M*" "M*-TN" "M*-PRODUCT-INSTANCE" "M*-TN-PRODUCT-INSTANCE"
    "GETRF!" "GETRF" "GETRS!" "GETRS"
    "GESV!" "GESV" "M/"
    "M./" "M./!" "MAP-MATRIX"
@@ -64,7 +65,7 @@
    "STORE-VECTOR"
 
    ;; matrix.lisp
-   "<MATRIX>"
+   "<MATRIX>" "SHOW" "DISPLAY"
    "FOR-EACH-ROW-KEY" "FOR-EACH-COL-KEY"
    "FOR-EACH-KEY-IN-ROW" "FOR-EACH-KEY-IN-COL"
    "FOR-EACH-ENTRY-IN-ROW" "FOR-EACH-ENTRY-IN-COL"
@@ -77,13 +78,17 @@
    "ELEMENT-TYPE" "SCALAR-TYPE"
    "MATRIX-TRANSPOSE-INSTANCE" "M*-PRODUCT-INSTANCE"
    "X<-0" "M-INCF"
-   "MZEROP" "MEQUALP" "MIDENTITY-P"
+   "MZEROP" "*MZEROP-THRESHOLD*" "MEQUALP" "MAT-DIFF" "MIDENTITY-P"
+   "MSQUARE-P" "MSYMMETRIC-P"
    "FOR-EACH-KEY" "FOR-EACH-ENTRY" "FOR-EACH-ENTRY-AND-KEY"
    "FOR-EACH-ENTRY-AND-VECTOR-INDEX"
-   "DOVEC" "MEXTRACT" "MINJECT"
+   "DOVEC" "MEXTRACT!" "MINJECT!"
 
    ;; standard-matrix.lisp
    "MRANDOM" "EXTEND-MATLISP-FUNCTION"
+
+   ;; standard-matrix-lr.lisp
+   "CHOLESKY"
    
    ;; ctypes.lisp
    "INT-VEC" "MAKE-INT-VEC"
@@ -102,10 +107,16 @@
    "MAKE-FULL-COMPRESED-MATRIX" "MAKE-FULL-CRS-MATRIX" "COMPRESSED->MATLISP"
    
    ;; tensor.lisp
-   "TENSOR" "FULL-TENSOR" "MAKE-REAL-TENSOR"
+   "TENSOR"  "IN-PATTERN-P" "FULL-TENSOR" "MAKE-REAL-TENSOR"
    "TENSOR-REF" "DIMENSIONS" "RANK" "*PRINT-TENSOR*"
    "SLICE" "T+" "REARRANGE-TENSOR" "T*"
    "DOTENSOR" "TENSOR-FOR-EACH" "TENSOR-MAP"
+
+   ;; sparse-tensor.lisp
+   "<SPARSE-TENSOR>" "SPARSE-TENSOR" "DIAGONAL-SPARSE-TENSOR" "INDICES" "ENTRIES"
+   
+   ;; LAPACK routines
+   "HEGV" "GGEV"
    )
   (:documentation "This package provides a Common Lisp version of full
   matrices with elements being numbers of a given type.  Those classes are

@@ -80,12 +80,6 @@ empty analog of @arg{x}."
 (defgeneric fill-random! (x s)
   (:documentation "Fills X with random values (obtained by (random s))."))
 
-;;; Joining
-(defgeneric join-horizontal! (x y z)
-  (:documentation "Fills Z with the horizontal join of X and Y."))
-(defgeneric join-vertical! (x y z)
-  (:documentation "Fills Z with the vertical join of X and Y."))
-
 ;;; BLAS Level 1
 (defgeneric scal! (alpha x)
   (:documentation "X <- \alpha X"))
@@ -98,11 +92,16 @@ empty analog of @arg{x}."
 (defgeneric m.*! (x y)
   (:documentation "Y <- X .* Y"))
 
+(defvar *mzerop-threshold* 0.0
+  "Threshold below which a matrix is considered to be zero.")
+
 (defgeneric mzerop (x &optional threshold)
   (:documentation "Returns T if each entry of @arg{x} is smaller or equal
 than @arg{threshold}."))
 (defgeneric mequalp (x y)
   (:documentation "Returns T if X and Y have equal entries, otherwise NIL."))
+(defgeneric mat-diff (x y)
+  (:documentation "Prints a list of differences between X and Y."))
 
 (defgeneric dot (x y)
   (:documentation "Returns the dot product of X and Y."))
@@ -247,7 +246,7 @@ single-indexed objects, i.e. rather general vectors."
   (dovec (entry obj entries)
     (incf entries (total-entries entry))))
 
-(defmethod mzerop (mat &optional (threshold 0.0))
+(defmethod mzerop (mat &optional (threshold *mzerop-threshold*))
   (dovec (entry mat t)
     (unless (mzerop entry threshold)
       (return-from mzerop nil))))

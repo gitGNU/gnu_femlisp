@@ -90,7 +90,8 @@ handle coefficients depending on finite element functions."
 	 (domain (n-cell-domain dim))
 	 (problem
 	  (make-instance
-	   '<pde-problem> :domain domain :components '(u) :patch->coefficients
+	   '<pde-problem> :domain domain :components '(u)
+	   :patch->coefficients
 	   `((:d-dimensional (,(f[x]->coefficient
 				'MY-COEFFICIENT (lambda (x) (aref x 0)))))))))
     (plot problem :refinements 2 :coefficient 'MY-COEFFICIENT))

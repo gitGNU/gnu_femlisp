@@ -80,6 +80,7 @@ installation}.
 
 @menu
 * Debian GNU/Linux::            
+* Ubuntu Linux::
 * Mac OS X::                    
 * Windows/Cygwin::              
 @end menu
@@ -87,22 +88,24 @@ installation}.
 @node Debian GNU/Linux, Mac OS X, Quick installation , Quick installation
 @subsection Debian GNU/Linux
 
-The following approach should work if you are on Debian/Sarge and your
-@path{/etc/apt/sources.list} file is set up in such a way that it
-finds also @emph{nonfree} and @emph{contrib} packages:
+The following approach should work if you are on Debian Etch/Testing
+(aka Lenny) and your @path{/etc/apt/sources.list} file is set up in such
+a way that it finds also @emph{nonfree} and @emph{contrib} packages:
 
 @example
 # Necessary:
 apt-get install wget gnuplot dx
-apt-get install cmucl cl-infix cl-asdf
+apt-get install sbcl   # alternatively: cmucl
+apt-get install cl-infix cl-asdf
 
 # Recommended:
 apt-get install libsuperlu3 libsuperlu3-dev
-apt-get install libumfpack4 libumfpack4-dev
+apt-get install libsuitesparse libsuitesparse-dev
 apt-get install slime
 
 # Documentation (recommended)
-apt-get install cmucl-doc cmucl-source hyperspec
+apt-get install hyperspec
+apt-get install sbcl-doc sbcl-source  # alternatively: cmucl-doc cmucl-source
 
 # for generating Femlisp documentation
 apt-get install texlive-generic-recommended
@@ -121,7 +124,7 @@ make umfpack        # compiles the UMFPACK interface
 make triangle       # gets and compiles the Triangle mesh generator
 
 # compile Femlisp
-make configure      # interactive setup (choose cmucl)
+make configure      # interactive setup (choose sbcl or cmucl)
 make femlisp        # compiles Femlisp and creates an executable
 
 # we are done
@@ -138,7 +141,7 @@ the Apple development tools, X11, and Fink installed.  Please make
 sure that you have also a recent version of Emacs.
 
 @example
-apt-get install wget gnuplot dx cmucl slime
+apt-get install wget gnuplot dx sbcl slime
 
 cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
 
@@ -147,7 +150,7 @@ cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
 wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
 
 cd femlisp          # change to the Femlisp directory
-make configure      # interactive setup
+make configure      # interactive setup (choose sbcl)
 make femlisp        # creates a Femlisp executable
 
 # we are done

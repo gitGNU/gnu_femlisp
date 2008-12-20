@@ -37,9 +37,6 @@
 	"FL.MATLISP" "FL.DEBUG")
   (:export
 
-   ;; sparse-tensor.lisp
-   "<SPARSE-TENSOR>" "SPARSE-TENSOR" "DIAGONAL-SPARSE-TENSOR" "IN-PATTERN-P" "INDICES" "ENTRIES"
-   
    ;; sparse.lisp
    "SHOW" "DISPLAY" "MAT-DIFF"
    "<SPARSE-VECTOR>" "BLOCKS" "KEY->SIZE" "PRINT-KEY" "MULTIPLICITY"

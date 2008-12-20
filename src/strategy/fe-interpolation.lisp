@@ -85,13 +85,14 @@ moment."
 		  (problem (make-instance
 			    '<interpolation-problem> :domain domain
 			    :components `((u ,(nr-of-components fe-class)))
-			    :patch->coefficients
+			    :coefficients
 			    #'(lambda (patch)
 				(princ patch) (terpri)
 				(list (function->coefficient
 				       'INITIAL
 				       #'(lambda (x)
-					(let ((phi (* 2 pi (aref x 0))))
+					(let ((phi (float (* 2 pi (aref x 0))
+                                                          1.0)))
 					  (vector (cos phi) (sin phi)))))))))
 		  (strategy (make-instance
 			     '<fe-interpolation> :coefficient 'INITIAL

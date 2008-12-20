@@ -42,7 +42,8 @@
 				     :b (make-double-vec dim 0.25))
     (change-class
      (skel-add! inlay (n-cube-with-cubic-hole dim))
-     '<domain>)))
+     '<domain>
+     :classifiers (list (make-classifier #'patch-in-inlay-p :inlay)))))
 
 (defun n-cell-with-cubic-inlay (dim)
   "Generates an n-dimensional cell domain with an n-cube hole."
@@ -72,7 +73,9 @@
 		  middle-cell)))
 	(skel-add! center-block (telescope center-skin center->middle))
 	(skel-add! center-block (telescope outer-skel outer->middle))
-	(change-class center-block '<domain>)))))
+	(change-class
+	 center-block '<domain> :classifiers
+	 (list (make-classifier #'patch-in-inlay-p :inlay)))))))
 
 (defun n-cell-with-ball-inlay (dim &key (radius 0.25))
   "Generates an n-dimensional cell domain with an n-ball inlay."
@@ -80,7 +83,8 @@
    (n-cube-with-ball-inlay dim :radius radius)))
 
 (defun patch-in-inlay-p (patch)
-  "Checks if the patch is part of the inlay including its boundary."
+  "Checks if the patch is part of the inlay including its boundary.  This
+is done by checking if all corners lie in the interior of the unit cell."
   (let ((corners (corners patch)))
     (every #'(lambda (corner)
 	       (every #'(lambda (coord) (< 0.0 coord 1.0)) corner))
@@ -89,7 +93,9 @@
 
 ;;; Testing
 (defun test-inlay-domain ()
-  (n-cube-with-cubic-inlay 2)
+  (let ((domain (n-cube-with-cubic-inlay 2)))
+    (doskel (patch domain)
+      (format t "~A : ~S~%" patch (patch-classification patch domain))))
   (let* ((domain (n-cell-with-ball-inlay 2 :radius 0.3))
 	 (chars (domain-characteristics domain)))
     (assert (and (getf chars :exact) (getf chars :curved)))

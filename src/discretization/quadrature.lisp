@@ -74,9 +74,10 @@ splitting into monomials and computing
 
 (defun integrate-monomial-over-simplex-product (mono dims)
   (reduce #'* (mapcar #'(lambda (factor-mono n) (integrate-monomial factor-mono n))
-		      (splice (append mono (make-list (- (reduce #'+ dims) (length mono))
-						      :initial-element 0))
-			      dims)
+		      (split-by-length
+                       (append mono (make-list (- (reduce #'+ dims) (length mono))
+                                               :initial-element 0))
+                       dims)
 		 dims)))
 
 (defun integrate-over-reference-product-cell (poly factor-dims)

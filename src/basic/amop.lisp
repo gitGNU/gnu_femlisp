@@ -33,13 +33,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.AMOP"
-  (:use "COMMON-LISP" "FL.DEBUG" "FL.UTILITIES")
+  (:use "COMMON-LISP" "FL.DEBUG")
   (:import-from
-   #-(OR ECL GCL SBCL) "MOP" #+SBCL "SB-MOP" #+ECL "CLOS" #+GCL "PCL"
+   #-(OR LISPWORKS ECL GCL SCL SBCL) "MOP"
+   #+LISPWORKS "CLOS" #+SBCL "SB-MOP" #+ECL "CLOS" #+GCL "PCL" #+SCL "KERNEL"
    "CLASS-DIRECT-SUPERCLASSES" "CLASS-DIRECT-SUBCLASSES"
+   "COMPUTE-SLOTS" "SLOT-DEFINITION-INITARGS"
    "GENERIC-FUNCTION-NAME" "GENERIC-FUNCTION-METHODS"
    "METHOD-SPECIALIZERS")
   (:export "CLASS-DIRECT-SUPERCLASSES" "CLASS-DIRECT-SUBCLASSES"
+	   "COMPUTE-SLOTS" "SLOT-DEFINITION-INITARGS"
 	   "FIND-PROGRAMMATIC-CLASS" "MAKE-PROGRAMMATIC-INSTANCE"
 	   "REMOVE-SUBCLASS-METHODS")
   (:documentation
@@ -70,7 +73,7 @@ non-ANSI and may represent a problem when porting Femlisp."))
 	 (or class
 	     (let ((superclass-names (mapcar #'class-name superclasses)))
 	       (dbg :amop "Generating new class for superclasses ~A" superclass-names)
-	       (compile-and-eval
+	       (fl.port:compile-and-eval
 		`(defclass ,(or name (intern (format nil "~A" superclass-names)))
 		     ,superclass-names ()))))))))
 

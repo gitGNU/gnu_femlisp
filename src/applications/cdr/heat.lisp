@@ -42,10 +42,10 @@
 		 :stationary-success-if `(> :nr-levels ,levels)
 		 :success-if `(>= :step ,steps)
 		 :output output :plot plot)))
-  (defparameter *result*
-    (iterate rothe (blackboard
-		    :problem problem :fe-class (lagrange-fe order)
-		    :plot-mesh nil :output t)))))
+    (storing
+      (iterate rothe (blackboard
+		      :problem problem :fe-class (lagrange-fe order)
+		      :plot-mesh nil :output t)))))
 
 (defun make-heat-equation-demo (domain domain-name)
   (let ((title domain-name)

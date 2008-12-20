@@ -42,21 +42,21 @@
   "Solve the equation -u''(x) = x^5, u(0)=u(1)=0 adaptively.  We use
 fourth order finite elements, a direct solver, and error estimation by
 projection between subsequent levels."
-  (defparameter *result*
-    (let* ((dim 1) (order 4)
-	   (problem
-	    (cdr-model-problem dim :source #'(lambda (x) #I"x[0]^^5"))))
-      (solve
-       (make-instance
-	'<stationary-fe-strategy> :fe-class (lagrange-fe order)
-	:estimator (make-instance '<projection-error-estimator>)
-	:indicator (make-instance '<largest-eta-indicator> :fraction 0.5 :from-level 2)
-	:success-if '(and (>= :nr-levels 2) (< :global-eta 1.0d-8))
-	:solver (lu-solver)
-	:output t)
-       (blackboard :problem problem))))
-  (sleep 1.0)
-  (plot (getbb *result* :solution)))
+  (lret* ((dim 1) (order 4)
+	  (problem
+	   (cdr-model-problem dim :source #'(lambda (x) #I"x[0]^^5")))
+	  (result
+	   (solve
+	    (make-instance
+	     '<stationary-fe-strategy> :fe-class (lagrange-fe order)
+	     :estimator (make-instance '<projection-error-estimator>)
+	     :indicator (make-instance '<largest-eta-indicator> :fraction 0.5 :from-level 2)
+	     :success-if '(and (>= :nr-levels 2) (< :global-eta 1.0d-8))
+	     :solver (lu-solver)
+	     :output t)
+	    (blackboard :problem problem))))
+    (sleep 1.0)
+    (plot (getbb result :solution))))
 
 ;;; (laplace-1d-demo-a)
 
@@ -74,17 +74,16 @@ order finite elements, a direct solver, and a duality error estimator for
 the error in the load functional (which is the same as the energy error).
 The dual problem is solved with a fifth order method so that this error
 estimator is asymptotically exact.  Accuracy threshold is 1.0e-8."
-  (defparameter *result*
-    (let* ((dim 1) (order 4)
-	   (problem (cdr-model-problem dim :source #'(lambda (x) #I"x[0]^^5"))))
-      (solve
-       (make-instance
-	'<stationary-fe-strategy> :fe-class (lagrange-fe order)
-	:estimator (make-instance '<duality-error-estimator> :functional :load-functional)
-	:indicator (make-instance '<largest-eta-indicator> :from-level 1)
-	:success-if '(< :global-eta 1.0d-10)
-	:solver #+(or)(s1-reduction-amg-solver order :output t) #-(or)(lu-solver))
-       (blackboard :problem problem :output t)))))
+  (let* ((dim 1) (order 4)
+	 (problem (cdr-model-problem dim :source #'(lambda (x) #I"x[0]^^5"))))
+    (solve
+     (make-instance
+      '<stationary-fe-strategy> :fe-class (lagrange-fe order)
+      :estimator (make-instance '<duality-error-estimator> :functional :load-functional)
+      :indicator (make-instance '<largest-eta-indicator> :from-level 1)
+      :success-if '(< :global-eta 1.0d-10)
+      :solver #+(or)(s1-reduction-amg-solver order :output t) #-(or)(lu-solver))
+     (blackboard :problem problem :output t))))
 
 ;;; (laplace-1d-demo-b)
 (let ((demo
@@ -101,20 +100,20 @@ We use finite elements of order p, an AMG solver, and a duality error
 estimator for the error in the load functional (which is the same as the
 energy error).  The dual problem is solved with a (p+1)-method so that this
 error estimator is asymptotically exact."
-  (defparameter *result*
-    (solve
-     (make-instance
-      '<stationary-fe-strategy> :fe-class (lagrange-fe order)
-      :estimator
-      (make-instance '<duality-error-estimator> :functional :load-functional)
-      :indicator (make-instance '<largest-eta-indicator> :fraction 0.25)
-      :success-if `(<= :global-eta ,threshold)
-      :solver (s1-reduction-amg-solver order))
-     (blackboard
-      :problem (cdr-model-problem (l-domain dim)
-				  :source (constant-coefficient 1.0))
-      :output t)))
-  (plot (getbb *result* :solution)))
+  (lret ((result
+	  (solve
+	   (make-instance
+	    '<stationary-fe-strategy> :fe-class (lagrange-fe order)
+	    :estimator
+	    (make-instance '<duality-error-estimator> :functional :load-functional)
+	    :indicator (make-instance '<largest-eta-indicator> :fraction 0.25)
+	    :success-if `(<= :global-eta ,threshold)
+	    :solver (s1-reduction-amg-solver order))
+	   (blackboard
+	    :problem (cdr-model-problem (l-domain dim)
+					:source (constant-coefficient 1.0))
+	    :output t))))
+    (plot (getbb result :solution))))
 ;;; (laplace-l-domain-demo)
 
 (defun create-l-domain-demo (dim order threshold)
@@ -152,7 +151,7 @@ error estimator is asymptotically exact."
 (laplace-l-domain-demo)
 
 ;;; 1D test case: Dirichlet b.c.
-(defparameter *result*
+(storing
   (time
    (let* ((dim 1) (order 1)
 	  (problem (cdr-model-problem

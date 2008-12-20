@@ -56,15 +56,6 @@
   ((components :initform '(u) :initarg :components))
   (:documentation "Convection-diffusion-reaction problem."))
 
-(defmethod initialize-instance :after
-    ((problem <cdr-problem>) &key &allow-other-keys)
-  "The problem is assumed to be coercive if there is a reaction
-coefficient."
-  (unless (property-set-p problem 'coercive)
-    (dohash ((coeffs) (coefficients problem))
-      (when (member 'FL.ELLSYS::R coeffs)
-	(setf (get-property problem 'coercive) T)))))
-
 (defmethod self-adjoint-p ((problem <cdr-problem>))
   "The problem is assumed to be self-adjoint if there is no convection
 coefficient."
@@ -82,7 +73,7 @@ functional."
     (make-instance
      '<cdr-problem> :components '(u) :multiplicity mult
      :domain (domain problem)
-     :patch->coefficients
+     :coefficients
      #'(lambda (cell)
 	 (lret ((coeffs (coefficients-of-patch cell problem)))
 	   ;; check that problem is self adjoint
@@ -161,7 +152,9 @@ functional."
 
 (defun cdr-model-problem (domain &key (diffusion nil diffusion-p)
 			  (source nil source-p) (dirichlet nil dirichlet-p)
-			  gamma convection reaction sigma initial evp properties)
+			  gamma convection reaction sigma initial
+			  evp (multiplicity 1)
+			  properties)
   "Generates a convection-diffusion-reaction model problem.  Defaults are
 identity diffusion, right-hand-side equal 1, and Dirichlet zero boundary
 conditions.  Ordinary function are converted into coefficient functions
@@ -180,35 +173,33 @@ cube."
     ;; (setq gamma (ensure-1-component-vector gamma))
     ;;(setq dirichlet (ensure-dirichlet-coefficient dirichlet))
     (when initial (ensure sigma 1.0))
-    (apply #'fl.amop:make-programmatic-instance
-	   (cond ((and initial sigma) '(<time-dependent-problem> <cdr-problem>))
-		 (evp '(<cdr-problem> <evp-mixin>))
-		 (t '<cdr-problem>))
-	   :properties properties
-	   :domain domain :components '(u) :patch->coefficients
-	   `((:external-boundary
-	      ,(when dirichlet `(,(ensure-dirichlet-coefficient dirichlet))))
-	     (:d-dimensional
-	      ,(append
-		(when diffusion
-		  `(,(ensure-tensor-coefficient 'FL.ELLSYS::A diffusion)))
-		(when source
-		  `(,(ensure-vector-coefficient 'FL.ELLSYS::F source)))
-		(when convection
-		  `(,(ensure-tensor-coefficient 'FL.ELLSYS::B convection)))
-		(when reaction
-		  `(,(ensure-tensor-coefficient 'FL.ELLSYS::R reaction)))
-		(when gamma
-		  `(,(ensure-vector-coefficient 'FL.ELLSYS::G gamma)))
-		(when initial
-		  `(,(ensure-vector-coefficient 'INITIAL initial)))
-		(when sigma
-		  `(,(ensure-tensor-coefficient 'FL.ELLSYS::SIGMA sigma)))
-		)))
-	   (append
-	    (when evp (destructuring-bind (&key lambda mu) evp
-			(list :lambda lambda :mu mu))))
-	   )))
+    (fl.amop:make-programmatic-instance
+     (cond ((and initial sigma) '(<time-dependent-problem> <cdr-problem>))
+	   (evp '(<cdr-problem> <evp-mixin>))
+	   (t '<cdr-problem>))
+     :properties properties
+     :domain domain :components '(u) :patch->coefficients
+     `((:external-boundary
+	,(when dirichlet `(,(ensure-dirichlet-coefficient dirichlet))))
+       (:d-dimensional
+	,(append
+	  (when diffusion
+	    `(,(ensure-tensor-coefficient 'FL.ELLSYS::A diffusion)))
+	  (when source
+	    `(,(ensure-vector-coefficient 'FL.ELLSYS::F source)))
+	  (when convection
+	    `(,(ensure-tensor-coefficient 'FL.ELLSYS::B convection)))
+	  (when reaction
+	    `(,(ensure-tensor-coefficient 'FL.ELLSYS::R reaction)))
+	  (when gamma
+	    `(,(ensure-vector-coefficient 'FL.ELLSYS::G gamma)))
+	  (when initial
+	    `(,(ensure-vector-coefficient 'INITIAL initial)))
+	  (when sigma
+	    `(,(ensure-tensor-coefficient 'FL.ELLSYS::SIGMA sigma)))
+	  )))
+     :multiplicity multiplicity)
+    ))
 
 ;;; nonlinear cdr problem
 
@@ -236,6 +227,47 @@ F(u)} for the nonlinear problem @math{-\Delta u +F(u) =0}."
 	   args)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; new problem definition support
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
+				  (coeff (eql 'FL.CDR::DIFFUSION))
+				  patch args eval)
+  (make-coefficients-for problem 'FL.ELLSYS::A patch args
+			 (lambda (&rest args)
+			   (diagonal-sparse-tensor (apply eval args) 1))))
+		    
+(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
+				 (coeff (eql 'FL.CDR::ISOTROPIC-DIFFUSION))
+				  patch args eval)
+  (make-coefficients-for problem 'FL.ELLSYS::A patch args
+			 (let ((dim (dimension (domain problem))))
+			   (lambda (&rest args)
+			     (diagonal-sparse-tensor (scal (apply eval args) (eye dim)) 1)))))
+
+(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
+				 (coeff (eql 'FL.CDR::SCALAR-SOURCE)) patch args eval)
+  (make-coefficients-for problem 'FL.ELLSYS::F patch args
+			 (lambda (&rest args)
+			   (vector (ensure-matlisp (apply eval args) :row-vector)))))
+		    
+(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
+				 (coeff (eql 'FL.CDR::SCALAR-NONLINEAR-SOURCE))
+				  patch args eval)
+  (make-coefficients-for problem 'FL.ELLSYS::NONLINEAR-F patch args
+			 (lambda (&rest args)
+			   (sparse-tensor 
+			    `((,(apply eval args) 0))))))
+
+(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
+				 (coeff (eql 'FL.CDR::SCALAR-CONSTRAINT))
+				  patch args eval)
+  (make-coefficients-for problem 'FL.PROBLEM::CONSTRAINT patch args
+			 (lambda (&rest args)
+			   (values #(t) (vector (ensure-matlisp (apply eval args) :row-vector))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Bratu problem
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -257,6 +289,22 @@ Bratu reaction term."
 ;;; Testing
 
 (defun test-cdr ()
+
+  #+(or)  ; fl.iteration is not necessarily available
+  (let ((problem
+	 (create-problem 'FL.CDR::<CDR-PROBLEM>
+	     (:domain (n-cube-domain 2) :components '(u) :multiplicity 1)
+	   (setup-coefficients (patch)
+	     (select-on-patch (patch)
+	       (:d-dimensional
+		(list
+		 (coeff FL.CDR::ISOTROPIC-DIFFUSION () 1.0)
+		 (coeff FL.CDR::SCALAR-SOURCE () 1.0)))
+	       (:external-boundary
+		(coeff FL.CDR::SCALAR-CONSTRAINT () 0.0)))))))
+    (solve (blackboard :problem problem :solver (fl.iteration::lu-solver)
+                       :success-if '(> :step 3) :output :all)))
+
   (assert (get-property (cdr-model-problem 1) 'linear-p))
   (coefficients (cdr-model-problem 1))
   (assert (not (get-property (bratu-problem 2) 'linear-p)))
@@ -267,6 +315,6 @@ Bratu reaction term."
   (describe (cdr-model-problem 2 :initial (constantly 1.0)))
   )
 
-;;;(test-cdr)
+;;; (test-cdr)
 (fl.tests:adjoin-test 'test-cdr)
 

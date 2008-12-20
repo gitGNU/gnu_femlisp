@@ -69,7 +69,7 @@ altogether."
 @arg{args} using the format in @arg{format-string}.")
   (:method (id format-string &rest args)
     (dbg-when id
-      (format *debug-io* "~&~?" format-string args)
+      (format *debug-io* "~&~?~%" format-string args)
       (force-output *debug-io*))))
 
 (defgeneric dbg-indent (id indent format-string &rest args)

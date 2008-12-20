@@ -96,11 +96,13 @@
   (:documentation "A sparse vector which is interpreted as the ansatz-space
 for a specific fe-class on a given mesh."))
 
-(defmethod initialize-instance :after ((asv <ansatz-space-vector>) &key &allow-other-keys)
+(defmethod initialize-instance :after ((asv <ansatz-space-vector>)
+				       &key multiplicity &allow-other-keys)
   (let ((as (ansatz-space asv)))
     (setf (slot-value asv 'key->size) (key->size as))
     (setf (slot-value asv 'print-key) (print-key as))
-    (setf (slot-value asv 'multiplicity) (multiplicity as))))
+    (setf (slot-value asv 'multiplicity)
+	  (or multiplicity (multiplicity as)))))
 
 (defun make-ansatz-space-vector (as)
   "Deprecated."
@@ -109,7 +111,7 @@ for a specific fe-class on a given mesh."))
 (defun special-ansatz-space-vector (ansatz-space &optional (type :random) (value 1.0))
   "Returns a ansatz space vector for @arg{ansatz-space} filled with
 constant or random entries.  Essential constraints are satisfied."
-  (with-slots (mesh key->size)
+  (with-slots (mesh)
     ansatz-space
     (lret ((asv (make-instance '<ansatz-space-vector> :ansatz-space ansatz-space)))
       (doskel (cell mesh :where :surface)
@@ -227,8 +229,8 @@ ansatz-space-morphism."))
 (defmethod initialize-instance :after ((asa <ansatz-space-automorphism>) &key &allow-other-keys)
   (let* ((as (ansatz-space asa))
 	 (key->size (key->size as)))
-    (with-slots (ansatz-space row-key->size col-key->size print-row-key print-col-key
-			      keys->pattern)
+    (with-slots (row-key->size col-key->size print-row-key print-col-key
+			       keys->pattern)
       asa
       (setf row-key->size key->size
 	    col-key->size key->size
@@ -299,15 +301,16 @@ accelerated by taking member-checks out of the loop."
     decomposed))
 
 (defmethod make-domain-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
-  (when multiplicity
-    (assert (= multiplicity (multiplicity (ansatz-space A)))))
-  (make-ansatz-space-vector (ansatz-space A)))
+  (let ((as (ansatz-space A)))
+    (make-instance '<ansatz-space-vector>
+		   :ansatz-space as
+		   :multiplicity (or multiplicity (multiplicity as)))))
 
 (defmethod make-image-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
-  (when multiplicity
-    (assert (= multiplicity (multiplicity (ansatz-space A)))))
-  (make-ansatz-space-vector (ansatz-space A)))
-
+  (let ((as (ansatz-space A)))
+    (make-instance '<ansatz-space-vector>
+		   :ansatz-space as
+		   :multiplicity (or multiplicity (multiplicity as)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Interpolation
@@ -489,7 +492,8 @@ masters."
   ;; yield identity on a quadratic polynomial
   (let* ((dim 1) (domain (n-cube-domain dim))
 	 (mesh (uniformly-refined-hierarchical-mesh domain 1))
-	 (problem (make-instance '<pde-problem> :components '(u) :multiplicity 1))
+	 (problem (make-instance '<pde-problem> :domain domain
+				 :components '(u) :multiplicity 1))
 	 (ansatz-space (make-fe-ansatz-space (lagrange-fe 3) problem mesh))
 	 (x (make-ansatz-space-vector ansatz-space))
 	 (I (interpolation-matrix ansatz-space))

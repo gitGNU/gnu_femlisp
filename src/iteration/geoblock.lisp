@@ -115,33 +115,35 @@ vertex-centered case."
   (let ((mesh-dim (dimension (mesh asa)))
 	(type (slot-value blockit 'type))
 	(blocks ())
-	(remaining (make-hash-table)))
+	(remaining (make-hash-table))
+        (centers ()))
+    ;; collect all significant keys and sort them
     (for-each-row-key
      #'(lambda (key)
-	 (let ((block-keys ()))
-	   ;; enlarge support under some circumstances
-	   (cond
-	     ((slave-dof-p key asa)
-	      (setq block-keys (list key)))
-	     #+(or) ((dirichlet-dof-p key asa)  ; is treated as everything else
-		     (setq block-keys (list key)))
-	     ((= (dimension (representative key))
-		 (ecase type (:vertex-centered 0) (:cell-centered mesh-dim)))
-	      (ecase type 
-		 (:cell-centered
-		  (for-each-key-in-row
-		   #'(lambda (col-key) (push col-key block-keys))
-		   asa key))
-		 (:vertex-centered
-		  (setq block-keys (find-vertex-centered-block key asa)))))
-	     (t ;; may remain at the boundaries (e.g. on triangles)
-	      (setf (gethash key remaining) t)))
-	   (when block-keys
-	     (?1 (push (coerce block-keys 'vector) blocks)
-		 (push (sort (coerce block-keys 'vector) #'>
-			     :key (compose #'dimension #'representative))
-		       blocks)))))
+         (cond ((slave-dof-p key asa)
+                (push (vector key) blocks))
+               ((= (dimension (representative key))
+                   (ecase type
+                     (:vertex-centered 0)
+                     (:cell-centered mesh-dim)))
+                (push key centers))
+               (t (setf (gethash key remaining) t))))
      asa)
+    (whereas ((ordering (slot-value blockit 'fl.iteration::ordering)))
+      (setf centers (sort centers ordering)))
+    (loop for key in centers do
+         (let ((block-keys ()))
+           (ecase type
+             (:cell-centered
+              (for-each-key-in-row
+               #'(lambda (col-key) (push col-key block-keys))
+               asa key))
+             (:vertex-centered
+              (setq block-keys (find-vertex-centered-block key asa))))
+           (?1 (push (coerce block-keys 'vector) blocks)
+               (push (sort (coerce block-keys 'vector) #'>
+                           :key (compose #'dimension #'representative))
+                     blocks))))
     ;; remove all from remaining which are covered
     (loop for block in blocks do
 	  (loop for key across block do

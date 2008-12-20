@@ -103,8 +103,8 @@ the blackboard."))
 (defmethod compute-error-approximant ((errest <difference-with-projection>) blackboard)
   "Computes solution-increment computed as difference solution on the
 finest mesh and a projection to the next-coarser level."
-  (with-items (&key ansatz-space solution interpolation projection
-				 P*sol I*P*sol solution-increment)
+  (with-items (&key solution interpolation projection
+		    P*sol I*P*sol solution-increment)
       blackboard
     (when (and interpolation projection)
       (setq P*sol (m* projection solution))
@@ -196,7 +196,7 @@ solution, matrix and rhs in an enriched ansatz space."))
 (defmethod compute-error-approximant ((errest <setup-enriched-ansatz-space>) blackboard)
   "Setup of interpolated solution, matrix, and rhs in the enriched ansatz
 space."
-  (with-items (&key enlarged-as-blackboard problem mesh refined-cells)
+  (with-items (&key enlarged-as-blackboard problem mesh)
     blackboard
     (ensure enlarged-as-blackboard (blackboard))
     (let* ((as-low (getbb blackboard :ansatz-space))
@@ -204,7 +204,7 @@ space."
 	   (as-high (or (getbb enlarged-as-blackboard :ansatz-space)
 			(make-fe-ansatz-space (lagrange-fe (1+ order)) problem mesh))))
       (with-items (&key low->high high->low low->high-T
-				     interior-matrix interior-rhs matrix)
+			interior-matrix interior-rhs)
 	enlarged-as-blackboard
 	;; to be improved later avoiding reassembly on old regions
 	(setf (getbb enlarged-as-blackboard :ansatz-space) as-high)

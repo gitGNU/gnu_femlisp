@@ -302,13 +302,12 @@ constraints are included in matrix and rhs."
     
     ;; do modifications on result-rhs
     (when rhs
-      #-(or) (gemm! -1.0 mat constraints-r 1.0 result-rhs)
-      #+(or) (x-=Ay result-rhs mat constraints-r)  ; deprecated: x-=Ay
+      (gemm! -1.0 mat constraints-r 1.0 result-rhs)
       (let ((Qt*rhs (sparse-m* constraints-Q result-rhs :job :tn
 			       :sparsity (if assemble-locally :B :A))))
 	(remove-projection-range result-rhs constraints-P)
 	(m+! Qt*rhs result-rhs)))
-
+    
     (when include-constraints
       (dohash (key region)
 	(when mat

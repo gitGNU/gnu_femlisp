@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for file in `find $CL_HOME/femlisp/src/$2 -name "*.lisp" -print`; do
+for file in `find $FEMLISP_DIR/src/$2 -name "*.lisp" -print`; do
     if test -n "`egrep -i \"$1\" $file`"
     then
 	echo "$file:"

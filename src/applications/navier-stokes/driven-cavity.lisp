@@ -50,17 +50,17 @@ driven cavity."
   (watch-velocity-at-point (make-double-vec dim 0.5)))
 
 (defun ns-driven-cavity-demo (dim order levels &key
+                              (delta 1)
 			      (plot-mesh t) plot output (reynolds 0.0) smooth-p
 			      (watch-points (list (make-double-vec dim 0.5))))
   "Performs the driven cavity demo."
-  (defparameter *result*
+  (storing
     (solve 
      (blackboard
-      :fe-class (navier-stokes-lagrange-fe order dim 1)
+      :fe-class (navier-stokes-lagrange-fe order dim delta)
       :problem
-      (?2 (driven-cavity dim :reynolds reynolds :smooth-p smooth-p)
-	  (fl.navier-stokes-ellsys:driven-cavity dim :reynolds reynolds :smooth-p smooth-p))
-      :base-level (if (> order 1) 0 1)
+      (driven-cavity dim :reynolds reynolds :smooth-p smooth-p)
+      :base-level 0 ; (if (evenp order) 0 1)  ; the system is severely singular otherwise
       :success-if (if levels
 		      `(= :nr-levels ,levels)
 		      `(> :time ,*demo-time*))
@@ -69,10 +69,8 @@ driven cavity."
 	      (mapcar #'watch-velocity-at-point watch-points)))))
   (when plot
     ;; plot components of cell solution tensor
-    (plot (getbb *result* :solution)
-	  :shape 2 :key #'(lambda (vec)
-			    (vector (tensor-ref vec 0 0)
-				    (tensor-ref vec 0 1))))
+    (plot (getbb *result* :solution) :component 'fl.navier-stokes::u
+	  :shape 2 :rank 1)
     (sleep 1.0)))
 
 ;;; (ns-driven-cavity-demo 2 3 3 :output :all :plot t :reynolds 10.0)
@@ -92,7 +90,7 @@ for the Navier-Stokes equation using Taylor-Hood finite elements
 				     :reynolds (float reynolds 1.0))))))
       (adjoin-demo demo *navier-stokes-demo*))))
 
-;;(ns-driven-cavity-demo 2 4 3 :output :all :plot t :reynolds 0.0)
+;;(ns-driven-cavity-demo 2 2 3 :output :all :plot t :reynolds 0.0)
 
 (make-driven-cavity-demo 2 2 0)
 (make-driven-cavity-demo 2 2 100)
@@ -102,13 +100,30 @@ for the Navier-Stokes equation using Taylor-Hood finite elements
 (defun test-driven-cavity ()
   (describe (driven-cavity 2))
   (describe (domain (driven-cavity 2 :smooth-p nil)))
-  #+(or)
-  (ns-driven-cavity-demo 2 1 5 :output 1 :plot nil :plot-mesh nil
+  (ns-driven-cavity-demo 2 1 1 :delta 1 :output 2 :plot-mesh nil
 			 :watch-points (list #d(0.5 0.5) #d(0.25 0.25)))
+  #+(or)(dbg-on :iter)
+  #+(or)
+  (defmethod intermediate :after ((it fl.iteration::<linear-solver>) bb)
+    (show (getbb bb :residual))
+    #+(or)
+    (?2 (plot (getbb bb :residual) :component 'fl.navier-stokes::u
+              :rank 1 :shape 2
+              :depth 2)
+        (plot (getbb bb :residual) :component 'fl.navier-stokes::p :depth 2)))
+  (plot (getbb *result* :mesh))
+  ;; Step   CELLS      DOFS     CPU                   u1                 u2  
+  ;; ------------------------------------------------------------------------
+  ;;    0       4        59     5.3    -1.7073170732e-01   1.6130654740e-15  
+  ;;    1      16       246     6.8    -2.0480181191e-01   1.2711597399e-16  
+  ;;    2      64       905     8.5    -2.0527904303e-01  -5.0822153595e-17  
+
+  (discretization-order (component (fe-class (getbb *result* :ansatz-space)) 1))
+  (plot (getbb *result* :solution) :component 'fl.navier-stokes::u
+        :rank 1 :shape 2)
   (let ((sol (getbb *result* :solution)))
     (fe-value sol #d(0.5 0.5)))
-  #+(or)
-  (defparameter *result*
+  (storing
     (let* ((dim 2) (order 3) (delta 1)
 	   (problem (driven-cavity dim :smooth-p nil))
 	   (mesh
@@ -128,10 +143,9 @@ for the Navier-Stokes equation using Taylor-Hood finite elements
 			 :output :all :success-if '(> :time 30.0) :observe
 			 (append *stationary-fe-strategy-observe*
 				 (list (watch-dc-center-velocity dim)))))))
-  (plot (getbb *result* :solution) :shape 2 :key
-	#'(lambda (vec)
-	    (vector (vref (vref vec 0) 0)
-		    (vref (vref vec 1) 0))))
+  (plot (getbb *result* :solution) :component 'fl.navier-stokes::u
+        :rank 1 :shape 2)
+  (plot (getbb *result* :solution) :component 'fl.navier-stokes::p)
   (fe-extreme-values (getbb *result* :solution))
   (time (plot (getbb *result* :solution) :component 1))
   ;; (time (plot (component (getbb *result* :solution) 1)))

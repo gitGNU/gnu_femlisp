@@ -61,24 +61,6 @@ slot."))
 ;;; Interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric evaluate (f x)
-  (:documentation "Generic evaluation of functions on an argument.  Numbers and
-arrays are treated as constants.  Special evaluation is defined for multivariate
-polynomials on vectors and for <function> objects.")
-  (:method ((f function) x)
-    "Lisp functions are evaluated by @command{funcall}."
-    (funcall f x))
-  (:method ((num number) x)
-    "Numbers are treated as constant functions."
-    (declare (ignore x))
-    num)
-  (:method ((vec array) x)
-    "Arrays are treated as constant functions.  This feature should
-probably not be used, because an alternative interpretation would be to
-apply evaluate to all entries, so misunderstandings may arise."
-    (declare (ignore x))
-    vec))
-
 (defgeneric multiple-evaluate (func positions)
   (:documentation "Multiple evaluations of @arg{func} may be optimized.")
   (:method (func positions)
@@ -233,10 +215,6 @@ vector b.  It represents the map @math{x -> Ax+b}."))
 ;;; function composition
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod compose-2 (f g)
-  #'(lambda (x)
-      (evaluate f (evaluate g x))))
-
 (defmethod compose-2 ((func1 <function>) (func2 <function>))
   (make-instance
    '<special-function>
@@ -249,12 +227,6 @@ vector b.  It represents the map @math{x -> Ax+b}."))
 	#'(lambda (x)
 	    (m* (evaluate-gradient func1 (evaluate func2 x))
 		(evaluate-gradient func2 x))))))
-
-(defun compose (&rest functions)
-  "Returns the composition of @arg{functions}."
-  (cond ((null functions) #'identity)
-	((single? functions) (car functions))
-	(t (compose-2 (car functions) (apply #'compose (cdr functions))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; transformed functions
@@ -425,7 +397,8 @@ parameter."
 	  #'(lambda (x)
 	      (let ((s (aref x 0))
 		    (xrest (vector-slice x 1 domain-dim)))
-		(join (ensure-matlisp
+		(join :horizontal
+		      (ensure-matlisp
 		       (m- (evaluate func2 xrest) (evaluate func1 xrest)))
 		      (axpy! (- 1.0 s) (evaluate-gradient func1 xrest)
 			     (scal s (evaluate-gradient func2 xrest))))))))))
@@ -558,7 +531,6 @@ isometrically to @math{S^1}."
 (defun test-function ()
   (let* ((f (sparse-function (x) (- 2.0 (* x x))))
 	 (df (sparse-real-derivative f))
-	 (s (sparse-function () 1))
 	 (x 1.0))
     (let ((f (funcall f x))
 	  (df (funcall df x)))

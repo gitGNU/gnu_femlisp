@@ -56,10 +56,12 @@ taken into account by methods to @arg{select-discretization}.")
 
 (defgeneric select-discretization (problem blackboard)
   (:documentation "Select a discretization for the given @var{problem}
-depending on the parameters on the @var{blackboard}."))
-
-(defmethod select-discretization :around (problem blackboard)
-  "Forces the use of a discretization on the blackboard."
-  (declare (ignore problem))
-  (aif (getbb blackboard :fe-class) it (call-next-method)))
+depending on the parameters on the @var{blackboard}.")
+  (:method (problem blackboard)
+    (declare (ignore blackboard))
+   (lagrange-fe 4 :nr-comps (nr-of-components problem)))
+  (:method :around (problem blackboard)
+   "Forces the use of a discretization on the blackboard."
+   (declare (ignore problem))
+   (aif (getbb blackboard :fe-class) it (call-next-method))))
 

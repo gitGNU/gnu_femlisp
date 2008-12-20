@@ -31,10 +31,12 @@ case "`basename $FEMLISP_CL`" in
     alisp) FEMLISP_CL_TYPE=acl;;
     mlisp) FEMLISP_CL_TYPE=acl;;
     lisp) FEMLISP_CL_TYPE=cmucl;;
+    lispworks) FEMLISP_CL_TYPE=lispworks;;
     cmucl) FEMLISP_CL_TYPE=cmucl;;
     sbcl) FEMLISP_CL_TYPE=sbcl;;
     ecl) FEMLISP_CL_TYPE=ecl;;
     gcl) FEMLISP_CL_TYPE=gcl;;
+    scl) FEMLISP_CL_TYPE=scl;;
 esac
 
 echo "Enter the type of your Lisp [$FEMLISP_CL_TYPE]: "
@@ -48,9 +50,11 @@ fi
 case $FEMLISP_CL_TYPE in
     acl) echo -e "using Allegro CL\n";;
     cmucl) echo -e "using CMUCL\n";;
+    lispworks) echo -e "using Lispworks\n";;
     sbcl) echo -e "... using SBCL\n";;
     ecl) echo -e "... using ECL\n";;
     gcl) echo -e "... using GCL\n";;
+    scl) echo -e "... using SCL\n";;
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
 esac
 

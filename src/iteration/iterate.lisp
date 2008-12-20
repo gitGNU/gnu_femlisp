@@ -65,8 +65,7 @@
     (declare (ignore blackboard))
     (if (slot-boundp iter 'output)
 	(let ((slot (slot-value iter 'output)))
-	  (when (null slot)
-	    (error "output-slot is NIL"))
+	  #+(or) (when (null slot) (error "output-slot is NIL"))
 	  slot)
 	(or (member *output-depth* '(t :all :infinity))
 	    (<= *iteration-depth* *output-depth*)))))
@@ -93,14 +92,11 @@ blackboard.  Keywords are replaced by macros accessing the blackboard."
     (compile nil
 	     `(lambda (,bb)
 	       (declare (ignorable ,bb))
-	       ,(map-tree
-		 #'(lambda (atom)
-		     (if (and (symbolp atom)
-			      (eq (symbol-package atom)
-				  (find-package :keyword)))
-			 `(getbb ,bb ,atom)
-			 atom))
-		 test)))))
+	       ,(map-tree #'(lambda (atom)
+			      (if (keywordp atom)
+				  `(getbb ,bb ,atom)
+				  atom))
+			  test)))))
 
 (defmethod initialize-instance :after ((iter <iteration>) &key &allow-other-keys)
   (with-slots (success-if failure-if success-if-fn failure-if-fn)
@@ -140,14 +136,20 @@ will be another reader function for some slot.")
   (:documentation "Iterates on the data in the blackboard according to the
 iteration iter."))
 
+(defvar *iteration-name*
+  :class-name
+  "One of (:class-name :object :all).")
+
 (defmethod name ((iter <iteration>))
   "The default name of an iteration is either its class name or the class
 name together with the name of the inner iteration."
-  (aif (inner-iteration iter)
-       (format nil "~A (~A)"
-	       (class-name (class-of iter))
-	       (class-name (class-of it)))
-       (class-name (class-of iter))))
+  (flet ((show-it (iter)
+           (case *iteration-name*
+             (:class-name (class-name (class-of iter)))
+             (t iter))))
+    (aif (inner-iteration iter)
+         (format nil "~A (~A)" (show-it iter) (show-it it))
+         (format nil "~A" (show-it iter)))))
 
 (defmethod initially :before ((iter <iteration>) blackboard)
   "Reset data on the blackboard."

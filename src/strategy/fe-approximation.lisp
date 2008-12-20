@@ -133,14 +133,17 @@ boundary works significantly better with @math{p>=2}."
 (defmethod initially :after ((fe-strategy <fe-approximation>) blackboard)
   "Ensures a finite element ansatz space and a first approximation to the
 solution on the blackboard."
-  (with-items (&key ansatz-space solution)
+  (with-items (&key ansatz-space solution fe-class)
       blackboard
+    (when (slot-boundp fe-strategy 'fe-class)
+      (setf fe-class (fe-class fe-strategy)))
     (ensure-ansatz-space blackboard)
     (ensure solution (choose-start-vector ansatz-space))
     ;; ensure data correctness and compatibility
     (check (mesh ansatz-space))
     ;;
-    (with-slots (estimator indicator) fe-strategy
+    (with-slots (estimator indicator fe-class) fe-strategy
+      ;; fe-class?
       (unless (slot-boundp fe-strategy 'estimator)
 	(setq estimator (select-estimator (problem ansatz-space) blackboard)))
       (unless (slot-boundp fe-strategy 'indicator)

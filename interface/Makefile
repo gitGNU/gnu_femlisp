@@ -31,7 +31,7 @@
 
 SUPERLU_INCLUDE=/usr/include/superlu
 SUPERLU_LIBRARY=/usr/lib
-UMFPACK_INCLUDE=/usr/include/umfpack
+UMFPACK_INCLUDE=/usr/include/suitesparse
 UMFPACK_LIBRARY=/usr/lib
 
 SUPERLU_LIB=#-L $(SUPERLU_LIBRARY)
@@ -39,13 +39,13 @@ AMD_LIB=#-L $(UMFPACK_LIBRARY)
 
 all: superlu umfpack
 
-superlu: $(SUPERLU_INCLUDE)/dsp_defs.h $(SUPERLU_LIBRARY)/libsuperlu.so
+superlu: $(SUPERLU_INCLUDE)/slu_ddefs.h $(SUPERLU_LIBRARY)/libsuperlu.so
 	gcc -c -fPIC -I$(SUPERLU_INCLUDE) superlu.c;
 	ld -shared $(SUPERLU_LIB) -lsuperlu superlu.o -o superlu.so
 
 umfpack: $(UMFPACK_INCLUDE)/umfpack.h
 	gcc -I$(UMFPACK_INCLUDE) -Wall -fPIC -c umfpack.c;
-	ld -shared $(UMFPACK_LIB) $(AMD_LIB) -lumfpack -lamd umfpack.o -o umfpack.so
+	ld -shared $(UMFPACK_LIB) $(AMD_LIB) -lumfpack -lamd -lblas -llapack umfpack.o -o umfpack.so
 
 clean:
 	rm -f superlu superlu.o superlu.so superlu.lgs superlu.solution

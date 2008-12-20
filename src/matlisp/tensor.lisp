@@ -141,7 +141,7 @@ given @arg{dimensions}."
 	       tree)
     tensor))
 
-(definline compute-offset (index offset0 offsets)
+(defun compute-offset (index offset0 offsets)
   (declare (type fixnum offset0))
   (declare (type fixnum-vec index offsets))
   (let ((sum offset0))
@@ -356,6 +356,7 @@ contracted index pair fit."
 	finally (return t)))
 
 (defmethod t* ((tensor1 full-tensor) (tensor2 full-tensor) contraction-pairs)
+  #+lispworks (declare (optimize (float 0)))
   (assert (and (typep tensor1 (full-tensor 'double-float))
 	       (typep tensor2 (full-tensor 'double-float))))
   (let ((dims1 (dimensions tensor1))
@@ -392,16 +393,16 @@ contracted index pair fit."
 	   (let ((x store1)
 		 (y store2))
 	     (declare (type double-vec x y))
-	     (declare (optimize (speed 3) (safety 0)))
-	     (let* ((result (make-real-tensor nil))
-		    (store (store result)))
-	       (declare (type double-vec store))
-	       (setf (aref store 0)
-		     (let ((sum 0.0))
-		       (declare (type double-float sum))
-		       (dotimes (i (length x) sum)
-			 (incf sum (* (aref x i) (aref y i))))))
-	       result)))
+	     (very-quickly
+	       (let* ((result (make-real-tensor (fixnum-vec)))
+		      (store (store result)))
+		 (declare (type double-vec store))
+		 (setf (aref store 0)
+		       (let ((sum 0.0))
+			 (declare (type double-float sum))
+			 (dotimes (i (length x) sum)
+			   (incf sum (* (aref x i) (aref y i))))))
+		 result))))
 	  (t
 	   (let* ((crank (length cinds1))
 		  (offsets1 (offsets shuffled1))
@@ -415,7 +416,8 @@ contracted index pair fit."
 		  (result (make-real-tensor dims))
 		  (offsets (offsets result))
 		  (store (store result)))
-	     (declare (type fixnum contraction-length))
+	     (declare (type fixnum contraction-length)
+		      (type double-vec store))
 	     (loop
 	      ;; now the indices from 0,...,crank-1 will be contracted
 	      with index1 = (make-fixnum-vec rank-part1)
@@ -423,15 +425,14 @@ contracted index pair fit."
 	      with offset of-type fixnum = 0 do
 	      (loop with index2 = (make-fixnum-vec rank-part2)
 		    with off2 of-type fixnum = 0 do
-		    (setf (aref store offset)
-			  (let ((x store1)
-				(y store2))
-			    (declare (type double-vec x y))
-			    (declare (optimize (speed 3) (safety 0)))
-			    (loop for i from off1 below (the fixnum (+ off1 contraction-length))
-				  and j from off2
-				  summing (* (aref x i) (aref y j)) double-float)			    
-			    ))
+		   (let ((x store1)
+			 (y store2))
+		     (declare (type double-vec x y))
+		     (setf (aref store offset)
+			   (very-quickly
+			     (loop for i from off1 below (the fixnum (+ off1 contraction-length))
+				and j from off2
+				summing (* (aref x i) (aref y j)) of-type double-float))))
 		    while
 		    (dotimes (i2 rank-part2 nil)
 		      (incf (aref index2 i2))

@@ -53,10 +53,10 @@
 #+umfpack
 (defun umfpack (m n nnz cs ri store nrhs rhs sol orientation)
   "Calls UMFPACK."
-  (fl.port:foreign-call-wrapper
-   (c-umfpack m n nnz (vector-sap cs) (vector-sap ri)
-	      (vector-sap store) nrhs (vector-sap rhs)
-	      (vector-sap sol) orientation)))
+  (fl.port:foreign-call
+   #'c-umfpack m n nnz (vector-sap cs) (vector-sap ri)
+   (vector-sap store) nrhs (vector-sap rhs)
+   (vector-sap sol) orientation))
 
 ;;; Testing
 
@@ -64,7 +64,7 @@
   #+umfpack (direct-solver-test 'umfpack)
   )
 
-
+;;; (test-umfpack)
 (fl.tests:adjoin-test 'test-umfpack)
 
 

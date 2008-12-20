@@ -3,6 +3,9 @@
 This is a list of known bugs:
 -----------------------------
 
+* inside-cell? does not test correctly for lower-dimensional cells
+
+* Multithreaded SBCL does not show FL.APPLICATION when starting a core.
 
 * Parallel solving still does not work reliably.
 
@@ -20,5 +23,3 @@ This is a list of known bugs:
   @path{femlisp/images/output.dx}.  This bug may well lie outside of
   Femlisp, since also "dx -script" in an xterm window does not work.
 
-* Loading the SuperLU/UMFPACK interface was observed to fail on
-  Suse/AMD64.  (Remedy: work without SuperLU/UMFPACK.)

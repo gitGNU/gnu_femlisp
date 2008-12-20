@@ -48,7 +48,8 @@ is stored in the solution vector."))
 
 (defmethod discretize-locally
     ((problem <ellsys-problem>) coeffs vecfe qrule fe-geometry
-     &key matrix rhs local-u local-v fe-parameters &allow-other-keys)
+     &key matrix rhs mass-matrix local-u local-v fe-parameters
+     &allow-other-keys)
   "Local discretization for a pde system of the form described in the
 documentation of the package @package{ELLSYS}."
   (declare (optimize debug))
@@ -77,75 +78,81 @@ documentation of the package @package{ELLSYS}."
 	    (left-gradients gradients))
        (assert (vectorp left-vals))
        (loop
-	for coeff in coeffs
-	for name = (coefficient-name coeff) do
-	;; matrix part
-	(when matrix
-	  (case name
-	    (FL.ELLSYS::A  ; diffusion
-	     (let ((diff-tensor (evaluate coeff coeff-input)))
-	       (dbg :disc "Discretizing diffusion")
-	       (for-each-entry-and-key
-		#'(lambda (diffusion i j)
-		    (gemm! weight (m* (aref left-gradients j) diffusion) (aref right-gradients i)
-			   1.0 (mref matrix i j) :NT))
-		diff-tensor)))
-	    (FL.ELLSYS::B
-	     (dbg :disc "Discretizing convection")
-	     (let ((velocity-tensor (evaluate coeff coeff-input)))
-	       (for-each-entry-and-key
-		#'(lambda (velocity i j)
-		    (gemm! weight (m* (aref left-gradients i) velocity)
-			   (aref right-vals j) 1.0 (mref matrix i j) :NT))
-		velocity-tensor)))
-	    (FL.ELLSYS::C
-	     (dbg :disc "Discretizing non-conservative convection")
-	     (let ((velocity-tensor (evaluate coeff coeff-input)))
-	       (for-each-entry-and-key
-		#'(lambda (velocity i j)
-		    (gemm! weight (aref left-vals i)
-			   (m* (aref right-gradients j) velocity)
-			   1.0 (mref matrix i j) :NT))
-		velocity-tensor)))
-	    (FL.ELLSYS::R
-	     (dbg :disc "Discretizing reaction")
-	     (let ((reaction-tensor (evaluate coeff coeff-input)))
-	       (for-each-entry-and-key
-		#'(lambda (reaction i j)
-		    (unless (mzerop reaction)
-		      (when (standard-matrix-p reaction)
-			(assert (= 1 (nrows reaction) (ncols reaction)))
-			(setq reaction (vref reaction 0)))
-		      (gemm! (* weight reaction) (aref left-vals i) (aref right-vals j)
-			     1.0 (mref matrix i j) :NT)))
-		reaction-tensor)))))
-	(when rhs
-	  (case name
-	    (FL.ELLSYS::F
-	     (dbg :disc "Discretizing standard source")
-	     (let ((source-vector  (evaluate coeff coeff-input)))
-	       (for-each-entry-and-key
-		#'(lambda (source k)
-		    (gemm! weight (aref left-vals k) (ensure-matlisp source)
-			   1.0 (aref rhs k)))
-		source-vector)))
-	    (FL.ELLSYS::G
-	     (dbg :disc "Discretizing g-source")
-	     (let ((g-source-vector (evaluate coeff coeff-input)))
-	       (for-each-entry-and-key
-		#'(lambda (g-source k)
-		    (gemm! weight (aref left-gradients k) g-source
-			   1.0 (aref rhs k)))
-		g-source-vector)))
-	    (FL.ELLSYS::H
-	     (dbg :disc "Discretizing h-source")
-	     (let ((diff-tensor (evaluate (get-coefficient coeffs 'FL.ELLSYS::A) coeff-input))
-		   (gamma (evaluate coeff coeff-input)))
-	       (for-each-entry-and-key
-		#'(lambda (diffusion i j)
-		    (gemm! weight (m* (aref left-gradients j) diffusion) (aref gamma j)
-			   1.0 (aref rhs i)))
-		diff-tensor))))))))
+	  for coeff in coeffs
+	  for name = (coefficient-name coeff) do
+	  ;; matrix part
+	  (when matrix
+	    (case name
+	      (FL.ELLSYS::A		; diffusion
+	       (let ((diff-tensor (evaluate coeff coeff-input)))
+		 (dbg :disc "Discretizing diffusion")
+		 (for-each-entry-and-key
+		  #'(lambda (diffusion i j)
+		      (gemm! weight (m* (aref left-gradients j) diffusion) (aref right-gradients i)
+			     1.0 (mref matrix i j) :NT))
+		  diff-tensor)))
+	      (FL.ELLSYS::B
+	       (dbg :disc "Discretizing convection")
+	       (let ((velocity-tensor (evaluate coeff coeff-input)))
+		 (for-each-entry-and-key
+		  #'(lambda (velocity i j)
+		      (gemm! weight (m* (aref left-gradients i) velocity)
+			     (aref right-vals j) 1.0 (mref matrix i j) :NT))
+		  velocity-tensor)))
+	      (FL.ELLSYS::C
+	       (dbg :disc "Discretizing non-conservative convection")
+	       (let ((velocity-tensor (evaluate coeff coeff-input)))
+		 (for-each-entry-and-key
+		  #'(lambda (velocity i j)
+		      (gemm! weight (aref left-vals i)
+			     (m* (aref right-gradients j) velocity)
+			     1.0 (mref matrix i j) :NT))
+		  velocity-tensor)))
+	      (FL.ELLSYS::R
+	       (dbg :disc "Discretizing reaction")
+	       (let ((reaction-tensor (evaluate coeff coeff-input)))
+		 (for-each-entry-and-key
+		  #'(lambda (reaction i j)
+		      (unless (mzerop reaction)
+			(when (standard-matrix-p reaction)
+			  (assert (= 1 (nrows reaction) (ncols reaction)))
+			  (setq reaction (vref reaction 0)))
+			(gemm! (* weight reaction) (aref left-vals i) (aref right-vals j)
+			       1.0 (mref matrix i j) :NT)))
+		  reaction-tensor)))))
+	  (when rhs
+	    (case name
+	      (FL.ELLSYS::F
+	       (dbg :disc "Discretizing standard source")
+	       (let ((source-vector (evaluate coeff coeff-input)))
+		 (for-each-entry-and-key
+		  #'(lambda (source k)
+		      (gemm! weight (aref left-vals k) (ensure-matlisp source)
+			     1.0 (aref rhs k)))
+		  source-vector)))
+	      (FL.ELLSYS::G
+	       (dbg :disc "Discretizing g-source")
+	       (let ((g-source-vector (evaluate coeff coeff-input)))
+		 (for-each-entry-and-key
+		  #'(lambda (g-source k)
+		      (gemm! weight (aref left-gradients k) g-source
+			     1.0 (aref rhs k)))
+		  g-source-vector)))
+	      (FL.ELLSYS::H
+	       (dbg :disc "Discretizing h-source")
+	       (let ((diff-tensor (evaluate (get-coefficient coeffs 'FL.ELLSYS::A) coeff-input))
+		     (gamma (evaluate coeff coeff-input)))
+		 (for-each-entry-and-key
+		  #'(lambda (diffusion i j)
+		      (gemm! weight (m* (aref left-gradients j) diffusion) (aref gamma j)
+			     1.0 (aref rhs i)))
+		  diff-tensor)))))
+	  )
+       (when mass-matrix
+	 (dbg :disc "Discretizing mass matrix")
+	 (loop for i from 0 and vals across shape-vals do
+	      (gemm! weight vals vals 1.0 (mref mass-matrix i i) :NT)))
+	 ))
     ;; nonstandard rhs (outside of ip loop)
     (whereas ((fe-rhs-function (and rhs (get-coefficient coeffs 'FL.ELLSYS::FE-RHS))))
       (m+! (evaluate fe-rhs-function (list :cell cell :fe vecfe :geometry fe-geometry))

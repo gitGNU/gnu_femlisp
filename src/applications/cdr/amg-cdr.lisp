@@ -58,7 +58,7 @@ aligned grids."
   :execute
   (lambda ()
     (let ((eps (float (user-input "eps: " #'read-from-string #'realp) 1.0)))
-      (defparameter *result*
+      (storing
 	(solve (blackboard
 		:problem (cdr-model-problem 2 :diffusion (diag (double-vec eps 1.0)))
 		:output t :plot-mesh t

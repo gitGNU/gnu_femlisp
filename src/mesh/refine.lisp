@@ -110,25 +110,24 @@ positions should already be filled with the refinements of the cell's
 boundary.  Returns a vector of children."
   (declare (type simple-vector subcell-refinements refinfo))
   (declare (optimize speed (safety 1)))
-  (let ((my-refinement (make-array (length refinfo) :initial-element nil)))
+  (lret ((my-refinement (make-array (length refinfo) :initial-element nil)))
     (setf (aref subcell-refinements 0) my-refinement)
-    (loop for (child . vec) across refinfo  ; ! was child-refcell
-       and n of-type fixnum from 0 do
-	 (symbol-macrolet ((new-child (aref my-refinement n)))
-	   (cond
-	     ((vertex-p child)
-	      (setf new-child (make-vertex (local->global cell vec))))
-	     (t (setf new-child (make-instance (class-of child)))
-		(setf (slot-value new-child 'boundary)
-		      (map 'cell-vec
-			   #'(lambda (k&j)
-			       (aref (the simple-vector
-				       (aref subcell-refinements (car k&j))) (cdr k&j)))
-			   vec))
-		(when (mapped-p child)
-		  (setf (slot-value new-child 'mapping)
-			(compose-2 (cell-mapping cell) (cell-mapping child))))))))
-    my-refinement))
+    (loop for (child . vec) across refinfo ; ! was child-refcell
+       and n of-type (integer 0 (#.array-dimension-limit)) from 0 do
+       (symbol-macrolet ((new-child (aref my-refinement n)))
+         (cond
+           ((vertex-p child)
+            (setf new-child (make-vertex (local->global cell vec))))
+           (t (setf new-child (make-instance (class-of child)))
+              (setf (slot-value new-child 'boundary)
+                    (map 'cell-vec
+                         #'(lambda (k&j)
+                             (aref (the simple-vector
+                                     (aref subcell-refinements (car k&j))) (cdr k&j)))
+                         vec))
+              (when (mapped-p child)
+                (setf (slot-value new-child 'mapping)
+                      (compose-2 (cell-mapping cell) (cell-mapping child))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; refinement information in a skeleton
@@ -176,7 +175,7 @@ the rule and the children."
   "Setup the refinement rule from a refined skeleton."
   (declare (optimize debug))
   (let ((rule (make-instance 'refinement-rule :names names :reference-cell refcell)))
-    (with-slots (boundary-refinement-rules refinement-info refinement-function)
+    (with-slots (boundary-refinement-rules refinement-info)
 	rule
       ;; sanity checks
       (assert (reference-cell-p refcell))
@@ -242,7 +241,7 @@ transform-A, transform-b:  determine the transformation mapping for the child"
 (defun refine-info->refinement-rule (names refcell refine-info)
   "This generates a refinement-rule from the older refine-info data."
   (let ((rule (make-instance 'refinement-rule :names names :reference-cell refcell)))
-    (with-slots (boundary-refinement-rules refinement-info refinement-function)
+    (with-slots (boundary-refinement-rules refinement-info)
 	rule
       (setf boundary-refinement-rules
 	    (map 'vector
@@ -409,12 +408,12 @@ already refined.  An existing refinement of `cell' is simply kept."))
 		 child (mapped-cell-class (class-of child)
 					  (typep cell '<distorted-cell>))
 		 :mapping
-		 (if (typep cell '<distorted-cell>)
+		 (if (typep cell '<distorted-cell>) ; #+scl (scl-test cell)
 		     (mapping cell)
 		     (transform-function (mapping cell)
-					      :domain-transform
-					      (list (child-transform-A child-info)
-						    (child-transform-b child-info)))))))))
+                                         :domain-transform
+                                         (list (child-transform-A child-info)
+                                               (child-transform-b child-info)))))))))
 	  ;; put the pair cell/children-vector in the refined-refion
 	(when refined-region
 	  (setf (skel-ref refined-region cell) children-vector))

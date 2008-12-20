@@ -56,7 +56,7 @@
 		     (gradient (scal! (1- (aref x dim-1))
 				      (ensure-matlisp (funcall grad-f x1) :row)))
 		     (result (eye dim)))
-		(minject gradient result dim-1 0)
+		(minject! gradient result dim-1 0)
 		(setf (mref result dim-1 dim-1) value)
 		result))))))
 
@@ -99,7 +99,10 @@ identified lateral faces."
   "Returns a boundary layer cell with a sinusoidally oscillating lower
 boundary."
   (flet ((f (x)
-	   (- shift (* amplitude (reduce #'* x :key #'(lambda (xc) #I"sin(2.0*pi*xc)")))))
+	   (- shift (* amplitude
+                       (reduce #'* x :key
+                               #'(lambda (xc)
+                                   (float #I"sin(2.0*pi*xc)" 1.0))))))
 	 (grad-f (x)
 	   (let ((result (make-double-vec (1- dim))))
 	     (dotimes (i (1- dim) result)
@@ -107,16 +110,20 @@ boundary."
 		     (* (- amplitude)
 			(let ((prod 1.0))
 			  (dotimes (j (1- dim) prod)
-			    (_f * prod (if (= i j)
-					   #I"2.0*pi*cos(2.0*pi*x[j])"
-					   #I"sin(2.0*pi*x[j])"))))))))))
+			    (_f * prod (float (if (= i j)
+                                                  #I"2.0*pi*cos(2.0*pi*x[j])"
+                                                  #I"sin(2.0*pi*x[j])")
+                                              1.0))))))))))
     (apply #'boundary-layer-cell-domain dim #'f :grad-f #'grad-f rest)))
 
 (defun xsinx-bl-cell (dim &rest rest &key (amplitude 0.4) &allow-other-keys)
   "Returns a boundary layer cell with a sinusoidally oscillating lower
 boundary."
   (flet ((f (x)
-	   (- 1.0 (* amplitude (reduce #'* x :key #'(lambda (xc) #I"xc*sin(2.0*pi*xc)")))))
+	   (- 1.0 (* amplitude
+                     (reduce #'* x :key
+                             #'(lambda (xc)
+                                 (float #I"xc*sin(2.0*pi*xc)" 1.0))))))
 	 (grad-f (x)
 	   (let ((result (make-double-vec (1- dim))))
 	     (dotimes (i (1- dim) result)
@@ -124,9 +131,11 @@ boundary."
 		     (* (- amplitude)
 			(let ((prod 1.0))
 			  (dotimes (j (1- dim) prod)
-			    (_f * prod (if (= i j)
+			    (_f * prod
+                                (float (if (= i j)
 					   #I"sin(2.0*pi*x[j])+2.0*pi*x[j]*cos(2.0*pi*x[j])"
-					   #I"x[j]*sin(2.0*pi*x[j])"))))))))))
+					   #I"x[j]*sin(2.0*pi*x[j])")
+                                       1.0))))))))))
     (apply #'boundary-layer-cell-domain dim #'f :grad-f #'grad-f rest)))
 
 (defun spline-interpolated-bl-cell (heights)

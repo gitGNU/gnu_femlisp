@@ -37,6 +37,7 @@
 (defmethod essential-boundary-constraints
     ((problem <pde-problem>) (ansatz-space <ansatz-space>)
      &key level (where :surface) interface)
+  (declare (optimize debug))
   (assert (or (not (eq where :surface)) interface))
   (let* ((problem (problem ansatz-space))
 	 (h-mesh (hierarchical-mesh ansatz-space))
@@ -79,9 +80,9 @@
 			   ;; this is not yet correct for blockwise
 			   ;; assignments and order p>2, because on edges a
 			   ;; nonconsecutive submatrix should be set
-			   (minject cp-val (mref constraints-P cell-key cell-key) k k)
-			   (minject (aref constraint-val comp)
-				    (vref constraints-rhs cell-key) k 0)
+			   (minject! cp-val (mref constraints-P cell-key cell-key) k k)
+			   (minject! (aref constraint-val comp)
+				     (vref constraints-rhs cell-key) k 0)
 			   ))))))
 	       ;;; alternatively
 	       (destructuring-bind (&key component-index in-component-index)
@@ -112,9 +113,9 @@
 			   ;; this is not yet correct for blockwise
 			   ;; assignments and order p>2, because on edges a
 			   ;; nonconsecutive submatrix should be set
-			   (minject cp-val (mref constraints-P cell-key cell-key) k k)
-			   (minject (aref constraint-val comp)
-				    (vref constraints-rhs cell-key) k 0)
+			   (minject! cp-val (mref constraints-P cell-key cell-key) k k)
+			   (minject! (aref constraint-val comp)
+				     (vref constraints-rhs cell-key) k 0)
 			   ))))))))
 	       )
 	       )))))

@@ -65,6 +65,9 @@ multiplicity different from 1 is used when handling multiple right-hand
 sides and solutions simultaneously."))
   (:documentation "Sparse block vector class indexed with general keys."))
 
+(defmethod ncols ((svec <sparse-vector>))
+  (multiplicity svec))
+
 (defmethod element-type ((svec <sparse-vector>))
   (standard-matrix 'double-float))
 
@@ -78,6 +81,10 @@ sides and solutions simultaneously."))
   (make-instance
    '<sparse-vector> :key->size (key->size svec) :print-key (print-key svec)
    :multiplicity (multiplicity svec)))
+
+(defmethod print-object :after ((svec <sparse-vector>) stream)
+  "Printing sparse vectors."
+  (format stream "{nrows=~A, mult=~A}" (nr-of-entries svec) (multiplicity svec)))
 
 (defmethod in-pattern-p ((svec <sparse-vector>) &rest indices)
   (destructuring-bind (key) indices
@@ -229,6 +236,58 @@ in 'keys' and maybe the ranges in 'ranges' to a matlisp matrix."
 	(setf (vref sub-vec key) entry)))
     sub-vec))
 
+(defmethod minject! ((x <sparse-vector>) (y <sparse-vector>) row-off col-off)
+  "This routine can only inject in the multiplicity dimension."
+  (assert (or (null row-off) (zerop row-off)))
+  (dovec ((xc i) x)
+    (minject! xc (vref y i) 0 col-off)))
+
+(defmethod mextract! ((x <sparse-vector>) (y <sparse-vector>) row-off col-off)
+  "This routine can only extract from the multiplicity dimension."
+  (assert (or (null row-off) (zerop row-off)))
+  (dovec ((yc i) y)
+    (mextract! (vref x i) yc 0 col-off)))
+
+(defmethod matrix-slice ((x <sparse-vector>) &key
+			 from-row (from-col 0) nrows
+			 (ncols (- (ncols x) from-col)))
+  (assert (and (null from-row) (null nrows)))
+  (lret ((result (make-analog x)))
+    (setf (slot-value result 'multiplicity) ncols)
+    (mextract! result x from-row from-col)))
+
+(defmethod join-instance (orientation (x <sparse-vector>) &rest vecs)
+  (unless (eq orientation :horizontal)
+    "Only the horizontal join of sparse vectors is allowed.")
+  (lret ((result (make-analog x)))
+    (setf (slot-value result 'multiplicity)
+	  (reduce #'+ (cons x vecs) :key #'multiplicity))))
+
+(defmethod join-horizontal! ((result <sparse-vector>) &rest vectors)
+  (loop with k = 0
+     for vec in vectors do
+     (minject! vec result 0 k)
+     (incf k (multiplicity vec))
+     finally (assert (= k (multiplicity result))))
+  result)
+
+(defmethod m*-tn-product-instance ((x <sparse-vector>) (y <sparse-vector>))
+  "Default method allocates an instance of class of Y."
+  (make-instance (standard-matrix (scalar-type x))
+		 :nrows (ncols x) :ncols (ncols y)))
+
+(defmethod gemm-tn! (alpha (x <sparse-vector>) (y <sparse-vector>) beta (z standard-matrix))
+  (scal! beta z)
+  (dovec ((xc i) x)
+    (gemm-tn! alpha xc (vref y i) 1.0 z))
+  z)
+
+(defmethod m* ((x <sparse-vector>) (y standard-matrix))
+  (lret ((result (make-analog x)))
+    (setf (slot-value result 'multiplicity) (ncols y))
+    (dovec ((xc i) x)
+      (setf (vref result i) (m* xc y)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; vector blas operations for the <svec> class
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -311,7 +370,7 @@ indexed by general keys."))
 (defmethod nr-nonempty-columns ((smat <sparse-matrix>))
   (hash-table-count (column-table smat)))
 
-(defmethod mzerop ((smat <sparse-matrix>) &optional (threshold 0.0))
+(defmethod mzerop ((smat <sparse-matrix>) &optional (threshold *mzerop-threshold*))
   (declare (ignore threshold))
   (or (zerop (nr-nonempty-rows smat))
       #-ecl(call-next-method)))
@@ -650,7 +709,6 @@ means a lot of consing."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Matrix-vector stuff
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 (defmethod make-image-vector-for ((A <sparse-matrix>) &optional (multiplicity 1))
   (let ((result (make-instance '<sparse-vector> :key->size (row-key->size A)
@@ -1025,6 +1083,8 @@ problem."
 	 (constantly-2 (x) (declare (ignore x)) 2))
     (let* ((x (make-instance '<sparse-vector> :key->size #'constantly-1))
 	   (y (make-instance '<sparse-vector> :key->size #'constantly-1))
+	   (z (make-instance '<sparse-vector> :key->size #'constantly-1
+					      :multiplicity 2))
 	   (A (make-sparse-matrix
 	       :row-key->size #'constantly-1 :col-key->size #'constantly-1
 	       :keys->pattern (constantly (full-crs-pattern 1 1))))
@@ -1043,6 +1103,13 @@ problem."
       (assert (mzerop (vref x 1)))
       (axpy! 2.0 y x)
       (assert (= (norm x 1) 2.0))
+      (minject! x z nil 1)
+      (show z)
+      (m*-tn z z)
+      (mextract! y z nil 1)
+      (show x)
+      (show z)
+      (show (join :horizontal x z))
       ;;
       (setf (mref B 0 0) #m((1.0)))
       (terpri)

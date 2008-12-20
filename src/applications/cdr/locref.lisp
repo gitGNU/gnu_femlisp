@@ -38,23 +38,26 @@
  "This file contains tests for solving of CDR problems with local
 refinement.")
 
-(defun test-refined-laplace-problem ()
+(defun laplace-1d-locally-refined (boundary-p nr-of-local-refinements)
+  (let* ((problem (cdr-model-problem 1))
+	 (fe-class (lagrange-fe 1))
+	 (h-mesh (uniformly-refined-hierarchical-mesh
+		  (domain problem) (if boundary-p 1 2))))
+    (loop repeat nr-of-local-refinements do
+	 (refine h-mesh :indicator (rcurry #'inside-cell? (if boundary-p #d(0.0) #d(0.5)))))
+    (discretize-globally problem h-mesh fe-class)))
 
-(let* ((boundary-p t)
-       (problem (cdr-model-problem 1))
-       (fe-class (lagrange-fe 1))
-       (h-mesh (uniformly-refined-hierarchical-mesh
-		(domain problem) (if boundary-p 1 2)))
-       (v-cycle (geometric-cs :base-level 0 :post-steps 0 :pre-steps 0)))
-  (loop repeat 1 do (refine h-mesh :indicator (rcurry #'inside-cell? (if boundary-p #d(0.0) #d(0.5)))))
+(defun test-refined-laplace-problem ()
+  
   (multiple-value-bind (mat rhs)
-      (discretize-globally problem h-mesh fe-class)
+      (laplace-1d-locally-refined t 1)
       (show rhs)
       (show mat)
-    (let ((mg-data (multilevel-decomposition v-cycle mat)))
-      (show (aref (getbb mg-data :a-vec) 0))
-      #+(or)(show (aref (getbb mg-data :i-vec) 0))
-      )))
+      (let* ((v-cycle (geometric-cs :base-level 0 :post-steps 0 :pre-steps 0))
+	     (mg-data (multilevel-decomposition v-cycle mat)))
+	(show (aref (getbb mg-data :a-vec) 0))
+	#+(or)(show (aref (getbb mg-data :i-vec) 0))
+	))
 
 (let* ((problem (cdr-model-problem
 		 (n-cube-domain 1)

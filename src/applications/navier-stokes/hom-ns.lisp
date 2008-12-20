@@ -40,7 +40,7 @@
 
 (defun ns-cell-problem-force (dim)
   (constant-coefficient
-   'FL.NAVIER-STOKES::FORCE
+   'FL.ELLSYS::F
    (coerce (loop for i upto dim collect
 		 (if (< i dim)
 		     (ensure-matlisp (unit-vector dim i) :row)
@@ -52,14 +52,16 @@
     (make-instance
      '<navier-stokes-problem>
      :domain domain
-     :patch->coefficients
+     :coefficients
      #'(lambda (patch)
 	 (cond ((patch-on-inner-boundary-p patch)
 		(list (no-slip-boundary dim)))
 	       ((= dim (dimension patch))  ; inner coeffs
-		(list (navier-stokes-viscosity-coefficient viscosity)
-		      (navier-stokes-inertia-coefficient reynolds)
-		      (ns-cell-problem-force dim)))
+		(list*
+                 (navier-stokes-viscosity-coefficient dim viscosity)
+                 (navier-stokes-pressure-and-continuity-coefficient dim)
+                 (ns-cell-problem-force dim)
+                 (navier-stokes-inertia-coefficients dim reynolds)))
 	       (t ())))
      :multiplicity dim)))
 
@@ -91,28 +93,27 @@ components."
   (let* ((domain (domain problem))
 	 (dim (dimension domain))
 	 (*output-depth* output))
-    (defparameter *result*
+    (storing
       (solve
        (make-instance
 	'<stationary-fe-strategy>
-	:fe-class (print (navier-stokes-lagrange-fe order dim delta))
+	:fe-class (navier-stokes-lagrange-fe order dim delta)
 	:estimator (make-instance '<projection-error-estimator>)
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
 	:success-if `(>= :nr-levels ,levels)
 	:plot-mesh plot
 	:solver
-	#+(or)(lu-solver)
-	#-(or)
-	(make-instance
-	 '<linear-solver> :iteration
-	 (let ((smoother (make-instance '<vanka> :store-p store-p)))
-	   (make-instance
-	    '<geometric-cs>
-	    :coarse-grid-iteration
-	    (make-instance '<multi-iteration> :nr-steps 3 :base smoother)
-	    :smoother smoother :pre-steps 1 :post-steps 1 :gamma 2))
-	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
-	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (>= :defnorm 1.0e-9)))
+	(?2 (lu-solver) ; for testing purposes
+	    (make-instance
+	     '<linear-solver> :iteration
+	     (let ((smoother (make-instance '<vanka> :store-p store-p)))
+	       (make-instance
+		'<geometric-cs>
+		:coarse-grid-iteration
+		(make-instance '<multi-iteration> :nr-steps 3 :base smoother)
+		:smoother smoother :pre-steps 1 :post-steps 1 :gamma 2))
+	     :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
+	     :failure-if `(and (> :step 2) (> :step-reduction 0.9) (>= :defnorm 1.0e-9))))
 	:observe
 	(append *stationary-fe-strategy-observe*
 		(list
@@ -137,6 +138,8 @@ components."
 #+(or)
 (stokes-darcy-demo (ns-hole-cell-problem 2)
 		   :order 1 :levels 2 :store-p nil :output :all :plot nil :delta 1)
+
+;;; BUG: (discretization-order (fe-class (getbb *result* :solution)))
 
 #+(or)
 (let ((sol (getbb *result* :solution)))
@@ -191,14 +194,14 @@ Parameters: order=~D, max-levels=~D~%~%"
 
 ;;; Testing:
 (defun hom-ns-tests ()
+  (describe (ns-hole-cell-problem 2))
   (stokes-darcy-demo
    (ns-hole-cell-problem 2)
-   :order 1 :levels 2 :plot nil :delta 1)
-  
+   :order 3 :levels 2 :store-p t :plot nil :delta 1 :output :all)
   (let ((tensor (permeability-tensor *result*)))
     (assert (< (abs (- (mref tensor 0 0) 0.019)) 1e-3)))
   )
 
-;;;  (hom-ns-tests)
+;;; (hom-ns-tests)
 (fl.tests:adjoin-test 'hom-ns-tests)
 

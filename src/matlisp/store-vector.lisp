@@ -51,19 +51,20 @@ array."))
 
 (with-memoization (:type :local :size 2 :id 'store-vector :test 'equal :debug t)
   (defun store-vector (type &key dynamic)
-    (memoizing-let ((type type) (dynamic dynamic))
+    (memoizing-let ((type (upgraded-array-element-type type))
+                    (dynamic dynamic))
       (let ((class-name
 	     (intern (format nil "~A" (list 'store-vector type :dynamic dynamic))
 		     "FL.MATLISP")))
 	(or (find-class class-name nil)
 	    (prog1
-		(compile-and-eval
+		(fl.port:compile-and-eval
 		 `(defclass ,class-name
 		   (,(if dynamic 'store-vector 'static-store-vector))
 		   ()))
-	      (compile-and-eval
+	      (fl.port:compile-and-eval
 	       `(defmethod element-type ((vector ,class-name)) ',type))
-	      (compile-and-eval
+	      (fl.port:compile-and-eval
 	       `(defmethod scalar-type ((vector ,class-name)) ',type))))))))
 
 #+(or)  ; here is a performance problem (memoization, shared-initialize, etc)
@@ -135,13 +136,13 @@ specialized BLAS routines should be used whenever possible."
 (define-blas-macro 'static-store-vector
     '(assert-vector-operation-compatibility (x y)
       `(unless (= (length ,(symbol-store x)) (length ,(symbol-store y)))
-	(error "Store-vectors are incompatible."))))
+	 (error "Store-vectors are incompatible."))))
 
 (define-blas-macro 'static-store-vector
   '(vec-for-each-entry (loop-vars &rest body)
     (let ((i (gensym "I")))
       `(with-blas-data ,loop-vars
-	,@(when (= (length loop-vars) 2)
+	,@(when (= (list-length loop-vars) 2)
 		`((assert-vector-operation-compatibility ,@loop-vars)))
 	(dotimes (,i (length ,(symbol-store (first loop-vars))))
 	  (macrolet ((ref (matrix) (list 'aref (symbol-store matrix) ',i)))
@@ -215,6 +216,7 @@ specialized BLAS routines should be used whenever possible."
 (defun test-store-vector-blas ()
   (dbg-on :blas)
   (dbg-on :compile)
+
   (let ((x (make-instance (store-vector 'double-float) :store #d(0.0)))
 	(y (make-instance (store-vector 'double-float) :store #d(1.0))))
     (copy! x y)

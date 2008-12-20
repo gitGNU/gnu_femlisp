@@ -32,10 +32,10 @@
 
 /************************************************************************
  Compiling:
-  gcc -I/usr/include/umfpack/ -Wall -fPIC -c umfpack.c
+  gcc -I/usr/include/suitesparse/ -Wall -fPIC -c umfpack.c
   ld -lumfpack -lamd -shared umfpack.o -o umfpack.so
  For testing purposes:
-  gcc -D__TESTING__ -I/usr/include/umfpack/ -lumfpack -lamd umfpack.c
+  gcc -D__TESTING__ -I/usr/include/suitesparse/ -lumfpack -lamd umfpack.c
 ************************************************************************/
 
 #include <stdlib.h>
