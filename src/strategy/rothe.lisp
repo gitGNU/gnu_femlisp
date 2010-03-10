@@ -43,6 +43,9 @@
 		(getbb blackboard :model-time))))
   "Standard observe quantities for Rothe.")
 
+(defparameter *model-time* nil
+  "Contains the model time during the iteration for use in coefficient functions.")
+  
 (defclass <rothe> (<iteration>)
   ((model-time :accessor model-time :initarg :model-time :documentation
 	       "Current time in the time-stepping scheme.")
@@ -73,21 +76,23 @@ separate files.")
 (defmethod initially ((rothe <rothe>) blackboard)
   (with-items (&key iv-ip-blackboard) blackboard
     (ensure iv-ip-blackboard (blackboard))
-    (transfer-bb blackboard iv-ip-blackboard '(:fe-class :mesh))
+    (transfer-bb blackboard iv-ip-blackboard '(:fe-class :mesh :plot-mesh))
     (with-items (&key problem success-if failure-if) iv-ip-blackboard
       (ensure problem (initial-value-interpolation-problem
 		       rothe (getbb blackboard :problem)))
       (ensure success-if (slot-value rothe 'stationary-success-if))
       (ensure failure-if (slot-value rothe 'stationary-failure-if))
-      (solve iv-ip-blackboard)
+      (let ((*model-time* (model-time rothe)))
+        (solve iv-ip-blackboard))
       (transfer-bb iv-ip-blackboard blackboard '(:solution :mesh))))
   (call-next-method))
 
 (defmethod intermediate ((rothe <rothe>) blackboard)
   "Plots the solution initially and after each time step."
   (setf (getbb blackboard :model-time) (model-time rothe))
-  (when (slot-value rothe 'plot)
-    (plot (getbb blackboard :solution)))
+  (awhen (slot-value rothe 'plot)
+    (funcall (if (eq it t) #'plot it)
+             (getbb blackboard :solution)))
   (call-next-method))
 
 (defmethod next-step ((rothe <rothe>) blackboard)
@@ -105,7 +110,8 @@ separate files.")
       (setf (get-property problem :old-solution) (getbb blackboard :solution))
       (setf solution (make-ansatz-space-vector ansatz-space))
       (copy! (getbb blackboard :solution) solution)  ; initial value
-      (solve time-step-blackboard)
+      (let ((*model-time* (model-time rothe)))
+        (solve time-step-blackboard))
       (copy! solution (getbb blackboard :solution))
       (incf (model-time rothe) (time-step rothe))
       )))
