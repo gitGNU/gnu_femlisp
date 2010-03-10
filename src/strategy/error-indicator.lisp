@@ -79,7 +79,7 @@ error estimator yields a large eta."
   (with-items (&key mesh refinement-table)
       blackboard
     (let ((hash-table (make-hash-table)))
-      (doskel (cell mesh :dimension :highest :where :surface)
+      (doskel (cell mesh :where :surface)
 	(setf (gethash cell hash-table) cell))
     (setf refinement-table hash-table))))
 
@@ -98,7 +98,7 @@ error estimator yields a large eta."
       blackboard
     (let ((hash-table (make-hash-table))
 	  (in-region (in-region indicator)))
-      (doskel (cell mesh :dimension :highest :where :surface)
+      (doskel (cell mesh :where :surface)
 	(when (funcall in-region cell)
 	  (setf (gethash cell hash-table) cell)))
     (setf refinement-table hash-table))))
