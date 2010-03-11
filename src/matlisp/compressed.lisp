@@ -113,20 +113,22 @@ non-identified value.  Other symbols can be used to identify entries."
   (with-slots (starts) pattern
     (elt starts (1- (length starts)))))
 
-(defun full-compressed-pattern (nrows ncols &optional (orientation :column))
-  "Returns a full compressed pattern."
-  (when (eq orientation :column)
-    (rotatef nrows ncols))
-  (make-instance
-   'compressed-pattern
-   :sizes (vector nrows ncols)
-   :starts (coerce (loop for i from 0 upto nrows
-			 collect (* i ncols))
-		   'int-vec)
-   :indices (coerce (loop for i from 0 below (* nrows ncols)
-			  collect (mod i ncols))
-		    'int-vec)
-   :orientation orientation))
+(with-memoization (:id 'full-compressed-pattern)
+  (defun full-compressed-pattern (nrows ncols &optional (orientation :column))
+    "Returns a full compressed pattern."
+    (when (eq orientation :column)
+      (rotatef nrows ncols))
+    (memoizing-let ((nrows nrows) (ncols ncols) (orientation orientation))
+      (make-instance
+       'compressed-pattern
+       :sizes (vector nrows ncols)
+       :starts (coerce (loop for i from 0 upto nrows
+                          collect (* i ncols))
+                       'int-vec)
+       :indices (coerce (loop for i from 0 below (* nrows ncols)
+                           collect (mod i ncols))
+                        'int-vec)
+       :orientation orientation))))
 
 ;;; for backward compatibility
 (defun full-ccs-pattern (nrows ncols)
@@ -192,7 +194,7 @@ any ordering."
   (make-instance (standard-matrix (element-type cm))
 		 :nrows (nrows cm) :ncols multiplicity))
 
-(with-memoization (:type :local :size 2 :id 'compressed-matrix)
+(with-memoization (:type :global :size 4 :id 'compressed-matrix)
   (defun compressed-matrix (type)
     "Construct a compressed sparse matrix with entries of @arg{type}."
     (memoizing-let ((type type))
@@ -316,11 +318,13 @@ SuperLU.")
 	(let ((nrows (aref sizes 1))
 	      (ncols (aref sizes 0)))
 	  (assert (= nrows (nrows vec)))
-	  (funcall *default-cm-solver*
-		   nrows ncols (number-nonzero-entries (pattern mat))
-		   starts indices (store mat)
-		   (ncols vec) (store vec) (store vec)
-		   (ecase orientation (:column 0) (:row 1)))
+	  (unless (zerop
+                   (funcall *default-cm-solver*
+                            nrows ncols (number-nonzero-entries (pattern mat))
+                            starts indices (store mat)
+                            (ncols vec) (store vec) (store vec)
+                            (ecase orientation (:column 0) (:row 1))))
+            (error "External direct solver did not succeed."))
 	  vec))
       (gesv! (compressed->matlisp mat) vec)))
   

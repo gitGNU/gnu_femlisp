@@ -127,6 +127,13 @@ index in the sorted list."
     (every #'< indices (dimensions tensor)))
   )
 
+(defgeneric entry-allowed-p (tensor &rest indices)
+  (:documentation "Tests if an entry is allowed at this position.")
+  (:method (tensor &rest indices)
+    "The default method allows entries everywhere."
+    (declare (ignore tensor indices))
+    t))
+
 (defmethod in-pattern-p ((tensor <sparse-tensor>) &rest indices)
   (if (null indices)
       t					; indices are in this pattern
@@ -183,7 +190,7 @@ index in the sorted list."
 (defmethod (setf mref) (value (tensor <sparse-tensor>) i j)
   (setf (tensor-ref tensor i j) value))
 
-(defmethod for-each-key ((func function) (tensor <sparse-tensor>))
+(defmethod for-each-key (func (tensor <sparse-tensor>))
   (labels ((helper (reversed-index tensor)
 	     (case (rank tensor)
 	       (1 (loop for index across (indices tensor) do
@@ -193,14 +200,14 @@ index in the sorted list."
 			(helper (cons index reversed-index) entry))))))
     (helper () tensor)))
 
-(defmethod for-each-entry ((func function) (tensor <sparse-tensor>))
+(defmethod for-each-entry (func (tensor <sparse-tensor>))
   (case (rank tensor)
     (1 (loop for entry across (entries tensor) do
 	     (funcall func entry)))
     (t (loop for entry across (entries tensor) do
 	     (for-each-entry func entry)))))
 
-(defmethod for-each-entry-and-key ((func function) (tensor <sparse-tensor>))
+(defmethod for-each-entry-and-key (func (tensor <sparse-tensor>))
   (let ((full-index (make-list (rank tensor) :initial-element 0)))
     (labels ((helper (tensor current-index)
 	       (case (rank tensor)
@@ -215,7 +222,11 @@ index in the sorted list."
 			  (helper entry (cdr current-index)))))))
       (helper tensor full-index))))
 
-(defmethod tensor-for-each ((func function) (tensor <sparse-tensor>) &key (job :both) depth)
+(defgeneric tensor-for-each (func tensor &key job depth)
+  (:documentation "Applies @arg{func} to each index of @arg{tensor} up to
+  @arg{depth}.  @arg{job} can be :entry, :index, or :both."))
+
+(defmethod tensor-for-each (func (tensor <sparse-tensor>) &key (job :both) depth)
   (unless depth (setq depth (rank tensor)))
   (cond
     ((not (plusp depth))
@@ -237,7 +248,7 @@ index in the sorted list."
 	       (tensor-for-each func entry :job :entry :depth (1- depth))
 	       (tensor-for-each (curry func index) entry :job job :depth (1- depth)))))))
 
-(defmethod tensor-for-each ((func function) (mat standard-matrix)
+(defmethod tensor-for-each (func (mat standard-matrix)
 			    &key (job :both) &allow-other-keys)
   (dotimes (i (nrows mat))
     (dotimes (j (ncols mat))
@@ -273,8 +284,7 @@ index in the sorted list."
 	       (if (or (typep entry 'full-tensor)  (typep entry '<sparse-tensor>))
 		   (show-tensor entry (1+ level))))))
     (show-tensor tensor 0)
-    (terpri)
-    tensor))
+    (terpri)))
 
 (defmethod ensure-matlisp ((tensor <sparse-tensor>) &optional (type :column))
   (with-slots (indices) tensor

@@ -82,7 +82,8 @@ name being the symbol @arg{name}.")
 	     ((matrix-p template-arg)
 	      (cond (specialized-class
 		     (unless (eq specialized-class (class-of actual-arg))
-		       (error "Template depends on different classes.")))
+		       (error "Template depends on different classes: ~A <-> ~A."
+                              specialized-class (class-of actual-arg))))
 		    (t
 		     (setq specialized-class (class-of actual-arg))
 		     (setq element-type (element-type actual-arg))))

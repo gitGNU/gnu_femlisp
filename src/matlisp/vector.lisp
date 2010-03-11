@@ -40,13 +40,24 @@
   (:documentation "Length of vector."))
 (defgeneric multiplicity (vec)
   (:documentation "We allow multiple vectors, for solving linear problems
-in parallel."))
+in parallel.")
+  (:method (vec)
+    "The default is a multiplicity of 1."))
 
 (defgeneric element-type (vector)
-  (:documentation "Type of the elements of the vector/matrix."))
+  (:documentation "Type of the elements of the vector/matrix.")
+  (:method (vec)
+    "Default method returns T."
+    t))
 
 (defgeneric scalar-type (vector)
-  (:documentation "Type of the scalars for the vector class."))
+  (:documentation "Type of the scalars for the vector class.")
+  (:method (vec)
+    "Default method returns NUMBER."
+    'number))
+
+(defgeneric nr-of-entries (vector)
+  (:documentation "Total number of (block) entries for vectors."))
 
 (defgeneric total-entries (vector)
   (:documentation "Total number of entries for block vectors."))
@@ -123,15 +134,24 @@ than @arg{threshold}."))
 ;;; a macro based approach which allows suitable inlining.
 
 (defgeneric for-each-key (func vec)
-  (:documentation "Calls @arg{func} on all indices/keys of @arg{vec}."))
+  (:documentation "Calls @arg{func} on all indices/keys of @arg{vec}.")
+  (:method (func vec)
+    "The default method calls @function{for-each-entry-and-key}."
+    (for-each-entry-and-key
+     (lambda (entry &rest keys)
+       (declare (ignore entry))
+       (apply func keys))
+     vec)))
 
 (defgeneric for-each-entry (func vec)
   (:documentation "Calls @arg{func} on all entries of @arg{vec}.")
-  #+(or)
   (:method (func vec)
-    "Default method defined with @function{for-each-key}.  Probably slower
-than a special implementation."
-    (vec-for-each-key #'(lambda (key) (funcall func (vref vec key))) vec)))
+    "The default method calls @function{for-each-entry-and-key}."
+    (for-each-entry-and-key
+     (lambda (entry &rest keys)
+       (declare (ignore keys))
+       (funcall func entry))
+     vec)))
 
 (defgeneric for-each-entry-and-key (func object)
   (:documentation "Calls @arg{func} on all entries of the collection
@@ -241,6 +261,13 @@ single-indexed objects, i.e. rather general vectors."
   "Recursive definition for FILL-RANDOM! usable for sparse block vectors."
   (dovec ((xc i) x x)
     (setf (vref x i) (fill-random! xc s))))
+
+(defmethod keys ((vec <vector>))
+  (mapper-collect #'for-each-key vec))
+
+(defmethod nr-of-entries (obj)
+  (lret ((entries 0))
+    (for-each-entry (_ (incf entries)) obj)))
 
 (defmethod total-entries (obj &aux (entries 0))
   (dovec (entry obj entries)

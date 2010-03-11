@@ -49,9 +49,31 @@ vector which can be obtained by calling the function
 BLAS operations are possible because the store is a simple and uniform
 array."))
 
-(with-memoization (:type :local :size 2 :id 'store-vector :test 'equal :debug t)
+(defun number-super-type (types)
+  "Returns the union of the number types in @arg{types}."
+  (reduce (lambda (t1 t2)
+            (if (eql t1 t2)
+                t1
+                (loop for (set type) in
+                     '(((single-float (complex single-float)) (complex single-float))
+                       ((double-float (complex double-float)) (complex double-float)))
+                     unless (set-exclusive-or set (list t1 t2) :test 'equalp)
+                     do (return type)
+                     finally (return 'number))))
+          types))
+
+(defun uniform-number-type (vec)
+  "Tries to find a uniform type for the numbers contained in @arg{vec}."
+  (let ((element-type (array-element-type vec)))
+    (if (subtypep element-type 'number)
+        element-type
+        (if (zerop (length vec))
+            'number
+            (number-super-type (map 'list #'type-of vec))))))
+
+(with-memoization (:type :global :size 4 :id 'store-vector :test 'equal :debug t)
   (defun store-vector (type &key dynamic)
-    (memoizing-let ((type (upgraded-array-element-type type))
+    (memoizing-let ((type type)
                     (dynamic dynamic))
       (let ((class-name
 	     (intern (format nil "~A" (list 'store-vector type :dynamic dynamic))
@@ -77,7 +99,9 @@ array."))
   (declare (ignore slot-names))
   (when (slot-boundp vec 'store)
     (setf (slot-value vec 'store)
-	  (coerce (store vec) `(simple-array ,(element-type vec) (*))))))
+	  (coerce (store vec)
+                  `(simple-array ,(upgraded-array-element-type (element-type vec))
+                                 (*))))))
 
 (defmethod vref ((vec store-vector) i)
   "Note: access to entries using this generic function is slow.  Therefore,

@@ -41,7 +41,7 @@
 (defgeneric nrows (mat)
   (:documentation "Number of matrix rows."))
 (defgeneric ncols (mat)
-  (:documentation "Number of matrix rows."))
+  (:documentation "Number of matrix columns."))
 
 (defgeneric mref (A i j)
   (:documentation "Returns the matrix element @code{A[i,j]}.")
@@ -57,6 +57,81 @@
   (:method (value (x <vector>) i (j (eql 0)))
     (setf (vref x i) value)))
 
+;;; For these routines, inlining may help a lot.
+
+(defgeneric for-each-row-key (func mat)
+  (:documentation "Loop through row keys."))
+
+(defgeneric for-each-col-key (func mat)
+  (:documentation "Loop through column keys."))
+
+(defgeneric for-each-key-in-row (func mat row-key)
+  (:documentation "Loop through col-keys in row."))
+
+(defgeneric for-each-key-in-col (func mat col-key)
+  (:documentation "Loop through row-keys in column col."))
+
+(defgeneric for-each-entry-in-row (func mat row-key)
+  (:documentation "Loop through col-keys in row."))
+
+(defgeneric for-each-entry-in-col (func mat col-key)
+  (:documentation "Loop through entries in column col."))
+
+(defgeneric for-each-key-and-entry-in-row (func mat row-key)
+  (:documentation "Loop through col-keys and entries in row."))
+
+(defgeneric for-each-key-and-entry-in-col (func mat col-key)
+  (:documentation "Loop through row-keys and entries in col."))
+
+(defmacro dorows ((key mat) &body body)
+  "Syntax: @slisp{(dorows (key mat) ...)}."
+  `(for-each-row-key (lambda (,key) ,@body) ,mat))
+
+(defmacro docols ((key mat) &body body)
+  "Syntax: @slisp{(docols (key mat) ...)}."
+  `(for-each-col-key (lambda (,key) ,@body) ,mat))
+
+(defmacro dorow ((loop-vars mat row) &body body)
+  (multiple-value-bind (key entry func)
+      (cond ((atom loop-vars) (values loop-vars nil 'for-each-key-in-row))
+            ((single? loop-vars) (values nil (first loop-vars) 'for-each-entry-in-row))
+            (t (values (first loop-vars) (second loop-vars) 'for-each-key-and-entry-in-row)))
+    `(,func (lambda (,@(when key (list key))
+                     ,@(when entry (list entry)))
+              ,@body) ,mat ,row)))
+
+(defmacro docol ((loop-vars mat col) &body body)
+  (multiple-value-bind (key entry func)
+      (cond ((atom loop-vars) (values loop-vars nil 'for-each-key-in-col))
+            ((single? loop-vars) (values nil (first loop-vars) 'for-each-entry-in-col))
+            (t (values (first loop-vars) (second loop-vars) 'for-each-key-and-entry-in-col)))
+    `(,func (lambda (,@(when key (list key))
+                     ,@(when entry (list entry)))
+              ,@body) ,mat ,col)))
+
+;;;; derived functionality
+
+(defgeneric row-keys (mat)
+  (:documentation "All row keys for a matrix.")
+  (:method ((mat <matrix>))
+    (mapper-collect #'for-each-row-key mat)))
+
+(defgeneric col-keys (mat)
+  (:documentation "All column keys for a matrix.")
+  (:method ((mat <matrix>))
+    (mapper-collect #'for-each-col-key mat)))
+
+(defgeneric keys-of-row (mat key)
+  (:documentation "All column keys in the given row for a matrix.")
+  (:method ((mat <matrix>) key)
+    (mapper-collect #'for-each-key-in-row mat key)))
+
+(defgeneric keys-of-column (mat key)
+  (:documentation "All row keys in the given column for a matrix.")
+  (:method ((mat <matrix>) key)
+    (mapper-collect #'for-each-key-in-col mat key)))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; specializations of vector methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -71,20 +146,14 @@ a list of indices."
 a list of indices."
   (setf (apply #'mref mat indices) value))
 
-(defmethod for-each-key (fn (mat <matrix>))
-  (dotimes (i (nrows mat))
-    (dotimes (j (ncols mat))
-      (funcall fn i j))))
-
-(defmethod for-each-entry ((fn function) (mat <matrix>))
-  (dotimes (i (nrows mat))
-    (dotimes (j (ncols mat))
-      (funcall fn (mref mat i j)))))
-
-(defmethod for-each-entry-and-key ((fn function) (mat <matrix>))
-  (dotimes (i (nrows mat))
-    (dotimes (j (ncols mat))
-      (funcall fn (mref mat i j) i j))))
+(defmethod for-each-entry-and-key (fn (mat <matrix>))
+  (for-each-row-key
+   (lambda (rk)
+     (for-each-key-and-entry-in-row
+      (lambda (ck entry)
+        (funcall fn entry rk ck))
+      mat rk))
+   mat))
 
 (defmethod for-each-entry-and-vector-index (func (mat <matrix>))
   (for-each-entry-and-key
@@ -114,8 +183,11 @@ a list of indices."
 ;;; matrix printing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric show (matrix &rest args)
+(defgeneric show (matrix &key &allow-other-keys)
   (:documentation "Shows the contents of @arg{matrix} in a readable form.")
+  (:method :around (matrix &key &allow-other-keys)
+           (call-next-method)
+           matrix)
   (:method (matrix &rest args)
     "The default method describes its argument."
     (declare (ignore args))
@@ -140,7 +212,7 @@ a list of indices."
 @math{Z <- alpha * X * Y + beta * Z}"))
 (defgeneric gemm-nt! (a x y b z)
   (:documentation "General matrix-matrix multiplication:
-@mathLZ <- alpha * X * Y' + beta * Z}"))
+@math{Z <- alpha * X * Y' + beta * Z}"))
 (defgeneric gemm-tn! (a x y b z)
   (:documentation "General matrix-matrix multiplication:
 @math{Z <- alpha * X' * Y + beta * Z}"))
@@ -246,58 +318,21 @@ generic function."
 (defgeneric make-domain-vector-for (mat &optional multiplicity))
 (defgeneric make-image-vector-for (mat &optional multiplicity))
 
-;;; Old iteration interface.  For these routines, inlining may help a lot.
-
-(defgeneric for-each-row-key (func mat)
-  (:documentation "Loop through row keys."))
-
-(defgeneric for-each-col-key (func mat)
-  (:documentation "Loop through column keys."))
-
-(defgeneric for-each-key-in-row (func mat row-key)
-  (:documentation "Loop through col-keys in row."))
-
-(defgeneric for-each-key-in-col (func mat col-key)
-  (:documentation "Loop through row-keys in column col."))
-
-(defgeneric for-each-entry-in-row (func mat row-key)
-  (:documentation "Loop through col-keys in row."))
-
-(defgeneric for-each-entry-in-col (func mat col-key)
-  (:documentation "Loop through entries in column col."))
-
-(defgeneric for-each-key-and-entry-in-row (func mat row-key)
-  (:documentation "Loop through col-keys and entries in row."))
-
-(defgeneric for-each-key-and-entry-in-col (func mat col-key)
-  (:documentation "Loop through row-keys and entries in col."))
-
-(defmacro dorows ((loop-vars mat) &body body)
-  (let* ((loop-vars (if (consp loop-vars) loop-vars (list loop-vars)))
-	 (mat-for-each-row
-	  (if (null (car loop-vars))
-	      (if (null (cdr loop-vars))
-		  (error "no loop variable")
-		  'for-each-row)
-	      (if (or (null (cdr loop-vars)) (null (cadr loop-vars)))
-		  'for-each-row-key
-		  'for-each-key-and-row))))
-    `(,mat-for-each-row #'(lambda ,(remove nil loop-vars) ,@body) ,mat)))
-
-(defmacro dorow ((loop-vars row) &body body)
-  (let* ((loop-vars (if (consp loop-vars) loop-vars (list nil loop-vars)))
-	 (row-for-each (if (null (car loop-vars))
-			   (if (null (cdr loop-vars))
-			       (error "no loop variable")
-			       'for-each-entry-in-row)
-			   (if (or (null (cdr loop-vars)) (null (cadr loop-vars)))
-			       'for-each-key-in-row
-			       'for-each-key-and-entry-in-row))))
-    `(,row-for-each #'(lambda ,(remove nil loop-vars) ,@body) ,row)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; General methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod nrows ((mat <matrix>))
+  "Default and very inefficient method for computing the number of rows of a
+matrix."
+  (lret ((n 0))
+    (for-each-row-key (_ (incf n)) mat)))
+
+(defmethod ncols ((mat <matrix>))
+  "Default and very inefficient method for computing the number of columns of a
+matrix."
+  (lret ((n 0))
+    (for-each-col-key (_ (incf n)) mat)))
 
 (defmethod multiplicity ((vec <matrix>))
   "If @arg{vec} should be a matrix, the multiplicity is the number of
@@ -367,9 +402,9 @@ calls the corresponding generic function, e.g. GEMM-NN!."
 	(error "argument A given to GESV! is singular to working machine precision")
 	(getrs! LR b ipiv))))
 
-(defun gesv (x b)
+(defun gesv (A b)
   "Rewriting for GESV in terms of GESV!."
-  (gesv! x (copy b)))
+  (gesv! A (copy b)))
 
 (defmethod mat-diff (mat1 mat2)
   (dovec ((entry i j) mat1)
@@ -420,6 +455,4 @@ access is slow.  They are indexed with ordinary integers."))
 
 (defmethod ncols ((mat <submatrix>)) (length (col-keys mat)))
 
-(defmethod nr-of-entries ((submat <submatrix>))
-  (* (nrows submat) (ncols submat)))
 

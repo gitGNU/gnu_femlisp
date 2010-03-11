@@ -50,16 +50,6 @@
 (defmethod total-entries ((mat standard-matrix))
    (* (nrows mat) (ncols mat)))
 
-(defmethod element-type (matrix)
-  "Default method returns T."
-  (declare (ignore matrix))
-  T)
-
-(defmethod scalar-type (matrix)
-  "Default method returns NUMBER."
-  (declare (ignore matrix))
-  'NUMBER)
-
 (declaim (inline indexing))
 (defun indexing (i j nrows ncols)
   "Computes column-major indexing for compatibility with Matlisp/Fortran."
@@ -102,7 +92,7 @@ If content is a 2d array, the dimensions can be deduced."
 				 (array-element-type store))))
 	  (setq store (if (subtypep type 'number)
 			  (zero-vector n type)
-			  (make-array n :element-type type))))
+			  (make-array n :element-type t :initial-element 0))))
       (when content
 	(etypecase content
 	  (sequence
@@ -115,7 +105,7 @@ If content is a 2d array, the dimensions can be deduced."
 	     (dotimes (j ncols)
 	       (setf (aref store (indexing i j nrows ncols)) (aref content i j))))))))))
 
-(with-memoization (:type :local :size 2 :id 'standard-matrix)
+(with-memoization (:type :global :size 4 :id 'standard-matrix)
   (defun standard-matrix (type)
     "Defines the programmatic class @class{standard-matrix} for element type
 @arg{type} as extensions of the programmatic class @class{store-vector}."
@@ -160,21 +150,10 @@ structure defining the contents matrix."
   (make-instance (standard-matrix 'double-float)
 		 :nrows dim :ncols 1
 		 :content (make-double-vec dim value)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; conversion of vectors to standard-matrix
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun uniform-number-type (vec)
-  "Tries to find a uniform type for the numbers contained in @arg{vec}."
-  (lret ((element-type (array-element-type vec)))
-    (unless (subtypep element-type 'number)
-      (when (plusp (length vec))
-	(setq element-type nil)
-	(loop for x across vec
-	      unless (subtypep (type-of x) element-type)
-	      do (setq element-type
-		       (upgraded-array-element-type
-			`(or ,element-type ,(type-of x)))))))))
 
 (defgeneric ensure-matlisp (obj &optional type)
   (:documentation "Tries to coerce @arg{obj} into Matlisp format.")
