@@ -43,7 +43,7 @@
 default form when an argument should be supplied."
   (error "A required argument was not supplied."))
 
- (defgeneric evaluate (f x)
+(defgeneric evaluate (f x)
   (:documentation "Generic evaluation of functions on an argument.  Numbers and
 arrays are treated as constants.  Special evaluation is defined for multivariate
 polynomials on vectors and for <function> objects.")
@@ -205,8 +205,11 @@ with @arg{func}."
 
 (inlining
  (defun vector-last (vec)
-   "Returns the last element of @arg{vec}."
-   (aref vec (1- (length vec)))))
+   "Reader for the last element of @arg{vec}."
+   (aref vec (1- (length vec))))
+ (defun (setf vector-last) (value vec)
+   "Writer for the last element of @arg{vec}."
+   (setf (aref vec (1- (length vec))) value)))
 
 (inlining
  (defun constant-vector (dim value)
@@ -220,19 +223,26 @@ with @arg{func}."
 	      :initial-element (coerce 0 element-type))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Arrays
+;;;; Strings
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro with-array ((access array) &body body)
-  "Posted by Kent Pitman at cll,8.5.2007 as 'array-access'."
-  (let ((temp (gensym (symbol-name access))))
-   `(let ((,temp ,array))
-     (flet ((,access (&rest indexes)
-              (apply #'aref ,temp indexes))
-           ((setf ,access) (val &rest indexes)
-              (setf (apply #'aref ,temp indexes) val)))
-      (declare (inline #',access))
-      ,@body))))
+(defun translate (item translations)
+  "Performs certain translations from an association table on the string item.
+Example: (translate \"abcdefg\" '((\"a\" . \"x\")  (\"b\" . \"yz\")))"
+  (loop for (from . to) in translations
+	for to-string = (if (stringp to) to (format nil "~A" to))
+	do
+;;	#+cl-ppcre (setq item (cl-ppcre:regex-replace from item to-string))
+	(loop for pos = (search from item) while pos do
+	      (setq item (concatenate
+			  'string (subseq item 0 pos)
+			  to-string
+			  (subseq item (+ pos (length from)))))))
+  item)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Arrays
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun for-each-tuple (func limits)
   "Calls @arg{func} on each tuple greater or equal to (0 ... 0) and below
@@ -314,6 +324,14 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 (defun mappend (func &rest lists)
   "Map @function{func} over @arg{lists} while appending the results."
   (apply #'append (apply #'mapcar func lists)))
+
+(defun filter (item seq &rest rest &key test test-not &allow-other-keys)
+  "The positive REMOVE - i.e. like REMOVE with :test instead of :test-not."
+  (when test-not
+    (error "Use REMOVE instead of FILTER."))
+    (apply #'remove item seq
+           (list* :test-not (or test #'eql)
+                  (sans rest :test :test-not))))
 
 (defun map-product (func list &rest rest-lists)
   "Applies @arg{func} to a product of lists.  Example:
@@ -431,21 +449,15 @@ value T if the queue was empty.")
     (let ((emptyp (emptyp queue)))
       (values (pop (head queue)) emptyp))))
 
-(defgeneric finish (queue)
-  (:documentation "Finishes the queue.  Nothing can be written to it
-  afterwards.  This function is mostly useful when different threads write
-  and read from the queue."))
-
 (defun queue->list (queue)
   "Transforms @arg{queue} to a list."
   (head queue))
 
 (defun list->queue (list)
   "Transforms @arg{list} to a queue."
-  (let ((queue (make-instance 'queue)))
+  (lret ((queue (make-instance 'queue)))
     (setf (head queue) (copy-seq list))
-    (setf (tail queue) (last (head queue)))
-    queue))
+    (setf (tail queue) (last (head queue)))))
 
 (defgeneric dequeue-all (queue)
   (:documentation "Clears @arg{queue} and returns content as a list.")
@@ -469,27 +481,28 @@ value T if the queue was empty.")
 (defun dll-front-insert (obj dll &optional insert-item-p)
   "Inserts @arg{obj} in @arg{dll}.  It returns the newly created
 @class{dll-item}."
-  (let ((new (if (or insert-item-p (not (typep obj 'dll-item)))
-		 (make-dll-item :object obj)
-		 obj))
-	(first (dll-first dll)))
-    (when first
-      (setf (dli-pred first) new)
-      (setf (dli-succ new) first))
-    (unless first
-      (setf (dll-last dll) new))
-    (setf (dll-first dll) new)))
+  (lret ((new (if (or insert-item-p (not (typep obj 'dll-item)))
+                  (make-dll-item :object obj)
+                  obj)))
+    (aif (dll-first dll)
+         (setf (dli-pred it) new
+               (dli-succ new) it)
+         (setf (dll-last dll) new))
+    (setf (dll-first dll) new)
+    (setf (dli-pred new) nil)))
 
 (defun dll-rear-insert (obj dll &optional insert-item-p)
-  (let ((new (if (or insert-item-p (not (typep obj 'dll-item)))
-		 (make-dll-item :object obj)
-		 obj))
-	(last (dll-last dll)))
-    (when last
-      (setf (dli-succ last) new)
-      (setf (dli-pred new) last))
-    (unless last (setf (dll-first dll) new))
-    (setf (dll-last dll) new)))
+  "Inserts @arg{obj} in @arg{dll}.  It returns the newly created
+@class{dll-item}."
+  (lret ((new (if (or insert-item-p (not (typep obj 'dll-item)))
+                  (make-dll-item :object obj)
+                  obj)))
+    (aif (dll-last dll)
+         (setf (dli-succ it) new
+               (dli-pred new) it)
+         (setf (dll-first dll) new))
+    (setf (dll-last dll) new)
+    (setf (dli-succ new) nil)))
 
 (defun dll-check-consistency (item dll)
   (let ((predecessor (dli-pred item))
@@ -602,12 +615,30 @@ two values.  Those pairs are stored in a new hash-table."
   (loop for val being the hash-values of hash-table
 	collect val))
 
-(defun collect-in-hash-table (list identifier &optional (type 'eql))
-  "Puts the items from @arg{list} in a hash-table identified by
-@arg{identifier}."
+(defun map-list-in-hash-table (func list &optional (type 'eql))
+  "Maps the elements of @arg{list} in a hash-table identified by
+@arg{identifier}.  @arg{func} is evaluated on each element and produces two
+values which are used as key and value for the hash-table."
   (lret ((table (make-hash-table :test type)))
     (loop for item in list do
-	  (setf (gethash (funcall identifier item) table) item))))
+         (multiple-value-bind (key value)
+             (funcall func item)
+           (setf (gethash key table) value)))))
+
+(defun group-by (characteristic seq &key (test 'eql))
+  "Groups elements in the sequence @arg{seq} according to @arg{characteristic}
+ which is a function of one argument.  Example:
+@lisp
+  (group-by #'second '((1 2) (2 2) (3 4) (4 4)))
+@end lisp"
+  (let ((table (make-hash-table :test test)))
+    (loop for obj in seq do
+         (push obj (gethash (funcall characteristic obj) table nil)))
+    (loop for obj in seq
+       for x = (funcall characteristic obj)
+       for group = (gethash x table)
+       when group do (remhash x table)
+       and collect (reverse group))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; iteration (loop+)
@@ -1014,9 +1045,88 @@ according to @math{result[i] = v[perm[i]]}."
 (defun safe-sort (seq &rest args)
   (apply #'stable-sort (copy-seq seq) args))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; objects
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric copy-slots (obj1 obj2 slots)
+  (:documentation "Initializes the slots named in @arg{slots} from @arg{obj2} to
+  @arg{obj1}.  Returns @arg{obj1}.")
+  (:method (obj1 obj2 slots)
+    (loop for sym in slots do
+         (setf (slot-value obj1 sym) (slot-value obj2 sym)))
+    obj1)
+  (:method (obj1 (obj2 list) slots)
+    "Copies slots from a templating property list in @arg{obj2} to @arg{obj1}.
+Returns @arg{obj1}."
+    (loop for sym in slots do
+         (setf (slot-value obj1 sym)
+               (getf obj2 (intern (symbol-name sym) :keyword))))
+    obj1))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Higher-order functions for iterators
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun mapper-select-first (mapper &rest rest-args)
+  "Select the arguments with which a mapping construct calls a given function.  E.g.
+@lisp
+(mapper-select-first #'mapc '(3 4 5) '(7 8 9)) @result{} 3,7
+@end lisp"
+  (apply mapper
+         (lambda (&rest args)
+           (return-from mapper-select-first
+             (apply #'values args)))
+         rest-args))
+
+(defun mapper-collect (mapper &rest rest-args)
+  "Collects the arguments with which a mapping construct calls a given function.  E.g.
+@lisp
+(mapper-collect #'mapc '(3 4 5)) @result{} (3 4 5)
+@end lisp"
+  (let ((result ()))
+    (apply mapper (_ (push _ result)) rest-args)
+    (nreverse result)))
+
+(defun mapper-some (test mapper &rest rest-args)
+  "Tests if the test is fulfilled for some argument on which the mapper is
+called: @lisp
+(mapper-some #'plusp #'mapc '(-3 4 5)) @result{} T
+@end lisp"
+  (apply mapper (_ (when (funcall test _)
+                     (return-from mapper-some t)))
+         rest-args)
+  nil)
+
+(defun mapper-every (test mapper &rest rest-args)
+  "Tests if the test is fulfilled for every argument on which the mapper is
+called: @lisp
+(mapper-every #'plusp #'mapc '(3 4 5)) @result{} T
+@end lisp"
+  (not (apply #'mapper-some (complement test) mapper rest-args)))
+
+(defun mapper-sum (mapper &rest rest-args)
+  "Sums the arguments with which a mapping construct calls a given function.  E.g.
+@lisp
+(mapper-sum #'mapc '(3 4 5)) @result{} 12
+@end lisp"
+  (lret ((result 0))
+    (apply mapper (_ (incf result _)) rest-args)))
+
+(defun mapper-count (mapper &rest rest-args)
+  "Counts the arguments with which a mapping construct calls a given function.  E.g.
+@lisp
+(mapper-sum #'mapc '(3 4 5)) @result{} 3
+@end lisp"
+  (lret ((result 0))
+    (apply mapper (_ (incf result)) rest-args)))
+
+
+
 ;;; Testing
 (defun test-utilities ()
   (range<= 1 5)
+  (filter 2 '((1 . 2) (2 . 3) (3 . 4)) :key #'car :test #'=)
   (assert (= 1 (permutation-signum #(5 3 4 0 2 1))))
   (assert (tree-uniformp '((1 2) (3 4) (5 6))))
   (on-leaves #'princ '((1 2) 3))

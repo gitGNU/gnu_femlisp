@@ -215,20 +215,6 @@ a string stream to provide sample input.")
 		(when (funcall test-p item)
 		  (return item))))))))
 
-(defun translate (item translations)
-  "Performs certain translations from an association table on the string item.
-Example: (translate \"abcdefg\" '((\"a\" . \"x\")  (\"b\" . \"yz\")))"
-  (loop for (from . to) in translations
-	for to-string = (if (stringp to) to (format nil "~A" to))
-	do
-;;	#+cl-ppcre (setq item (cl-ppcre:regex-replace from item to-string))
-	(loop for pos = (search from item) while pos do
-	      (setq item (concatenate
-			  'string (subseq item 0 pos)
-			  to-string
-			  (subseq item (+ pos (length from)))))))
-  item)
-
 (defun extract-demo-strings (string &optional translations)
   "Extract demo information from the documentation string of the
 generating function."

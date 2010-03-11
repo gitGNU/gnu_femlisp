@@ -35,13 +35,17 @@
 (defpackage "FL.MACROS"
   (:use "COMMON-LISP")
   (:export
-   "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF" "BIF" "STRINGCASE"
-   "AAND" "ACOND" "_F" "DELETEF" "IT" "ENSURE" "ECHO"
+   "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF" "BIF"
+   "GENCASE" "STRINGCASE"
+   "AAND" "ACOND" "SYMBOL-MACROLETF" "DELETEF" "_F" "IT" "ENSURE" "ECHO"
    "REMOVE-THIS-METHOD"
-   "NAMED-LET" "FOR" "FOR<" "MULTI-FOR" "INLINING" "DEFINLINE"
-   "?1" "?2" "?3"
+   "NAMED-LET"
+   "WITH-ARRAYS" "MULTI-FOR" "INLINING" "DEFINLINE"
+   "?1" "?2" "?3" "?4" "?5" "?6"
    "DELAY" "FORCE"
-   "FLUID-LET" "LRET" "LRET*" "CHAIN" "_" "SHOW-CALL"
+   "FLUID-LET" "LRET" "LRET*"
+   "CHAIN" "_" "_1" "_2" "_3" "_4" "_5"
+   "SHOW-CALL"
    "QUICKLY" "SLOWLY" "VERY-QUICKLY" "*USUALLY*" "USUALLY-QUICKLY"
    "QUICKLY-IF")
   (:documentation
@@ -124,16 +128,53 @@ Naggum (c.l.l., 4.12.2002)."
 		 ,@(cdr cl1))
                (acond ,@(cdr clauses)))))))
 
-(defmacro stringcase (string &body clauses)
-  "An analog to case using string comparison."
-  (with-gensyms (item)
-    `(let ((,item ,string))
+(defmacro gencase (obj test &body clauses)
+  "An analog to case using @arg{test} as comparison."
+  (with-gensyms (item my-test)
+    `(let ((,item ,obj)
+           (,my-test ,test))
        (cond ,@(loop for (what . commands) in clauses
                   collect
                   (typecase what
-                    (cons `((member ,item (quote ,what) :test #'string=) ,@commands))
-                    (string `((string= ,item ,what) ,@commands))
-                    (t `(t ,@commands))))))))
+                    (cons `((member ,item ',what :test ,my-test) ,@commands))
+                    ((member t otherwise) `(t ,@commands))
+                    (t `((funcall ,my-test ,item ',what) ,@commands))))))))
+
+(defmacro stringcase (string &body clauses)
+  "An analog to case using string comparison."
+  `(gencase ,string #'string= ,@clauses))
+
+;;; From http://paste.lisp.org/display/2992#1 (paakku)
+
+(defmacro symbol-macroletf-helper (store-vars writer-form reader-form)
+  (declare (ignore store-vars writer-form))
+  reader-form)
+
+(define-setf-expander symbol-macroletf-helper (store-vars writer-form
+                                               reader-form)
+  (values '() '() store-vars writer-form reader-form))
+
+(defmacro symbol-macroletf ((&rest bindings) &body body
+                            &environment environment)
+  "Like SYMBOL-MACROLET but evaluate subforms just once up front."
+  (loop with (vars vals store-vars writer-form reader-form)
+        for (symbol place) in bindings
+        do (setf (values vars vals store-vars writer-form reader-form)
+                 (get-setf-expansion place environment))
+        nconc (mapcar #'list vars vals)
+          into let*-bindings
+        collect `(,symbol (symbol-macroletf-helper ,store-vars ,writer-form
+                                                   ,reader-form))
+          into symbol-macrolet-bindings
+        finally (return `(let* (,@let*-bindings)
+                           (symbol-macrolet (,@symbol-macrolet-bindings)
+                             ,@body)))))
+
+(defmacro deletef (item sequence &rest args)
+  "Delets @arg{item} from @arg{sequence} destructively."
+  (with-gensyms (place)
+    `(symbol-macroletf ((,place ,sequence))
+       (setf ,place (delete ,item ,place ,@args)))))
 
 (defmacro _f (op place &rest args)
   "Macro from @cite{(Graham 1993)}.  Turns the operator @arg{op} into a
@@ -142,14 +183,6 @@ modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}."
       (get-setf-expansion place)
     `(let* (,@(mapcar #'list vars forms)
             (,(car var) (,op ,access ,@args)))
-       ,set)))
-
-(defmacro deletef (item sequence &rest args)
-  "Delets @arg{item} from @arg{sequence} destructively."
-  (multiple-value-bind (vars forms var set access) 
-      (get-setf-expansion sequence)
-    `(let* (,@(mapcar #'list vars forms)
-            (,(car var) (delete ,item ,access ,@args)))
        ,set)))
 
 (define-modify-macro ensure (&rest args) or
@@ -222,22 +255,6 @@ DEFMETHOD definition."
               ,@body))
      (,name ,@(mapcar #'second bindings))))
 
-(defmacro for ((var start end) &body body)
-  "Loops for @arg{var} from @arg{start} upto @arg{end}."
-  (let ((limit (gensym)))
-    `(let ((,limit ,end))
-       (do ((,var ,start (+ ,var 1)))
-	   ((> ,var ,limit))
-	 ,@body))))
-
-(defmacro for< ((var start end) &body body)
-  "Loops for @arg{var} from @arg{start} below @arg{end}."
-  (let ((limit (gensym)))
-    `(let ((,limit ,end))
-       (do ((,var ,start (+ ,var 1)))
-	   ((>= ,var ,limit))
-	 ,@body))))
-
 (defmacro multi-for ((var start stop) &body body)
   "Loops for @arg{var} being an integer vector starting from @arg{start}
 upto @arg{end}.  Example:
@@ -261,6 +278,31 @@ upto @arg{end}.  Example:
 	       (,inside (every #'<= ,begin ,end) (,inc! ,var)))
 	      ((not ,inside)) ,@body))))))
 
+(defmacro with-array ((access array) &body body)
+  "Posted by Kent Pitman at cll,8.5.2007 as 'array-access'."
+  (let ((temp (gensym (symbol-name access))))
+   `(let ((,temp ,array))
+     (flet ((,access (&rest indexes)
+              (apply #'aref ,temp indexes))
+           ((setf ,access) (val &rest indexes)
+              (setf (apply #'aref ,temp indexes) val)))
+      (declare (inline #',access))
+      ,@body))))
+
+(defmacro with-arrays (syms &body body)
+  "Improved version of a macro posted in cll by ?.  A similar but more
+restricted macro was posted by KMP at 8.5.2007 under the name 'array-access'."
+  `(let ,(loop for sym in syms
+            when (listp sym)
+            collect (list (first sym) (second sym)))
+     (macrolet (,@(mapcar (lambda (sym)
+                            (let ((sym (if (listp sym)
+                                           (first sym)
+                                           sym)))
+                              (list sym '(&rest args) `(list* 'aref ',sym args))))
+                          syms))
+       ,@body)))
+
 ;;; delay and force
 (defmacro delay (form)
   "Delays the evaluation of @arg{form}."
@@ -274,11 +316,14 @@ upto @arg{end}.  Example:
 		(setq ,value ,form)
 	      (setq ,computed t)))))))
 
-(defmacro force (delayed-form)
-  "Forces the value of a @arg{delayed-form}."
-  (with-gensyms (form)
-    `(let ((,form ,delayed-form))
-      (if (functionp ,form) (funcall ,form) ,form))))
+(defgeneric force (obj)
+  (:documentation "Force a delayed object.")
+  (:method (obj)
+    "Default is identity."
+    obj)
+  (:method ((obj function))
+    "A simple lambda delay is forced using evaluation."
+    (funcall obj)))
 
 (defmacro inlining (&rest definitions)
   "Declaims the following definitions inline together with executing them."
@@ -300,6 +345,15 @@ use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
 (defmacro ?3 (&rest args)
   "A macro returning the third of its arguments."
   (third args))
+(defmacro ?4 (&rest args)
+  "A macro returning the fourth of its arguments."
+  (fourth args))
+(defmacro ?5 (&rest args)
+  "A macro returning the fifth of its arguments."
+  (fifth args))
+(defmacro ?6 (&rest args)
+  "A macro returning the sixth of its arguments."
+  (sixth args))
 
 (defmacro fluid-let (bindings &body body)
   "Sets temporary bindings."
@@ -322,7 +376,7 @@ use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
 	(apply #'values ,result)))))
 
 (defmacro lret (bindings &body body)
-  "A @macro{let}-construct which returns its last binding."
+  "A @function{let}-construct which returns its last binding."
   `(let
     ,bindings ,@body
     ,(let ((x (car (last bindings))))
@@ -331,7 +385,7 @@ use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
 	      (car x)))))
 
 (defmacro lret* (bindings &body body)
-  "A @macro{let*}-construct which returns its last binding."
+  "A @function{let*}-construct which returns its last binding."
   `(let*
     ,bindings ,@body
     ,(let ((x (car (last bindings))))
@@ -345,6 +399,15 @@ operations."
   `(let ((_ ,arg))
     ,@(loop for clause in clauses collect `(setq _ ,clause))
     _))
+
+(defmacro _ (&body body)
+  "Easy definition of anonymous small functions.
+Arguments are '_', '_1', ..., '_5'."
+  `(lambda (&optional _1 _2 _3 _4 _5)
+     (declare (ignorable _1 _2 _3 _4 _5))
+     (let ((_ _1))
+       (declare (ignorable _))
+       ,@body)))
 
 ;;; Macros posted by Kent Pitman on cll, 28.7.2007
 
@@ -393,10 +456,41 @@ operations."
 
 ;;;; Testing:
 (defun test-macros ()
+
   (let ((x 5))
     (ensure x 1))
   (let ((a 1) (b 2))
     (fluid-let ((a 3) (b 4))
       (list a b)))
+
+  (let ((x (vector 2.0)))
+    (with-arrays (x (s (vector 3.0)))
+      (* (x 0) (s 0))))
+
+  (let ((A #(-1.0 0.0))
+        (B #2a((1.0 2.0) (3.0 4.0)))
+        (C (list #(5.0 6.0))))
+    (with-arrays (A B (c (first C)))
+      (list (a 1)
+            (B 1 0)
+            (c 1))))
+
+  (loop for obj in '(a b c) collect
+       (gencase obj 'eql
+         (a 'A)
+         ((X B) 'B)
+         (t 'C)))
+
+  (loop for obj in '("a" "b" "B") collect
+       (gencase obj #'string=
+         ("a" 'A)
+         (("X" "b") 'B)
+         (t 'C)))
   
+  (loop for obj in '("a" "b" "B") collect
+       (stringcase obj
+         ("a" 'A)
+         (("X" "b") 'B)
+         (t 'C)))
+
   )

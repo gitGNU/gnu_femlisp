@@ -137,6 +137,7 @@ compatible way of ensuring method compilation."
 (defun getenv (var)
   "Return the value of the environment variable."
   #+allegro (sys::getenv (string var))
+  #+ccl (ccl:getenv (string var))
   #+clisp (ext:getenv (string var))
   #+(or cmu scl)
   (cdr (assoc (string var) ext:*environment-list* :test #'equalp
@@ -146,37 +147,42 @@ compatible way of ensuring method compilation."
   #+lispworks (lw:environment-variable (string var))
   #+mcl (ccl::getenv var)
   #+sbcl (sb-ext:posix-getenv var)
-  #-(or allegro clisp cmu scl ecl gcl lispworks mcl sbcl)
+  #-(or allegro ccl clisp cmu scl ecl gcl lispworks mcl sbcl)
   (portability-warning 'getenv var)
   )
   
 (defun unix-chdir (path)
   "Change the directory to @arg{path}."
   #+allegro (excl.osi:chdir path)
+  #+ccl (ccl::%chdir path)
   #+clisp (ext:cd path)
   #+(or cmu scl) (unix:unix-chdir path)
   #+ecl (si:chdir path)
   #+gcl (system:chdir path)
   #+lispworks (harlequin-common-lisp:change-directory path)
   #+sbcl (sb-posix:chdir path)
-  #-(or allegro clisp cmu scl ecl gcl lispworks sbcl)
+  #-(or allegro ccl clisp cmu scl ecl gcl lispworks sbcl)
   (portability-warning 'unix-chdir path)
   )
 
 (defun system-namestring (path)
   #+scl (ext:unix-namestring path)
-  #-scl (namestring path))
+  #-scl (namestring path)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Process communication
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun run-program (program args &key wait input output error-output directory)
+(defun run-program (program args
+                    &key wait directory
+                    input (output nil output-p) error-output)
   "Runs @arg{program} with arguments @arg{args}."
+  (declare (ignorable output-p))
   #+(or clisp ecl) (declare (ignore error-output))
   #+(or ecl gcl) (declare (ignore wait))
   ;; change directory if not possible in the call itself
-  #+(or cmu scl ecl gcl lispworks sbcl)
+  #+(or cmu scl clisp ecl gcl lispworks sbcl ccl)
   (when directory (unix-chdir (namestring directory)))
   #+(or allegro lispworks)
   (let ((program (namestring program)))
@@ -206,7 +212,20 @@ compatible way of ensuring method compilation."
 	       (if (eq input :stream) istream input)
 	       (if (eq output :stream) ostream output)
 	       error-output proc-id)))))
-  #+clisp (ext:run-program program :arguments args :wait wait :input input :output output)
+  #+clisp
+  (let ((output (if output-p output :terminal)))
+    (cond
+      (wait (ext:run-program program :arguments args :wait wait :input input :output output))
+      (t (multiple-value-bind (iostream ostream istream)
+             (ext:run-program program :arguments args :wait wait :input input :output output)
+           (list :process
+                 (or istream input)
+                 (or ostream output)
+                 iostream
+                 nil)))))
+  #+ccl
+  (ccl:run-program program args :wait wait
+                   :input input :output output :error error-output)
   #+(or cmu scl)
   (ext:run-program program args :wait wait
                    :input input :output output :error error-output)
@@ -214,57 +233,66 @@ compatible way of ensuring method compilation."
   #+ecl (si:run-program (namestring program) args)
   #+sbcl (sb-ext:run-program program args :wait wait
 			     :input input :output output :error error-output)
-  #-(or allegro lispworks clisp cmu scl ecl gcl sbcl)
+  #-(or allegro ccl clisp cmu ecl gcl lispworks sbcl scl)
   (portability-warning 'run-program args wait input output error-output directory)
   )
 
 (defun process-input (process)
   "Process-input for @arg{process}."
-  #+(or allegro lispworks) (second process)
+  #+(or allegro lispworks clisp) (second process)
   #+(or cmu scl) (ext:process-input process)
+  #+ccl (ccl:external-process-input-stream process)
   #+ecl process
   #+gcl (si::fp-output-stream process)
   #+sbcl (sb-ext:process-input process)
-  #-(or allegro lispworks cmu scl ecl gcl sbcl)
+  #-(or allegro ccl lispworks clisp cmu scl ecl gcl sbcl)
   (portability-warning 'process-input process)
   )
 
 (defun process-output (process)
   "Process-output for @arg{process}."
-  #+(or allegro lispworks) (third process)
+  #+(or allegro lispworks clisp) (third process)
   #+(or cmu scl) (ext:process-output process)
+  #+ccl (ccl:external-process-output-stream process)
   #+ecl process
   #+gcl (si::fp-output-stream process)
   #+sbcl (sb-ext:process-output process)
-  #-(or allegro lispworks cmu scl ecl gcl sbcl)
+  #-(or allegro ccl lispworks clisp cmu scl ecl gcl sbcl)
   (portability-warning 'process-output process)
   )
 
 (defun process-error (process)
   "Process-output for @arg{process}."
   #+(or allegro lispworks) (fourth process)
+  #+ccl (ccl:external-process-error-stream process)
   #+(or cmu scl) (ext:process-error process)
   #+sbcl (sb-ext:process-error process)
-  #-(or allegro lispworks cmu scl sbcl)
+  #-(or allegro ccl lispworks cmu scl sbcl)
   (portability-warning 'process-error process)
   )
 
 (defun process-close (process)
   "Closes @arg{process}."
   #+(or allegro lispworks) (close (second process))
+  #+(or clisp)
+  (loop for k in '(1 2 3) do
+       (let ((stream (nth k process)))
+         (when stream (close stream))))
+  #+ccl (ccl:signal-external-process process 9)
   #+cmu (ext:process-close process)
   #+scl (ext:process-kill process :sigkill)
   #+(or ecl gcl) (close process)
   #+sbcl (sb-ext:process-close process)
-  #-(or allegro lispworks cmu scl ecl gcl sbcl)
+  #-(or allegro ccl lispworks clisp cmu scl ecl gcl sbcl)
   (portability-warning 'process-close process)
   )
 
 (defun process-status (process)
   "Returns the status of @arg{process}."
   #+(or cmu scl) (ext:process-status process)
+  #+ccl (ccl:external-process-status process)
   #+sbcl (sb-ext:process-status process)
-  #-(or cmu scl sbcl)
+  #-(or cmu ccl scl sbcl)
   (portability-warning 'process-status process)
   )
 
@@ -294,11 +322,18 @@ compatible way of ensuring method compilation."
   #+sbcl (sb-alien:load-shared-object file)
   #+(and uffi (not (or allegro cmu scl sbcl ecl)))
   (uffi:load-foreign-library file)
-  #-(or allegro lispworks cmu scl sbcl ecl uffi)
+  #+(and cffi (not (or allegro cmu scl sbcl ecl uffi)))
+  (eval
+   (let ((name (gensym)))
+     `(progn
+        (cffi:define-foreign-library ,name
+          (:unix (:or ,file)))
+        (cffi:use-foreign-library ,name))))
+  #-(or allegro lispworks cmu scl sbcl ecl uffi cffi)
   (portability-warning 'load-foreign-library file))
 
-#+(or allegro cmu scl lispworks sbcl)
 (defun convert-type (type)
+  #+(or allegro cmu scl lispworks sbcl)
   (cond ((null type) ())
         #+lispworks
         ((and (listp type) (eq (car type) '*))
@@ -311,7 +346,10 @@ compatible way of ensuring method compilation."
                           #+(or cmu scl) "C-CALL" #+sbcl "SB-ALIEN")
            type)
          )
-	(t (cons (convert-type (car type)) (convert-type (cdr type))))))
+	(t (cons (convert-type (car type)) (convert-type (cdr type)))))
+  #-(or allegro cmu scl lispworks sbcl)
+  (portability-warning 'convert-type type)
+  )
 
 #+(or allegro lispworks cmu scl sbcl)
 (defmacro simplified-def-function ((c-name lisp-name) args &rest keys)
@@ -362,20 +400,26 @@ compatible way of ensuring method compilation."
   #+ecl `(ffi:def-function ,@args)
   #+(and uffi (not (or allegro cmu scl sbcl ecl)))
   `(uffi:def-function ,@args)
-  #-(or allegro lispworks cmu scl sbcl ecl uffi)
+  #+(and cffi (not (or allegro cmu scl sbcl ecl uffi)))
+  (destructuring-bind (name args &key returning &allow-other-keys)
+      args
+    `(cffi:defcfun ,name ,returning
+       ,@(subst :pointer '* args)))
+  #-(or allegro lispworks cmu scl sbcl ecl uffi cffi)
   (portability-warning 'define-alien-routine args))
 
+  ;; ensure that vector-sap is working before activating UMFPACK
 (declaim (inline vector-sap))
 (defun vector-sap (ptr)
-  "Returns an array pointer which can be used in a foreign call."
-  #+(or allegro lispworks) ptr
-  #+(or cmu scl) (system:vector-sap ptr)
-  #+ecl (ffi:c-inline (ptr) (:object) :pointer-void "(#0)->array.self.ch" :one-liner t)
-  #+sbcl (sb-sys:vector-sap ptr)
-  #+clisp (ffi::foreign-pointer ptr)
-  #-(or allegro lispworks cmu scl sbcl ecl clisp)
-  (portability-warning 'vector-sap ptr)
-  )
+   "Returns an array pointer which can be used in a foreign call."
+   #+(or allegro lispworks) ptr
+   #+(or cmu scl) (system:vector-sap ptr)
+   #+ecl (ffi:c-inline (ptr) (:object) :pointer-void "(#0)->array.self.ch" :one-liner t)
+   #+sbcl (sb-sys:vector-sap ptr)
+   #+clisp (ffi::foreign-pointer ptr)
+   #-(or allegro lispworks cmu scl sbcl ecl clisp)
+   (portability-warning 'vector-sap ptr)
+   )
 
 #+lispworks
 (defun convert-to-static (arg)
@@ -435,7 +479,7 @@ compatible way of ensuring method compilation."
   "Ensures a safe environment for a foreign function call, especially so
 that no GC changes array pointers obtained by @function{vector-sap}."
   #+ecl (apply function args)
-  #+allegro (apply function args)
+  #+(or allegro ccl) (apply function args)
   #+lispworks
   (let ((transformed-args (mapcar #'convert-to-static args)))
     (multiple-value-prog1
@@ -448,7 +492,7 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   (execute-with-pinned-objects
    (lambda () (apply function args))
    args)
-  #-(or allegro lispworks cmu scl sbcl ecl)
+  #-(or allegro ccl lispworks cmu scl sbcl ecl)
   (portability-warning 'foreign-call-wrapper)
   )
 
@@ -506,10 +550,11 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   #+allegro (excl:exit)
   #+lispworks (lispworks:quit)
   #+(or cmu scl) (ext:quit)
+  #+ccl (ccl:quit)
   #+ecl (si:quit)
   #+gcl (lisp:quit)
   #+sbcl (sb-ext:quit)
-  #-(or allegro lispworks cmu scl sbcl ecl gcl)
+  #-(or allegro lispworks cmu ccl scl sbcl ecl gcl)
   (portability-warning 'quit)
   )
 
@@ -532,8 +577,8 @@ that no GC changes array pointers obtained by @function{vector-sap}."
 	    :name (format nil "femlisp-~A"
 			  #+allegro "acl" #+lispworks "lispworks"
                           #+cmu "cmucl" #+scl "scl" #+sbcl "sbcl"
-                          #+ecl "ecl" #+gcl "gcl"
-			  #-(or allegro lispworks cmu scl sbcl ecl gcl) "x")
+                          #+ecl "ecl" #+gcl "gcl" #+clisp "clisp"
+			  #-(or allegro lispworks cmu scl sbcl ecl gcl clisp) "x")
 	    :type "core")
 	   (probe-file #p"femlisp:bin;"))))
   (format t "Saving ~A~%" core-file-name)
@@ -551,7 +596,7 @@ that no GC changes array pointers obtained by @function{vector-sap}."
 			       tpl:*default-lisp-listener-bindings*)
 			'common-lisp:*package*))))
     (excl:dumplisp :name core-file-name))
-  #+clisp (EXT:SAVEINITMEM corefilename)
+  #+clisp (EXT:SAVEINITMEM core-file-name)
   #+(or cmu scl)
   (ext:save-lisp
    core-file-name #+cmu :print-herald #+cmu t
@@ -571,7 +616,8 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   #-(or allegro lispworks clisp cmu scl sbcl ecl gcl)  ; do nothing
   (portability-warning 'save-femlisp-core-and-die core-file-name)
   ;; we quit in any case
-  #+(or)(quit))
+  #+(or)(quit)
+  )
 
 ;;;; Testing
 (defun test-port ()

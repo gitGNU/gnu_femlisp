@@ -65,7 +65,7 @@
     (loop for i of-type fixnum from 0 below n
        summing (* (aref x i) (aref y i)) of-type double-float)))
 
-(defun measure-time (fn count &optional real-p)
+(defun measure-time (fn &optional (count 1) real-p)
   "Measures the time in secondswhich @arg{count}-time execution of @arg{fn}
 needs."
   (declare (type function fn) (type fixnum count))

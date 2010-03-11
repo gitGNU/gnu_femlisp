@@ -35,6 +35,8 @@
 (defpackage "FL.AMOP"
   (:use "COMMON-LISP" "FL.DEBUG")
   (:import-from
+   #+closer-mop "CLOSER-MOP"
+   #-closer-mop
    #-(OR LISPWORKS ECL GCL SCL SBCL) "MOP"
    #+LISPWORKS "CLOS" #+SBCL "SB-MOP" #+ECL "CLOS" #+GCL "PCL" #+SCL "KERNEL"
    "CLASS-DIRECT-SUPERCLASSES" "CLASS-DIRECT-SUBCLASSES"

@@ -95,7 +95,7 @@ them when compiling a certain file."
           #'(lambda (condition) (throw 'trap condition)))
 ;;          #+cmu
 ;;          (style-warning (constantly nil))
-         #-(or cmu scl)
+         #-(or cmu scl clisp)
          (warning
           #'(lambda (condition) (throw 'trap condition))))
       (funcall func)

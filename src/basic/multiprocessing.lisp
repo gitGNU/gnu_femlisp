@@ -37,18 +37,24 @@
   (:use "COMMON-LISP" "FL.UTILITIES" "FL.MACROS" "FL.PORT" "FL.DEBUG")
   (:export
    ;; threading
-   "MAKE-THREAD" "MAKE-MUTEX" "WITH-MUTEX"
-   "MAKE-WAITQUEUE" "CONDITION-WAIT" "CONDITION-NOTIFY"
+   "MAKE-THREAD" "THREAD-NAME" "LIST-ALL-THREADS" "TERMINATE-THREAD"
    
+   "MAKE-MUTEX" "WITH-MUTEX"
    "MUTEX-MIXIN" "WITH-LOCK"
    "WITH-MUTUAL-EXCLUSION"
 
+   "WAITQUEUE-MIXIN" "MAKE-WAITQUEUE" "CONDITION-WAIT" "CONDITION-NOTIFY"
+   
+   "MP-DBG"
    "LOCKED-REGION-MIXIN"
    "WITH-REGION"
-   "MPQUEUE" "PARQUEUE"
+   "MPQUEUE" "PARQUEUE" "WAIT" "NOTIFY"
    "*THREAD-LOCAL-MEMOIZATION-TABLE*"
-   "*NUMBER-OF-THREADS*" "*CHUNK-SIZE*"
-   "WITH-WORKERS" "WORK-ON")
+   "*NUMBER-OF-THREADS*"
+   "WITH-WORKERS" "WORK-ON" "FEMLISP-WORKERS"
+
+   "WITH-PARALLEL-NETWORK" "PARCELL" "NAMED-PARCELL" "VALUE"
+   )
   (:documentation
    "This package provides an interface for allowing parallel execution in
 Femlisp.  It abstracts also from the underlying Lisp's threading features.
@@ -202,11 +208,18 @@ on the waitqueue."
   (:documentation "A mixin which adds a mutex to every instance of the
 class."))
 
+(defmethod mutex (obj)
+  "Ordinary objects are not mutex-protected."
+  nil)
+
 (defmacro with-mutual-exclusion ((obj) &body body)
   "Execute @arg{body} on the waitqueue @arg{obj} without other threads
 interfering."
-  `(with-mutex ((mutex ,obj))
-    ,@body))
+  (with-gensyms (do)
+    `(flet ((,do () ,@body))
+       (aif (mutex ,obj)
+            (with-mutex (it) (,do))
+            (,do)))))
 
 (defclass waitqueue-mixin (mutex-mixin)
   ((waitqueue :reader waitqueue :initform (make-waitqueue)))
@@ -215,16 +228,21 @@ interfering."
 (defgeneric wait (waitqueue-object &key while until perform)
   (:documentation "Waits on @arg{waitqueue-object} while @arg{while} is
 satisfied or until @arg{until} is satisfied.  After this, if it is given,
-the function @perform is called.")
+the function @arg{perform} is called.")
+  (:method (obj &key &allow-other-keys)
+    "The default method for objects does not wait at all.")
   (:method ((wq waitqueue-mixin) &key while until perform)
     (with-mutual-exclusion (wq)
-      (loop while (or (and while (funcall while wq))
-		      (and until (not (funcall until wq))))
+      (loop while (or (aand while (funcall it wq))
+		      (aand until (not (funcall it wq))))
 	    do (condition-wait (waitqueue wq) (mutex wq)))
-      (awhen perform (funcall it)))))
+      (awhen perform (funcall it wq)))))
 
 (defgeneric notify (waitqueue-object &optional n)
   (:documentation "Notifies @arg{waitqueue-object}.")
+  (:method (obj &optional n)
+    "The default method does nothing."
+    (declare (ignore n)))
   (:method ((wq waitqueue-mixin) &optional (n t))
     ;;(mp-dbg "notifying ~A" wq)
     (condition-notify (waitqueue wq) n)))
@@ -235,7 +253,12 @@ the function @perform is called.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass locked-region-mixin (waitqueue-mixin)
-  ((locked-region :reader locked-region :initform (make-hash-table))))
+  ((locked-region :reader locked-region)))
+
+(defmethod initialize-instance :after ((self locked-region-mixin)
+                                       &key (lock-test 'eql) &allow-other-keys)
+  (setf (slot-value self 'locked-region)
+        (make-hash-table :test lock-test)))
 
 (defun lock-region (object keys)
   "Should not be used externally.  Use WITH-REGION instead."
@@ -254,21 +277,26 @@ the function @perform is called.")
       (loop+ ((key keys)) do
 	 (remhash key table)))))
 
-(defun perform-with-locked-region (object keys perform)
-  "Perform @arg{perform} while @arg{keys} are locked in @arg{object}."
-  (with-mutual-exclusion (object)
-    (wait object
-	  :until
-	  (lambda (object)
-	    (let ((table (locked-region object)))
-	      (lret ((result (notany (lambda (key)
-				       (aand (gethash key table)
-					     (not (eq it (current-thread)))))
-				     keys)))))))
-    (lock-region object keys))
-  (funcall perform)
-  (unlock-region object keys)
-  (notify object))
+(defgeneric perform-with-locked-region (object keys perform)
+  (:documentation
+   "Perform @arg{perform} while @arg{keys} are locked in @arg{object}.")
+  (:method (object keys perform)
+    "No locking if @arg{object} is not a @class{locked-region-mixin}."
+    (funcall perform))
+  (:method ((object locked-region-mixin) keys perform)
+    (with-mutual-exclusion (object)
+      (wait object
+            :until
+            (lambda (object)
+              (let ((table (locked-region object)))
+                (lret ((result (notany (lambda (key)
+                                         (aand (gethash key table)
+                                               (not (eq it (current-thread)))))
+                                       keys)))))))
+      (lock-region object keys))
+    (funcall perform)
+    (unlock-region object keys)
+    (notify object)))
 
 (defmacro with-region ((object keys) &body body)
   `(perform-with-locked-region ,object ,keys
@@ -289,83 +317,116 @@ the function @perform is called.")
 (defun mp-dbg (format &rest args)
   (funcall #'dbg :mp "~A:~%~?" (current-thread) format args))
 
-#+(or)
-(format t "~A:~%~?" 'THREAD "working on ~A" '((1 2 3)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass multithread (waitqueue-mixin)
-  ((threads :accessor threads :initform ())
-   (work :initarg :work :documentation "Function doing the actual work.")))
-
-(defmethod initialize-instance :after ((mt multithread) &key number-of-threads &allow-other-keys)
-  (with-slots (threads work) mt
-    (with-mutual-exclusion (mt)
-      (setf threads
-	    (loop repeat number-of-threads collect
-		  (make-thread
-		   ;; worker function
-		   (lambda ()
-		     (funcall work)
-		     ;; epilogue after doing the work
-		     (with-mutual-exclusion (mt)
-		       (setf threads (remove (current-thread) threads))
-		       (notify mt)))
-		   :name "my-worker"))))))
-
-#+(or)
-(defun execute-in-parallel (work &key (number-of-threads *number-of-threads*))
-  (let ((mt (make-instance 'multithread :work work
-			   :number-of-threads number-of-threads)))
-    (wait mt :while #'threads)))
-
-#+(or)
-(loop for i from 1 upto 5 do
-      (format t "~R thread~:P~%" i)
-      (time (execute-in-parallel
-	     (lambda ()
-	       (loop repeat (expt 2 27) sum 1))
-	     :number-of-threads i)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; thread-safe queue
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass parqueue (queue waitqueue-mixin)
   ((finished-p :accessor finished-p :initform nil :documentation
-	       "Indicator for no-more-input-allowed."))
+	       "Indicator for no-more-input-allowed.")
+   (maximal-size :initform nil :initarg :maximal-size)
+   (current-size :initform 0))
   (:documentation "A thread-safe queue waiting for input."))
-
-(defmethod enqueue :around (obj (pq parqueue))
-  (assert (not (finished-p pq)))
-  (mp-dbg "enqueueing ~A in ~A" obj pq)
-  (with-mutual-exclusion (pq)
-    (call-next-method)
-    (notify pq) ; notify of change!
-    nil
-    ))
-
-(defmethod dequeue :around ((pq parqueue))
-  (with-mutual-exclusion (pq)
-    (loop
-     (mp-dbg "trying to dequeue ~A (finished: ~A, empty: ~A, top: ~A)"
-	     pq (finished-p pq) (emptyp pq) (car (fl.utilities::head pq)))
-     (cond ((or (finished-p pq) (not (emptyp pq)))
-	    (multiple-value-bind (value emptyp)
-		(call-next-method)
-	      (notify pq)			; notify of change
-	      (mp-dbg "dequeued value=~A, emptyp=~A" value emptyp)
-	      (return-from dequeue (values value emptyp))))
-	   (t (mp-dbg "waiting on parqueue ~A" pq)
-	      (condition-wait (waitqueue pq) (mutex pq))))
-     )))
 
 (defmethod finish ((pq parqueue))
   (with-mutual-exclusion (pq)
     (mp-dbg "finishing queue ~A" pq)
     (setf (finished-p pq) t)
     (notify pq)))
+
+(defmethod enqueue :around (obj (pq parqueue))
+  (with-slots (finished-p maximal-size current-size) pq
+    (assert (not finished-p))
+    (mp-dbg "enqueueing ~A in ~A" obj pq)
+    (with-mutual-exclusion (pq)
+      (loop while (and maximal-size (>= current-size maximal-size)) do
+           (mp-dbg "queue ~A full - waiting" pq)
+           (condition-wait (waitqueue pq) (mutex pq)))
+      (call-next-method)
+      (incf current-size)
+      (notify pq) ; notify of change!
+      nil
+      )))
+
+(defmethod dequeue :around ((pq parqueue))
+  (with-slots (finished-p current-size) pq
+    (with-mutual-exclusion (pq)
+      (loop
+         (mp-dbg "trying to dequeue ~A (finished: ~A, empty: ~A, top: ~A)"
+                 pq finished-p (emptyp pq) (car (fl.utilities::head pq)))
+         (cond ((or finished-p (not (emptyp pq)))
+                (multiple-value-bind (value emptyp)
+                    (call-next-method)
+                  (unless emptyp (decf current-size))
+                  (notify pq)           ; notify of change
+                  (mp-dbg "dequeued value=~A, emptyp=~A" value emptyp)
+                  (return-from dequeue (values value emptyp))))
+               (t (mp-dbg "waiting on parqueue ~A" pq)
+                  (condition-wait (waitqueue pq) (mutex pq))))
+         ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; pipeline
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar *pipeline-length* 10)
+(defvar *distribute-workload-p* nil)
+
+(defun execute-in-pipeline (distribute &rest jobs)
+  "Every function in @arg{jobs} produces arguments for the next one with the
+function @function{call-next}.  Every job is run in a separate thread."
+  (let ((joins (loop repeat (length jobs) collecting
+                    (make-instance 'parqueue
+                                   :maximal-size *pipeline-length*))))
+    (let ((first-jobs (butlast jobs))
+          (collector (car (last jobs)))
+          (first-joins (butlast joins))
+          (last-join (car (last joins))))
+      (mapc #'add-pipeline-worker
+            (cons distribute first-jobs)
+            (cons nil first-joins)
+            joins)
+      ;; collector
+      (loop (multiple-value-bind (args emptyp)
+                (dequeue last-join)
+              (when emptyp (return))
+              (apply collector args)
+              (thread-yield))))))
+
+(defvar *input-queue* nil
+  "The input queue of a worker job in a pipeline.")
+
+(defvar *output-queue* nil
+  "The output queue of a worker job in a pipeline.")
+
+(defun hand-over (&rest args)
+  "Hands over the arguments to the next worker job."
+  (enqueue args *output-queue*))
+
+(defun add-pipeline-worker (job from to)
+  (make-thread
+   (lambda ()
+     (let ((*input-queue* from)
+           (*output-queue* to))
+       (mp-dbg "starting...")
+       (let ((*thread-local-memoization-table* ()))
+         (declare (special *thread-local-memoization-table*))
+         (if (null from)
+             (funcall job)  ; distributor
+             (loop
+                (multiple-value-bind (args emptyp)
+                    (dequeue from)
+                  (when emptyp
+                    (return))
+                  (mp-dbg "working on ~A" args)
+                  (apply job args)
+                  (mp-dbg "finished working on ~A" args)
+                  (thread-yield)))
+                )
+         (mp-dbg "...done")
+         (awhen to (finish it))
+         #+(or)(remove-worker group (current-thread)))))
+   :name "pipeline-worker"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; work-group
@@ -393,30 +454,7 @@ not be used globally.")
 		    (dequeue (tasks group))
 		  (when emptyp (return))
 		  (mp-dbg "working on ~A" args)
-		  (apply (work group) args)
-		  (mp-dbg "finished working on ~A." args)
-		  (thread-yield)))
-	       (mp-dbg "...done")
-	       (remove-worker group (current-thread))))
-	   :name "femlisp-worker")
-	  (threads group))))
-
-#+(or)
-(defmethod add-worker ((group work-group) &optional multiple-args)
-  (with-mutual-exclusion (group)
-    (push (make-thread
-	   (lambda ()
-	     (mp-dbg "starting...")
-	     (let ((*thread-local-memoization-table* ()))
-	       (loop
-		(multiple-value-bind (args emptyp)
-		    (dequeue (tasks group))
-		  (when emptyp (return))
-		  (mp-dbg "working on ~A" args)
-		  (if multiple-args
-		      (dolist (args args)
-			(apply (work group) args))
-		      (apply (work group) args))
+		  (apply (work group) (mklist args))
 		  (mp-dbg "finished working on ~A." args)
 		  (thread-yield)))
 	       (mp-dbg "...done")
@@ -444,19 +482,13 @@ computationally intensive tasks.  If NIL, no threading is used.")
 
 ;; (setq *number-of-threads* 2)
 
-(defvar *chunk-size* nil
-  "NIL means no argument grouping, a number means that the arguments are
-  grouped in chunks of this size.")
-
 (defun execute-in-parallel (work &key arguments distribute
 			    (number-of-threads *number-of-threads*))
   "Executes work in parallel distributed on @arg{number-of-threads}
 threads.  The arguments for work are taken from the argument-lists in
 @arg{arguments}.  Alternatively, @arg{distribute} may contain a function
 which generates the argument-lists by calling the function
-@function{work-on}.  If group-size is non-nil, it is used as a chunk-size.
-This is important, if the amount of work on each argument list is not
-large."
+@function{work-on}."
   (if number-of-threads
       ;; parallel execution
       (let ((group (make-instance 'work-group :work work)))
@@ -472,49 +504,12 @@ large."
 	  (loop for arglist in arguments
 	       do (apply work arglist)))))
 
-#+(or)
-(defun execute-in-parallel (work &key arguments distribute
-			    (number-of-threads *number-of-threads*)
-			    (chunk-size *chunk-size*))
-  "Executes work in parallel distributed on @arg{number-of-threads}
-threads.  The arguments for work are taken from the argument-lists in
-@arg{arguments}.  Alternatively, @arg{distribute} may contain a function
-which generates the argument-lists by calling the function
-@function{work-on}.  If chunk-size is non-nil, it is used as a size.  This
-is important, if the amount of work on each argument list is not large."0
-  (if number-of-threads
-      ;; parallel execution
-      (let ((group (make-instance 'work-group :work work)))
-	;; generate worker threads
-	(loop repeat number-of-threads do
-	     (add-worker group chunk-size))
-	;; generate work
-	(let ((chunk ())
-	      (current-size 0))
-	  (flet ((collect-and-send (&rest args)
-		   (cond ((null chunk-size)
-			  (send-task group args))
-			 ((= current-size chunk-size)
-			  (send-task group chunk)
-			  (setf chunk () current-size 0))
-			 (t (push args chunk)
-			    (incf current-size)))))
-	    (if distribute
-		(funcall distribute #'collect-and-send)
-		(mapc #'collect-and-send arguments))
-	    (when chunk
-	      (send-task group chunk))))
-	(finish (tasks group))
-	(wait group :while #'threads))
-      ;; sequential execution
-      (if distribute
-	  (funcall distribute work)
-	  (loop for arglist in arguments
-	       do (apply work arglist)))))
-
 (defun femlisp-workers ()
-  (remove "femlisp-worker" (list-all-threads)
-	  :test-not #'string= :key #'thread-name))
+  (remove-if-not
+   (lambda (thread)
+     (member (thread-name thread) '("femlisp-worker" "pipeline-worker")
+             :test #'string=))
+   (list-all-threads)))
 
 (defun terminate-workers ()
   (dolist (thread (femlisp-workers))
@@ -576,7 +571,7 @@ threads which call @arg{func} on those arguments."
 	     (loop for obj = (dequeue pq) while obj
 		   do (with-mutex (mutex)
 			(push obj result)))
-	     (format t "~A done.~%" (current-thread))))
+	     (mp-dbg t "~A done.~%" (current-thread))))
       (make-thread #'worker :name "femlisp-worker")
       (make-thread #'worker :name "femlisp-worker")
       (make-thread #'worker :name "femlisp-worker")
@@ -592,7 +587,7 @@ threads which call @arg{func} on those arguments."
   ;; (terminate-workers)
   
   (time
-   (let ((n 10000)
+   (let ((n 100000)
 	 (q (make-instance 'parqueue)))
      (let ((*number-of-threads* 4))
        (with-workers ((lambda (k)
@@ -665,8 +660,25 @@ threads which call @arg{func} on those arguments."
       (print 'hi))
     (with-readwrite-access (x)
       (print 'ho)))
+
+  (time
+   (lret ((delay 0.5)
+          (result ()))
+     (execute-in-pipeline
+      (_ (loop for i below 10 do
+              (hand-over i)))
+      (_ (sleep delay)
+         (hand-over (expt _ 2)))
+      (_ (sleep delay)
+         (hand-over (isqrt _)))
+      (_ (push _ result)))))
+  
+  ;; (list-all-threads)
+  ;; (terminate-workers)
   
   (dbg-off :mp)
   )
 
+
 ;;; (femlisp-multiprocessing-tests)
+
