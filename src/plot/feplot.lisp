@@ -49,16 +49,33 @@ the given depth."
 			     &rest rest)
   (apply #'fl.graphic::dx-commands-data rest))
 
+
+(defgeneric plot-cells (skel &key &allow-other-keys)
+  (:method ((skel <skeleton>) &key &allow-other-keys)
+    (cells-of-dim skel 1))
+  (:method ((h-mesh <hierarchical-mesh>) &key part &allow-other-keys)
+    (let ((dim (min 3 (if part
+                          (dimension-of-part h-mesh part)
+                          (dimension h-mesh)))))
+      (find-cells
+       (lambda (cell)
+         (and (= (dimension cell) dim)
+              (or (null part)
+                  (eq (fl.mesh::get-patch-property cell h-mesh :part) part))))
+       h-mesh :where :surface))))
+
 (defmethod plot ((asv <ansatz-space-vector>) &rest rest
-		 &key depth (index 0) (component 0) key transformation
-		 (rank 0) shape &allow-other-keys)
+		 &key cells depth (index 0) (component 0) key transformation
+		 (rank 0) shape part &allow-other-keys)
   "Plots a certain component of the ansatz space vector @arg{asv},
 e.g. pressure for Navier-Stokes equations.  @arg{index} chooses one of
 several solutions if @arg{asv} has multiplicity larger 1."
   (let* ((as (ansatz-space asv))
 	 (mesh (mesh as))
 	 (problem (problem as))
-	 (dim (embedded-dimension mesh)))
+	 (dim (or (let ((fl.mesh::*check-well-defined-embedded-dimension* t))
+                    (embedded-dimension mesh))
+                  (dimension-of-part mesh part))))
     (ensure depth
 	    #'(lambda (cell)
 		(let* ((components (components-of-cell cell mesh problem))
@@ -74,7 +91,7 @@ several solutions if @arg{asv} has multiplicity larger 1."
     ;; (ensure rank (if (and component index) 0 1))
     (apply #'graphic-output asv :dx
 	   :depth depth
-	   :cells (plot-cells mesh)
+	   :cells (or cells (plot-cells mesh :part part))
 	   :dimension (plot-dimension dim)
 	   :transformation (or transformation (plot-transformation dim))
 	   :rank rank :shape shape

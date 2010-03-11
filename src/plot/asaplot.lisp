@@ -66,7 +66,7 @@ Display (image);
   (let ((node-indices (make-hash-table)))
     ;; write positions
     (format stream "object 1 class array type float rank 1 shape ~D items ~D data follows~%"
-	    dimension (nr-nonempty-rows asa))
+	    dimension (nrows asa))
     (let ((count 0))
       (for-each-row-key
        #'(lambda (cell)

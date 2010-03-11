@@ -41,12 +41,6 @@
 (defun plot-dimension (dim)
   (min dim 3))
 
-(defun plot-cells (skel)
-  (let ((dim (dimension skel)))
-    (if (typep skel '<hierarchical-mesh>)
-	(surface-cells-of-dim skel (min 3 dim))
-	(cells-of-dim skel (min 3 dim)))))
-
 (defun plot-transformation (dim)
   "The default plot transformation is simply a projection on R^3."
   (when (> dim 3)
@@ -69,9 +63,14 @@
   (apply #'plot (skeleton cell) rest))
 
 (defmethod graphic-write-data (stream (skel <skeleton>) (program (eql :dx))
-			       &key (cells nil cells-p) transformation)
-  "Plots a mesh. @arg{cells} should be 1-cells."
-  (unless cells-p (setq cells (find-cells (constantly t) skel :dimension 1 :where :surface)))
+			       &key (cells nil cells-p) part transformation)
+  "Plots a mesh. If provided, @arg{cells} should be 1-cells."
+  (unless cells-p
+    (setq cells (find-cells
+                 (lambda (cell)
+                   (or (null part)
+                       (eq (fl.mesh::get-patch-property cell skel :part) part)))
+                 skel :dimension 1 :where :surface)))
   (unless cells (return-from graphic-write-data))
   (assert (every #'(lambda (cell) (= (dimension cell) 1)) cells))
   (let* ((position-indices (compute-position-indices cells 0))

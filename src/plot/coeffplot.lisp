@@ -43,7 +43,7 @@
 		 (rank 0) shape &allow-other-keys)
   "Plots a coefficient function for the problem on the given mesh.  Does
 handle coefficients depending on finite element functions."
-  (ensure mesh (uniformly-refined-mesh
+  (ensure mesh (uniformly-refined-hierarchical-mesh
 		(domain problem) refinements :parametric parametric))
   (apply #'graphic-output problem :dx
 	 :dimension (dimension mesh)
@@ -57,11 +57,11 @@ handle coefficients depending on finite element functions."
 		     (refcell-refinement-vertex-positions cell depth))
 		    (geometry (fe-cell-geometry cell sample-points))
 		    (fe-paras (loop for obj in (required-fe-functions (list coeff-func))
-				    for asv = (get-property problem
-							    (if (symbolp obj) obj (car obj)))
-				    for fe = (get-fe (ansatz-space asv) cell)
-				    collect obj
-				    collect (cons fe (get-local-from-global-vec cell asv))))
+                                 for asv = (get-property problem
+                                                         (if (symbolp obj) obj (car obj)))
+                                 for fe = (get-fe (ansatz-space asv) cell)
+                                 collect obj
+                                 collect (cons fe (get-local-from-global-vec cell asv))))
 		    (fe (when fe-paras
 			  (assert (<= (length fe-paras) 2))
 			  (prog1 (car (second fe-paras))
@@ -86,13 +86,13 @@ handle coefficients depending on finite element functions."
 ;;; Testing:
 
 (defun test-coeffplot ()
-  (let* ((dim 1)
+  (let* ((dim 2)
 	 (domain (n-cell-domain dim))
 	 (problem
 	  (make-instance
 	   '<pde-problem> :domain domain :components '(u)
 	   :patch->coefficients
-	   `((:d-dimensional (,(f[x]->coefficient
+	   `((:d-dimensional (,(fx->coefficient
 				'MY-COEFFICIENT (lambda (x) (aref x 0)))))))))
     (plot problem :refinements 2 :coefficient 'MY-COEFFICIENT))
   )
