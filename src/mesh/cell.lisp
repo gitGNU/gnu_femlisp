@@ -107,11 +107,24 @@ distortion of the multilinear mapping."))
 (defun vertex? (cell) (typep cell '<vertex>))
 (defun vertex-p (cell) (typep cell '<vertex>))
 
+(defvar *check-well-defined-embedded-dimension* nil
+  "Checks if embedded dimension is well-defined.")
+
 (defgeneric embedded-dimension (object)
-  (:documentation "Dimension of the embedding space for object.")
+  (:documentation "Dimension of the embedding space for @arg{object}.  If
+  @arg{check} is T, a test is performed if the dimension is well-defined
+  for all parts of @arg{object}.  If not, NIL is returned.")
   (:method ((cell <cell>))
     "Recursive definition, anchored at the definition for vertices."
-    (embedded-dimension (aref (boundary cell) 0)))
+    (loop with dim = nil
+       for side across (boundary cell)
+       for dim1 = (embedded-dimension side) do
+         (if dim
+             (unless (= dim dim1)
+               (return nil))
+             (setq dim dim1))
+         (unless *check-well-defined-embedded-dimension* (loop-finish))
+         finally (return dim1)))
   (:method ((vtx <vertex>))
     "Anchor for recursive definition."
     (length (vertex-position vtx))))
@@ -301,7 +314,9 @@ gradients."
 (defmethod print-object :after ((cell <cell>) stream)
   "Printing cells."
   (case *print-cell*
-    (:midpoint (format stream "{MP=~A}" (midpoint cell)))))
+    (:midpoint (format stream "{MP=~A}"
+                       (or (ignore-errors (midpoint cell))
+                           :error>)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; class information for cells
@@ -417,6 +432,9 @@ cell boundary is copied."))
     (setf (slot-value copy 'mapping)
 	  (slot-value cell 'mapping))
     copy))
+
+(defgeneric check (obj)
+  (:documentation "Checks the data structure of @arg{obj}."))
 
 (defmethod check ((cell <cell>))
   (loop with side-dim = (1- (dimension cell))
@@ -599,20 +617,23 @@ global-pos by the cell mapping."
 		       (make-double-vec (dimension cell))
 		       :approximate-gradient (constantly At*A)))))
 
-(defgeneric inside-cell? (cell global-pos)
-  (:documentation "Checks if global-pos is inside the interior of the cell.
-It calls coordinates-inside? which is defined for every cell class."))
+(defgeneric inside-cell? (cell global-pos &optional threshold)
+  (:documentation "Checks if @arg{global-pos} is inside the interior of the
+@arg{cell}.  It calls @function{global->local} to obtain local coordinates
+and then @function{coordinates-inside?} to check if those are inside the
+cell.  If @arg{threshold} is a non-negative number, an additional check is
+performed, if the local coordinates map to @arg{global-pos} with accuracy
+threshold."))
 
 (defgeneric coordinates-inside? (cell local-pos)
   (:documentation "Checks if the given local coordinates are inside the
 reference cell."))
 
-(defmethod inside-cell? ((cell <cell>) position)
+(defmethod inside-cell? ((cell <cell>) position &optional threshold)
   (let ((local (global->local cell position)))
-    (coordinates-inside? cell local)
-    ;; should be checked as well:
-    ;; (mzerop (m- (local->global cell local) position) 1.0e-15)
-    ))
+    (and (coordinates-inside? cell local)
+         (or (null threshold)
+             (mzerop (m- (local->global cell local) position) threshold)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; global->embedded-local

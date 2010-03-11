@@ -35,7 +35,7 @@
 (in-package :cl-user)
 (defpackage "FL.EASYMESH"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
-	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION"
+	"FL.MATLISP" "FL.FUNCTION"
 	"FL.MESH")
   (:export )
   (:documentation "This package provides an interface to the 2D

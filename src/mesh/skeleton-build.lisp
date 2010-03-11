@@ -127,9 +127,9 @@ corresponding cell.  It is updated by this function."
   "Create a uniform box skeleton consisting of N_1 x ... x N_dim cubes of
 dimensions h_1 x ... x h_dim."
   (assert (= (length N) (length h)))
-  (let* ((dim (length N))
-	 (skel (make-instance '<skeleton> :dimension dim))
-	 (cube-class (class-of (n-cube dim))))
+  (lret* ((dim (length N))
+          (cube-class (class-of (n-cube dim)))
+          (skel (make-instance '<skeleton> :dimension dim)))
     (ensure corners->cell (make-hash-table :test 'equalp))
     (multi-for (ivec (make-fixnum-vec dim 1) N)
       (let ((corners ()))
@@ -138,8 +138,16 @@ dimensions h_1 x ... x h_dim."
 		     #'(lambda (k_i h_i) (float (* k_i h_i) 1.0))
 		     (m+ ivec jvec) h)
 		corners))
-	(insert-cell-from-corners skel corners->cell cube-class (nreverse corners) ())))
-    skel))
+	(insert-cell-from-corners skel corners->cell cube-class (nreverse corners) ())))))
+
+(defun skeleton-disjoint-union (&rest skels)
+  "Builds a disjoint union skeleton of all skeletons."
+  (lret ((result (make-instance
+                  '<skeleton>
+                  :dimension (apply #'max (mapcar #'dimension skels)))))
+    (loop for skel in skels do
+         (doskel ((cell props) skel)
+           (setf (skel-ref result cell) props)))))
 
 (defun skel-add! (skel-1 skel-2 &key (override ()) active-skel-1)
   "Adds @arg{skel-2} to @arg{skel-1} destructively for @arg{skel-1}.

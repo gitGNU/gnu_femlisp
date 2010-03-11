@@ -39,11 +39,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <domain> (<skeleton> property-mixin)
-  ((boundary :reader domain-boundary :documentation
-    "A skeleton containing all boundary patches which is used for
-classification of patches.")
-   (classifiers :documentation
-    "A list of functions of two arguments -patch and classifications so
+  ((classifiers :initform () :initarg :classifiers :documentation
+                "A list of functions of two arguments -patch and classifications so
 far- which are called from the right to classify the patch."))
   (:documentation "A @class{<domain>} is a special @class{<skeleton>}.  We
 call its cells @emph{patches}, and the properties of a patch carries
@@ -59,19 +56,73 @@ geometric information.  Properties supported up to now are:
 Metric and volume should be functions depending on keyword arguments like
 @code{:LOCAL} and @code{:GLOBAL} and allowing arbitrary other keys."))
 
+(defun domain-boundary (domain)
+  "The boundary of the domain as a skeleton."
+  (get-property domain 'boundary))
+
+(defun domain-substance (domain)
+  "The substance of the domain as a hash-table of cells."
+  (get-property domain 'substance))
+
+(defun domain-substance-boundaries (domain)
+  "The boundaries of the substance cells as a hash-table of cells."
+  (get-property domain 'substance-boundaries))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Domain generation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun standard-classifier (domain)
+  (lambda (patch classifications)
+    (declare (ignore classifications))
+    (let ((result (if (member-of-skeleton? patch (domain-boundary domain))
+                      (list :skeleton-boundary :boundary :external-boundary)
+                      (list :skeleton-interior :interior)))
+          (dim (dimension patch)))
+      (when (gethash patch (domain-substance domain))
+        (_f union result '(:substance :d-dimensional)))
+      (when (gethash patch (domain-substance-boundaries domain))
+        (_f union result '(:d-1-dimensional)))
+      (when (= dim 0)
+        (when (mzerop (vertex-position patch))
+          (push :origin result)))
+      (when (= dim 1) (push :1-dimensional result))
+      (when (= dim 0) (push :0-dimensional result))
+      (awhen (get-cell-property patch domain :part)
+        (pushnew it result))
+      (awhen (get-cell-property patch domain 'classification)
+        (setf result (append result it)))
+      result)))
 
 (defun ensure-secondary-information (domain)
   "Preliminary.  Maybe it would be better to update the boundary
 automatically when inserting cells.  Unfortunately, it is not clear
 how this could be done in an easy way."
-  (with-slots (boundary extensible-p) domain
+  (with-slots (classifiers boundary substance substance-boundaries extensible-p) domain
     (setf boundary (skeleton-boundary domain))
+    (setf substance (skeleton-substance domain))
+    (setf substance-boundaries
+          (lret ((result (make-hash-table)))
+            (loop for cell being each hash-key of substance do
+                 (loop for side across (boundary cell) do
+                      (setf (gethash side result) t)))))
     (doskel (patch domain)
       (when (get-cell-property patch domain 'EXTENSION)
-	(setf extensible-p t)))))
+	(setf extensible-p t)))
+    (_f append classifiers (list (standard-classifier domain)))))
+
+(defmethod initialize-instance :after ((domain <domain>) &key &allow-other-keys)
+  "When a domain is constructed from a list of cells, we assume that its
+definition is finished and setup the boundary slot."
+  (ensure-secondary-information domain))
+
+(defmethod update-instance-for-different-class :after
+    ((skel <skeleton>) (domain <domain>) &rest initargs)
+  "Sometimes a skeleton is transformed into a domain by change-class.
+Usually, this means that the definition is finished such that we can
+compute the boundary afterwards."
+  (declare (ignore initargs))
+  (ensure-secondary-information domain))
 
 (defun patch-classification (patch domain)
   "Returns a list of classifications for @arg{patch} in @arg{domain}."
@@ -103,47 +154,19 @@ the list @arg{classification}."
 		     (declare (ignorable classifications))
 		     ,(map-tree (lambda (leaf)
 				  (if (keywordp leaf)
-				      `(find ,leaf classifications)
+				      (find leaf classifications)
 				      leaf))
 				condition)))
 	    classifications))
 
-(defmethod initialize-instance :after ((domain <domain>) &key cells &allow-other-keys)
-  "When a domain is constructed from a list of cells, we assume that its
-definition is finished and setup the boundary slot."
-  (when cells (ensure-secondary-information domain)))
-
-(defmethod update-instance-for-different-class :after
-    ((skel <skeleton>) (domain <domain>) &rest initargs)
-  "Sometimes a skeleton is transformed into a domain by change-class.
-Usually, this means that the definition is finished such that we can
-compute the boundary afterwards."
-  (declare (ignore initargs))
-  (ensure-secondary-information domain))
-
-(defmethod shared-initialize :after ((domain <domain>) slot-names
-				     &key classifiers &allow-other-keys)
-  "When a domain is constructed from a list of cells, we assume that its
-definition is finished and setup the boundary slot."
-  (declare (ignore slot-names))
-  (setf (slot-value domain 'classifiers)
-	(list (lambda (patch classifications)
-		(declare (ignore classifications))
-		(let ((result (if (member-of-skeleton? patch (domain-boundary domain))
-				  (list :skeleton-boundary :boundary :external-boundary)
-				  (list :skeleton-interior :interior)))
-		      (dim (dimension patch)))
-		  (when (= dim (dimension domain)) (push :d-dimensional result))
-		  (when (= dim (1- (dimension domain))) (push :d-1-dimensional result))
-		  (when (= dim 0)
-		    (when (mzerop (vertex-position patch))
-		      (push :origin result)))
-		  (when (= dim 1) (push :1-dimensional result))
-		  (awhen (get-cell-property patch domain 'classification)
-		    (setf result (append result it)))
-		  result))))
-  (loop for classifier in classifiers do
-       (pushnew classifier (slot-value domain 'classifiers))))
+(defun find-patch (domain classifiers &key midpoint)
+  "Searches for a patch of @arg{domain} having the given list
+@arg{classifiers}."
+  (find-cell (lambda (patch)
+               (and (subsetp classifiers (patch-classification patch domain))
+                    (or (null midpoint)
+                        (equalp midpoint (midpoint patch)))))
+             domain))
 
 (defun make-classifier (test classification)
   "Returns a classifier for patches."
@@ -169,7 +192,8 @@ assumed to be provided in an exact form."
     properties))
 
 (defmethod describe-object :after ((domain <domain>) stream)
-  (format stream "~&Characteristics: ~S" (domain-characteristics domain))
+  (format stream "~&Domain characteristics: ~S~%" (domain-characteristics domain))
+  (format stream "~&Patch characterizations:~%")
   (doskel (patch domain)
     (format t "~A ->~% ~S~%" patch (patch-classification patch domain))))
 
@@ -209,10 +233,9 @@ cube domain."
 		   classifications))
 	(when (< cell-dim (1- dim))
 	  (pushnew :lateral classifications))
-	;; special information for 2d problems
-	(when (= dim 2)
-	  (cond ((= (elt midpoint 0) left) (pushnew :left classifications))
-		((= (elt midpoint 0) right) (pushnew :right classifications))))))
+	;; the first coordinate classifies left and right
+        (cond ((= (elt midpoint 0) left) (pushnew :left classifications))
+              ((= (elt midpoint 0) right) (pushnew :right classifications)))))
     classifications))
 
 (defun n-cube-domain (dim)
@@ -398,7 +421,6 @@ the unit cube."
 
 ;;;; Testing
 (defun test-domain ()
-  (display-ht (etable (n-ball-domain 2) 2))
   (describe (n-cube-domain 2))
   (corners (n-simplex 2))
   (let ((*print-skeleton-values* t))
@@ -414,9 +436,14 @@ the unit cube."
   (let* ((domain (n-cube-domain 3))
 	 (cell (find-cell (lambda (c) (mequalp (midpoint c) #d(0.5 0.5 0.0))) domain)))
     (assert (member :bottom (patch-classification cell domain))))
-  
+  (assert (not (test-condition
+                '(and (or :left :right) :d-1-dimensional)
+                '(:top :d-1-dimensional :bottom))))
   (assert (not (test-condition '(and :d-dimensional (not :inlay))
 			       '(:d-dimensional :inlay))))
+  (let ((domain (n-cube-domain 1)))
+    (doskel (patch domain)
+      (print (funcall (standard-classifier domain) patch ()))))
   )
 
 ;;; (test-domain)

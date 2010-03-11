@@ -177,20 +177,16 @@ midpoint."
 
 (defun triangulize (mesh)
   "Transforms a product-cell mesh into a simplex mesh."
+  (declare (optimize debug))
   (when (typep mesh '<hierarchical-mesh>)
     (error "NYI for hierarchical meshes."))
   (when (> (dimension mesh) 2)
     (error "NYI.  Should be a Kuhn decomposition."))
-  (let ((new-mesh (make-instance '<mesh> :domain (domain mesh)))
-	(copy-table (make-hash-table)))
-    (doskel ((cell properties) mesh :dimension :highest)
-      (if (simplex-p cell)
-	  (let ((new-cell (copy-cell cell)))
-	    (setf (gethash cell copy-table) new-cell)
-	    (setf (slot-value new-cell 'boundary)
-		  (vector-map (rcurry #'gethash copy-table)
-			      (boundary cell)))
-	    (setf (skel-ref new-mesh new-cell) properties))
+  (lret ((new-mesh (make-instance '<mesh> :domain (domain mesh))))
+    (doskel ((cell properties) mesh)
+      (if (or (< (dimension cell) 2)
+              (simplex-p cell))
+          (setf (skel-ref new-mesh cell) properties)
 	  ;; must be a quadrangle, triangulate it
 	  (let ((subcells (subcells cell)))
 	    (let ((n00 (aref subcells 8))
@@ -199,25 +195,20 @@ midpoint."
 		  (e01-11 (aref subcells 3))
 		  (e00-01 (aref subcells 2))
 		  (e10-11 (aref subcells 1)))
-	      (let ((diagonal (make-line (gethash n00 copy-table)
-					 (gethash n11 copy-table))))
-		(setf (skel-ref new-mesh diagonal) properties)
-		(let ((triangle1 (make-simplex
-				  (vector (gethash e10-11 copy-table)
-					  diagonal (gethash e00-10 copy-table))))
-		      (triangle2 (make-simplex
-				  (vector (gethash e01-11 copy-table)
-					  diagonal (gethash e00-01 copy-table)))))
-		  (setf (skel-ref new-mesh triangle1) properties)
-		  (setf (skel-ref new-mesh triangle2) properties)))))))
-    ;; return new triangle mesh
-    new-mesh))
+	      (let ((diagonal (make-line n00 n11)))
+                (loop for new-cell in
+                     (list diagonal
+                           (make-simplex (vector e10-11 diagonal e00-10))
+                           (make-simplex (vector e01-11 diagonal e00-01)))
+                     do
+                     (setf (skel-ref new-mesh new-cell) properties)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-meshgen ()
+  (triangulize (make-mesh-from-domain (n-cube-domain 2)))
   (describe (uniformly-refined-mesh (n-simplex-domain 1) 1))
   (describe (uniform-mesh-on-box-domain (n-cube-domain 2) #(2 2)))
   (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-simplex-domain 1) 2)))

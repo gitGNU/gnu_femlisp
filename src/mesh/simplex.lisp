@@ -139,10 +139,10 @@ Example: (freudenthal-refinement 1) -> ((#(2 0) #(1 1)) (#(1 1) #(0 2)))"
 	 (positions (make-array (list n+1 n+1))))
     ;; Remark: we will use only one half (i<=j) of the positions-array to
     ;; allow maximal identification of objects.
-    (for (i 0 n)
-      (for (j i n)
-	(setf (aref positions i j)
-	      (scal 0.5 (m+ (unit-vector n+1 i) (unit-vector n+1 j))))))
+    (loop for i upto n do
+         (loop for j from i upto n do
+              (setf (aref positions i j)
+                    (scal 0.5 (m+ (unit-vector n+1 i) (unit-vector n+1 j))))))
     (loop for indices in (two-sorted-parts n)
 	  collect
 	  (let ((index-vector (permutation-shifted-inverse

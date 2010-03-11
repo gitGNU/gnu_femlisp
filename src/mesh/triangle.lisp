@@ -69,6 +69,8 @@ vertices defining the correct ordering of vertices."
   (let ((cell->id (make-hash-table)))
     ;; if the file is already there, we move it
     (when (probe-file (mesh-file :poly))
+      (awhen (probe-file (mesh-file :poly-backup))
+        (delete-file it))
       (rename-file (mesh-file :poly) (mesh-file :poly-backup)))
     ;; write output
     (with-open-file (stream (mesh-file :poly) :direction :output

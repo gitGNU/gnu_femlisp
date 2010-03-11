@@ -35,8 +35,8 @@
 (in-package :fl.mesh)
 
 (defclass <skeleton> ()
-  ((dim :accessor dimension :initarg :dimension :type (integer -1))
-   (etables :accessor etables :type (array t (*))))
+  ((dimension :accessor dimension :initarg :dimension :type (integer -1))
+   (etables :accessor etables))
   (:documentation "A skeleton is a vector of hash-tables containing the
 cells of a certain dimension as keys.  The information stored in the
 values is different depending on the subclass derived from skeleton."))
@@ -45,7 +45,7 @@ values is different depending on the subclass derived from skeleton."))
   "The etables-list has to be initialized.  Furthermore, we allow a
 constructor by giving a cell-list."
   ;; ensure dimension slot
-  (unless (slot-boundp skel 'dim)
+  (unless (slot-boundp skel 'dimension)
     (setf (dimension skel) (apply #'max -1 (mapcar #'dimension cells))))
   ;; setup cell-tables
   (loop with tables = (make-array (1+ (dimension skel)))
@@ -63,26 +63,9 @@ constructor by giving a cell-list."
 (defmethod etable ((skel <skeleton>) dim)
   (aref (etables skel) dim))
 
-(definline etable-of-highest-dim (skel)
-  (etable skel (dimension skel)))
-
-(defun nr-of-cells (skel &optional dimension)
-  "Returns number of cells in a skeleton."
-  (cond
-    ((numberp dimension) (hash-table-count (etable skel dimension)))
-    ((eq dimension :top)
-     (hash-table-count (etable skel (dimension skel))))
-    (t (loop for etable across (etables skel)
-	     summing (hash-table-count etable)))))
-
-(defun cells-of-dim (skel dim)
-  "Returns the cells of @arg{skel} of dimension @arg{dim} in form of a
-list."
-  (hash-table-keys (etable skel dim)))
-
-(defun cells-of-highest-dim (skel)
-  "Returns the cells of @arg{skel} of highest dimension in form of a list."
-  (cells-of-dim skel (dimension skel)))
+(inlining
+ (defun etable-of-highest-dim (skel)
+   (etable skel (dimension skel))))
 
 (defun member-of-skeleton? (cell skel)
   "Returns T if @arg{cell} is in @arg{skel}, NIL otherwise."
@@ -135,20 +118,13 @@ identified with @arg{cell}."))
 (defmethod skeleton ((cell <cell>))
   (skeleton (list cell)))
 
-(defun skel-empty-p (skel)
-  (every (compose #'zerop #'hash-table-count) (etables skel)))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; basic methods
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;(defmethod dimension ((skel <skeleton>)) (1- (length (etables skel))))
 
-(defmethod embedded-dimension ((skel <skeleton>))
-  (whereas ((cell (get-arbitrary-key-from-hash-table (etable skel 0))))
-    (embedded-dimension cell)))
-
-(defun skel-for-each (func skel &key direction dimension where with-properties)
+(defmethod skel-for-each (func (skel <skeleton>) &key direction dimension where with-properties)
   "Loops through a skeleton applying func.  When direction is :down then loops
 with dimension of the cells decreasing, otherwise increasing."
   (flet ((etable-for-each (etable)
@@ -178,21 +154,42 @@ all cells, otherwise it loops through cells and properties."
        ,skel :direction ,direction :dimension ,dimension :where ,where
        :with-properties ,with-properties))))
 
+(defun nr-of-cells (skel &optional dimension)
+  "Returns number of cells in a skeleton."
+  (mapper-count #'skel-for-each skel :dimension dimension))
+
+(defun skel-empty-p (skel)
+  (zerop (nr-of-cells skel)))
+
+(defun cells-of-dim (skel dim)
+  "Returns the cells of @arg{skel} of dimension @arg{dim} in form of a
+list."
+  (mapper-collect #'skel-for-each skel :dimension dim))
+
+(defun cells-of-highest-dim (skel)
+  "Returns the cells of @arg{skel} of highest dimension in form of a list."
+  (cells-of-dim skel (dimension skel)))
+
+(defun mark-skeleton (skel prop value)
+  "Marks all cells of @arg{skel} with the given @arg{prop}/@arg{value}
+pair."
+  (doskel (cell skel)
+    (setf (get-cell-property cell skel prop) value))
+  skel)
+
 (defun skel-map (func skel)
-  (let ((new-skel (make-analog skel)))
+  (lret ((new-skel (make-analog skel)))
     (doskel ((cell value) skel)
-      (setf (skel-ref new-skel cell) (funcall func cell value)))
-    new-skel))
+      (setf (skel-ref new-skel cell) (funcall func cell value)))))
 
 (defun find-cells (test skel &key dimension with-properties where)
   "Returns a list of cells contained in skel and satisfying test."
-  (let ((result ()))
+  (lret ((result ()))
     (doskel ((cell props) skel :dimension dimension :where where)
       (when (if with-properties
 		(funcall test cell props)
 		(funcall test cell))
-	(push cell result)))
-    result))
+	(push cell result)))))
 
 (defun find-cell (test skel &rest rest)
   (let ((cells (apply #'find-cells test skel rest)))
@@ -212,6 +209,30 @@ all cells, otherwise it loops through cells and properties."
     (assert (<= (length cells) 1))
     (car cells)))
 
+(defmethod embedded-dimension ((skel <skeleton>))
+  (lret (dim)
+    (doskel (cell skel)
+      (let ((dim1 (embedded-dimension cell)))
+        (if dim
+            (unless (= dim dim1)
+              (setq dim nil)
+              (return))
+            (setq dim dim1))
+        (unless *check-well-defined-embedded-dimension*
+          (return))))))
+
+;;;; Parts
+
+(defgeneric dimension-of-part (skel part)
+  (:documentation
+   "Parts of a skeleton can be named with the property @symbol{:part}.")
+  (:method ((skel <skeleton>) part)
+    (lret ((dim -1))
+      (doskel (cell skel)
+        (when (eql (get-cell-property cell skel :part) part)
+          (setq dim (max (dimension cell) dim)))))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Printing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -229,7 +250,7 @@ all cells, otherwise it loops through cells and properties."
        #'(lambda (cell value)
 	   (princ cell stream)
 	   (if *print-skeleton-values*
-	       (format stream " ->~%~{  ~A ~A~%~}~%" value)
+	       (format stream " ->~%~{  ~S ~S~%~}~%" value)
 	       (terpri stream)))
        skel :with-properties t :direction :up :dimension
        (when (eq *print-skeleton* :cells-of-highest-dimension)
@@ -239,43 +260,62 @@ all cells, otherwise it loops through cells and properties."
 ;;; Checking skeletons
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defparameter *optional-skeleton-checks*
+  '(:embedded-dimension)
+  "Some optional checks for skeletons.")
+
 (defmethod check ((skel <skeleton>))
   "Checks the skeleton.  An error is signaled if the skeleton looks bad."
   ;; check dimensions
-  (loop with emb-dim = (embedded-dimension skel)
-	for dim from 0 upto (dimension skel) do
-	(loop for cell being the hash-keys of (etable skel dim) do
-	      (check cell)
-	      (cond
-	       ((not (= (dimension cell) dim))
-		(error "cell dimension does not fit"))
-	       ((not (= (embedded-dimension cell) emb-dim))
-		(error "embedded-dimension does not fit")))))
+  (let ((emb-dim (let ((*check-well-defined-embedded-dimension* t))
+                   (embedded-dimension skel))))
+    (when (member :embedded-dimension *optional-skeleton-checks*)
+      (assert emb-dim () "Embedded dimensions differ for cells."))
+    (loop for dim from 0 upto (dimension skel) do
+         (doskel (cell skel :dimension dim)
+           (check cell)
+           (cond
+             ((not (= (dimension cell) dim))
+              (error "cell dimension does not fit"))
+             ((and emb-dim (not (= (embedded-dimension cell) emb-dim)))
+              (error "embedded-dimension does not fit"))))))
   ;; check completeness
   (doskel (cell skel)
     (loop for subcell across (subcells cell) do
-	  (assert (member-of-skeleton? subcell skel)))))
+         (assert (member-of-skeleton? subcell skel)))))
+
+(defmethod skeleton-substance ((skel <skeleton>))
+  "The substance of a skeleton are those cells which are not boundary of a
+cell in @arg{cell}.  This function returns those cells in the form of a
+hash-table."
+  (lret ((non-bdry-cells (make-hash-table)))
+    (doskel (cell skel)
+      (setf (gethash cell non-bdry-cells) t))
+    (doskel (cell skel)
+      (loop for side across (boundary cell) do
+           (remhash side non-bdry-cells)))))
 
 (defmethod skeleton-boundary ((skel <skeleton>))
   "Returns a skeleton consisting of cells of skel of dimension n-1 which
 have only one neighbor."
-  (if (zerop (dimension skel))
-      (make-instance '<skeleton> :dimension -1)		; an empty skeleton
-      (let ((bdry-ht (make-hash-table)))
-	;; build neighbor lists for all hyperfaces
-	(dohash (cell (etable skel (dimension skel)))
-	  (loop for side across (boundary cell) do
-		(dolist (side1 (identified-cells side skel))
-		  (push cell (gethash side1 bdry-ht ())))))
-
-	;; and build a skeleton from the boundary hyperfaces
-	(make-instance
-	 '<skeleton> :cells
-	 (loop for face being each hash-key of bdry-ht using (hash-value neighbors)
-	       for nr-neighbors = (length neighbors)
-	       when (= nr-neighbors 1) collecting face
-	       when (> nr-neighbors 2) do
-	       (error "Hyperface ~A shared by more than two cells:~%~A" face neighbors))))))
+  (when (zerop (dimension skel))
+    (return-from skeleton-boundary
+      (make-instance '<skeleton> :dimension -1))) ; an empty skeleton
+  ;; find boundary of the "flesh" and build up a table of those cells to
+  ;; the flesh cells
+  (let ((bdry-ht (make-hash-table)))
+    (loop for cell being each hash-key of (skeleton-substance skel) do
+         (loop for side across (boundary cell) do
+              (dolist (side1 (identified-cells side skel))
+                (push cell (gethash side1 bdry-ht ())))))
+    ;; and build a skeleton from the boundary hyperfaces
+    (make-instance
+     '<skeleton> :cells
+     (loop for face being each hash-key of bdry-ht using (hash-value neighbors)
+        for nr-neighbors = (length neighbors)
+        when (= nr-neighbors 1) collecting face
+        when (> nr-neighbors 2) do
+        (error "Hyperface ~A shared by more than two cells:~%~A" face neighbors)))))
 
 (defmethod closed? ((skel <skeleton>))
   "Checks if the boundary of skel is empty.  This should be the case for
@@ -289,7 +329,16 @@ boundaries of skeletons."
   (make-instance '<skeleton> :dimension -1)
   (macroexpand-1 '(doskel (cell (skeleton *unit-interval*) :direction :down)
 		   (format t "~A~%" (corners cell))))
-  (make-instance '<skeleton> :dimension -1))
+  (let ((v1 (make-vertex #d(0.0)))
+        (v2 (make-vertex #d(0.0 0.0)))
+        (*check-well-defined-embedded-dimension* t))
+    (let ((line (make-line v1 v2)))
+      (assert (= (embedded-dimension v1) 1))
+      (assert (null (embedded-dimension line))))
+    (let ((skel (make-instance '<skeleton> :dimension 0)))
+      (insert-cells! skel (list v1 v2))
+      (assert (null (embedded-dimension skel)))))
+  )
 
 ;;; (test-skeleton)
 (fl.tests:adjoin-test 'test-skeleton)

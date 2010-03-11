@@ -49,9 +49,10 @@ vertex.lisp, simplex.lisp, and product-cell.lisp.")
 	  :documentation "Names identifying the rule.")
    (refcell :reader reference-cell :initarg :reference-cell :documentation
     "Reference cell for this refinement rule.")
-   (boundary-refinement-rules
+   (boundary-refinement-rules :reader boundary-refinement-rules
     :documentation "Refinement rules for the sides required by this rule.")
-   (refinement-info :initarg :refinement-info :documentation
+   (refinement-info :reader refinement-info
+                    :initarg :refinement-info :documentation
 		     "Vector of refinement information for the children."))
   (:documentation "Rule for refining reference cells.  Those rules are
 stored in the refine-info slot of the cell class."))
@@ -174,7 +175,7 @@ the rule and the children."
 (defun skeleton->refinement-rule (names refcell skeleton)
   "Setup the refinement rule from a refined skeleton."
   (declare (optimize debug))
-  (let ((rule (make-instance 'refinement-rule :names names :reference-cell refcell)))
+  (lret ((rule (make-instance 'refinement-rule :names names :reference-cell refcell)))
     (with-slots (boundary-refinement-rules refinement-info)
 	rule
       ;; sanity checks
@@ -195,7 +196,7 @@ the rule and the children."
 		       (cons (?2 (reference-cell child) child)
 			     (if (vertex-p child)
 				 (let* ((p1 (vertex-position child))
-				       (p2 (global->local refcell p1)))
+                                        (p2 (global->local refcell p1)))
 				   (unless (mzerop (m- p1 p2) 1.0e-13)
 				     (error "Should not happen"))
 				   p2)
@@ -205,9 +206,7 @@ the rule and the children."
 					     for j = (position side (children subcell skeleton))
 					     when j return (cons k j)))
 				      (boundary child)))))
-		   (children refcell skeleton)))))
-    ;; return value
-    rule))
+		   (children refcell skeleton)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; <child-info> - old format for refinement information
@@ -284,22 +283,43 @@ levels 0 and 1, T indicates infinite depth.")
 (defvar *refcell-refinement-table* (make-hash-table :test 'equal)
   "Table where refinements of reference cells are memoized.")
 
+(defun induced-refinement-of-subcell-refcells (refcell rule subcell)
+  "A refinement rule on refcell induces a refinement of all its subparts."
+  (if (eql refcell subcell)
+      rule
+      (loop for side across (boundary refcell)
+         for rule across (boundary-refinement-rules
+                          (get-refinement-rule refcell rule))
+           thereis (induced-refinement-of-subcell-refcells
+                    side rule subcell))))
+
 (defun refcell-refinement-skeleton (refcell &optional (level 1) (rule 0) reinit)
   "Returns an LEVEL times refined skeleton of REFCELL.  It is partially
 memoized, see the documentation of *REFCELL-REFINEMENT-MEMOIZE-DEPTH*."
   (assert (reference-cell-p refcell))
   (setf rule (get-refinement-rule refcell rule))
   (assert rule)
-  (when reinit				; reinitialize the whole rule
+  (when reinit
+    ;; reinitialize the rule for refcell
     (loop for key being each hash-key of *refcell-refinement-table*
-       when (eql (car key) rule) do
-       (remhash key *refcell-refinement-table*)))
+       when (and (eql (first key) refcell)
+                 (eql (third key) rule))
+       do (remhash key *refcell-refinement-table*)))
   (let ((key (list refcell level rule)))
     (or (gethash key *refcell-refinement-table*)
 	(let ((result
 	       (cond
 		 ((zerop level) (skeleton refcell))
-		 (t (refine (refcell-refinement-skeleton refcell (1- level) rule)
+                 ((= level 1)
+                  (refine (refcell-refinement-skeleton refcell (1- level) rule)
+                          :indicator (curry #'induced-refinement-of-subcell-refcells refcell rule)
+                          :decouple nil :highest t))
+		 (t
+                  ;; this works at the moment only for special cases like
+                  ;; regular or copy refinement, because anisotropic rules would
+                  ;; have to induce successive refinements of their subparts
+                  ;; which does probably not make too much sense.
+                  (refine (refcell-refinement-skeleton refcell (1- level) rule)
 			    :decouple nil :indicator (constantly rule) :highest t)))))
 	  (dbg :refine "Generating new refinement skeleton.~%Key=~A" key)
 	  (when (or (<= level 1)	; is needed for refinement
@@ -381,11 +401,10 @@ already refined.  An existing refinement of `cell' is simply kept."))
   (with-slots (boundary-refinement-rules refinement-info) rule
     (unless (refined-p cell skel)
       ;; first ensure that the boundary is already refined
-      (loop for side across (boundary cell) and i from 0
+      (loop for side across (boundary cell)
+         and side-rule across boundary-refinement-rules
 	 unless (refined-p side skel) do
-	 (refine-cell!
-	  (aref boundary-refinement-rules i)
-	  side skel refined-skel refined-region))
+	 (refine-cell! side-rule side skel refined-skel refined-region))
       ;; then refine the interior
       (let* ((refine-info (refine-info cell))
 	     (nr-of-children (length refine-info))
@@ -455,7 +474,7 @@ is a function returning the refinement rule for each cell.  In the skeleton
 or only the highest-dimensional cells."))
 
 (defmethod update-refinement! ((skel <skeleton>) (refined-skel <skeleton>)
-			       &key region indicator refined (highest t))
+			       &key region indicator refined highest)
   (assert (or region  ; h-mesh refinement
 	      (not (eq skel refined-skel))))
   (ensure region skel)
@@ -473,12 +492,12 @@ or only the highest-dimensional cells."))
   (:documentation "Refines @arg{skel} either locally or globally depending
 on the @function{indicator}."))
 
-(defmethod refine ((skel <skeleton>) &key (indicator (constantly t)) (highest t) (decouple t))
-  "Refines a skeleton.  Returns two values: the first is the refined
-skeleton, the second is the refinement which is a skeleton for the old mesh
-referencing the refinement vectors.  This refinement algorithm usually
-makes sense only for global refinements.  Local refinements should be done
-with hierarchical-mesh structures."
+(defmethod refine ((skel <skeleton>) &key (indicator (constantly t)) highest (decouple t))
+  "Refines the cells of @arg{skel} indicated by @arg{indicator}.  Returns
+two values: the first is the refined skeleton, the second is the refinement
+which is a skeleton for the old mesh referencing the refinement vectors.
+This refinement algorithm usually makes sense only for global refinements.
+Local refinements should be done with hierarchical-mesh structures."
   (let* ((refined-skel (make-analog skel))
 	 (refinement (make-instance '<skeleton> :dimension (dimension skel))))
     (update-refinement! skel refined-skel :region skel :indicator indicator
@@ -493,6 +512,7 @@ with hierarchical-mesh structures."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-skeleton-refinement ()
+  (refinement-rules (n-cube 2))
   )
 
 ;;; (test-skeleton-refinement)

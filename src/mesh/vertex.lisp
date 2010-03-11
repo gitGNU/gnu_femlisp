@@ -184,7 +184,7 @@ position."
   (reference-cell-p *reference-vertex*)
   (reference-cell *reference-vertex*)
   (dimension (skeleton *reference-vertex*))
-  (describe (etable (skeleton *reference-vertex*) 0))
+  (describe (cells-of-dim (skeleton *reference-vertex*) 0))
   (describe *reference-vertex*)
   (skeleton-boundary (skeleton *reference-vertex*))
   ;;

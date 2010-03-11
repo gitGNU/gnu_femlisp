@@ -58,7 +58,7 @@ boundaries."))
 domain dimension by default."
   (call-next-method)
   (assert domain)
-  (unless (slot-boundp mesh 'dim)
+  (unless (slot-boundp mesh 'dimension)
     (setf (dimension mesh) (dimension domain))))
 
 (defmethod make-analog ((mesh <mesh>))
@@ -81,6 +81,10 @@ domain dimension by default."
   (setf (getf (skel-ref (domain mesh) (patch-of-cell cell mesh))
 	      property)
 	value))
+
+(defmethod dimension-of-part ((mesh <mesh>) part)
+  "Parts of a skeleton can be named with the property @symbol{:part}."
+  (dimension-of-part (domain mesh) part))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; cell refinement
@@ -231,36 +235,41 @@ probably be localized."
 		   (setf (gethash parent interface) t))))
 	     (hash-table-keys interface))))))
 
-(defun hierarchically-ordered-cells (h-mesh &key level)
+(defun hierarchically-ordered-cells (h-mesh &key (where :surface) level)
   "Sorts the cells up to the given level (defaulting to the last
 level) hierarchically for use in something similar to the nested
 disection method.  Returns a list of the sorted cells."
-  (let ((elist ()))
-    ;; collect the cells of the level 0 mesh in the correct order
-    (doskel (cell (bottom-level-cells h-mesh)) (push cell elist))
-    ;; sort the cells of the refinements
-    (loop for k from 0 upto (or level (- (nr-of-levels h-mesh) 2)) do
-	  (setq elist
-		(loop for cell in elist appending
-		      (loop with children = (children cell h-mesh)
-			    for i from (1- (length children)) downto 0
-			    collect (aref children i))
-		      )))
-    ;; return the resulting cell elist
-    elist))
+  (let ((table (make-hash-table))
+        (result ()))
+    (labels ((collect (cell current-level dim)
+               (if (and (or (null level) (= current-level level))
+                        (or (null where)
+                            (ecase where
+                              (:surface (not (refined-p cell h-mesh)))
+                              (:refined (refined-p cell h-mesh))
+                              (:all t))))
+                   (loop+ ((subcell (subcells cell))) do
+                        (unless (gethash subcell table)
+                          (push (setf (gethash subcell table) subcell) result)))
+                   (when (or (null level) (< current-level level))
+                     (for-each (rcurry #'collect (1+ current-level) dim)
+                               (children cell h-mesh))))))
+    (doskel (cell (bottom-level-cells h-mesh) :dimension :highest)
+      (let* ((patch (patch-of-cell cell h-mesh))
+             (dim (dimension patch)))
+        (when (and (member :substance (patch-classification patch (domain h-mesh)))
+                   (= (dimension cell) dim))
+          (collect cell 0 dim))))
+    (nreverse result))))
 
 (defun for-each-cell-of-highest-dimension-on-surface (func h-mesh)
   "Calls func for each cell on the hierarchical-mesh surface."
-  (loop for cell being each hash-key of (etable-of-highest-dim h-mesh)
-	unless (refined-p cell h-mesh)
-	do (funcall func cell)))
+  (skel-for-each func h-mesh :dimension :highest :where :surface))
 
 (defun surface-cells-of-dim (h-mesh dim)
   "This function returns the surface cells of a locally refined
 hierarchical-mesh structure."
-  (loop for cell being each hash-key of (etable h-mesh dim)
-	unless (refined-p cell h-mesh)
-	collect cell))
+  (mapper-collect #'skel-for-each h-mesh :dimension dim :where :surface))
 
 (defun surface-cells-of-highest-dim (h-mesh)
   "This function returns the surface cells of highest dimension of a
@@ -268,11 +277,36 @@ locally refined hierarchical-mesh structure."
   (surface-cells-of-dim h-mesh (dimension h-mesh)))
 
 (defun nr-of-surface-cells (h-mesh)
-  (let ((sum 0))
-    (doskel (cell h-mesh :dimension :highest :where :surface)
-      (declare (ignore cell))
-      (incf sum))
-    sum))
+  (mapper-count #'skel-for-each h-mesh :dimension :highest :where :surface))
+
+(defmethod hierarchical-search ((h-mesh <hierarchical-mesh>) (test function)
+                                &key level)
+  "Hierarchical search for a subtree of cells in @arg{h-mesh} satisfying
+@arg{test}.  A leaf cell is returned, if successful, otherwise NIL."
+  (labels ((h-mesh-search (cell current-level)
+             (and (funcall test cell current-level)
+                  (let ((children (children cell h-mesh)))
+                    (if (and level (= current-level level))
+                        cell
+                        (if children
+                            (loop for child across children
+                               when (h-mesh-search child (1+ current-level))
+                               return it)
+                            (unless level cell)))))))
+    (loop for level from 0 upto (or level (top-level h-mesh))
+         thereis
+         (doskel (cell (cells-on-level h-mesh level))
+           (awhen (h-mesh-search cell level)
+             (return it))))))
+
+(defun find-cell-on-patch-with-midpoint (h-mesh patch midpoint level)
+  (hierarchical-search
+   h-mesh (lambda (cell cell-level)
+            (and (eq (patch-of-cell cell h-mesh) patch)
+                 (if (< cell-level level)
+                     (inside-cell? cell midpoint 1.0e-10)
+                     (equalp (midpoint cell) midpoint))))))
+
 
 (defmethod find-cell-from-position ((h-mesh <hierarchical-mesh>) (pos array))
   "Hierarchical search for a leaf cell containing the given position.  A
@@ -328,7 +362,11 @@ but it is not a standard situation.")
   "More tests can be found in meshgen.lisp."
   (let ((*print-skeleton-values* t))
     (describe
-     (make-instance '<mesh> :domain (n-simplex-domain 1)))))
+     (make-instance '<mesh> :domain (n-simplex-domain 1))))
+  (assert (= 16641 (length
+                    (hierarchically-ordered-cells
+                     (uniformly-refined-hierarchical-mesh (n-cube-domain 2) 6)))))
+  )
 
 (fl.tests:adjoin-test 'test-mesh)
 

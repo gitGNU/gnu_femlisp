@@ -62,16 +62,23 @@ table.  The tensor product boundary is in the order de1 x e2, e1 x de2."))
 	       cell1 cell2 product-table))))
     product-table))
 
-(defmethod cartesian-product ((skel1 <skeleton>) (skel2 <skeleton>))
-  ;; map product table to skeleton
-  (loop with skel = (make-instance '<skeleton> :dimension
-				   (+ (dimension skel1) (dimension skel2)))
-	for cell being the hash-values of (product-table skel1 skel2)
-	do (setf (skel-ref skel cell) nil)))
-
-(defmethod cartesian-product ((cell1 <cell>) (cell2 <cell>))
-  (gethash (list cell1 cell2)
-	   (product-table (skeleton cell1) (skeleton cell2))))
+(defgeneric cartesian-product (obj1 obj2 &key &allow-other-keys)
+  (:documentation "Computes the cartesian product of two skeletons.")
+  (:method ((skel1 <skeleton>) (skel2 <skeleton>)
+            &key property-combiner &allow-other-keys)
+    "Computes the cartesian product of two skeletons."
+    (lret ((skel (make-instance '<skeleton> :dimension
+                                (+ (dimension skel1) (dimension skel2)))))
+      (maphash (lambda (cells product)
+                 (setf (skel-ref skel product)
+                       (aand property-combiner
+                             (funcall it
+                                      (skel-ref skel1 (first cells))
+                                      (skel-ref skel2 (second cells))))))
+               (product-table skel1 skel2))))
+  (:method ((cell1 <cell>) (cell2 <cell>) &key &allow-other-keys)
+    (gethash (list cell1 cell2)
+             (product-table (skeleton cell1) (skeleton cell2)))))
 
 ;;; special cases: products with vertices
 (defmethod make-product-cell ((vtx1 <vertex>) (vtx2 <vertex>) table)
