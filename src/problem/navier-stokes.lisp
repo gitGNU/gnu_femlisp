@@ -35,7 +35,7 @@
 (in-package :cl-user)
 (defpackage "FL.NAVIER-STOKES"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
-	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH"
+	"FL.FUNCTION" "FL.MESH"
 	"FL.PROBLEM" "FL.ELLSYS")
   (:export
    "<NAVIER-STOKES-PROBLEM>" "NO-SLIP-BOUNDARY"
@@ -96,6 +96,13 @@ special case of general elliptic systems."))
   (let ((flags (make-array (1+ dim) :initial-element t))
 	(values (make-array (1+ dim) :initial-element (zeros 1))))
     (setf (aref flags dim) nil)
+  (constant-coefficient 'CONSTRAINT flags values)))
+
+(defun pressure-boundary-conditions (dim value)
+  (let ((flags (make-array (1+ dim) :initial-element nil))
+	(values (make-array (1+ dim) :initial-element (zeros 1))))
+    (setf (aref flags dim) t
+          (aref values dim) value)
   (constant-coefficient 'CONSTRAINT flags values)))
 
 (defun navier-stokes-viscosity-coefficient (dim viscosity)
@@ -215,6 +222,20 @@ Please define the problem using @macro{create-problem}.")))
   (make-coefficients-for
    problem 'FL.NAVIER-STOKES::PRESCRIBED-VELOCITY patch args
    (constantly (zeros (dimension (domain problem)) (multiplicity problem)))))
+
+(defmethod make-coefficients-for ((problem fl.navier-stokes::<navier-stokes-problem>)
+				 (coeff (eql 'FL.NAVIER-STOKES::PRESSURE-BC))
+				 patch args eval)
+  (let ((dim (dimension (domain problem)))
+	(multiplicity (multiplicity problem)))
+    (make-coefficients-for
+     problem 'FL.PROBLEM::CONSTRAINT patch args
+     (lambda (&rest args)
+       (let ((flags (make-array (1+ dim) :initial-element nil))
+             (values (make-array (1+ dim) :initial-element (zeros 1 multiplicity))))
+         (setf (aref flags dim) t
+               (aref values dim) (ensure-matlisp (apply eval args)))
+         (values flags values))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
