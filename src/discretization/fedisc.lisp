@@ -70,7 +70,7 @@ on for implementing matrixless computations."))
 ;;;; Interior assembly
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun assemble-cell (cell ansatz-space &key mass-matrix)
+(defun assemble-cell (cell ansatz-space &key matrix rhs mass-matrix)
   (let* ((h-mesh (hierarchical-mesh ansatz-space))
          (problem (problem ansatz-space))
          (patch (patch-of-cell cell h-mesh))
@@ -89,9 +89,9 @@ on for implementing matrixless computations."))
                         :weights (integration-weights qrule)
                         :metric (getf patch-properties 'FL.MESH::METRIC)
                         :volume (getf patch-properties 'FL.MESH::VOLUME)))
-             (local-mat (make-local-mat ansatz-space cell))
+             (local-mat (and matrix (make-local-mat ansatz-space cell)))
              (local-mass-mat (and mass-matrix (make-local-mat ansatz-space cell)))
-             (local-rhs (make-local-vec ansatz-space cell))
+             (local-rhs (and rhs (make-local-vec ansatz-space cell)))
              (fe-paras (loop for obj in (required-fe-functions coeffs)
                           collect obj collect
                           (get-local-from-global-vec
@@ -102,8 +102,9 @@ on for implementing matrixless computations."))
          :matrix local-mat :rhs local-rhs :mass-matrix local-mass-mat
          :fe-parameters fe-paras)
         (dbg :disc "Matrix:~%~A~&Rhs:~%~A" local-mat local-rhs)
-        (values local-mat local-rhs local-mass-mat)))))
-  
+        (list :local-mat local-mat :local-rhs local-rhs
+              :local-mass-mat local-mass-mat)))))
+
 (defun assemble-interior (ansatz-space &key level (where :surface)
 			  matrix mass-matrix rhs)
   "Assemble the interior, i.e. ignore constraints arising from boundaries
@@ -122,15 +123,16 @@ handling constraints are intricate, but usually of lower computational
 complexity."
   (with-workers
       ((lambda (cell)
-         (multiple-value-bind (local-mat local-rhs local-mass-mat)
-             (assemble-cell cell ansatz-space :mass-matrix mass-matrix)
+         (destructuring-bind (&key local-mat local-rhs local-mass-mat)
+             (assemble-cell cell ansatz-space :matrix matrix :rhs rhs
+                            :mass-matrix mass-matrix)
            ;; accumulate to global matrix and rhs (if not nil)
            (when (and rhs local-rhs)
              (increment-global-by-local-vec cell rhs local-rhs))
            (when (and matrix local-mat)
-             (increment-global-by-local-mat cell matrix local-mat))
+             (increment-global-by-local-mat matrix local-mat cell))
            (when (and mass-matrix local-mass-mat)
-             (increment-global-by-local-mat cell mass-matrix local-mass-mat)))))
+             (increment-global-by-local-mat mass-matrix local-mass-mat cell)))))
     ;; fill pipeline for workers
     (let* ((h-mesh (hierarchical-mesh ansatz-space))
            (level-skel (if level (cells-on-level h-mesh level) h-mesh)))
@@ -140,29 +142,6 @@ complexity."
                 (:surface (not (refined-p cell h-mesh)))
                 (:all t))
           (work-on cell))))))
-
-#+(or)  ; new, not yet active
-(defun compute-interior-level-matrix (interior-mat sol level)
-  "This function is needed for the multilevel decomposition of geometric
-multigrid."
-  (let* ((ansatz-space (ansatz-space interior-mat))
-	 (h-mesh (hierarchical-mesh ansatz-space))
-	 (top-level (top-level h-mesh))
-	 (mat (extract-level interior-mat level)))
-    ;; extend the surface matrix on this level by the refined region
-    (when (< level top-level)
-      (assemble-interior ansatz-space :matrix mat :solution sol :level level :where :refined))
-    ;; extend it by the hanging-node region
-    (loop for level from (1- level) downto 0
-	  for constraints =
-	  (nth-value 1 (hanging-node-constraints ansatz-space :level level :ip-type t))
-	  for constraints-p =
-	  (eliminate-hanging-node-constraints-from-matrix mat constraints)
-	  while constraints-p do
-	  (add-local-part! mat interior-mat (column-table constraints)
-			   :directions '(:right)))
-    ;; and return the result
-    mat))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -210,7 +189,6 @@ of a nonlinear problem."
 	  (m+! constraints-P result-mat)
 	  (m-! constraints-Q result-mat)
 	  (m+! constraints-r result-rhs)
-	  ;; ??? What about eigenvalue problems?
 	  
 	  ;; for nonlinear problems the solution vector is important
 	  (setf (get-property result-mat :solution) solution

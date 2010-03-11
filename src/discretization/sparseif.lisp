@@ -41,7 +41,7 @@
 ;;;; interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; generation of local vectors and matrices
+;;; generation of local vectors
 
 (defun make-local-vec (ansatz-space cell)
   "Generates a local vector for local discretization."
@@ -51,10 +51,10 @@
 	 #'(lambda (fe) (make-real-matrix (nr-of-dofs fe) multiplicity))
 	 (components fe))))
 
-(defun make-local-mat (as1 cell &optional as2)
+(defun make-local-mat (as1 cell1 &optional (as2 as1) (cell2 cell1))
   "Generates a local matrix discretization for the given ansatz-space(s)."
-  (let* ((fe-1 (get-fe as1 cell))
-	 (fe-2 (if as2 (get-fe as2 cell) fe-1))
+  (let* ((fe-1 (get-fe as1 cell1))
+	 (fe-2 (get-fe as2 cell2))
 	 (comps-1 (components fe-1))
 	 (comps-2 (components fe-2)))
     (lret ((result (make-array (list (length comps-1) (length comps-2)))))
@@ -83,25 +83,30 @@ values of the local vector array."))
   (:documentation "Increments the region in global-vec determined by cell
 to the values of the local vector array."))
 
+(defgeneric global-local-vector-operation (global-vec cell local-vec operation)
+  (:documentation "Performs an operation interfacing global to local values."))
+
 ;;; transfer between local and global matrix
 
-(defgeneric get-local-from-global-mat (cell global-mat)
+(defgeneric get-local-from-global-mat (global-mat cell &optional domain-cell)
   (:documentation "Maps the region in the global stiffness matrix
 determined by cell to a local matrix array."))
 
-(defgeneric set-global-to-local-mat (cell global-mat local-mat)
+(defgeneric set-global-to-local-mat (global-mat local-mat cell &optional domain-cell)
   (:documentation "Sets the region in global-mat determined by cell to the
 values of the local matrix array."))
 
-(defgeneric fill-local-from-global-mat (cell global-vec local-vec)
+(defgeneric fill-local-from-global-mat (global-mat local-mat cell &optional domain-cell)
   (:documentation "Copies the region in global-mat determined by cell to
 local-mat."))
 
-(defgeneric increment-global-by-local-mat (cell global-mat local-mat)
+(defgeneric increment-global-by-local-mat (global-mat local-mat cell &optional domain-cell)
   (:documentation "Increments the region in global-mat determined by cell
 to the values of local-mat."))
 
-(defgeneric global-local-operation (cell sparse-object local-object operation)
+(defgeneric global-local-matrix-operation
+    (global-mat local-mat image-cell domain-cell operation
+                &key image-subcells domain-subcells)
   (:documentation "Performs some operation interfacing global to local values."))
 
 ;;; The actual implementation for <sparse-vector> and <sparse-matrix>.
@@ -163,17 +168,8 @@ in the form component-index/in-component-index is computed."
 			    collecting iv))
 		'vector)))))
 
-#+(or)
-(defmethod local-value-blocks ((svec <sparse-vector>) (cell <cell>))
-  (let ((mesh (mesh svec)))
-    (map 'vector
-	 (lambda (cell)
-	   (let ((key (cell-key cell mesh)))
-	     (and (in-pattern-p svec key)
-		  (vref svec (cell-key cell mesh)))))
-	 (subcells cell))))
-
-(defmethod global-local-operation ((cell <cell>) (svec <sparse-vector>) local-vec operation)
+(defmethod global-local-vector-operation ((svec <sparse-vector>) (cell <cell>)
+                                          local-vec operation)
   (let ((fe (get-fe (ansatz-space svec) cell)))
     (destructuring-bind (&key nr-dofs component-index in-component-index
 			      vblock-index in-vblock-index &allow-other-keys)
@@ -181,7 +177,7 @@ in the form component-index/in-component-index is computed."
       (let* ((mesh (mesh svec))
 	     (keys (vector-map (rcurry #'cell-key mesh) (subcells cell))))
 	(with-region (svec keys)
-	  (let ((vblocks (value-blocks-in-region svec keys))
+	  (let ((vblocks (extract-value-blocks svec keys))
 		(multiplicity (multiplicity svec)))
 	    (dotimes (i nr-dofs)
 	      (let ((component-index (aref component-index i))
@@ -201,17 +197,17 @@ in the form component-index/in-component-index is computed."
 		      (:global-=local (decf global local)))))))))))))
 
 (defmethod fill-local-from-global-vec ((cell <cell>) (svec <sparse-vector>) local-vec)
-  (global-local-operation cell svec local-vec :local<-global))
+  (global-local-vector-operation svec cell local-vec :local<-global))
 
 (defmethod get-local-from-global-vec ((cell <cell>) (svec <sparse-vector>))
   (lret ((local-vec (make-local-vec (ansatz-space svec) cell)))
     (fill-local-from-global-vec cell svec local-vec)))
 
 (defmethod set-global-to-local-vec ((cell <cell>) (svec <sparse-vector>) local-vec)
-  (global-local-operation cell svec local-vec :global<-local))
+  (global-local-vector-operation svec cell local-vec :global<-local))
 
 (defmethod increment-global-by-local-vec ((cell <cell>) (svec <sparse-vector>) local-vec)
-  (global-local-operation cell svec local-vec :global+=local))
+  (global-local-vector-operation svec cell local-vec :global+=local))
 
 (defun set-lagrange-ansatz-space-vector (asv func)
   "Sets an ansatz-space-vector to interpolate a given function.  This is
@@ -253,23 +249,13 @@ value arrays corresponding to the finite element."
 ;;; <sparse-matrix> interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#+(or)
-(defmethod local-value-blocks ((smat <sparse-matrix>) (cell <cell>))
-  (let* ((subcell-keys (vector-map (rcurry #'cell-key (mesh smat)) (subcells cell)))
-	 (n (length subcell-keys)))
-    (lret ((result (make-array (twice n) :initial-element nil)))
-      (dotimes (i n)
-	(let ((row-key (aref subcell-keys i)))
-	  (dotimes (j n)
-	    (let ((col-key (aref subcell-keys j)))
-	      (when (in-pattern-p smat row-key col-key)
-		(setf (aref result i j)
-		      (mref smat row-key col-key))))))))))
-
-(defmethod global-local-operation ((cell <cell>) (smat <sparse-matrix>) local-mat operation)
+(defmethod global-local-matrix-operation ((smat <ansatz-space-automorphism>) local-mat
+                                          (image-cell <cell>) (domain-cell <cell>)
+                                          operation &key
+                                          (image-subcells t) (domain-subcells t))
   (declare (optimize debug))
-  (let ((domain-fe (get-fe (domain-ansatz-space smat) cell))
-	(image-fe (get-fe (image-ansatz-space smat) cell)))
+  (let ((domain-fe (get-fe (domain-ansatz-space smat) domain-cell))
+	(image-fe (get-fe (image-ansatz-space smat) image-cell)))
     (destructuring-bind
 	  (&key ((:nr-dofs nr-dofs-1))
 		((:component-index component-index-1)) ((:in-component-index in-component-index-1))
@@ -283,47 +269,63 @@ value arrays corresponding to the finite element."
 		  &allow-other-keys)
 	  (fe-secondary-information domain-fe)
 	(let* ((mesh (mesh smat))
-	       (keys (vector-map (rcurry #'cell-key mesh) (subcells cell))))
-	  (with-region (smat keys)
-	    (let ((mblocks (value-blocks-in-region smat keys)))
+	       (row-keys
+                (if image-subcells
+                    (map 'list (rcurry #'cell-key mesh) (subcells image-cell))
+                    (list (cell-key image-cell mesh))))
+               (col-keys
+                (if domain-subcells
+                    (map 'list (rcurry #'cell-key mesh) (subcells domain-cell))
+                    (list (cell-key domain-cell mesh)))))
+	  (with-region (smat (map-product #'cons row-keys col-keys))
+	    (let ((mblocks (extract-value-blocks smat row-keys col-keys)))
 	      (dotimes (i nr-dofs-1)
 		(let ((comp-1 (aref component-index-1 i))
 		      (in-comp-1 (aref in-component-index-1 i))
 		      (vblock-index-1 (aref vblock-index-1 i))
 		      (in-vblock-index-1 (aref in-vblock-index-1 i)))
-		  (dotimes (j nr-dofs-2)
-		    (let ((comp-2 (aref component-index-2 j))
-			  (in-comp-2 (aref in-component-index-2 j))
-			  (vblock-index-2 (aref vblock-index-2 j))
-			  (in-vblock-index-2 (aref in-vblock-index-2 j)))
-		      (symbol-macrolet
-			  ((local (mref (mref local-mat comp-1 comp-2)
-					in-comp-1 in-comp-2))
-			   (global (mref (aref mblocks vblock-index-1 vblock-index-2)
-					 in-vblock-index-1 in-vblock-index-2)))
-			(ecase operation
-			  (:local<-global (setq local global))
-			  (:global<-local (setq global local))
-			  (:global+=local (incf global local))
-			  (:global-=local (decf global local)))))))))))))))
+                  (when (or image-subcells (zerop vblock-index-1))
+                    (dotimes (j nr-dofs-2)
+                      (let ((comp-2 (aref component-index-2 j))
+                            (in-comp-2 (aref in-component-index-2 j))
+                            (vblock-index-2 (aref vblock-index-2 j))
+                            (in-vblock-index-2 (aref in-vblock-index-2 j)))
+                        (when (or domain-subcells (zerop vblock-index-2))
+                          (symbol-macrolet
+                              ((local (mref (mref local-mat comp-1 comp-2)
+                                            in-comp-1 in-comp-2))
+                               (global (mref (aref mblocks vblock-index-1 vblock-index-2)
+                                             in-vblock-index-1 in-vblock-index-2)))
+                            (ecase operation
+                              (:local<-global (setq local global))
+                              (:global<-local (setq global local))
+                              (:global+=local (incf global local))
+                              (:global-=local (decf global local)))))))))))))))))
 
-(defmethod fill-local-from-global-mat ((cell <cell>) (smat <sparse-matrix>) local-mat)
-  (global-local-operation cell smat local-mat :local<-global))
+(defmethod fill-local-from-global-mat ((smat <sparse-matrix>) local-mat
+                                       (cell <cell>) &optional (domain-cell cell))
+  (global-local-matrix-operation
+   smat local-mat cell domain-cell :local<-global))
 
-(defmethod get-local-from-global-mat ((cell <cell>) (smat <sparse-matrix>))
-  (lret ((local-mat (make-local-mat (ansatz-space smat) cell)))
-    (fill-local-from-global-mat cell smat local-mat)))
+(defmethod get-local-from-global-mat ((smat <sparse-matrix>) (cell <cell>)
+                                      &optional (domain-cell cell))
+  (lret* ((as (ansatz-space smat))
+          (local-mat (make-local-mat as cell as domain-cell)))
+    (fill-local-from-global-mat
+     smat local-mat cell domain-cell)))
 
-(defmethod set-global-to-local-mat ((cell <cell>) (smat <sparse-matrix>) local-mat)
-  (global-local-operation cell smat local-mat :global<-local))
+(defmethod set-global-to-local-mat ((smat <sparse-matrix>) local-mat
+                                    (cell <cell>) &optional (domain-cell cell))
+  (global-local-matrix-operation
+   smat local-mat cell domain-cell :global<-local))
 
-(defmethod increment-global-by-local-mat ((cell <cell>) (smat <sparse-matrix>) local-mat)
-  (global-local-operation cell smat local-mat :global+=local))
-
+(defmethod increment-global-by-local-mat ((smat <sparse-matrix>) local-mat
+                                          (cell <cell>) &optional (domain-cell cell))
+  (global-local-matrix-operation
+   smat local-mat cell domain-cell :global+=local))
 
 ;;;; Testing
 (defun test-sparseif ()
-  
   )
 
 ;;; (test-sparseif)

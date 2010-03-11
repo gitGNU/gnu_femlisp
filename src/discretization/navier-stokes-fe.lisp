@@ -35,7 +35,7 @@
 (in-package :cl-user)
 (defpackage "FL.NAVIER-STOKES-FE"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
-	"FL.MATLISP" "FL.ALGEBRA" "FL.FUNCTION"
+	"FL.MATLISP" "FL.FUNCTION"
 	"FL.MESH" "FL.PROBLEM" "FL.NAVIER-STOKES" "FL.DISCRETIZATION")
   (:export "NAVIER-STOKES-LAGRANGE-FE")
   (:documentation "This package specializes the finite element

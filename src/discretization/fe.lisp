@@ -280,16 +280,21 @@ sparse vector."
 be a vector of integration points or a quadrature rule.  Note that this
 function is memoized using an :around method."))
 
+(defgeneric ip-values-at-point (fe obj)
+  (:documentation "Unmemoized ip-values for a single position.")
+  (:method ((fe <scalar-fe>) pos)
+    (make-real-matrix
+     (loop+ ((shape (fe-basis fe)))
+        collect (list (evaluate shape pos)))))
+  (:method ((fe <vector-fe>) pos)
+    (vector-map (rcurry #'ip-values-at-point pos)
+                (components fe))))
+
 (with-memoization (:id 'scalar-ip-values)
   (defmethod ip-values ((fe <scalar-fe>) (positions vector))
     "Returns a list of nr-ip float-matrices of dimension (n-basis x 1)."
     (memoizing-let ((fe fe) (positions positions))
-      (map 'vector
-	   #'(lambda (pos)
-	       (make-real-matrix
-		(loop+ ((shape (fe-basis fe)))
-		  collect (list (evaluate shape pos)))))
-	   positions))))
+      (map 'vector (curry #'ip-values-at-point fe) positions))))
 
 (with-memoization (:id 'vector-ip-values)
   (defmethod ip-values ((fe <vector-fe>) (positions vector))
@@ -308,16 +313,21 @@ function is memoized using an :around method."))
 @arg{obj} which may be a vector of integration points or a quadrature rule.
 Note that this function is memoized using an :around method."))
 
+(defgeneric ip-gradients-at-point (fe obj)
+  (:documentation "Unmemoized ip-gradients for a single position.")
+  (:method ((fe <scalar-fe>) pos)
+    (make-real-matrix
+     (loop+ ((shape (fe-basis fe))) collect
+        (evaluate-gradient shape pos))))
+  (:method ((fe <vector-fe>) pos)
+    (vector-map (rcurry #'ip-gradients-at-point pos)
+                (components fe))))
+
 (with-memoization (:id 'scalar-ip-gradients)
   (defmethod ip-gradients ((fe <scalar-fe>) (positions vector))
     "Returns a list of nr-ip float-matrices of dimension (n-basis x dim)."
     (memoizing-let ((fe fe) (positions positions))
-      (map 'vector
-	   #'(lambda (pos)
-	       (make-real-matrix
-		(loop+ ((shape (fe-basis fe))) collect
-		       (evaluate-gradient shape pos))))
-       positions))))
+      (vector-map (curry #'ip-gradients-at-point fe) positions))))
 
 (with-memoization (:id 'vector-ip-gradients)
   (defmethod ip-gradients ((fe <vector-fe>) (positions vector))

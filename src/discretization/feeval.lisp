@@ -35,46 +35,24 @@
 (in-package :fl.discretization)
 
 (defmethod fe-local-value ((asv <ansatz-space-vector>) cell local-pos)
-  "Evaluates a finite element function in CELL at LOCAL-POS."
-  (let* ((fe (get-fe (ansatz-space asv) cell))
-	 (f-values (get-local-from-global-vec cell asv))
-	 (nr-comps (nr-of-components fe))
-	 (components (components fe))
-	 (result (make-array nr-comps :initial-element nil)))
-    (dotimes (comp nr-comps result)
-      (let ((shape-vals
-	     (ensure-matlisp (map 'double-vec (rcurry #'evaluate local-pos)
-				  (fe-basis (aref components comp)))
-			     :row)))
-	(setf (aref result comp)
-	      (m* shape-vals (if (vectorp f-values)
-				 (aref f-values comp)
-				 f-values)))))))
+  "Evaluates a finite element function in @arg{cell} at @arg{local-pos}."
+  (vector-map #'m*-tn
+              (ip-values-at-point (get-fe (ansatz-space asv) cell) local-pos)
+              (get-local-from-global-vec cell asv)))
 
 (defmethod fe-value ((asv <ansatz-space-vector>) global-pos)
-  "Evaluates a finite element function at GLOBAL-POS."
+  "Evaluates a finite element function at @arg{global-pos}."
   (let ((cell (find-cell-from-position (mesh asv) global-pos)))
     (fe-local-value asv cell (global->local cell global-pos))))
 
 (defmethod fe-local-gradient ((asv <ansatz-space-vector>) cell local-pos)
-  "Evaluates a finite element gradient on cell at local coordinates local-pos."
-  (let* ((fe (get-fe (ansatz-space asv) cell))
-	 (f-values (get-local-from-global-vec cell asv))
-	 (nr-comps (nr-of-components fe))
-	 (components (components fe))
-	 (result (make-array nr-comps :initial-element nil)))
-    (dotimes (comp nr-comps result)
-      (let ((Dphi^-1 (m/ (local->Dglobal cell local-pos)))
-	    (f-values (if (vectorp f-values)
-			  (aref f-values comp)
-			  f-values)))
-	(loop+ (i (shape (fe-basis (aref components comp)))) do
-	   (m-incf (aref result comp)
-		   (scal (vref f-values i)
-			 (m* (ensure-matlisp
-			      (coerce (evaluate-gradient shape local-pos) 'double-vec)
-			      :row)
-			     Dphi^-1))))))))
+  "Evaluates a finite element gradient on @arg{cell} at @arg{local-pos}."
+  (vector-map
+   (lambda (local-gradients component-values)
+     (m*-tn (m/ (local->Dglobal cell local-pos))
+            (m*-tn local-gradients component-values)))
+   (ip-gradients-at-point (get-fe (ansatz-space asv) cell) local-pos)
+   (get-local-from-global-vec cell asv)))
 
 (defmethod fe-gradient ((asv <ansatz-space-vector>) pos)
   "Evaluates a finite element gradient at point pos."

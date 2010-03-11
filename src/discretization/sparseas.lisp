@@ -4,8 +4,8 @@
 ;;; sparseas.lisp - ansatz spaces and operators between them
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003-2006 Nicolas Neuss, University of Heidelberg.
-;;; Copyright (C) 2006- Nicolas Neuss, University of Karlsruhe.
+;;; Copyright (C) 2003-2006 Nicolas Neuss, University Heidelberg.
+;;; Copyright (C) 2006- Nicolas Neuss, University Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -39,24 +39,24 @@
 ;;; Linear algebra interface 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; The key->size and print-key methods compute the necessary information
-;;; for the <sparse-vector> and <sparse-matrix> classes from the
-;;; ansatz-space.  Element identification is respected as a property of the
-;;; underlying mesh.
+;;; The key->size method computes the necessary information for the
+;;; <sparse-vector> and <sparse-matrix> classes from the ansatz-space.  Element
+;;; identification is respected as a property of the underlying mesh.
 
 (inlining
  (defun cell-key (cell mesh)
    "If cell is identified, its identification is the key."
    (or (cell-identification cell mesh) cell)))
 
+(inlining
+ (defun key-cells (key mesh)
+   "If cell is identified, its identification is the key."
+   (identified-cells (representative key) mesh)))
+
 (defmethod key->size (ansatz-space)
   (lambda (key)
     (nr-of-inner-dofs
      (get-fe ansatz-space (representative key)))))
-
-(defmethod print-key (ansatz-space)
-  (declare (ignore ansatz-space))
-  #'(lambda (key) (princ key)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; ansatz-space objects
@@ -91,18 +91,19 @@
 ;;; These are special sparse vectors and matrices which carry information
 ;;; about their ansatz-space with them.
 
-(defclass <ansatz-space-vector> (<ansatz-space-object> <sparse-vector>)
+(defclass <ansatz-space-vector> (<ansatz-space-object> fl.matlisp::<ht-sparse-vector>)
   ()
   (:documentation "A sparse vector which is interpreted as the ansatz-space
 for a specific fe-class on a given mesh."))
 
 (defmethod initialize-instance :after ((asv <ansatz-space-vector>)
-				       &key multiplicity &allow-other-keys)
-  (let ((as (ansatz-space asv)))
-    (setf (slot-value asv 'key->size) (key->size as))
-    (setf (slot-value asv 'print-key) (print-key as))
+                                       &key multiplicity &allow-other-keys)
+  (unless multiplicity
     (setf (slot-value asv 'multiplicity)
-	  (or multiplicity (multiplicity as)))))
+          (multiplicity (ansatz-space asv)))))
+
+(defmethod key->size ((asv <ansatz-space-vector>))
+  (key->size (ansatz-space asv)))
 
 (defun make-ansatz-space-vector (as)
   "Deprecated."
@@ -116,7 +117,7 @@ constant or random entries.  Essential constraints are satisfied."
     (lret ((asv (make-instance '<ansatz-space-vector> :ansatz-space ansatz-space)))
       (doskel (cell mesh :where :surface)
 	(let ((key (cell-key cell mesh)))
-	  (when (in-pattern-p asv key)
+	  (when (entry-allowed-p asv key)
 	    (ecase type
 	      (:random (fill-random! (vref asv key) value))
 	      (:constant (fill! (vref asv key) value))))))
@@ -140,108 +141,56 @@ entries.  Essential constraints are satisfied."
 	(random-ansatz-space-vector as)
 	(make-ansatz-space-vector as))))
 
-#+(or)
-(defmethod component ((asv <ansatz-space-vector>) index)
-  "Returns an ansatz-space-vector which denotes a component of asv.  The
-vector shares part of the values."
-  (let* ((fedisc (fe-class asv))
-	 (comp-fedisc (component fedisc index))
-	 (comp-as (make-instance '<ansatz-space> :fe-class comp-fedisc
-				 :problem (problem asv) :mesh (mesh asv)))
-	 (comp-asv (make-ansatz-space-vector comp-as))
-	 (indices (coerce (range< 0 (multiplicity asv)) 'vector)))
-    (for-each-entry-and-key
-     #'(lambda (entry key)
-	 (let* ((vecfe (get-fe fedisc (representative key)))
-		(fe (component vecfe index)))
-	   (when (plusp (nr-of-inner-dofs fe))
-	     (setf (vref comp-asv key)
-		   (make-instance
-		    '<submatrix> :matrix entry
-		    :row-keys
-		    (let ((offset (aref (aref (subcell-offsets vecfe) index) 0)))
-		      (map 'vector (curry #'+ offset) (inner-dof-indices fe)))
-		    :col-keys indices)))))
-     asv)
-    comp-asv))
-
-#+(or)
-(defmethod subvector ((asv <ansatz-space-vector>) indices)
-  "Extracts the subvector of @arg{asv} specified by @arg{indices}."
-  (let* ((fedisc (fe-class asv))
-	 (comp-fedisc (component fedisc index))
-	 (comp-as (make-instance '<ansatz-space> :fe-class comp-fedisc
-				 :problem (problem asv) :mesh (mesh asv)))
-	 (comp-asv (make-ansatz-space-vector comp-as))
-	 (indices (coerce (range< 0 (multiplicity asv)) 'vector)))
-    (for-each-entry-and-key
-     #'(lambda (entry key)
-	 (let* ((vecfe (get-fe fedisc (representative key)))
-		(fe (component vecfe index)))
-	   (when (plusp (nr-of-inner-dofs fe))
-	     (setf (vref comp-asv key)
-		   (make-instance
-		    '<submatrix> :matrix entry
-		    :row-keys
-		    (let ((offset (aref (aref (subcell-offsets vecfe) index) 0)))
-		      (map 'vector (curry #'+ offset) (inner-dof-indices fe)))
-		    :col-keys indices)))))
-     asv)
-    comp-asv))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <ansatz-space-morphism>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <ansatz-space-morphism> (<sparse-matrix>)
+;;; abstract interface
+
+(defclass <ansatz-space-morphism> ()
+  ()
+  (:documentation "A mapping between two ansatz-spaces."))
+
+(defgeneric domain-ansatz-space (asm))
+(defgeneric image-ansatz-space (asm))
+
+(defmethod row-key->size ((asm <ansatz-space-morphism>))
+  (key->size (image-ansatz-space asm)))
+(defmethod col-key->size ((asm <ansatz-space-morphism>))
+  (key->size (domain-ansatz-space asm)))
+(defmethod keys->pattern ((asm <ansatz-space-morphism>))
+  (lambda (row-key col-key)
+    (full-crs-pattern (funcall (key->size (image-ansatz-space asm)) row-key)
+                      (funcall (key->size (domain-ansatz-space asm)) col-key))))
+
+(defclass <domain-image-mixin> ()
   ((domain-ansatz-space :reader domain-ansatz-space
 			:initarg :domain-ansatz-space :type <ansatz-space>)
    (image-ansatz-space :reader image-ansatz-space
-		       :initarg :image-ansatz-space :type <ansatz-space>))
-  (:documentation "A sparse-matrix which is interpreted as an morphism
-between two ansatz-spaces."))
+		       :initarg :image-ansatz-space :type <ansatz-space>)))
 
 (defun make-ansatz-space-morphism (domain-as image-as)
-  (flet ((keys->pattern (row-key col-key)
-	   (full-crs-pattern (funcall (key->size image-as) row-key)
-			     (funcall (key->size domain-as) col-key))))
-    (make-instance
-     '<ansatz-space-morphism>
-     :domain-ansatz-space domain-as :image-ansatz-space image-as
-     :row-key->size (key->size image-as) :print-row-key (print-key image-as)
-     :col-key->size (key->size domain-as) :print-col-key (print-key domain-as)
-     :keys->pattern #'keys->pattern)))
+  (fl.amop::make-programmatic-instance
+   '(<ansatz-space-morphism> <domain-image-mixin> fl.matlisp::<ht-sparse-matrix>)
+   :domain-ansatz-space domain-as :image-ansatz-space image-as))
 
+;;; Is this necessary?  Check next time...
 (defmethod m* ((asm <ansatz-space-morphism>) (asv <ansatz-space-vector>))
   (change-class (call-next-method) '<ansatz-space-vector>
 		:ansatz-space (image-ansatz-space asm)))
+
+(defmethod m*-product-instance ((x <ansatz-space-morphism>) (y <ansatz-space-vector>))
+  (make-image-vector-for x (multiplicity y)))
+(defmethod m*-tn-product-instance ((x <ansatz-space-morphism>) (y <ansatz-space-vector>))
+  (make-domain-vector-for x (multiplicity y)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <ansatz-space-automorphism>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <ansatz-space-automorphism> (<ansatz-space-object> <sparse-matrix>)
+(defclass <ansatz-space-automorphism> (<ansatz-space-morphism> <ansatz-space-object>)
   ()
-  (:documentation "A sparse-matrix which is interpreted as an automorphism
-for an ansatz-space.  Should probably be made a specialization of
-ansatz-space-morphism."))
-
-(defmethod initialize-instance :after ((asa <ansatz-space-automorphism>) &key &allow-other-keys)
-  (let* ((as (ansatz-space asa))
-	 (key->size (key->size as)))
-    (with-slots (row-key->size col-key->size print-row-key print-col-key
-			       keys->pattern)
-      asa
-      (setf row-key->size key->size
-	    col-key->size key->size
-	    print-row-key (print-key as)
-	    print-col-key (print-key as)
-	    keys->pattern #'(lambda (row-key col-key)
-			      (full-crs-pattern (funcall key->size row-key)
-						(funcall key->size col-key)))))))
-
-(defun make-ansatz-space-automorphism (as)
-  (make-instance '<ansatz-space-automorphism> :ansatz-space as))
+  (:documentation "A automorphism of an ansatz space."))
 
 (defmethod domain-ansatz-space ((asa <ansatz-space-automorphism>))
   (ansatz-space asa))
@@ -249,14 +198,10 @@ ansatz-space-morphism."))
 (defmethod image-ansatz-space ((asa <ansatz-space-automorphism>))
   (ansatz-space asa))
 
-(defun sparse->ansatz-space-automorphism (smat &key ansatz-space)
-  (declare (type <sparse-matrix> smat))
-  (let ((asa (make-ansatz-space-automorphism ansatz-space)))
-    ;; One could do a check here, if all keys are present in mesh.  I'll do
-    ;; that when the first error occurs.
-    (setf (row-table asa) (row-table smat))
-    (setf (column-table asa) (column-table smat))
-    asa))
+(defun make-ansatz-space-automorphism (as)
+  (fl.amop::make-programmatic-instance
+   '(<ansatz-space-automorphism> fl.matlisp::<ht-sparse-matrix>)
+   :ansatz-space as))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; multilevel-ansatz-space vectors and matrices
@@ -265,17 +210,6 @@ ansatz-space-morphism."))
 ;;; It might be that the following extraction is too costly to be
 ;;; performed often.  In that case one could consider incorporating it
 ;;; in a class derived from <ansatz-space-vector>.
-
-(defmethod extract-level ((asv <ansatz-space-vector>) level)
-  (let* ((sub-vec (make-ansatz-space-vector (ansatz-space asv)))
-	 (vblocks (slot-value sub-vec 'fl.algebra::blocks))
-	 (level-skel (cells-on-level (hierarchical-mesh asv) level)))
-    (for-each-entry-and-key
-     #'(lambda (vblock key)
-	 (when (member-of-skeleton? (representative key) level-skel)
-	   (setf (gethash key vblocks) vblock)))
-     asv)
-    sub-vec))
 
 (defmethod extended-extract ((asa <ansatz-space-automorphism>) (skel <skeleton>)
 			     &key (row? t) (col? t))
@@ -290,27 +224,15 @@ accelerated by taking member-checks out of the loop."
      asa)
     sub-mat))
 
-(defmethod extract-level ((asa <ansatz-space-automorphism>) level)
-  (extended-extract asa (cells-on-level (hierarchical-mesh asa) level)))
+(defmethod make-domain-vector-for ((A <ansatz-space-morphism>) &optional multiplicity)
+  (let ((as (domain-ansatz-space A)))
+    (make-instance '<ansatz-space-vector> :ansatz-space as
+                   :multiplicity (or multiplicity (multiplicity as)))))
 
-(defmethod decompose (as-obj)
-  (let* ((nr-levels (nr-of-levels (hierarchical-mesh as-obj)))
-	 (decomposed (make-array nr-levels :initial-element nil)))
-    (loop for k below nr-levels do
-	  (setf (aref decomposed k) (extract-level as-obj k)))
-    decomposed))
-
-(defmethod make-domain-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
-  (let ((as (ansatz-space A)))
-    (make-instance '<ansatz-space-vector>
-		   :ansatz-space as
-		   :multiplicity (or multiplicity (multiplicity as)))))
-
-(defmethod make-image-vector-for ((A <ansatz-space-automorphism>) &optional multiplicity)
-  (let ((as (ansatz-space A)))
-    (make-instance '<ansatz-space-vector>
-		   :ansatz-space as
-		   :multiplicity (or multiplicity (multiplicity as)))))
+(defmethod make-image-vector-for ((A <ansatz-space-morphism>) &optional multiplicity)
+  (let ((as (image-ansatz-space A)))
+    (make-instance '<ansatz-space-vector> :ansatz-space as
+                   :multiplicity (or multiplicity (multiplicity as)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Interpolation
@@ -501,9 +423,16 @@ masters."
     (doskel (cell mesh) (print (vref x cell)))
     (set-lagrange-ansatz-space-vector
      x #'(lambda (coord) #I"coord[0]*(1.0-coord[0])"))
+    (format t "~&########### x ###########~%")
+    (show x)
+    (format t "~&########### P ###########~%")
+    (show P)
     (let ((y (sparse-m* P x :sparsity :B)))
+      (format t "~&########### I ###########~%")
+      (show I)
+      (format t "~&########### y ###########~%")
+      (show y)
       (let ((z (sparse-m* I y :sparsity :B)))
-	(show x)
 	(show z)
 	(assert (< (norm (m- z x)) 1.0d-10))
 	(symbol-package (class-name (class-of z)))

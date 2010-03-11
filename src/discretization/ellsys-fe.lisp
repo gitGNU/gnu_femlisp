@@ -46,9 +46,28 @@ is stored in the solution vector."))
 
 (in-package :fl.ellsys-fe)
 
+(defun ensure-m-matrix-property (mat)
+  "Problematic, because it discretizes convection only with first order
+accuracy."
+  (for-each-row-key
+   (lambda (i)
+     (for-each-key-in-row
+      (lambda (j)
+        (unless (= j i)
+          (let ((entry (mref mat i j)))
+            (when (plusp entry)
+              (incf (mref mat i i) entry)
+              (setf (mref mat i j) 0.0)))))
+      mat i))
+   mat)
+  mat)
+
+(defparameter *upwinding* nil
+  "Discretizes convection with upwinding when set to T.")
+
 (defmethod discretize-locally
     ((problem <ellsys-problem>) coeffs vecfe qrule fe-geometry
-     &key matrix rhs mass-matrix local-u local-v fe-parameters
+     &key matrix rhs mass-matrix local-u local-v residual-p fe-parameters
      &allow-other-keys)
   "Local discretization for a pde system of the form described in the
 documentation of the package @package{ELLSYS}."
@@ -72,10 +91,14 @@ documentation of the package @package{ELLSYS}."
 	    (gradients (and Dphi^-1 (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
 	    (coeff-input (construct-coeff-input
 			  cell global Dphi shape-vals gradients fe-parameters))
-	    (right-vals shape-vals)
 	    (left-vals shape-vals)
+	    (right-vals (if residual-p
+                           (map 'vector #'m* shape-vals local-u)
+                           shape-vals))
 	    (right-gradients gradients)
-	    (left-gradients gradients))
+	    (left-gradients (if residual-p
+                                (map 'vector #'m* gradients local-u)
+                                gradients)))
        (assert (vectorp left-vals))
        (loop
 	  for coeff in coeffs
@@ -96,17 +119,29 @@ documentation of the package @package{ELLSYS}."
 	       (let ((velocity-tensor (evaluate coeff coeff-input)))
 		 (for-each-entry-and-key
 		  #'(lambda (velocity i j)
-		      (gemm! weight (m* (aref left-gradients i) velocity)
-			     (aref right-vals j) 1.0 (mref matrix i j) :NT))
+                      (if *upwinding*
+                          (let ((contribution
+                                 (m* (m* (aref left-gradients i) velocity)
+                                     (transpose (aref right-vals j)))))
+                            (axpy! weight (ensure-m-matrix-property contribution)
+                                   (mref matrix i j)))
+                          (gemm! weight (m* (aref left-gradients i) velocity)
+                                 (aref right-vals j) 1.0 (mref matrix i j) :NT)))
 		  velocity-tensor)))
 	      (FL.ELLSYS::C
 	       (dbg :disc "Discretizing non-conservative convection")
 	       (let ((velocity-tensor (evaluate coeff coeff-input)))
 		 (for-each-entry-and-key
 		  #'(lambda (velocity i j)
-		      (gemm! weight (aref left-vals i)
-			     (m* (aref right-gradients j) velocity)
-			     1.0 (mref matrix i j) :NT))
+                      (if *upwinding*
+                          (let ((contribution
+                                 (m* (aref left-vals i)
+                                     (transpose (m* (aref right-gradients j) velocity)))))
+                            (axpy! weight (ensure-m-matrix-property contribution)
+                                   (mref matrix i j)))
+                          (gemm! weight (aref left-vals i)
+                                 (m* (aref right-gradients j) velocity)
+                                 1.0 (mref matrix i j) :NT)))
 		  velocity-tensor)))
 	      (FL.ELLSYS::R
 	       (dbg :disc "Discretizing reaction")
@@ -167,7 +202,9 @@ documentation of the package @package{ELLSYS}."
   (declare (ignore blackboard))
   (let ((dim (dimension (domain problem))))
     (lagrange-fe (or *suggested-discretization-order*
-		     (if (<= dim 2) 4 3))
+		     (cond ((<= dim 2) 4)
+                           ((<= dim 3) 3)
+                           (t 1)))
 		 :nr-comps (nr-of-components problem))))
 
 ;;; Testing
@@ -190,8 +227,8 @@ documentation of the package @package{ELLSYS}."
   (dbg-on :disc)
   (multiple-value-bind (matrix rhs)
       (discretize-ellsys 1 1 1 2)
-    (fl.algebra:show matrix)
-    (fl.algebra:show rhs)
+    (fl.matlisp:show matrix)
+    (fl.matlisp:show rhs)
     (assert (zerop (norm (m- (fe-value (gesv matrix rhs) #(0.5))
 			     (vector #m(0.125)))))))
   (dbg-off)

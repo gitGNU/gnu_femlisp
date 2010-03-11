@@ -86,8 +86,8 @@ have been eliminated."
   (when (member :left directions)
     (for-each-row-key
      #'(lambda (i)
-	 (when (and (matrix-row constraints i)
-		    (not (matrix-column constraints i)))
+	 (when (and (matrix-row-p constraints i)
+		    (not (matrix-col-p constraints i)))
 	   (setq constraints-p t)
 	   (for-each-key-and-entry-in-row
 	    #'(lambda (j Aij)
@@ -101,8 +101,8 @@ have been eliminated."
   (when (member :right directions)
     (for-each-col-key
      #'(lambda (j)
-	 (when (and (matrix-row constraints j)
-		    (not (matrix-column constraints j)))
+	 (when (and (matrix-row-p constraints j)
+		    (not (matrix-col-p constraints j)))
 	   (setq constraints-p t)
 	   (for-each-key-and-entry-in-col
 	    #'(lambda (i Aij)
@@ -121,19 +121,36 @@ have been eliminated."
 destructive for A!"
   (loop for i being each hash-key of index-table do
 	(when (member :right directions)
-	  (when (matrix-row B i)
+	  (when (matrix-row-p B i)
 	    (for-each-key-and-entry-in-row
 	     #'(lambda (j Bij)
 		 (m+! Bij (mref A i j)))
 	     B i)))
 	(when (member :left directions)
-	  (when (matrix-column B i)
+	  (when (matrix-col-p B i)
 	    (for-each-key-and-entry-in-col
 	     #'(lambda (j Bji)
 		 (unless (gethash j index-table)
 		   (m+! Bji (mref A j i))))
 	     B i)))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Hanging-node constraints
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun hanging-nodes-constraints (ansatz-space &key level)
+  "These are inter-level constraints."
+  (let ((imat (interpolation-matrix
+	       ansatz-space
+	       :region (refinement-interface (hierarchical-mesh ansatz-space) :level level)
+	       :level level))
+	;;(constraints-Q (make-ansatz-space-automorphism ansatz-space))
+	(constraints-P (make-ansatz-space-automorphism ansatz-space))
+	(constraints-r (make-ansatz-space-vector ansatz-space)))
+    (for-each-row-key #'(lambda (key) (row<-id constraints-P key)) imat)
+    (values constraints-P imat constraints-r)))
+
+#+(or)  ; new version?
 (defun hanging-node-constraints (ansatz-space &key level ip-type)
   "Returns inter-level constraints between level and level+1.  ip-type=t
 sets the constraint matrix to identity for the level-unknowns."
@@ -149,26 +166,79 @@ sets the constraint matrix to identity for the level-unknowns."
     (when ip-type
       (for-each-col-key
        #'(lambda (key)
-	   (unless (matrix-row constraints-Q key)
+	   (unless (matrix-row-p constraints-Q key)
 	     (row<-id constraints-Q key)))
        constraints-Q))
     (values constraints-P constraints-Q constraints-r)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Old version of handling of constraints (used in fedisc.lisp)
+;;; Identification constraints
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun hanging-nodes-constraints (ansatz-space &key level)
-  "These are inter-level constraints."
-  (let ((imat (interpolation-matrix
-	       ansatz-space
-	       :region (refinement-interface (hierarchical-mesh ansatz-space) :level level)
-	       :level level))
-	;;(constraints-Q (make-ansatz-space-automorphism ansatz-space))
+(defun identification-matrix (ansatz-space &key region level imat)
+  "Creates the interpolation matrix for identifying boundaries or other
+parts of the domain."
+  (declare (optimize debug))
+  (unless imat
+    (setq imat (make-ansatz-space-automorphism ansatz-space)))
+  (let* ((h-mesh (hierarchical-mesh ansatz-space))
+         (problem (problem ansatz-space))
+	 (region (or region
+		     (if level (cells-on-level h-mesh level) h-mesh))))
+    (doskel (cell region)
+      (let ((patch (patch-of-cell cell h-mesh)))
+        (whereas ((id-coeff
+                   (find-if #'fl.problem::identification-coefficient-p
+                            (filter-applicable-coefficients
+                             (coefficients-of-cell cell h-mesh problem)
+                             cell patch))))
+          (let ((fe-1 (get-fe ansatz-space cell)))
+            (when (plusp (nr-of-inner-dofs fe-1))
+              (let ((master (fl.mesh::find-cell-on-patch-with-midpoint
+                             h-mesh
+                             (get-property id-coeff 'FL.PROBLEM::MASTER)
+                             (evaluate id-coeff (list :global (midpoint cell)))
+                             level)))
+                (assert master)
+                (let ((fe-2 (get-fe ansatz-space master))
+                      (local-mat (make-local-mat ansatz-space cell ansatz-space master)))
+                  (do-dof (dof fe-1)
+                    (when (interior-dof? dof)
+                      (let* ((k (dof-in-vblock-index dof))
+                             (comp (dof-component dof))
+                             (fe-2-comp (component fe-2 comp))
+                             (ci (list :global (local->global cell (dof-gcoord dof)))))
+                        (multiple-value-bind (master-coord)
+                            (evaluate id-coeff ci)
+                          (minject!
+                           (transpose
+                            (matrix-slice (ip-values-at-point
+                                           fe-2-comp (global->local master master-coord))
+                                          :nrows (nr-of-inner-dofs fe-2-comp)))
+                           (aref local-mat comp comp)
+                           k 0)))))
+                  (global-local-matrix-operation
+                   imat local-mat cell master :global<-local :image-subcells nil)))))))))
+  imat)
+
+(defun identification-constraints (ansatz-space &key level ip-type)
+  "Returns inter-level constraints between level and level+1.  ip-type=t
+sets the constraint matrix to identity for the level-unknowns."
+  (let ((constraints-Q (identification-matrix ansatz-space :level level))
 	(constraints-P (make-ansatz-space-automorphism ansatz-space))
 	(constraints-r (make-ansatz-space-vector ansatz-space)))
-    (for-each-row-key #'(lambda (key) (row<-id constraints-P key)) imat)
-    (values constraints-P imat constraints-r)))
+    (for-each-row-key #'(lambda (key) (row<-id constraints-P key)) constraints-Q)
+    (when ip-type
+      (for-each-col-key
+       #'(lambda (key)
+	   (unless (matrix-row-p constraints-Q key)
+	     (row<-id constraints-Q key)))
+       constraints-Q))
+    (values constraints-P constraints-Q constraints-r)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Constraint combination
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun combined-constraints (old-P old-Q old-r new-P new-Q new-r)
   "Constructs a combined constraint tuple given old and new constraints."
@@ -205,7 +275,18 @@ sets the constraint matrix to identity for the level-unknowns."
 	      #+(or)(break)))
       (set-constraints "HANGING" constraints-P constraints-Q constraints-r)
       
-      ;; boundary constraints
+      ;; identification constraints
+      (loop for level from 0 upto (top-level h-mesh)
+	    do
+	    (multiple-value-bind (id-P id-Q id-r)
+		(identification-constraints ansatz-space :level level)
+	      (multiple-value-setq (constraints-P constraints-Q constraints-r)
+		(combined-constraints constraints-P constraints-Q constraints-r
+				      id-P id-Q id-r))
+	      #+(or)(break)))
+      ;;(set-constraints "IDENTIFICATION" constraints-P constraints-Q constraints-r)
+      
+      ;; essential boundary constraints
       (multiple-value-bind (essential-P essential-Q essential-r)
 	  (compute-essential-boundary-constraints
 	   ansatz-space :where :surface :interface (refinement-interface h-mesh))
@@ -252,7 +333,7 @@ constraints are included in matrix and rhs."
     ;; determine local region of constraint
     (for-each-row-key
      #'(lambda (row-key)
-	 (when (matrix-row (if assemble-locally constraints-P mat) row-key)
+	 (when (matrix-row-p (if assemble-locally constraints-P mat) row-key)
 	   (setf (gethash row-key region) t)))
      (if assemble-locally mat constraints-P))
     ;; for space efficiency, we use a shallow copy of matrix and rhs which
@@ -276,8 +357,8 @@ constraints are included in matrix and rhs."
 		      (map-hash-table #'(lambda (key val) (values key (copy val)))
 				      column))))))
     (when rhs
-      (setf (slot-value result-rhs 'fl.algebra::blocks)
-	    (copy-hash-table (slot-value rhs 'fl.algebra::blocks)))
+      (setf (slot-value result-rhs 'fl.matlisp::blocks)
+	    (copy-hash-table (slot-value rhs 'fl.matlisp::blocks)))
       (dohash (key region)
 	(setf (vref result-rhs key) (copy (vref rhs key)))))
     
@@ -321,3 +402,8 @@ constraints are included in matrix and rhs."
 
     ;; and return the result
     (values result-mat result-rhs)))
+
+(defun test-constraints ()
+  )
+
+
