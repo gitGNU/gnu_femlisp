@@ -4,6 +4,46 @@
 
 (require 'slime)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; SLIME enhancements
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun show-repl-maybe-start-slime ()
+  (interactive)
+  (if (slime-connected-p)
+      (slime-display-output-buffer)
+      (slime)))
+(global-set-key [f9] 'show-repl-maybe-start-slime)
+
+(defun slime-load-file-set-package (filename package)
+  (let ((filename (slime-to-lisp-filename filename)))
+    (slime-eval-async `(swank:load-file ,filename)
+                      (lexical-let ((package package))
+                        (lambda (ignored)
+                          (slime-repl-set-package package))))))
+
+(defun slime-start-and-load (filename &optional package)
+  "Start Slime, if needed, load the current file and set the package."
+  (interactive (list (expand-file-name (buffer-file-name))
+                     (slime-find-buffer-package)))
+  (cond ((slime-connected-p)
+         (slime-load-file-set-package filename package))
+        (t
+         (slime-start-and-init (slime-lisp-options)
+                               (slime-curry #'slime-start-and-load 
+                                            filename package)))))
+
+;; ;;; Hyperspec
+;;(setq common-lisp-hyperspec-root "/usr/share/doc/hyperspec/")
+;;(setq common-lisp-hyperspec-symbol-table nil)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Femlisp
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar *femlisp-root* nil
+  "The location of the Femlisp directory.")
+
 (defun femlisp ()
   "Start femlisp by loading the file start.lisp from the directory in
 *femlisp-root*."
@@ -12,7 +52,7 @@
 			"FL.APPLICATION")
   )
 
-;;; Improved DEFMETHOD indenting
+;;; Indenting for Femlisp's control constructs
 (defun lisp-indent-defmethod (path state indent-point
                               sexp-column normal-indent)
   ;; Look for a method combination specifier...
@@ -59,8 +99,9 @@
 (put 'with-items 'common-lisp-indent-function
      (get 'destructuring-bind 'common-lisp-indent-function))
 
-
 (put 'whereas 'lisp-indent-function (get 'when 'lisp-indent-function))
+(put 'lret 'common-lisp-indent-function (get 'let 'common-lisp-indent-function))
+(put 'lret* 'common-lisp-indent-function (get 'let* 'common-lisp-indent-function))
 (put 'with-properties 'lisp-indent-function
      (get 'destructuring-bind 'lisp-indent-function))
 (put 'with-items 'lisp-indent-function
@@ -69,18 +110,7 @@
 ;;; fonts
 (font-lock-add-keywords
  'lisp-mode
- '(("\\<\\(awhen\\|whereas\\|aif\\)\\>" . font-lock-keyword-face)))
-
-
-;; Old stuff
-;; (setq swank::*start-swank-in-background* t)
-
-;; (add-hook 'lisp-mode-hook (lambda () (slime-mode t)))
-;; (add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode t)))
-
-;; ;;; Hyperspec
-(setq common-lisp-hyperspec-root "/usr/share/doc/hyperspec/")
-;;(setq common-lisp-hyperspec-symbol-table nil)
+ '(("\\<\\(awhen\\|aif\\|lret\\|lret[*]\\|whereas\\)\\>" . font-lock-keyword-face)))
 
 
 
