@@ -76,6 +76,14 @@ around a CMUCL enum bug."
 	(loop for i from 0 and item in items collect
 	      `(defconstant ,item ,i))))
 
+
+(defparameter *zero-vector*
+  (make-array 1 :element-type 'double-float :initial-element 0.0d0))
+
+(defmacro when-foreign-vector-operations (&body body)
+  `(when (fl.port:vector-sap *zero-vector*)
+     ,@body))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; BLAS/LAPACK
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -88,7 +96,8 @@ around a CMUCL enum bug."
 (when fl.start::*blas-library*
   (load-blas-library)
   (pushnew 'load-blas-library *foreign-code-loaders*)
-  (pushnew :blas *features*))
+  (when-foreign-vector-operations
+    (pushnew :blas *features*)))
 
 ;;; LAPACK
 
@@ -98,7 +107,8 @@ around a CMUCL enum bug."
 (when fl.start::*lapack-library*
   (load-lapack-library)
   (pushnew 'load-lapack-library *foreign-code-loaders*)
-  (pushnew :lapack *features*))
+  (when-foreign-vector-operations
+    (pushnew :lapack *features*)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Sparse solvers
@@ -116,7 +126,9 @@ around a CMUCL enum bug."
 (when fl.start::*superlu-library*
   (load-superlu-library)
   (pushnew 'load-superlu-library *foreign-code-loaders*)
-  (pushnew :superlu *features*))
+  ;; ensure that vector-sap is working before activating UMFPACK
+  (when-foreign-vector-operations
+    (pushnew :superlu *features*)))
 
 ;;; UMFPACK/AMD
 
@@ -127,7 +139,9 @@ around a CMUCL enum bug."
 (when fl.start::*umfpack-library*
   (load-umfpack-library)
   (pushnew 'load-umfpack-library *foreign-code-loaders*)
-  (pushnew :umfpack *features*))
+  ;; ensure that vector-sap is working before activating UMFPACK
+  (when-foreign-vector-operations
+    (pushnew :umfpack *features*)))
 
 
 (defun direct-solver-test (solver)

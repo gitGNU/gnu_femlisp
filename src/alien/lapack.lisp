@@ -310,6 +310,17 @@ satisfactorily."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+#+(or)
+(progn  ; geht nicht
+  (cffi::defcfun ("dnrm2_" dnrm2) :double
+    (len :int)
+    (x (:pointer :double))
+    (inc :int))
+  (cffi:with-foreign-object (x :double 10)
+    (dotimes (i 10)
+      (setf (cffi:mem-aref x :double i) (coerce i 'double-float)))
+    (dnrm2 10 x 1)))
+
 (defun test-lapack ()
   
   (lapack-lisp-name "gemm" :float)
