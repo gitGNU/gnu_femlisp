@@ -101,10 +101,11 @@ oscillating domain."
       (plot (getbb result :solution)))))
 
 #+(or)
-(time (cdr-bl-computation
-       2 4 3 :plot t :plot-mesh t :amplitude 0.15 :shift 1.0 :extensible nil
-       :solver (lu-solver) :output :all))
-
+(time
+ (storing
+   (cdr-bl-computation
+    2 4 3 :plot t :plot-mesh t :amplitude 0.15 :shift 1.0 :extensible nil
+    :solver (lu-solver) :output :all)))
 
 #|
 (require :sb-sprof)
@@ -113,7 +114,7 @@ oscillating domain."
 (sb-sprof:with-profiling
     (:max-samples 10000 :mode :alloc :report :flat :loop t)
   (cdr-bl-computation
-    2 4 5 :plot nil :plot-mesh nil :amplitude 0.15 :shift 1.0 :extensible nil
+    2 4 3 :plot nil :plot-mesh nil :amplitude 0.15 :shift 1.0 :extensible nil
     :solver (lu-solver) :output :all))
 
  (prof:with-profiling (:type :time)

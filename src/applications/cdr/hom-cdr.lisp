@@ -240,7 +240,7 @@ must be a scalar multiple of the identity."
 ;;;; Testing: (cdr-hom-tests)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun cdr-hom-tests ()
+(defun hom-cdr-tests ()
 
 (cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :output :all)
 
@@ -350,6 +350,6 @@ must be a scalar multiple of the identity."
 
 )
 
-;;; (cdr-hom-tests)
-(fl.tests:adjoin-test 'cdr-hom-tests)
+;;; (hom-cdr-tests)
+(fl.tests:adjoin-test 'hom-cdr-tests)
 

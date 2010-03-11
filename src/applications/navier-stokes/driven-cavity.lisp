@@ -34,6 +34,21 @@
 
 (in-package :fl.application)
 
+(defun watch-velocity-and-pressure-at-point (point &key (velocity-p t) (pressure-p t))
+  "Returns a observe list for watching the velocity at @arg{point}."
+  (let ((dim (length point)))
+    (list (concatenate 'string
+                       (and velocity-p
+                            (format nil "~{                 u~1D~}" (range<= 1 dim)))
+                       (and pressure-p
+                            (format nil "                  p")))
+	  "~{~19,10,2E~}"
+	  #'(lambda (blackboard)
+	      (with-items (&key solution) blackboard
+		(let ((val (fe-value solution point)))
+		  (loop for i below (+ (if velocity-p dim 0) (if pressure-p 1 0))
+                     collect (vref (aref val i) 0))))))))
+
 (defun watch-velocity-at-point (point)
   "Returns a observe list for watching the velocity at @arg{point}."
   (let ((dim (length point)))

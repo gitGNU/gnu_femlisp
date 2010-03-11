@@ -118,7 +118,7 @@ with an initial random guess and right-hand side 0."
 ;;;; Robust smoothing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun smoother-performance-test (&key dim order (level 2) smoother
+(defun smoother-performance-test (&key dim (order 1) (level 2) smoother
 				  (output 1) simplex)
   "Tests performance of smoother on a Laplace model problem.
 See make-smoother-demo for more information."

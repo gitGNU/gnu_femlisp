@@ -36,13 +36,13 @@
   (:use "COMMON-LISP"
 	"FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
 	"FL.DEBUG" "FL.TESTS" "FL.DEMO" "FL.MULTIPROCESSING"
-	"FL.ALGEBRA" "FL.FUNCTION" "FL.MESH"
+	"FL.FUNCTION" "FL.MESH"
 	"FL.PROBLEM" "FL.CDR" "FL.ELLSYS" "FL.ELASTICITY" "FL.NAVIER-STOKES"
 	"FL.DISCRETIZATION" "FL.ELLSYS-FE" "FL.ELASTICITY-FE" "FL.NAVIER-STOKES-FE"
 	"FL.ITERATION" "FL.MULTIGRID" "FL.GEOMG"
 	"FL.STRATEGY" "FL.PLOT"
 	"FL.DOMAINS")
   (:import-from "FL.PORT" "QUIT")
-  (:export )
+  (:export "STORING" "*RESULT*" "QUIT")
   (:documentation "This package uses most other Femlisp packages.  It is
 meant to be the package a Femlisp user works in."))

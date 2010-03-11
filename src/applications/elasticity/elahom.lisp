@@ -251,7 +251,7 @@ Parameters: order=~D, levels=~D~%~%"
   (time (elasticity-interior-effective-coeff-demo
 	 (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2)) :order 3 :levels 1))
   ;;(profile:report-time)
-  ;;(profile:profile :methods 'fl.algebra:sparse-matrix->matlisp)
+  ;;(profile:profile :methods 'fl.matlisp:sparse-matrix->matlisp)
   ;;(profile:unprofile)
   ;; we should have N^{lr}_q = N^{lq}_r
   (with-items (&key mesh solution ansatz-space rhs) *result*
