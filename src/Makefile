@@ -41,5 +41,5 @@ linecount:
 	find applications -name "*.lisp" -exec cat '{}' ';' | wc -l
 
 clean:
-	find . \( -name "*.err" -o -name "*.fas" -o -name "*.fasa" -o -name "*.fasl" -o -name "*.ufasl" -o -name "*.lib" -o -name "*.log" -o -name "*.x86f" -o -name "*.amd64f" -o -name "*.o" \) -exec rm {} \;
+	find . \( -name "*.err" -o -name "*.fas" -o -name "*.fasa" -o -name "*.fasl" -o -name "*.ufasl" -o -name "*.lib" -o -name "*.log" -o -name "*.x86f" -o -name "*.amd64f" -o -name "*.lx32fsl" -o -name "*.o" \) -exec rm {} \;
 
