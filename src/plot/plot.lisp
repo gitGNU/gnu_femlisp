@@ -105,7 +105,7 @@ key is the pair cell/vertex, which allows for the plotting of functions
 that are discontinuous across cell boundaries.  @arg{depth} can be a number
 representing the number of cell subdivisions, or a function which yields
 this number for the actual cell."
-  (let ((position-indices (make-hash-table :test 'equal))
+  (let ((position-indices (make-hash-table :test 'equalp))
 	(global-index -1)
 	(flag-1d (every (lambda (cell) (= (dimension cell) 1)) cells)))
     (when flag-1d
