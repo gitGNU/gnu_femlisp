@@ -96,7 +96,7 @@ coefficients."))
                               `(extract-from (first solution) ,from ,ncomps ,flag))))))))))))
     (fl.debug:dbg :compile "Compiling:~%~A" source)
     (compile nil source)))
-	     
+
 (defmethod make-coefficients-for ((problem <pde-problem>) coeff-name patch args eval)
   (let ((demands
 	 (remove-duplicates
@@ -125,9 +125,9 @@ coefficients."))
 (with-gensyms (internal-problem internal-patch)
 
   (defmacro coeff (name args &body body)
-    "A local @macro{coeff} defines a coefficient function inside
-@macro{setup-coefficients}.  It is defined here at the toplevel such that
-the Lisp editor indents the definitions correctly."
+    "A local @mac{coeff} defines a coefficient function inside
+@mac{setup-coefficients}.  It is defined here at the toplevel such that the
+Lisp editor indents the definitions correctly."
     `(make-coefficients-for
       ,internal-problem ',name ,internal-patch ',args
       (lambda ,args ,@body)))
@@ -159,8 +159,8 @@ can be the name of a problem class or a list of class names.  @arg{domain}
 is the domain for this problem, @arg{multiplicity} is the multiplicity of
 the solution, e.g. the number of eigenvectors we search for.  In
 @arg{body}, patch-dependent coefficients should be defined with
-@macro{setup-coefficients}.  It is also possible to define patch-dependent
-components with @macro{setup-components}."
+@mac{setup-coefficients}.  It is also possible to define patch-dependent
+components with @mac{setup-components}."
   `(lret ((,internal-problem
 	   (fl.amop:make-programmatic-instance
 	    ,type :domain ,domain :multiplicity ,multiplicity
