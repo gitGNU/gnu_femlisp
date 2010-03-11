@@ -39,8 +39,8 @@
 ;;; coefficient
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Q: would it be reasonable to include problem and name?
-(defclass <coefficient> ()
+;;; Q: would it be reasonable to include the problem?
+(defclass <coefficient> (property-mixin)
   ((name :accessor coefficient-name :initform nil :initarg :name)
    (dimension :reader dimension :initform nil :initarg :dimension :documentation
 	      "The dimension of the cell on which this coefficient is
@@ -127,8 +127,23 @@ system components to zero.")
     (constraint-coefficient
      (nr-of-components problem) (multiplicity problem))))
 
+(defun identification-coefficient (master mapping)
+ "A special coefficient used for identifying parts of the domain.  The
+  coefficient evaluation returns the master coordinates."
+ (lret ((coeff (make-instance
+                '<coefficient> :name 'IDENTIFICATION
+                :dimension t :demands '(:local :global)
+                :eval mapping :residual nil :jacobian nil)))
+   (setf (get-property coeff 'MASTER) master)))
+
+(defun identification-coefficient-p (coeff)
+  (and (eq (coefficient-name coeff) 'IDENTIFICATION)
+       (get-property coeff 'MASTER)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defun constraint-p (coeff)
-  (eq (coefficient-name coeff) 'CONSTRAINT))
+  (member (coefficient-name coeff) '(CONSTRAINT IDENTIFICATION)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -194,21 +209,21 @@ in the property list @arg{coeffs}."
 ;;; some coefficient functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun f[x]->coefficient (name func)
+(defun fx->coefficient (name func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on global coordinates."
   (make-instance '<coefficient> :name name :demands '(:global)
 		 :eval #'(lambda (&key global &allow-other-keys)
 			   (funcall func global))))
 
-(defun f[u]->coefficient (name func)
+(defun fu->coefficient (name func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on the solution."
   (make-instance '<coefficient> :name name :demands '((:fe-parameters :solution))
 		 :eval #'(lambda (&key solution &allow-other-keys)
 			   (funcall func solution))))
 
-(defun f[xu]->coefficient (name func)
+(defun fxu->coefficient (name func)
   "The function argument @arg{func} is transformed into a coefficient
 depending on position and solution."
   (make-instance '<coefficient> :name name
@@ -217,14 +232,14 @@ depending on position and solution."
 			   (funcall func global solution))))
 
 (defun function->coefficient (name func)
-  (f[x]->coefficient name func))
+  (fx->coefficient name func))
 
 (defun ensure-coefficient (name obj)
   "Returns @arg{obj} if it is a coefficient, converts @arg{obj} into a
 coefficient depending on the space variable if @arg{obj} is a function;
 otherwise, @arg{obj} is made into a constant coefficient."
   (cond ((typep obj '<coefficient>) obj)
-	((functionp obj) (f[x]->coefficient name obj))
+	((functionp obj) (fx->coefficient name obj))
 	((typep obj '<function>)
 	 (make-instance '<coefficient> :name name :demands '(:global)
 			:eval #'(lambda (&key global &allow-other-keys)
@@ -307,7 +322,8 @@ component is a scalar."
 	     (when pos
 	       (multiple-value-bind (from length)
 		   (extraction-information
-		    components (intern (subseq name 0 (1+ pos))))
+		    components (intern (subseq name 0 (1+ pos))
+                                       (symbol-package comp)))
 		 (when from
 		   (let ((n (parse-integer (subseq name (1+ pos)))))
 		     (when (<= 1 n length)
