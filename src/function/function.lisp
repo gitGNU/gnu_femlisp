@@ -322,13 +322,17 @@ transforms also the result."))
   #'(lambda (pos)
       (transpose
        (make-real-matrix
-	(loop with dim = (length pos)
-	      for k below dim collect
-	      (coerce
-	       (scal (/ (* 2 shift))
-		     (m- (evaluate func (axpy shift (unit-vector dim k) pos))
-			 (evaluate func (axpy (- shift) (unit-vector dim k) pos))))
-	       'list))))))
+	(loop with dim = (nrows pos)
+           for k below dim
+           for diff = (scal (/ (* 2 shift))
+                            (m- (evaluate func (axpy shift (unit-vector dim k) pos))
+                                (evaluate func (axpy (- shift) (unit-vector dim k) pos))))
+           collect
+             (coerce (typecase diff
+                       (standard-matrix (store diff))
+                       (number (vector diff))
+                       (t diff))
+                     'list))))))
 
 (defun test-gradient (func pos)
   "Tests if numerical gradient and gradient agree."
@@ -547,6 +551,7 @@ isometrically to @math{S^1}."
 	 (df (sparse-real-derivative f)))
     (show (funcall f 1.0 1.0))
     (show (funcall df 1.0 1.0)))
+  (ensure-matlisp (m*-product-instance (eye 1) #d(0.0)) t)
 
   (let ((project (project-to-sphere #d(0.5 0.5) 0.5)))
     (evaluate project #d(2.0 0.5))
