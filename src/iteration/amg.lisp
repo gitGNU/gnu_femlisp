@@ -73,7 +73,7 @@ function 'coarsen' is called to do a single coarsening step."
 	(format t "Level   n-rows  n-entries~%")
 	(format t "~3D~6T~8D~16T~9D~%" 0 (nrows mat) (nr-of-entries mat)))
       (loop for i from 1 below max-depth
-	    until (<= (nr-nonempty-rows mat) cg-max-size) do
+	    until (<= (nrows mat) cg-max-size) do
 	    (let ((coarsening (coarsen amg mat)))
 	      (unless coarsening (return nil))
 	      (destructuring-bind (&key coarse-grid-matrix prolongation restriction)
@@ -180,8 +180,11 @@ sparse matrices."
 	 (unless (slave-or-dirichlet-dof-p key mat)
 	   (setf (gethash key active) t)))
      mat)
-    (extended-extract mat active)
-    ))
+    (extract-if #'(lambda (entry row-key col-key)
+                    (declare (ignore entry))
+                    (and (gethash row-key active)
+                         (gethash col-key active)))
+                mat)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; prolongation - compute a prolongation
@@ -249,8 +252,6 @@ avoiding generic arithmetic."
   (let* ((row-key->size (row-key->size R))
 	 (col-key->size (col-key->size P))
 	 (result (make-sparse-matrix
-		  :print-row-key (print-row-key R)
-		  :print-col-key (print-col-key P)
 		  :row-key->size row-key->size
 		  :col-key->size col-key->size
 		  :keys->pattern

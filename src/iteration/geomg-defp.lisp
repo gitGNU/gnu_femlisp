@@ -34,7 +34,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.GEOMG"
-  (:use "COMMON-LISP" "COMMON-LISP-USER" "FL.UTILITIES" "FL.MACROS" "FL.ALGEBRA" "FL.FUNCTION"
+  (:use "COMMON-LISP" "COMMON-LISP-USER" "FL.UTILITIES" "FL.MACROS" "FL.FUNCTION"
 	"FL.MATLISP" "FL.ITERATION" "FL.MULTIGRID" "FL.MESH" "FL.DISCRETIZATION" "FL.DEBUG")
   (:export
    ;; geomg.lisp

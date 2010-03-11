@@ -77,8 +77,9 @@ identification and hanging nodes."
     (setq candidates (set-difference candidates block-keys))
     ;; next we check if dependent cells are subcells
     (let ((dependent-keys
-	   (reduce #'union block-keys :initial-value ()
-		   :key (curry #'keys-of-column constraints-Q))))
+	   (and constraints-Q
+                (reduce #'union block-keys :initial-value ()
+                        :key (curry #'keys-of-column constraints-Q)))))
       ;; second loop checks if some candidate has a subcell in dependent-keys
     (dolist (candidate candidates)
       (when (some #'(lambda (dependent-key)

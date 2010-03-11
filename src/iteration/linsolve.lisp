@@ -169,12 +169,12 @@ a function, you may use this base class."))
     
     ;; application to sparse matrices
     (let* ((constantly-1 (constantly 1))
-	   (b (make-instance '<sparse-vector> :key->size constantly-1))
+	   (b (make-sparse-vector :key->size constantly-1))
 	   (A (make-sparse-matrix
 	       :row-key->size constantly-1
 	       :col-key->size constantly-1
 	       :keys->pattern (constantly (full-crs-pattern 1 1))))
-	   (sol (make-instance '<sparse-vector> :key->size constantly-1)))
+	   (sol (make-sparse-vector :key->size constantly-1)))
       (setf (vref (vref b 1) 0) 1.0)
       (setf (vref (vref b 2) 0) 2.0)
       (setf (vref (vref b 3) 0) 1.0)

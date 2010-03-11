@@ -39,7 +39,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <linear-iteration> ()
-  ((damp :initform 1.0 :initarg :damp))
+  ((damp :initform 1.0 :initarg :damp)
+   (store-p :initarg :store-p :initform nil
+	    :documentation "Store decomposition for multiple applications."))
   (:documentation "The <linear-iteration> class.  Linear iterations are
 e.g. <gauss-seidel> or <multigrid>."))
 
@@ -125,8 +127,7 @@ iteration."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <lu> (<linear-iteration>)
-  ((store-p :initarg :store-p :initform nil
-	    :documentation "Store decomposition for multiple applications."))
+  ()
   (:documentation "A linear iteration interface for the LU exact solver."))
 
 (defmethod make-iterator ((linit <lu>) mat)
@@ -215,12 +216,11 @@ parameter, eta is the diagonal enhancement."))
      :iterate
      #'(lambda (x b r)
 	 (declare (ignore b))
-	 (fl.algebra::parallel-for-each-row-key
+	 (for-each-row-key;; fl.matlisp::parallel-for-each-row-key
 	  #'(lambda (row-key)
 	      (let ((rblock (vref r row-key)))
-		(unless (= damp 1.0) (scal! damp rblock))
 		(gesv! (mref mat row-key row-key) rblock)
-		(m+! rblock (vref x row-key))
+		(axpy! damp rblock (vref x row-key))
 		#+(or)(x<-0 rblock)
 		))
 	  mat))
@@ -243,8 +243,7 @@ the iteration.")))
   (with-slots (omega compare) sor
     (let ((ordering (range< 0 (nrows mat))))
       (when compare
-	(setq ordering (sort ordering #'(lambda (x y)
-					  (funcall compare x y mat)))))
+	(setq ordering (safe-sort ordering (rcurry compare mat))))
       (make-instance
        '<iterator>
        :matrix mat
@@ -264,36 +263,39 @@ the iteration.")))
        :residual-after nil))))
 
 (defmethod make-iterator ((sor <sor>) (mat <sparse-matrix>))
-  (with-slots (omega compare) sor
+  (declare (optimize debug))
+  (with-slots (omega compare store-p) sor
     (let ((ordering (row-keys mat))
-	  (diagonal-inverse (make-hash-table)))
+	  (diagonal-inverse (and store-p (make-hash-table))))
       (when compare
 	(setq ordering
-	      (sort ordering #'(lambda (x y)
-				 (funcall compare x y mat)))))
+	      (safe-sort ordering (rcurry compare mat))))
       (dbg :iter "Ordering: ~A" ordering)
-      (dolist (row-key ordering)
-	(setf (gethash row-key diagonal-inverse)
-	      (m/ (mref mat row-key row-key))))
+      (when diagonal-inverse
+        (dolist (row-key ordering)
+          (setf (gethash row-key diagonal-inverse)
+                (m/ (mref mat row-key row-key)))))
       (make-instance
        '<iterator>
        :matrix mat
        :residual-before nil
        :initialize nil
        :iterate
-       #'(lambda (x b r)
-	   (declare (type <sparse-vector> x b r))
-	   (declare (ignore r))
-	   (declare (optimize (speed 3) (safety 1)))
-	   (dolist (row-key ordering)
-	     (let ((corr (copy (vref b row-key))))
-	       (for-each-key-and-entry-in-row
-		#'(lambda (col-key mblock)
-		    (gemm! -1.0 mblock (vref x col-key) 1.0 corr))
-		mat row-key)
-	       (gemm! omega (gethash row-key diagonal-inverse) corr
-		      1.0 (vref x row-key))
-	       )))
+       (lambda (x b r)
+         (declare (ignore r))
+         (dolist (row-key ordering)
+           (dbg :iter "Handling rk=~A" row-key)
+           (let ((corr (copy (vref b row-key))))
+             (for-each-key-and-entry-in-row
+              #'(lambda (col-key mblock)
+                  (gemm! -1.0 mblock (vref x col-key) 1.0 corr))
+              mat row-key)
+             (cond (diagonal-inverse
+                    (gemm! omega (gethash row-key diagonal-inverse) corr
+                           1.0 (vref x row-key)))
+                   (t (mref mat row-key row-key)
+                      +(or)(gesv! (mref mat row-key row-key) corr)
+                      (axpy! omega corr (vref x row-key)))))))
        :residual-after nil))))
 
 (defclass <gauss-seidel> (<sor>)

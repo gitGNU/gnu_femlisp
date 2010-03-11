@@ -59,8 +59,6 @@ build the actual interpolation matrix."))
   "Simply injection, i.e. P_{CC}=Id_{CC}."
   (with-items (&key matrix coarse-nodes prolongation) blackboard
     (let ((prol (make-sparse-matrix
-		 :print-row-key (print-row-key matrix)
-		 :print-col-key (print-col-key matrix)
 		 :row-key->size (row-key->size matrix)
 		 :col-key->size (col-key->size matrix)
 		 :keys->pattern (keys->pattern matrix))))

@@ -103,43 +103,8 @@ that we choose an SSC smoother by default."
 		     :assemble-locally t :include-constraints t))
 	  finally (return mat))))
 
-#+(or)  ;;; new ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defmethod multilevel-decomposition ((mgit <geometric-mg>)
-				     (mat <ansatz-space-automorphism>))
-  "Assemble all levels below the top-level.  The top level should have been
-already assembled.  Works only for uniformly refined meshes."
-  (let* ((ansatz-space (ansatz-space mat))
-	 (h-mesh (hierarchical-mesh ansatz-space))
-	 (top-level (top-level h-mesh))
-	 (a-vec (make-array (nr-of-levels h-mesh)))
-	 (i-vec (make-array (1- (nr-of-levels h-mesh))))
-	 (interior-mat (get-property mat :interior-matrix))
-	 (solution (get-property mat :solution)))
-    
-    ;; set the matrix vector
-    (multiple-value-bind (essential-P essential-Q essential-r)
-	(fl.discretization::compute-essential-boundary-constraints
-	 ansatz-space :where :all)
-      (loop for level from 0 upto top-level
-	    for l-mat = (fl.discretization::compute-interior-level-matrix
-			 interior-mat solution level) do
-	    (let ((eliminated-mat
-		   (eliminate-constraints
-		    l-mat nil essential-P essential-Q essential-r
-		    :include-constraints t)))
-	      (setf (aref a-vec level) eliminated-mat))))
-    ;; set the interpolation vector
-    (loop for level below top-level
-       for imat = (constrained-interpolation-matrix
-		   ansatz-space :level level :where :refined)
-       do
-	 (extend-by-identity imat (row-table (aref a-vec level))
-			     :ignore (column-table imat))
-	 (fl.discretization::eliminate-hanging-node-constraints-from-matrix
-	  imat (get-property ansatz-space :hanging-Q))
-	 (setf (aref i-vec level) imat))
-    ;; return result
-    (blackboard :a-vec a-vec :i-vec i-vec)))
+;;; an alternative (?) version of the following routine is in
+;;; femlisp-niko/fedisc-neu.lisp
 
 (defmethod multilevel-decomposition ((mgit <geometric-mg>) (mat <ansatz-space-automorphism>))
   "Assemble all levels below the top-level.  The top level should have been
