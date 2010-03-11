@@ -54,8 +54,11 @@
         (when *dx-pathname*
           (fl.port:run-program
            *dx-pathname*
-	   ;; -processors 1 was needed on Solaris and a Linux/AMD64 machine (quadruped)
-           '("-script" "-cache" "off" "-log" "on" "-processors" "1" #+mswindows "-native")
+	   ;; -processors 1 is apparently needed with SBCL
+           ;; but unfortunately breaks CLISP
+           '("-script" "-cache" "off" "-log" "on"
+             "-processors" "1"
+             #+mswindows "-native")
            :wait nil
            :input :stream :output :stream
            :directory (images-pathname))))
@@ -103,7 +106,8 @@ This is a trick to make @arg{dx} redraw the picture.")
 	  do (when (dbg-p :graphic)
 	       (format *trace-output* "~A~%" line)))))
 
-(defun dx-commands-mesh (&key dimension tubes (glyphs t) background &allow-other-keys)
+(defun dx-commands-mesh (&key dimension tubes (glyphs t) glyph-scale background
+                         &allow-other-keys)
   (list
    "connections = ShowConnections(data);"
    (if tubes
@@ -117,11 +121,11 @@ This is a trick to make @arg{dx} redraw the picture.")
    (when (eq background :white)
      "tubes = Color(tubes, \"black\");")
    (when glyphs
-     (format nil "glyphs = Glyph(data~A);"
-	     (case dimension
-	       (1 ",scale=0.01")
-	       (2 ",scale=0.01")
-	       (t ""))))
+     (format nil "glyphs = Glyph(data~@[,scale=~A~]);"
+             (or glyph-scale
+                 glyph-scale
+                 (case dimension
+                   ((1 2) 0.01)))))
    (if glyphs
        "image = Collect(tubes,glyphs);"
        "image = tubes;")
@@ -162,7 +166,10 @@ This is a trick to make @arg{dx} redraw the picture.")
       (3 (list
 	  "connections = ShowConnections(data);"
 	  "tubes = Tube(connections, 0.01);"
-	  "image = AutoColor(tubes);"
+	  (if range
+	      (format nil "image = AutoColor(tubes, min=~A, max=~A);"
+		      (first range) (second range))
+	      "image = AutoColor(tubes);")
 	  ;;"camera = AutoCamera(tubes, \"off diagonal\");"
 	  ;;"image = Render(tubes, camera);"
 	  )))))
@@ -173,10 +180,6 @@ although it gets rid of black lines in dx pictures in some situations.
 E.g. it does not do xy-graphs correctly and fails for @lisp{(plot (n-cube
 1))}.  It can also kill the Xwindows interface on some computers.")
 
-(defparameter *pop-up-dx-window* nil
-  "If T, this should pop up the graphics window automatically.
-Unfortunately, it does not work on X11 on Mac OS X.")
-
 (defparameter *show-dx-window* t
   "Show the DX window when something is plotted.  This may be useful on
 Laptops when the window is hidden.")
@@ -184,7 +187,7 @@ Laptops when the window is hidden.")
 (defmethod send-graphic-commands (object (program (eql :dx)) &rest paras
 				  &key dimension (background :black)
 				  (resolution 480) (width 480) (height 480)
-				  format filename &allow-other-keys)
+				  format filename (window "femlisp-image") &allow-other-keys)
   (whereas ((stream (dx-input-stream)))
     (when (dbg-p :graphic)
       (setq stream (make-broadcast-stream stream *trace-output*)))
@@ -202,11 +205,10 @@ Laptops when the window is hidden.")
       (if *dx-bug-workaround*
 	  (format stream "image = Options(image, \"rendering mode\", \"hardware\");~%")
 	  (format stream "image = Render(image,camera);"))
-      (when *pop-up-dx-window*
-	(let ((control "where=SuperviseWindow(\"femlisp-image\",size=[~D,~D],visibility=~D);~%"))
-	  (when *show-dx-window*
-	    (format stream control width height 2))
-	  (format stream control width height 1)))
+      (let ((control "where=SuperviseWindow(~S,size=[~D,~D],visibility=~D);~%"))
+        (when *show-dx-window*
+          (format stream control window width height 2))
+        (format stream control window width height 1))
       (if *dx-bug-workaround*
 	  ;; corresponding to the above problematic variant
 	  (format stream "Display (image, camera, where=where);~%")
