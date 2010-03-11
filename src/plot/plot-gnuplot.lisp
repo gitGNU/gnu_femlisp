@@ -75,11 +75,13 @@ graphs."
       (declare (ignore name))
       (dovec (point points)
 	(ecase type
-	  (:polygon (format stream "~@{~,,,,,,'EG ~}~%"
-			    (elt point 0) (elt point 1)))
-	  (:vectorfield (format stream "~@{~,,,,,,'EG ~}~%"
-				(elt (car point) 0) (elt (car point) 1)
-				(elt (cdr point) 0) (elt (cdr point) 1))))))
+	  ((:polygon :points)
+           (format stream "~@{~,,,,,,'EG ~}~%"
+                   (elt point 0) (elt point 1)))
+	  (:vectorfield
+           (format stream "~@{~,,,,,,'EG ~}~%"
+                   (elt (car point) 0) (elt (car point) 1)
+                   (elt (cdr point) 0) (elt (cdr point) 1))))))
     (format stream "~%~%")))
 
 (defmethod graphic-commands ((polygons list) (program (eql :gnuplot))
@@ -97,6 +99,7 @@ graphs."
                          gnuplot-file i (or name (format nil "data-~D" i))
                          (ecase type
                            (:polygon "lines")
+                           (:points "points")
                            (:vectorfield "vectors"))
                          linewidth)))))))
 
@@ -127,7 +130,7 @@ graphs."
 
 ;;;; Testing
 (defun test-plot-gnuplot ()
-  (let ((graph '(("graph-1" :polygon #(1.0 2.0) #(3.0 4.0)))))
+  (let ((graph '(("graph-1" :points #(1.0 2.0) #(0.5 0.5) #(3.0 4.0)))))
     (plot graph :debug t))
   (let ((graph '(("graph-2" :vectorfield
 		  (#(1.0 2.0) . #(0.5 -0.5)) (#(3.0 4.0) . #(-0.5 0.5))))))
