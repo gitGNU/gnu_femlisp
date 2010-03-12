@@ -2,6 +2,28 @@
 
 * From Femlisp-0.9.9 to Femlisp-0.9.10:
 
+Several DX graphic windows are allowed in parallel.
+
+General anisotropic refinement rules are allowed.
+
+Different dimensional subparts are allowed for domains/meshes on which
+different models can be solved, e.g. 1d-models coupled with 3d-models, etc.
+Plotting works by extracting subparts of the domain of a certain dimension.
+
+Introduced plotting of point distributions in the Gnuplot interface.
+
+Femlisp has been ported to Clozure CL and also CLISP.  On CLISP, it is very
+slow.  This could be improved by using LAPACK routines (e.g. by using
+Matlisp) instead of routines written in Lisp for basic matrix-vector
+operations.
+
+The ALGEBRA module has been merged into the MATLISP module.  The ALGEBRA
+package has been removed.
+
+The ALGEBRA package was restructured.  Especially, @class{<sparse-matrix>}
+is much more general now, and allowed for the introduction of just-in-time
+calculated matrices which will be introduced in some later Femlisp version.
+
 I separated the Femlisp ASDF system definition in @file{femlisp.asd} into
 ASDF systems called "femlisp-basic", "femlisp-matlisp", and "femlisp".
 Especially "femlisp-basic" can be used also from other applications, and

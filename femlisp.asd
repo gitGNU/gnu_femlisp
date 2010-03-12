@@ -48,7 +48,7 @@
 (in-package :asdf)
 
 (defsystem :femlisp-basic
-  :depends-on ()
+  :depends-on (#+(or clisp ccl) :cffi #+(or clisp ccl) :closer-mop)
   :components
   ((:file "setup")
    (:module
@@ -66,6 +66,7 @@
      (:file "utilities" :depends-on ("utilities-defp" "macros" "tests"))
      (:file "mflop" :depends-on ("utilities"))
      (:file "multiprocessing" :depends-on ("utilities" "mflop" "port" "debug"))
+     (:file "parcells" :depends-on ("multiprocessing"))
      (:file "general" :depends-on ("amop" "utilities-defp" "multiprocessing"))
      (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))
      ))
@@ -81,6 +82,7 @@
     :components
     (;; alien should be recompiled if superlu.so or umfpack.so has changed
      (:file "alien" :depends-on ())
+     (:file "alienc" :depends-on ("alien"))
      (:file "lapack" :depends-on ("alien"))
      (:file "superlu" :depends-on ("alien"))
      (:file "umfpack" :depends-on ("alien"))
@@ -108,6 +110,9 @@
      (:file "compressed" :depends-on ("store-vector" "standard-matrix"))
      (:file "ggev" :depends-on ("standard-matrix"))
      (:file "hegv" :depends-on ("standard-matrix"))
+     (:file "sparse-vector" :depends-on ("compat" "sparse-tensor"))
+     (:file "sparse-matrix" :depends-on ("sparse-vector" "standard-matrix-blas" "compressed"))
+     (:file "sparselu" :depends-on ("sparse-matrix"))
      ))
    ))
 
@@ -115,16 +120,8 @@
   :depends-on (:femlisp-basic :femlisp-matlisp)
   :components
   ((:module
-    "algebra"
-    :depends-on ()
-    :pathname #.(translate-logical-pathname "femlisp:src;algebra;")
-    :components
-    ((:file "algebra-defp")
-     (:file "sparse" :depends-on ("algebra-defp"))
-     (:file "sparselu" :depends-on ("sparse"))))
-   (:module
     "function"
-    :depends-on ("algebra")
+    :depends-on ()
     :pathname #.(translate-logical-pathname "femlisp:src;function;")
     :components
     ((:file "function-defp")
@@ -137,7 +134,7 @@
    (:module
     "mesh"
     :pathname #.(translate-logical-pathname "femlisp:src;mesh;")
-    :depends-on ("algebra" "function")
+    :depends-on ( "function")
     :components
     ((:file "mesh-defp")
      (:file "cell" :depends-on ("mesh-defp"))
@@ -181,7 +178,7 @@
    ;;
    (:module
     "iteration"
-    :depends-on ("algebra" "function" "problem")
+    :depends-on ("function" "problem")
     :pathname #.(translate-logical-pathname "femlisp:src;iteration;")
     :components
     ((:file "iteration-defp")
@@ -204,7 +201,7 @@
    ;;
    (:module
     "discretization"
-    :depends-on ("algebra" "function" "mesh" "problem" "iteration")
+    :depends-on ("function" "mesh" "problem" "iteration")
     :pathname #.(translate-logical-pathname "femlisp:src;discretization;")
     :components
     ((:file "discretization-defp")
@@ -291,7 +288,7 @@
    ;;
    (:module
     "applications"
-    :depends-on ("algebra" "function" "iteration" "mesh"
+    :depends-on ("function" "iteration" "mesh"
 		 "problem" "discretization" "strategy" "plot")
     :pathname #.(translate-logical-pathname #p"femlisp:src;applications;")
     :components

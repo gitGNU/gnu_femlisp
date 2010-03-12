@@ -73,7 +73,7 @@ femlisp:
 	sh ./bin/femlisp --save-core-and-die
 
 clean:
-	rm -f *.x86f *.fasl *.ufasl *.fas? *.fas *.o *.amd64f
+	rm -f *.x86f *.fasl *.ufasl *.fas? *.fas *.o *.amd64f *.lx32fsl
 	cd bin; rm -f *.core
 	cd doc; make clean;
 	cd src; make clean;

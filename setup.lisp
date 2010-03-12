@@ -63,13 +63,6 @@ location of this file when it is loaded.")
 (defvar *femlisp-directory* (namestring *femlisp-pathname*)
   "The namestring for @var{*femlisp-pathname*}.")
 
-#+(or)  ; is done now in femlisp.asd
-(let ((directory (pathname-directory *load-truename*)))
-  (setf (logical-pathname-translations "FEMLISP")
-	`((#-gcl "**;*.*.*" #+gcl "**;*.*" 
-	   ,(make-pathname :directory `(,@directory :wild-inferiors)
-			   :name :wild :type :wild :version :wild)))))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Configuration
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -101,35 +94,13 @@ location of this file when it is loaded.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; INFIX
-(eval-when (:compile-toplevel :load-toplevel)
-  (ignore-errors
-    (unless (member :infix *features*)
-      (require :infix)))
-  (ignore-errors
-    (unless (member :infix *features*)
-      (asdf:oos 'asdf:load-op :infix)))
-  (unless (member :infix *features*)
-    (load #p"femlisp:external;infix.cl")))
+#-infix (load #p"femlisp:external;infix;src")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; we want to work generally with double float numbers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; GCL package patch
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-#+gcl
-(mapcar #'(lambda (name)
-	    (unless (find-package name)
-	      (make-package name)))
-	'("ASDF" "FL.DEBUG" "FL.TESTS" "FL.MACROS" "FL.ALIEN"
-	  "FL.AMOP" "FL.TESTS" "FL.PORT" "FL.MULTIPROCESSING"
-	  "FL.DEMO" "FL.PATCHES" "FL.DEBUG" "FL.CDR-FE" "FL.ELASTICITY-FE"
-	  "FL.CDRSYS-FE" "FL.NAVIER-STOKES-FE" "FL.ELASTICITY"
-	  "FL.CDR" "FL.CDRSYS" "FL.NAVIER-STOKES"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Register banner
@@ -142,8 +113,8 @@ location of this file when it is loaded.")
   (format
    t "~&~%*** Femlisp-~A ***
 
-Copyright (C) 2003-2008
-Nicolas Neuss, University Heidelberg, University Karlsruhe.
+Copyright (C) 2003-2010
+Nicolas Neuss, University Heidelberg, KIT Karlsruhe.
 
 Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
 file LICENSE in the Femlisp main directory.  This is free

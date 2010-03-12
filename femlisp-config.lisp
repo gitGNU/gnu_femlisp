@@ -40,18 +40,18 @@
 
 (defparameter *dx-path*
   (or nil ; default: search in path
-      #+(or ecl gcl lispworks sbcl) "/usr/bin/dx")
+      #+(or ccl ecl gcl lispworks sbcl clisp) "/usr/bin/dx")
   "Path to the @program{DX} executable.")
 
 (defparameter *gnuplot-path*
   (or nil ; default: search in path
-      #+(or ecl gcl lispworks sbcl) "/usr/bin/gnuplot"
+      #+(or ccl ecl gcl lispworks sbcl clisp) "/usr/bin/gnuplot"
       #+(and acl mswindows) "C:\\cygwin\\bin\\gnuplot.exe")
   "Path to the @program{Gnuplot} executable.")
   
 (defparameter *triangle-path*
   (or nil ; default: search in path
-      #+(or ecl gcl lispworks) #p"femlisp:external;triangle;triangle")
+      #+(or ccl ecl gcl lispworks) #p"femlisp:external;triangle;triangle")
   "Path to the @program{triangle} executable.")
   
 (defparameter *images-directory*
@@ -63,15 +63,17 @@
   "Directory where meshes are put by default.")
 
 (defparameter *blas-library*
-  (probe-file
-   #+darwin #p"/System/Library/Frameworks/vecLib.framework/Versions/Current/vecLib"
-   #-darwin #p"/usr/lib/libblas.so")
+  (let ((path
+         #+darwin #p"/System/Library/Frameworks/vecLib.framework/Versions/Current/vecLib"
+         #-darwin #p"/usr/lib/libblas.so"))
+    (and (probe-file path) path))
   "BLAS library.")
 
 (defparameter *lapack-library*
-  (probe-file
-   #+darwin #p"/System/Library/Frameworks/vecLib.framework/Versions/Current/vecLib"
-   #-darwin #p"/usr/lib/liblapack.so")
+  (let ((path
+         #+darwin #p"/System/Library/Frameworks/vecLib.framework/Versions/Current/vecLib"
+         #-darwin #p"/usr/lib/liblapack.so"))
+    (and (probe-file path) path))
   "LAPACK library.")
 
 (defparameter *superlu-library*

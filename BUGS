@@ -3,9 +3,10 @@
 This is a list of known bugs:
 -----------------------------
 
-* inside-cell? does not test correctly for lower-dimensional cells
+* Complex arrays do not yet work with Lispworks and Allegro (which implies
+  that eigenvalue problems are not handled correctly).
 
-* Multithreaded SBCL does not show FL.APPLICATION when starting a core.
+* inside-cell? does not test correctly for lower-dimensional cells.
 
 * Parallel solving still does not work reliably.
 
@@ -22,4 +23,11 @@ This is a list of known bugs:
   remedy is to use OpenDX as a separate application on the output file
   @path{femlisp/images/output.dx}.  This bug may well lie outside of
   Femlisp, since also "dx -script" in an xterm window does not work.
+
+* Sometimes the option "-np 1" has to be passed to DX (e.g. with SBCL),
+  sometimes not (CLISP, Clozure CL).
+
+* Terminating a SLIME/Femlisp session where DX or Gnuplot pictures have
+  been shown, the DX or Gnuplot job is not stopped but instead starts to
+  use up a lot of CPU time.
 
