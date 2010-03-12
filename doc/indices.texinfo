@@ -1,4 +1,4 @@
-@c We use a combined concept index
+@c We use a combined concept index, , Bibliography, Top
 
 @c @node Function Index, , Reference manual, Top
 @c @unnumbered Function index

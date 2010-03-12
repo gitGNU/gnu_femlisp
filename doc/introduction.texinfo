@@ -1,5 +1,14 @@
 @node Introduction, Installation, Top, Top
-@chapter Introduction
+@chapter Introduction, Installation, Top, Top
+
+@menu
+* Tools for solving PDEs::      
+* Common Lisp::                 
+* Advantages::                  
+@end menu
+
+@node Tools for solving PDEs, Common Lisp, Introduction, Introduction
+@section Tools for solving PDEs
 
 The theoretical and practical treatment of partial differential
 equations is a highly complex domain of mathematics with a multitude of
@@ -14,24 +23,26 @@ multi-purpose tools for solving partial differential equations.
 @femlisp{} is such a multi-purpose tool.  But in contrast to other PDE
 solvers which are mostly written using machine-oriented languages like
 Fortran, C, or C++, it is written in Lisp, which is a language long
-known from research in artificial intelligence.
+known from research in Artificial Intelligence (AI).
+
+@node Common Lisp, Advantages, Tools for solving PDEs, Introduction
+@section Common Lisp
 
 Lisp is the second-oldest high-level computer language after Fortran.
 It is a very flexible and powerful language, and a lot of problems
-arising in computational science were first solved using Lisp as a
-vehicle.  Besides being well-suited for solving problems in artificial
-intelligence (AI), the world's first computer algebra system,
-@code{Macsyma}, was implemented in Lisp, and, more recently, Lisp was
-used in the package @code{Kenzo} to solve difficult problems in
-algebraic topology.  Lisp is also the language of @code{Autocad} and the
-editor @code{Emacs}.  Astonishingly, up to now, Lisp has not been a
-mainstream language.  The reasons for this are mostly historical: in the
-first decades of computer history, resources were scarce and a language
-for which the first implementations were interpreters, which has
-automatic memory management as an essential component, and which is used
-best inside large development environments could not compete with
-lightweight languages for the computationally easy problems which were
-tackled at that time.
+arising in computer science were first solved using Lisp as a vehicle.
+Besides being well-suited for solving AI problems, the world's first
+computer algebra system, @code{Macsyma}, was implemented in Lisp, and,
+more recently, Lisp was used in the package @code{Kenzo} to solve
+difficult problems in algebraic topology.  Lisp is also the language of
+@code{Autocad} and the editor @code{Emacs}.  Astonishingly, up to now,
+Lisp has not been a mainstream language.  The reasons for this are
+mostly historical: in the first decades of computer history, resources
+were scarce and a language for which the first implementations were
+interpreters, which has automatic memory management as an essential
+component, and which is used best inside large development environments
+could not compete with lightweight languages for the computationally
+easy problems which were tackled at that time.
 
 Nowadays, the situation is drastically different.  Computing power has
 increased tremendously, thus making it possible to have powerful Lisp
@@ -45,32 +56,37 @@ support native code compilation.
 Consequently, using Lisp for problems outside its original realm of
 artificial intelligence is a very natural choice today, see
 @cite{(Fateman et al, 1995)}, @cite{(Fateman 2001)}, @cite{(Neuss
-2002)}.  Comparing @femlisp{} with other PDE toolboxes, we observe the
-following advantages which cannot be easily obtained using
-conventional languages like Fortran, C, or C++:
+2002)}.
+
+@node Advantages,  , Common Lisp, Introduction
+@section Advantages
+
+Comparing @femlisp{} with other PDE toolboxes, we observe the following
+advantages which cannot be easily obtained using conventional languages
+like Fortran, C, or C++:
 
 @enumerate
 
 @item @femlisp{} is interactive.  Toolboxes written in
 conventional languages have to implement this feature themselves or to
-be linked with some scripting language like Perl or Python.  In any
+be linked with some scripting language like Perl or Python.  In either
 case, an artificial interface between scripting level and application
 language appears, which is not easy to maintain.
 
 @item The editor is integrated in a way that is very difficult to achieve
 for conventional languages.  For example, argument lists of functions
-appear when typing, and the documentation of functions and variables
-is available at a keystroke.  Also, the debug cycle is as short as it
-can possibly be: changing a function, recompiling it separately, and
-testing it in the running environment is usually a matter of only a
-few keystrokes and fractions of a second runtime.
+appear when typing, and the documentation of functions and variables is
+available at a keystroke.  Also, the debug cycle is as short as it can
+possibly be: changing a function, recompiling it separately, and testing
+it in the running environment is usually a matter of only a few
+keystrokes and fractions of a second.
 
 @item Lisp is very expressive, and programming techniques can be used which
 would introduce a large overhead in conventional languages.  This leads
 to a concise representation of the underlying mathematical ideas and
 therefore to a very short and maintainable source code.  To achieve
-maximum benefit, the source code is available under a liberal open
-source license.
+maximum benefit, the @femlisp{} source code is available under a liberal
+open source license.
 
 @end enumerate
 

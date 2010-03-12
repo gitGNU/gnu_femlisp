@@ -1,4 +1,4 @@
-@node Reference manual, Copyright, Overview, Top
+@node Reference manual, Copyright, FAQ, Top
 @chapter Reference manual
 
 @menu
@@ -12,7 +12,6 @@
 * Package FL.ALIEN::            
 * Package FL.MULTIPROCESSING::  
 * Package FL.MATLISP::          
-* Package FL.ALGEBRA::          
 * Package FL.FUNCTION::         
 * Package FL.MESH::             
 * Package FL.PROBLEM::          
@@ -20,9 +19,7 @@
 * Package FL.ELLSYS::           
 * Package FL.ELASTICITY::       
 * Package FL.NAVIER-STOKES::    
-* Package FL.CDRSYS::           
 * Package FL.DISCRETIZATION::   
-* Package FL.CDR-FE::           
 * Package FL.ELLSYS-FE::        
 * Package FL.ELASTICITY-FE::    
 * Package FL.NAVIER-STOKES-FE::  
@@ -74,6 +71,22 @@ Direct slots:
 Boxes an object.
 @end deffn
 
+@anchor{class-fl.utilities-cache-dictionary}
+@deftp Class CACHE-DICTIONARY
+@tindex CACHE-DICTIONARY
+This is a dictionary which can only hold a certain
+  number of items.  If more are inserted, only the most recently accessed
+  items are kept.
+
+Direct slots:
+@itemize
+@item SIZE: Self-explanatory.
+@item TEST: Self-explanatory.
+@item STORE: Self-explanatory.
+@item ITEM-STORE: Self-explanatory.
+@end itemize
+@end deftp
+
 @anchor{fun-fl.utilities-check-properties}
 @deffn Function CHECK-PROPERTIES @var{PLACE} @var{PROPERTIES}
 @findex CHECK-PROPERTIES
@@ -88,16 +101,41 @@ Returns the speed which should be characteristic for the setting
 determined by the keyword arguments.
 @end deffn
 
+@anchor{fun-fl.utilities-compose}
+@deffn Function COMPOSE &REST @var{FUNCTIONS}
+@findex COMPOSE
+Returns the composition of @arg{functions}.
+@end deffn
+
+@anchor{fun-fl.utilities-compose-2}
+@deffn Function COMPOSE-2 @var{F} @var{G}
+@findex COMPOSE-2
+Composes two function objects @arg{f} and @arg{g}.
+@end deffn
+
 @anchor{fun-fl.utilities-concept-documentation}
 @deffn Function CONCEPT-DOCUMENTATION @var{DOCSTRING}
 @findex CONCEPT-DOCUMENTATION
 Documents a certain concept.
 @end deffn
 
+@anchor{fun-fl.utilities-constant-vector}
+@deffn Function CONSTANT-VECTOR @var{DIM} @var{VALUE}
+@findex CONSTANT-VECTOR
+Returns a uniform constant vector of which all elements are @arg{value}.
+@end deffn
+
 @anchor{fun-fl.utilities-copy-hash-table}
 @deffn Function COPY-HASH-TABLE @var{HASH-TABLE}
 @findex COPY-HASH-TABLE
 Copy @arg{hash-table}.
+@end deffn
+
+@anchor{fun-fl.utilities-copy-slots}
+@deffn Function COPY-SLOTS @var{OBJ1} @var{OBJ2} @var{SLOTS}
+@findex COPY-SLOTS
+Initializes the slots named in @arg{slots} from @arg{obj2} to
+  @arg{obj1}.  Returns @arg{obj1}.
 @end deffn
 
 @anchor{fun-fl.utilities-curry}
@@ -107,22 +145,74 @@ Supplies @arg{args} to @arg{func} from the left.
 @end deffn
 
 @anchor{fun-fl.utilities-dequeue}
-@deffn Function DEQUEUE @var{PQ}
+@deffn Function DEQUEUE @var{QUEUE}
 @findex DEQUEUE
-Pops an object from @arg{queue}.
+Pops an object from @arg{queue}.  Returns as second
+value T if the queue was empty.
+@end deffn
+
+@anchor{fun-fl.utilities-dequeue-all}
+@deffn Function DEQUEUE-ALL @var{QUEUE}
+@findex DEQUEUE-ALL
+Clears @arg{queue} and returns content as a list.
+@end deffn
+
+@anchor{fun-fl.utilities-dic-empty-p}
+@deffn Function DIC-EMPTY-P @var{DICTIONARY}
+@findex DIC-EMPTY-P
+Tests if @arg{dictionary} is empty.
+@end deffn
+
+@anchor{fun-fl.utilities-dic-for-each}
+@deffn Function DIC-FOR-EACH @var{FUNCTION} @var{DICTIONARY}
+@findex DIC-FOR-EACH
+Applies @arg{function} to each key-value pair in
+  @arg{dictionary}.
+@end deffn
+
+@anchor{fun-fl.utilities-dic-for-each-key}
+@deffn Function DIC-FOR-EACH-KEY @var{FUNCTION} @var{DICTIONARY}
+@findex DIC-FOR-EACH-KEY
+Applies @arg{function} to each key in @arg{dictionary}.
+@end deffn
+
+@anchor{fun-fl.utilities-dic-for-each-value}
+@deffn Function DIC-FOR-EACH-VALUE @var{FUNCTION} @var{DICTIONARY}
+@findex DIC-FOR-EACH-VALUE
+Applies @arg{function} to each value in @arg{dictionary}.
 @end deffn
 
 @anchor{fun-fl.utilities-dic-ref}
-@deffn Function DIC-REF @var{DIC} @var{KEY}
+@deffn Function DIC-REF @var{DICTIONARY} @var{KEY}
 @findex DIC-REF
 Returns the value of the entry for @arg{key} in
 @arg{dictionary}.
+@end deffn
+
+@anchor{fun-fl.utilities-dic-remove}
+@deffn Function DIC-REMOVE @var{KEY} @var{DICTIONARY}
+@findex DIC-REMOVE
+Removes @arg{key} from @arg{dictionary}.
 @end deffn
 
 @anchor{fun-fl.utilities-display-ht}
 @deffn Function DISPLAY-HT @var{HASH-TABLE}
 @findex DISPLAY-HT
 Display @arg{hash-table} in the form key1 -> value1 ...
+@end deffn
+
+@anchor{fun-fl.utilities-dll-front-insert}
+@deffn Function DLL-FRONT-INSERT @var{OBJ} @var{DLL} &OPTIONAL @var{INSERT-ITEM-P}
+@findex DLL-FRONT-INSERT
+Inserts @arg{obj} in @arg{dll}.  It returns the newly created
+@class{dll-item}.
+@end deffn
+
+@anchor{fun-fl.utilities-dll-rear-insert}
+@deffn Function DLL-REAR-INSERT @var{OBJ} @var{DLL} &OPTIONAL @var{INSERT-ITEM-P}
+@findex DLL-REAR-INSERT
+Inserts @arg{obj} in @arg{dll}.  It returns the newly created
+@class{dll-item}.
 @end deffn
 
 @anchor{macro-fl.utilities-dohash}
@@ -140,10 +230,24 @@ Loops through @arg{hash-table}.  If @arg{looping-var} is an atom
 Loops through each tuple below @arg{limits}.
 @end deffn
 
+@anchor{fun-fl.utilities-emptyp}
+@deffn Function EMPTYP @var{QUEUE}
+@findex EMPTYP
+Tests if @arg{queue} is empty.
+@end deffn
+
 @anchor{fun-fl.utilities-enqueue}
-@deffn Function ENQUEUE @var{OBJ} @var{PQ}
+@deffn Function ENQUEUE @var{OBJECT} @var{QUEUE}
 @findex ENQUEUE
 Puts @arg{object} into the @arg{queue}.
+@end deffn
+
+@anchor{fun-fl.utilities-evaluate}
+@deffn Function EVALUATE @var{F} @var{X}
+@findex EVALUATE
+Generic evaluation of functions on an argument.  Numbers and
+arrays are treated as constants.  Special evaluation is defined for multivariate
+polynomials on vectors and for <function> objects.
 @end deffn
 
 @anchor{fun-fl.utilities-factorial}
@@ -159,6 +263,24 @@ computed.
 @findex FILE-DOCUMENTATION
 If the manual is sorted by file, the string handed to this function
 describes the use of the respective file.
+@end deffn
+
+@anchor{fun-fl.utilities-filter}
+@deffn Function FILTER @var{ITEM} @var{SEQ} &REST @var{REST} &KEY @var{TEST} @var{TEST-NOT} &ALLOW-OTHER-KEYS
+@findex FILTER
+The positive REMOVE - i.e. like REMOVE with :test instead of :test-not.
+@end deffn
+
+@anchor{fun-fl.utilities-find-leaf}
+@deffn Function FIND-LEAF @var{ATOM} @var{TREE} &KEY (@var{KEY} (@var{FUNCTION} @var{IDENTITY})) (@var{TEST} (@var{FUNCTION} @var{EQL}))
+@findex FIND-LEAF
+Finds atom in @arg{tree}.
+@end deffn
+
+@anchor{fun-fl.utilities-find-leaf-if}
+@deffn Function FIND-LEAF-IF @var{TEST} @var{TREE} &KEY (@var{KEY} (@var{FUNCTION} @var{IDENTITY}))
+@findex FIND-LEAF-IF
+Finds a leaf in @arg{tree} where @arg{test} returns true.
 @end deffn
 
 @anchor{fun-fl.utilities-fixnum-vec}
@@ -183,7 +305,7 @@ Flatten a tree.  Example:
 @end deffn
 
 @anchor{fun-fl.utilities-for-each}
-@deffn Function FOR-EACH @var{FUNC} @var{SEQ}
+@deffn Function FOR-EACH @var{FUNC} @var{COLLECTION}
 @findex FOR-EACH
 Applies @arg{func} to each element of @arg{collection}.
 @end deffn
@@ -204,7 +326,8 @@ Get an arbitrary key from @arg{hash-table}.
 @anchor{fun-fl.utilities-get-property}
 @deffn Function GET-PROPERTY @var{OBJECT} @var{PROPERTY}
 @findex GET-PROPERTY
-Gets @arg{property} for @arg{object}.
+Gets @arg{property} for @arg{object}.  Returns NIL also if
+@arg{property} is not available.
 @end deffn
 
 @anchor{fun-fl.utilities-geta}
@@ -224,6 +347,16 @@ An analog to @code{(SETF GETF)} for association lists.
 @findex GETBB
 Get the item for @arg{key} from @arg{blackboard}.  If there is no such
 @arg{key} return @arg{default}.
+@end deffn
+
+@anchor{fun-fl.utilities-group-by}
+@deffn Function GROUP-BY @var{CHARACTERISTIC} @var{SEQ} &KEY (@var{TEST} (@var{QUOTE} @var{EQL}))
+@findex GROUP-BY
+Groups elements in the sequence @arg{seq} according to @arg{characteristic}
+ which is a function of one argument.  Example:
+@lisp
+  (group-by #'second '((1 2) (2 2) (3 4) (4 4)))
+@end lisp
 @end deffn
 
 @anchor{fun-fl.utilities-hash-table-keys}
@@ -251,7 +384,7 @@ Returns an iterator for @arg{x}.
 @end deffn
 
 @anchor{fun-fl.utilities-iterator-next}
-@deffn Function ITERATOR-NEXT @var{RANGE} @var{I}
+@deffn Function ITERATOR-NEXT @var{VEC} @var{ITERATOR}
 @findex ITERATOR-NEXT
 Returns an incremented @arg{iterator}.
 @end deffn
@@ -277,6 +410,12 @@ Returns all subsets of @arg{set} with length @arg{k}.  Example:
 @end lisp
 @end deffn
 
+@anchor{fun-fl.utilities-keys}
+@deffn Function KEYS @var{DIC}
+@findex KEYS
+Returns a list of all keys of @arg{dic}.
+@end deffn
+
 @anchor{fun-fl.utilities-list->queue}
 @deffn Function LIST->QUEUE @var{LIST}
 @findex LIST->QUEUE
@@ -297,7 +436,7 @@ Iterates @arg{body} over @arg{items}.  Example:
 @end deffn
 
 @anchor{fun-fl.utilities-make-analog}
-@deffn Function MAKE-ANALOG @var{PICTURE}
+@deffn Function MAKE-ANALOG @var{OBJ}
 @findex MAKE-ANALOG
 Generate an analogous but empty data structure.
 @end deffn
@@ -315,6 +454,14 @@ Construct a @symbol{FIXNUM-VEC} of size @arg{dim} initialized by
 Call @arg{func} given in the first argument on each key of
 @arg{hash-table}.  @arg{func} must return the new key and the new value as
 two values.  Those pairs are stored in a new hash-table.
+@end deffn
+
+@anchor{fun-fl.utilities-map-list-in-hash-table}
+@deffn Function MAP-LIST-IN-HASH-TABLE @var{FUNC} @var{LIST} &OPTIONAL (@var{TYPE} (@var{QUOTE} @var{EQL}))
+@findex MAP-LIST-IN-HASH-TABLE
+Maps the elements of @arg{list} in a hash-table identified by
+@arg{identifier}.  @arg{func} is evaluated on each element and produces two
+values which are used as key and value for the hash-table.
 @end deffn
 
 @anchor{fun-fl.utilities-map-product}
@@ -336,10 +483,71 @@ Maps @arg{tree} using @arg{func}.  Example:
 @end lisp
 @end deffn
 
+@anchor{macro-fl.utilities-mapf}
+@deffn Macro MAPF @var{VAR} @var{FUNC}
+@findex MAPF
+Replaces the value of the variable @arg{var} by setting it to its map
+with @arg{func}.
+@end deffn
+
 @anchor{fun-fl.utilities-mappend}
 @deffn Function MAPPEND @var{FUNC} &REST @var{LISTS}
 @findex MAPPEND
 Map @function{func} over @arg{lists} while appending the results.
+@end deffn
+
+@anchor{fun-fl.utilities-mapper-collect}
+@deffn Function MAPPER-COLLECT @var{MAPPER} &REST @var{REST-ARGS}
+@findex MAPPER-COLLECT
+Collects the arguments with which a mapping construct calls a given function.  E.g.
+@lisp
+(mapper-collect #'mapc '(3 4 5)) @result{} (3 4 5)
+@end lisp
+@end deffn
+
+@anchor{fun-fl.utilities-mapper-count}
+@deffn Function MAPPER-COUNT @var{MAPPER} &REST @var{REST-ARGS}
+@findex MAPPER-COUNT
+Counts the arguments with which a mapping construct calls a given function.  E.g.
+@lisp
+(mapper-sum #'mapc '(3 4 5)) @result{} 3
+@end lisp
+@end deffn
+
+@anchor{fun-fl.utilities-mapper-every}
+@deffn Function MAPPER-EVERY @var{TEST} @var{MAPPER} &REST @var{REST-ARGS}
+@findex MAPPER-EVERY
+Tests if the test is fulfilled for every argument on which the mapper is
+called: @lisp
+(mapper-every #'plusp #'mapc '(3 4 5)) @result{} T
+@end lisp
+@end deffn
+
+@anchor{fun-fl.utilities-mapper-select-first}
+@deffn Function MAPPER-SELECT-FIRST @var{MAPPER} &REST @var{REST-ARGS}
+@findex MAPPER-SELECT-FIRST
+Select the arguments with which a mapping construct calls a given function.  E.g.
+@lisp
+(mapper-select-first #'mapc '(3 4 5) '(7 8 9)) @result{} 3,7
+@end lisp
+@end deffn
+
+@anchor{fun-fl.utilities-mapper-some}
+@deffn Function MAPPER-SOME @var{TEST} @var{MAPPER} &REST @var{REST-ARGS}
+@findex MAPPER-SOME
+Tests if the test is fulfilled for some argument on which the mapper is
+called: @lisp
+(mapper-some #'plusp #'mapc '(-3 4 5)) @result{} T
+@end lisp
+@end deffn
+
+@anchor{fun-fl.utilities-mapper-sum}
+@deffn Function MAPPER-SUM @var{MAPPER} &REST @var{REST-ARGS}
+@findex MAPPER-SUM
+Sums the arguments with which a mapping construct calls a given function.  E.g.
+@lisp
+(mapper-sum #'mapc '(3 4 5)) @result{} 12
+@end lisp
 @end deffn
 
 @anchor{fun-fl.utilities-maximally-connected}
@@ -367,6 +575,13 @@ function of one argument.
 @deffn Function MEMOIZE-SYMBOL @var{FUNSYM} &KEY (@var{TEST} (@var{QUOTE} @var{EQUAL}))
 @findex MEMOIZE-SYMBOL
 Memoizes multi-argument functions named by the symbol @arg{funsym}.
+@end deffn
+
+@anchor{macro-fl.utilities-memoizing}
+@deffn Macro MEMOIZING @var{DEFUN-EXPR}
+@findex MEMOIZING
+As a global macro it memoizes the following function definition.  Inside a
+@function{with-memoization} environment, it memoizes its function argument.
 @end deffn
 
 @anchor{macro-fl.utilities-memoizing-let}
@@ -484,12 +699,6 @@ this object.
 @end itemize
 @end deftp
 
-@anchor{fun-fl.utilities-property-set-p}
-@deffn Function PROPERTY-SET-P @var{OBJECT} @var{PROPERTY}
-@findex PROPERTY-SET-P
-Returns T if @arg{property} is found in the object's properties.
-@end deffn
-
 @anchor{class-fl.utilities-queue}
 @deftp Class QUEUE
 @tindex QUEUE
@@ -498,8 +707,8 @@ Queue class accessed with @function{enqueue} and
 
 Direct slots:
 @itemize
-@item HEAD: NIL
-@item TAIL: NIL
+@item HEAD: Self-explanatory.
+@item TAIL: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -536,7 +745,7 @@ Supplies @arg{args} to @arg{func} from the right.
 @end deffn
 
 @anchor{fun-fl.utilities-reference}
-@deffn Function REFERENCE @var{RANGE} @var{I}
+@deffn Function REFERENCE @var{VEC} @var{ITERATOR}
 @findex REFERENCE
 Reader for the element of @arg{vec} referenced by @arg{iterator}.
 @end deffn
@@ -546,13 +755,6 @@ Reader for the element of @arg{vec} referenced by @arg{iterator}.
 @findex REQUIRED-ARGUMENT
 Calling this function results in an error.  Such a call may be used as
 default form when an argument should be supplied.
-@end deffn
-
-@anchor{fun-fl.utilities-runtime-compile}
-@deffn Function RUNTIME-COMPILE @var{SOURCE}
-@findex RUNTIME-COMPILE
-Calls compile on the provided @arg{source}.  When :compile is activated
-for debugging, the source code is printed.
 @end deffn
 
 @anchor{fun-fl.utilities-same-p}
@@ -575,13 +777,40 @@ Removes the items marked by @arg{keys} from the property list
 Checks if @arg{list} is a set, i.e. if no members occur twice.
 @end deffn
 
-@anchor{fun-fl.utilities-splice}
-@deffn Function SPLICE @var{ITEMS} @var{LENGTHS}
-@findex SPLICE
+@anchor{class-fl.utilities-small-cache-dictionary}
+@deftp Class SMALL-CACHE-DICTIONARY
+@tindex SMALL-CACHE-DICTIONARY
+Implementation with lists.
+
+Direct slots:
+@itemize
+@item SIZE: Self-explanatory.
+@item TEST: Self-explanatory.
+@item STORE: Self-explanatory.
+@end itemize
+@end deftp
+
+@anchor{class-fl.utilities-sorted-hash-table}
+@deftp Class SORTED-HASH-TABLE
+@tindex SORTED-HASH-TABLE
+This is a hash-table where entries are guaranteed to be
+  accessed in the order in which they are interned.
+
+Direct slots:
+@itemize
+@item TEST: Self-explanatory.
+@item STORE: Self-explanatory.
+@item ITEM-STORE: Self-explanatory.
+@end itemize
+@end deftp
+
+@anchor{fun-fl.utilities-split-by-length}
+@deffn Function SPLIT-BY-LENGTH @var{ITEMS} @var{LENGTHS}
+@findex SPLIT-BY-LENGTH
 Breaks the list @arg{items} in pieces of lengths determined by
 @arg{nrins}.  Example:
 @lisp
-  (splice '(1 2 3 4) '(1 3)) @result{} ((1) (2 3 4))
+  (split-by-length '(1 2 3 4) '(1 3)) @result{} ((1) (2 3 4))
 @end lisp
 @end deffn
 
@@ -604,6 +833,13 @@ Transfer @arg{items} between the blackboards @arg{from-bb} and
 @arg{to-bb}.  When @arg{ensure} is set, an existing item is not modified.
 @end deffn
 
+@anchor{fun-fl.utilities-translate}
+@deffn Function TRANSLATE @var{ITEM} @var{TRANSLATIONS}
+@findex TRANSLATE
+Performs certain translations from an association table on the string item.
+Example: (translate "abcdefg" '(("a" . "x")  ("b" . "yz")))
+@end deffn
+
 @anchor{fun-fl.utilities-unbox}
 @deffn Function UNBOX @var{BOX}
 @findex UNBOX
@@ -613,7 +849,7 @@ Getter for a boxed object.
 @anchor{fun-fl.utilities-vector-last}
 @deffn Function VECTOR-LAST @var{VEC}
 @findex VECTOR-LAST
-Returns the last element of @arg{vec}.
+Reader for the last element of @arg{vec}.
 @end deffn
 
 @anchor{fun-fl.utilities-vector-map}
@@ -652,12 +888,6 @@ If @arg{type} is :global, the table is thread-safe and the same for all
 threads, if @arg{type} is :local, it is special for each thread.
 @end deffn
 
-@anchor{macro-fl.utilities-with-properties}
-@deffn Macro WITH-PROPERTIES @var{PROPERTIES} @var{OBJECT} &BODY @var{BODY}
-@findex WITH-PROPERTIES
-Work with @arg{properties} on the property list of @arg{object}.
-@end deffn
-
 @anchor{fun-fl.utilities-zero-vector}
 @deffn Function ZERO-VECTOR @var{DIM} @var{ELEMENT-TYPE}
 @findex ZERO-VECTOR
@@ -687,6 +917,24 @@ A macro returning the second of its arguments.
 A macro returning the third of its arguments.
 @end deffn
 
+@anchor{macro-fl.macros-?4}
+@deffn Macro ?4 &REST @var{ARGS}
+@findex ?4
+A macro returning the fourth of its arguments.
+@end deffn
+
+@anchor{macro-fl.macros-?5}
+@deffn Macro ?5 &REST @var{ARGS}
+@findex ?5
+A macro returning the fifth of its arguments.
+@end deffn
+
+@anchor{macro-fl.macros-?6}
+@deffn Macro ?6 &REST @var{ARGS}
+@findex ?6
+A macro returning the sixth of its arguments.
+@end deffn
+
 @anchor{macro-fl.macros-aand}
 @deffn Macro AAND &REST @var{ARGS}
 @findex AAND
@@ -705,11 +953,25 @@ Anaphoric macro from @cite{(Graham 1993)}.
 Anaphoric macro from @cite{(Graham 1993)}.
 @end deffn
 
+@anchor{macro-fl.macros-bif}
+@deffn Macro BIF (@var{BINDVAR} @var{BOUNDFORM}) @var{YUP} &OPTIONAL @var{NOPE}
+@findex BIF
+Posted to cll by Kenny Tilton 22.4.2007.
+@end deffn
+
+@anchor{macro-fl.macros-chain}
+@deffn Macro CHAIN @var{ARG} &BODY @var{CLAUSES}
+@findex CHAIN
+Anaphoric macro on the symbol _ which allows to express a chain of
+operations.
+@end deffn
+
 @anchor{macro-fl.macros-definline}
 @deffn Macro DEFINLINE @var{NAME} &REST @var{REST}
 @findex DEFINLINE
 Short form for defining an inlined function.  It should probably be
-deprecated, because it won't be recognized by default by editors.
+deprecated, because it won't be recognized by default by some IDEs.  Better
+use the inlining macro directly.
 @end deffn
 
 @anchor{macro-fl.macros-delay}
@@ -718,15 +980,26 @@ deprecated, because it won't be recognized by default by editors.
 Delays the evaluation of @arg{form}.
 @end deffn
 
+@anchor{macro-fl.macros-deletef}
+@deffn Macro DELETEF @var{ITEM} @var{SEQUENCE} &REST @var{ARGS}
+@findex DELETEF
+Delets @arg{item} from @arg{sequence} destructively.
+@end deffn
+
+@anchor{macro-fl.macros-echo}
+@deffn Macro ECHO @var{EKX-ID} &REST @var{BODY}
+@findex ECHO
+Posted to cll at 17.10.2006 by Kenny Tilton.
+@end deffn
+
 @anchor{macro-fl.macros-ensure}
-@deffn Macro ENSURE @var{G137} &REST @var{ARGS} &ENVIRONMENT @var{G136}
+@deffn Macro ENSURE @var{PLACE} &REST @var{ARGS} &ENVIRONMENT @var{ENV}
 @findex ENSURE
 Ensures that some place is set.  It expands as follows:
 @lisp
-  (ensure place value) @expansion{} (or place (setf place value))
-@end lisp
+  (ensure place value) @expansion{} (or place (setf place value)) @end lisp
 It is not clear if the implementation used here works everywhere.  If not,
-the workaround below the macro definition should be used.
+the workaround below should be used.
 @end deffn
 
 @anchor{macro-fl.macros-fluid-let}
@@ -735,22 +1008,34 @@ the workaround below the macro definition should be used.
 Sets temporary bindings.
 @end deffn
 
-@anchor{macro-fl.macros-for}
-@deffn Macro FOR (@var{VAR} @var{START} @var{END}) &BODY @var{BODY}
-@findex FOR
-Loops for @arg{var} from @arg{start} upto @arg{end}.
-@end deffn
-
-@anchor{macro-fl.macros-for<}
-@deffn Macro FOR< (@var{VAR} @var{START} @var{END}) &BODY @var{BODY}
-@findex FOR<
-Loops for @arg{var} from @arg{start} below @arg{end}.
-@end deffn
-
-@anchor{macro-fl.macros-force}
-@deffn Macro FORCE @var{DELAYED-FORM}
+@anchor{fun-fl.macros-force}
+@deffn Function FORCE @var{OBJ}
 @findex FORCE
-Forces the value of a @arg{delayed-form}.
+Force a delayed object.
+@end deffn
+
+@anchor{macro-fl.macros-gencase}
+@deffn Macro GENCASE @var{OBJ} @var{TEST} &BODY @var{CLAUSES}
+@findex GENCASE
+An analog to case using @arg{test} as comparison.
+@end deffn
+
+@anchor{macro-fl.macros-inlining}
+@deffn Macro INLINING &REST @var{DEFINITIONS}
+@findex INLINING
+Declaims the following definitions inline together with executing them.
+@end deffn
+
+@anchor{macro-fl.macros-lret}
+@deffn Macro LRET @var{BINDINGS} &BODY @var{BODY}
+@findex LRET
+A @function{let}-construct which returns its last binding.
+@end deffn
+
+@anchor{macro-fl.macros-lret*}
+@deffn Macro LRET* @var{BINDINGS} &BODY @var{BODY}
+@findex LRET*
+A @function{let*}-construct which returns its last binding.
 @end deffn
 
 @anchor{macro-fl.macros-multi-for}
@@ -761,6 +1046,12 @@ upto @arg{end}.  Example:
 @lisp
   (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))
 @end lisp
+@end deffn
+
+@anchor{macro-fl.macros-named-let}
+@deffn Macro NAMED-LET @var{NAME} @var{BINDINGS} &BODY @var{BODY}
+@findex NAMED-LET
+Implements the named-let construct from Scheme.
 @end deffn
 
 @anchor{macro-fl.macros-remove-this-method}
@@ -781,6 +1072,18 @@ DEFMETHOD definition.
 Wraps a function object inside a trace form.
 @end deffn
 
+@anchor{macro-fl.macros-stringcase}
+@deffn Macro STRINGCASE @var{STRING} &BODY @var{CLAUSES}
+@findex STRINGCASE
+An analog to case using string comparison.
+@end deffn
+
+@anchor{macro-fl.macros-symbol-macroletf}
+@deffn Macro SYMBOL-MACROLETF (&REST @var{BINDINGS}) &BODY @var{BODY} &ENVIRONMENT @var{ENVIRONMENT}
+@findex SYMBOL-MACROLETF
+Like SYMBOL-MACROLET but evaluate subforms just once up front.
+@end deffn
+
 @anchor{fun-fl.macros-symconc}
 @deffn Function SYMCONC &REST @var{ARGS}
 @findex SYMCONC
@@ -795,11 +1098,25 @@ Own implementation of the macro @function{whereas} suggested by Erik
 Naggum (c.l.l., 4.12.2002).
 @end deffn
 
+@anchor{macro-fl.macros-with-arrays}
+@deffn Macro WITH-ARRAYS @var{SYMS} &BODY @var{BODY}
+@findex WITH-ARRAYS
+Improved version of a macro posted in cll by ?.  A similar but more
+restricted macro was posted by KMP at 8.5.2007 under the name 'array-access'.
+@end deffn
+
 @anchor{macro-fl.macros-with-gensyms}
 @deffn Macro WITH-GENSYMS @var{SYMS} &BODY @var{BODY}
 @findex WITH-GENSYMS
 Standard macro providing the freshly generated symbols @arg{syms} to the
 code in @arg{body}.
+@end deffn
+
+@anchor{macro-fl.macros-_}
+@deffn Macro _ &BODY @var{BODY}
+@findex _
+Easy definition of anonymous small functions.
+Arguments are '_', '_1', ..., '_5'.
 @end deffn
 
 @anchor{macro-fl.macros-_f}
@@ -819,15 +1136,16 @@ slightly modified version of the debugging suite proposed in @cite{(Norvig
 @anchor{fun-fl.debug-dbg}
 @deffn Function DBG @var{ID} @var{FORMAT-STRING} &REST @var{ARGS}
 @findex DBG
-When debugging on @arg{id} print out the arguments @arg{args} using the
-format in @arg{format-string}.
+When debugging on @arg{id} print out the arguments
+@arg{args} using the format in @arg{format-string}.
 @end deffn
 
 @anchor{fun-fl.debug-dbg-indent}
 @deffn Function DBG-INDENT @var{ID} @var{INDENT} @var{FORMAT-STRING} &REST @var{ARGS}
 @findex DBG-INDENT
-When debugging @arg{id}, print out the arguments @arg{args} using the
-format in @arg{format-string} with indentation given by @arg{indent}.
+When debugging @arg{id}, print out the arguments
+@arg{args} using the format in @arg{format-string} with indentation given
+by @arg{indent}.
 @end deffn
 
 @anchor{fun-fl.debug-dbg-off}
@@ -936,6 +1254,13 @@ Adjoins a test to the Femlisp test suite.
 Adjoins a test to the Femlisp test suite.
 @end deffn
 
+@anchor{macro-fl.tests-small-test}
+@deffn Macro SMALL-TEST @var{FSYM} &BODY @var{BODY}
+@findex SMALL-TEST
+At the moment small tests are ignored.  One might think of collecting
+them when compiling a certain file.
+@end deffn
+
 @anchor{fun-fl.tests-test-femlisp}
 @deffn Function TEST-FEMLISP &KEY @var{CONTINUE} @var{PACKAGE} (@var{LOGFILE} @path{fltest}) (@var{DEMO} @var{T})
 @findex TEST-FEMLISP
@@ -951,6 +1276,19 @@ parts of Femlisp with the exception of the MOP.  It serves a similar
 purpose as the PORT module in CLOCC and is somewhat inspired by this
 module.  It will be dropped when there is a portable and easily installable
 alternative in all CL implementations we are interested in
+
+@anchor{fun-fl.port-compile-and-eval}
+@deffn Function COMPILE-AND-EVAL @var{SOURCE}
+@findex COMPILE-AND-EVAL
+Compiles and evaluates the given @arg{source}.  This should be an ANSI
+compatible way of ensuring method compilation.
+@end deffn
+
+@anchor{fun-fl.port-compile-silently}
+@deffn Function COMPILE-SILENTLY @var{NAME} @var{SOURCE}
+@findex COMPILE-SILENTLY
+Compiles @arg{source} silently.
+@end deffn
 
 @anchor{macro-fl.port-def-function}
 @deffn Macro DEF-FUNCTION &REST @var{ARGS}
@@ -971,9 +1309,9 @@ Sets up @arg{func} as finalizer for @arg{obj}.
 Finds an executable in the current path.
 @end deffn
 
-@anchor{macro-fl.port-foreign-call-wrapper}
-@deffn Macro FOREIGN-CALL-WRAPPER &REST @var{BODY}
-@findex FOREIGN-CALL-WRAPPER
+@anchor{fun-fl.port-foreign-call}
+@deffn Function FOREIGN-CALL @var{FUNCTION} &REST @var{ARGS}
+@findex FOREIGN-CALL
 Ensures a safe environment for a foreign function call, especially so
 that no GC changes array pointers obtained by @function{vector-sap}.
 @end deffn
@@ -982,6 +1320,12 @@ that no GC changes array pointers obtained by @function{vector-sap}.
 @deffn Function GETENV @var{VAR}
 @findex GETENV
 Return the value of the environment variable.
+@end deffn
+
+@anchor{fun-fl.port-hostname}
+@deffn Function HOSTNAME 
+@findex HOSTNAME
+Returns the hostname.
 @end deffn
 
 @anchor{fun-fl.port-load-foreign-library}
@@ -1000,6 +1344,12 @@ Creates a weak pointer pointing to @arg{obj}.
 @deffn Function PROCESS-CLOSE @var{PROCESS}
 @findex PROCESS-CLOSE
 Closes @arg{process}.
+@end deffn
+
+@anchor{fun-fl.port-process-error}
+@deffn Function PROCESS-ERROR @var{PROCESS}
+@findex PROCESS-ERROR
+Process-output for @arg{process}.
 @end deffn
 
 @anchor{fun-fl.port-process-input}
@@ -1021,13 +1371,20 @@ Returns the status of @arg{process}.
 @end deffn
 
 @anchor{fun-fl.port-run-program}
-@deffn Function RUN-PROGRAM @var{PROGRAM} @var{ARGS} &KEY @var{WAIT} @var{INPUT} @var{OUTPUT} @var{ERROR-OUTPUT} @var{DIRECTORY}
+@deffn Function RUN-PROGRAM @var{PROGRAM} @var{ARGS} &KEY @var{WAIT} @var{DIRECTORY} @var{INPUT} (@var{OUTPUT} @var{NIL} @var{OUTPUT-P}) @var{ERROR-OUTPUT}
 @findex RUN-PROGRAM
 Runs @arg{program} with arguments @arg{args}.
 @end deffn
 
+@anchor{fun-fl.port-runtime-compile}
+@deffn Function RUNTIME-COMPILE @var{SOURCE}
+@findex RUNTIME-COMPILE
+Calls compile on the provided @arg{source}.  When :compile is activated
+for debugging, the source code is printed.
+@end deffn
+
 @anchor{fun-fl.port-save-femlisp-core-and-die}
-@deffn Function SAVE-FEMLISP-CORE-AND-DIE @var{CORE-FILE-NAME}
+@deffn Function SAVE-FEMLISP-CORE-AND-DIE &OPTIONAL @var{CORE-FILE-NAME}
 @findex SAVE-FEMLISP-CORE-AND-DIE
 Saves Femlisp core and quits.
 @end deffn
@@ -1055,13 +1412,6 @@ Returns the value of the weak pointer @arg{wp}.
 
 This package provides some MOP functionality.  These functions are
 non-ANSI and may represent a problem when porting Femlisp.
-
-@anchor{fun-fl.amop-compile-and-eval}
-@deffn Function COMPILE-AND-EVAL @var{SOURCE}
-@findex COMPILE-AND-EVAL
-Compiles and evaluates the given @arg{source}.  This should be an ANSI
-compatible way of ensuring method compilation.
-@end deffn
 
 @anchor{fun-fl.amop-find-programmatic-class}
 @deffn Function FIND-PROGRAMMATIC-CLASS @var{SUPERCLASSES} &OPTIONAL @var{NAME}
@@ -1098,6 +1448,13 @@ Unfortunately, these features somewhat differ (e.g. the waitqueue concept
 in SBCL and gates in Allegro), although one can usually achieve the same
 effects.
 
+@anchor{var-fl.multiprocessing-*number-of-threads*}
+@defvr Variable *NUMBER-OF-THREADS*
+@vindex *NUMBER-OF-THREADS*
+The number of threads in which Femlisp tries to split the work for some
+computationally intensive tasks.  If NIL, no threading is used.
+@end defvr
+
 @anchor{var-fl.multiprocessing-*thread-local-memoization-table*}
 @defvr Variable *THREAD-LOCAL-MEMOIZATION-TABLE*
 @vindex *THREAD-LOCAL-MEMOIZATION-TABLE*
@@ -1105,15 +1462,8 @@ Dynamic variable specialized for each worker thread separately.  Should
 not be used globally.
 @end defvr
 
-@anchor{var-fl.multiprocessing-*threads*}
-@defvr Variable *THREADS*
-@vindex *THREADS*
-The number of threads in which Femlisp tries to split the work for some
-computationally intensive tasks.  If NIL, no threading is used.
-@end defvr
-
 @anchor{fun-fl.multiprocessing-condition-notify}
-@deffn Function CONDITION-NOTIFY @var{WAITQUEUE}
+@deffn Function CONDITION-NOTIFY @var{WAITQUEUE} &OPTIONAL (@var{N} 1)
 @findex CONDITION-NOTIFY
 Notifies on the waitqueue.
 @end deffn
@@ -1123,6 +1473,12 @@ Notifies on the waitqueue.
 @findex CONDITION-WAIT
 Registers on the waitqueue, releases mutex, and waits for a notification
 on the waitqueue.
+@end deffn
+
+@anchor{fun-fl.multiprocessing-list-all-threads}
+@deffn Function LIST-ALL-THREADS 
+@findex LIST-ALL-THREADS
+Returns a list of all threads
 @end deffn
 
 @anchor{fun-fl.multiprocessing-make-thread}
@@ -1150,6 +1506,25 @@ Direct slots:
 @end itemize
 @end deftp
 
+@anchor{macro-fl.multiprocessing-named-parcell}
+@deffn Macro NAMED-PARCELL @var{NAME} @var{INPUTS} &BODY @var{BODY}
+@findex NAMED-PARCELL
+Generate a parcell depending on the given input parameters (which can be
+parcells again).
+@end deffn
+
+@anchor{fun-fl.multiprocessing-notify}
+@deffn Function NOTIFY @var{WAITQUEUE-OBJECT} &OPTIONAL @var{N}
+@findex NOTIFY
+Notifies @arg{waitqueue-object}.
+@end deffn
+
+@anchor{macro-fl.multiprocessing-parcell}
+@deffn Macro PARCELL @var{INPUTS} &BODY @var{BODY}
+@findex PARCELL
+Generate an unnamed parcell.
+@end deffn
+
 @anchor{class-fl.multiprocessing-parqueue}
 @deftp Class PARQUEUE
 @tindex PARQUEUE
@@ -1159,7 +1534,36 @@ Superclasses: QUEUE WAITQUEUE-MIXIN
 
 Direct slots:
 @itemize
-@item FINISHED-P: Indicator for end-of-input.
+@item FINISHED-P: Indicator for no-more-input-allowed.
+@item MAXIMAL-SIZE: Self-explanatory.
+@item CURRENT-SIZE: Self-explanatory.
+@end itemize
+@end deftp
+
+@anchor{fun-fl.multiprocessing-thread-name}
+@deffn Function THREAD-NAME @var{THREAD}
+@findex THREAD-NAME
+Returns the name of the current thread.
+@end deffn
+
+@anchor{fun-fl.multiprocessing-wait}
+@deffn Function WAIT @var{WAITQUEUE-OBJECT} &KEY @var{WHILE} @var{UNTIL} @var{PERFORM} &ALLOW-OTHER-KEYS
+@findex WAIT
+Waits on @arg{waitqueue-object} while @arg{while} is
+satisfied or until @arg{until} is satisfied.  After this, if it is given,
+the function @arg{perform} is called.
+@end deffn
+
+@anchor{class-fl.multiprocessing-waitqueue-mixin}
+@deftp Class WAITQUEUE-MIXIN
+@tindex WAITQUEUE-MIXIN
+Waitqueue mixin.
+
+Superclasses: MUTEX-MIXIN
+
+Direct slots:
+@itemize
+@item WAITQUEUE: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -1171,29 +1575,42 @@ interfering.
 @end deffn
 
 @anchor{macro-fl.multiprocessing-with-workers}
-@deffn Macro WITH-WORKERS (@var{FUNC}) &BODY @var{BODY}
+@deffn Macro WITH-WORKERS (@var{WORK}) &BODY @var{BODY}
 @findex WITH-WORKERS
 This macro distributes work generated in body with calling the locally
 bound function @function{work-on} on some arguments to several working
 threads which call @arg{func} on those arguments.
 @end deffn
 
-@node Package FL.MATLISP, Package FL.ALGEBRA, Package FL.MULTIPROCESSING, Reference manual
+@node Package FL.MATLISP, Package FL.FUNCTION, Package FL.MULTIPROCESSING, Reference manual
 @section Package FL.MATLISP
 
 This package provides a Common Lisp version of full
-matrices with elements being numbers of a given type.  Those classes are
+  matrices with elements being numbers of a given type.  Those classes are
 automatically generated when needed.  It provides also part of the BLAS and
 LAPACK operations for those matrices.  The corresponding methods are
 automatically compiled for the given matrix classes.  The interface is very
 similar to the library Matlisp @cite{(Matlisp)}, which provides a CLOS
 interface to the Fortran BLAS and LAPACK routines.
 
+@anchor{var-fl.matlisp-*mzerop-threshold*}
+@defvr Variable *MZEROP-THRESHOLD*
+@vindex *MZEROP-THRESHOLD*
+Threshold below which a matrix is considered to be zero.
+@end defvr
+
 @anchor{var-fl.matlisp-*print-matrix*}
 @defvr Variable *PRINT-MATRIX*
 @vindex *PRINT-MATRIX*
 Maximum number of columns and/or rows to print. NIL: no elements, T: all
 elements.
+@end defvr
+
+@anchor{var-fl.matlisp-*print-matrix-element-format*}
+@defvr Variable *PRINT-MATRIX-ELEMENT-FORMAT*
+@vindex *PRINT-MATRIX-ELEMENT-FORMAT*
+Format of matrix element field to be printed.  A useful format is
+  "~10,2,2E" for debugging purposes.
 @end defvr
 
 @anchor{var-fl.matlisp-*print-tensor*}
@@ -1210,6 +1627,45 @@ Maximum number of columns and/or rows to print.  Set this to NIL to
 General matrix class.
 
 Superclasses: <VECTOR>
+@end deftp
+
+@anchor{class-fl.matlisp-<sparse-matrix>}
+@deftp Class <SPARSE-MATRIX>
+@tindex <SPARSE-MATRIX>
+Abstract class for sparse matrices.
+
+Superclasses: <MATRIX>
+@end deftp
+
+@anchor{class-fl.matlisp-<sparse-tensor>}
+@deftp Class <SPARSE-TENSOR>
+@tindex <SPARSE-TENSOR>
+A general sparse tensor class which is implemented as a
+sparse vector containing full-or sparse tensor entries.
+
+Superclasses: TENSOR
+
+Direct slots:
+@itemize
+@item RANK: Tensor rank.
+@item INDICES: The (nonzero) indices of the first slot.
+@item ENTRIES: The (nonzero) entries of the first slot.
+@end itemize
+@end deftp
+
+@anchor{class-fl.matlisp-<sparse-vector>}
+@deftp Class <SPARSE-VECTOR>
+@tindex <SPARSE-VECTOR>
+Abstract class for sparse vectors.
+
+Superclasses: <VECTOR>
+
+Direct slots:
+@itemize
+@item MULTIPLICITY: Multiplicity of the sparse vector.  A
+multiplicity different from 1 is used when handling multiple right-hand sides
+and solutions simultaneously.
+@end itemize
 @end deftp
 
 @anchor{class-fl.matlisp-<submatrix>}
@@ -1235,6 +1691,15 @@ Direct slots:
 General vector class.
 @end deftp
 
+@anchor{fun-fl.matlisp-access-type}
+@deffn Function ACCESS-TYPE @var{MAT} &KEY @var{SUGGEST} @var{REQUIRE}
+@findex ACCESS-TYPE
+If @arg{suggest} and @arg{require} are NIL, returns which of
+  @symbol{:row} or @symbol{:column} is prefered for @arg{mat}.  Otherwise
+  determine if the order in @arg{suggest} or @arg{require} is acceptable without
+  serious performance hit.
+@end deffn
+
 @anchor{fun-fl.matlisp-area-of-span}
 @deffn Function AREA-OF-SPAN @var{MAT}
 @findex AREA-OF-SPAN
@@ -1253,44 +1718,67 @@ Returns alpha X + Y.  Uses AXPY! and COPY.
 Y <- alpha*X + Y
 @end deffn
 
-@anchor{fun-fl.matlisp-ccs-matrix}
-@deffn Function CCS-MATRIX @var{TYPE}
-@findex CCS-MATRIX
-Construct a CCS matrix with entries of @arg{type}.
+@anchor{fun-fl.matlisp-blocks}
+@deffn Function BLOCKS @var{VEC}
+@findex BLOCKS
+Returns a dictionary mapping keys to entries for @arg{vec}.
 @end deffn
 
-@anchor{class-fl.matlisp-ccs-matrix}
-@deftp Class CCS-MATRIX
-@tindex CCS-MATRIX
-A CCS (compressed column storage) matrix.  This is an
-abstract class which is made concrete by mixing it with a store-vector.
+@anchor{fun-fl.matlisp-col-keys}
+@deffn Function COL-KEYS @var{MAT}
+@findex COL-KEYS
+All column keys for a matrix.
+@end deffn
+
+@anchor{fun-fl.matlisp-combined-projection}
+@deffn Function COMBINED-PROJECTION @var{P1} @var{P2}
+@findex COMBINED-PROJECTION
+Returns a projection to the range of the given projections.
+@end deffn
+
+@anchor{fun-fl.matlisp-compressed-matrix}
+@deffn Function COMPRESSED-MATRIX @var{TYPE}
+@findex COMPRESSED-MATRIX
+Construct a compressed sparse matrix with entries of @arg{type}.
+@end deffn
+
+@anchor{class-fl.matlisp-compressed-matrix}
+@deftp Class COMPRESSED-MATRIX
+@tindex COMPRESSED-MATRIX
+A compressed sparse matrix.  This is an abstract class
+which is made concrete by mixing it with a store-vector containing the
+entries.
 
 Superclasses: <MATRIX>
 
 Direct slots:
 @itemize
-@item PATTERN: CCS pattern.
+@item PATTERN: A compressed pattern.
 @end itemize
 @end deftp
 
-@anchor{class-fl.matlisp-ccs-pattern}
-@deftp Class CCS-PATTERN
-@tindex CCS-PATTERN
-A CCS (compressed column storage) pattern.  Note: if you
-use integer vectors for @slot{column-starts} and @slot{row-indices} they do
-not have to be copied for a call to the alien sparse solvers.
+@anchor{class-fl.matlisp-compressed-pattern}
+@deftp Class COMPRESSED-PATTERN
+@tindex COMPRESSED-PATTERN
+A compressed sparse pattern.  Note: we use int32 vectors
+for @slot{starts} and @slot{indices}, such that they do not have to be
+copied for a call to the alien sparse solvers.
 
 Direct slots:
 @itemize
-@item NROWS: Number of rows in the pattern.
-@item NCOLS: Number of columns in the pattern.
-@item COLUMN-STARTS: Vector with start indices of columns.
-@item ROW-INDICES: Vector with row indices.
+@item SIZES: Vector of matrix sizes, at the moment only length
+2 is allowed here.  The first is the dimension which is not compressed, the
+second is the dimension which gets compressed.
+@item ORIENTATION: Denotes if rows or columns are compressed.
+@item STARTS: Vector with start indices of compressed columns/rows.
+@item INDICES: Vector with compressed row/column indices.
+@item OFFSETS: Vector of offsets.  This is only non-nil, if
+the pattern supports identification.
 @end itemize
 @end deftp
 
 @anchor{fun-fl.matlisp-copy}
-@deffn Function COPY @var{POLY}
+@deffn Function COPY @var{X}
 @findex COPY
 Returns a deep copy of X.
 @end deffn
@@ -1311,6 +1799,33 @@ Returns the determinant of the square matrix @arg{mat}.
 @deffn Function DET-FROM-LR @var{LR} @var{PIVOT}
 @findex DET-FROM-LR
 This routine computes the determinant using a given LR decomposition.
+@end deffn
+
+@anchor{fun-fl.matlisp-diag}
+@deffn Function DIAG @var{VEC}
+@findex DIAG
+Returns a diagonal matrix with diagonal entries from vec.
+@end deffn
+
+@anchor{fun-fl.matlisp-diagonal-sparse-tensor}
+@deffn Function DIAGONAL-SPARSE-TENSOR @var{VALUES} &OPTIONAL @var{NCOMPS}
+@findex DIAGONAL-SPARSE-TENSOR
+Constructs a sparse tensor of rank 2 where @arg{values} are the diagonal
+entries.  If @arg{ncomps} is given then the tensor dimension is nxn with
+each diagonal entry being @arg{values}.
+@end deffn
+
+@anchor{fun-fl.matlisp-display}
+@deffn Function DISPLAY @var{MATRIX} &REST @var{ARGS} &KEY @var{ORDER} @var{COL-ORDER} @var{ROW-ORDER}
+@findex DISPLAY
+Formats the contents of @arg{matrix} in rectangular
+  form.
+@end deffn
+
+@anchor{macro-fl.matlisp-dorows}
+@deffn Macro DOROWS (@var{KEY} @var{MAT}) &BODY @var{BODY}
+@findex DOROWS
+Syntax: @slisp{(dorows (key mat) ...)}.
 @end deffn
 
 @anchor{fun-fl.matlisp-dot}
@@ -1347,13 +1862,12 @@ Uniform @type{double-float} vector.
 @end deftp
 
 @anchor{macro-fl.matlisp-dovec}
-@deffn Macro DOVEC (@var{LOOP-VARS} @var{VEC}) &BODY @var{BODY}
+@deffn Macro DOVEC (@var{LOOP-VARS} @var{VEC} &OPTIONAL @var{RESULT}) &BODY @var{BODY}
 @findex DOVEC
-Loops on indices and entries of a vector.  Examples:
+Loops on indices and entries of a vector, matrix or tensor.  Examples:
 @lisp
-  (dovec ((key) vec) ...)
   (dovec (entry vec) ...)
-  (dovec ((key entry) vec) ...)
+  (dovec ((entry key1 ...) vec) ...)
 @end lisp
 @end deffn
 
@@ -1363,15 +1877,42 @@ Loops on indices and entries of a vector.  Examples:
 Type of the elements of the vector/matrix.
 @end deffn
 
-@anchor{fun-fl.matlisp-extend-matlisp-function}
-@deffn Function EXTEND-MATLISP-FUNCTION @var{FUNC}
-@findex EXTEND-MATLISP-FUNCTION
-If @package{MATLISP} is available, and the argument @arg{func} is a
-generic function in this package, this function is extended to be
-applicable to matrices in @arg{FL.MATLISP}.  This is done by defining a
-method for @function{no-applicable-method} which converts the arguments,
-calls @arg{func} and reconverts the returned values.  If @package{MATLISP}
-is not available, NIL is returned.
+@anchor{fun-fl.matlisp-ensure-matlisp}
+@deffn Function ENSURE-MATLISP @var{OBJ} &OPTIONAL @var{TYPE}
+@findex ENSURE-MATLISP
+Tries to coerce @arg{obj} into Matlisp format.
+@end deffn
+
+@anchor{fun-fl.matlisp-entry-allowed-p}
+@deffn Function ENTRY-ALLOWED-P @var{TENSOR} &REST @var{INDICES}
+@findex ENTRY-ALLOWED-P
+Tests if an entry is allowed at this position.
+@end deffn
+
+@anchor{fun-fl.matlisp-extend-by-identity}
+@deffn Function EXTEND-BY-IDENTITY @var{MAT} @var{EXTEND} &KEY @var{IGNORE} (@var{COPY} @var{T})
+@findex EXTEND-BY-IDENTITY
+Extends A such that the keys in extend which are not in ignore are
+mapped to identity.
+@end deffn
+
+@anchor{fun-fl.matlisp-extract-if}
+@deffn Function EXTRACT-IF @var{TEST} @var{SVEC} &ALLOW-OTHER-KEYS
+@findex EXTRACT-IF
+Extract a subvector or submatrix from a sparse
+  vector/matrix.
+@end deffn
+
+@anchor{fun-fl.matlisp-extract-value-blocks}
+@deffn Function EXTRACT-VALUE-BLOCKS @var{SOBJ} @var{KEYS} &OPTIONAL @var{COL-KEYS}
+@findex EXTRACT-VALUE-BLOCKS
+Extract a vector or array of value blocks from @arg{sobj}.
+@end deffn
+
+@anchor{fun-fl.matlisp-eye}
+@deffn Function EYE @var{N} &OPTIONAL (@var{M} @var{N}) (@var{TYPE} (@var{QUOTE} @var{DOUBLE-FLOAT}))
+@findex EYE
+Returns the nxn identity matrix.  The value is freshly allocated.
 @end deffn
 
 @anchor{fun-fl.matlisp-fill!}
@@ -1387,76 +1928,84 @@ Fills X with random values (obtained by (random s)).
 @end deffn
 
 @anchor{fun-fl.matlisp-for-each-col-key}
-@deffn Function FOR-EACH-COL-KEY @var{FN} @var{SMAT}
+@deffn Function FOR-EACH-COL-KEY @var{FUNC} @var{MAT}
 @findex FOR-EACH-COL-KEY
 Loop through column keys.
 @end deffn
 
 @anchor{fun-fl.matlisp-for-each-entry}
-@deffn Function FOR-EACH-ENTRY @var{FN} @var{SMAT}
+@deffn Function FOR-EACH-ENTRY @var{FUNC} @var{VEC}
 @findex FOR-EACH-ENTRY
 Calls @arg{func} on all entries of @arg{vec}.
 @end deffn
 
+@anchor{fun-fl.matlisp-for-each-entry-and-key}
+@deffn Function FOR-EACH-ENTRY-AND-KEY @var{FUNC} @var{OBJECT}
+@findex FOR-EACH-ENTRY-AND-KEY
+Calls @arg{func} on all entries of the collection
+@arg{object} and their corresponding keys.
+@end deffn
+
+@anchor{fun-fl.matlisp-for-each-entry-and-vector-index}
+@deffn Function FOR-EACH-ENTRY-AND-VECTOR-INDEX @var{FUNC} @var{VEC}
+@findex FOR-EACH-ENTRY-AND-VECTOR-INDEX
+Calls @arg{func} on all entries of @arg{vec} and their
+corresponding vector indices.  The index used should be unserstood by
+@func{vref}.
+@end deffn
+
 @anchor{fun-fl.matlisp-for-each-entry-in-col}
-@deffn Function FOR-EACH-ENTRY-IN-COL @var{FN} @var{SMAT} @var{KEY}
+@deffn Function FOR-EACH-ENTRY-IN-COL @var{FUNC} @var{MAT} @var{COL-KEY}
 @findex FOR-EACH-ENTRY-IN-COL
 Loop through entries in column col.
 @end deffn
 
 @anchor{fun-fl.matlisp-for-each-entry-in-row}
-@deffn Function FOR-EACH-ENTRY-IN-ROW @var{FN} @var{SMAT} @var{KEY}
+@deffn Function FOR-EACH-ENTRY-IN-ROW @var{FUNC} @var{MAT} @var{ROW-KEY}
 @findex FOR-EACH-ENTRY-IN-ROW
 Loop through col-keys in row.
 @end deffn
 
 @anchor{fun-fl.matlisp-for-each-key}
-@deffn Function FOR-EACH-KEY @var{FN} @var{SMAT}
+@deffn Function FOR-EACH-KEY @var{FUNC} @var{VEC}
 @findex FOR-EACH-KEY
 Calls @arg{func} on all indices/keys of @arg{vec}.
 @end deffn
 
-@anchor{fun-fl.matlisp-for-each-key-and-entry}
-@deffn Function FOR-EACH-KEY-AND-ENTRY @var{FN} @var{SMAT}
-@findex FOR-EACH-KEY-AND-ENTRY
-Calls @arg{func} on all keys and associated entries of
-@arg{vec}.
-@end deffn
-
 @anchor{fun-fl.matlisp-for-each-key-and-entry-in-col}
-@deffn Function FOR-EACH-KEY-AND-ENTRY-IN-COL @var{FN} @var{SMAT} @var{KEY}
+@deffn Function FOR-EACH-KEY-AND-ENTRY-IN-COL @var{FUNC} @var{MAT} @var{COL-KEY}
 @findex FOR-EACH-KEY-AND-ENTRY-IN-COL
 Loop through row-keys and entries in col.
 @end deffn
 
 @anchor{fun-fl.matlisp-for-each-key-and-entry-in-row}
-@deffn Function FOR-EACH-KEY-AND-ENTRY-IN-ROW @var{FN} @var{SMAT} @var{KEY}
+@deffn Function FOR-EACH-KEY-AND-ENTRY-IN-ROW @var{FUNC} @var{MAT} @var{ROW-KEY}
 @findex FOR-EACH-KEY-AND-ENTRY-IN-ROW
 Loop through col-keys and entries in row.
 @end deffn
 
 @anchor{fun-fl.matlisp-for-each-key-in-col}
-@deffn Function FOR-EACH-KEY-IN-COL @var{FN} @var{SMAT} @var{KEY}
+@deffn Function FOR-EACH-KEY-IN-COL @var{FUNC} @var{MAT} @var{COL-KEY}
 @findex FOR-EACH-KEY-IN-COL
 Loop through row-keys in column col.
 @end deffn
 
 @anchor{fun-fl.matlisp-for-each-key-in-row}
-@deffn Function FOR-EACH-KEY-IN-ROW @var{FN} @var{SMAT} @var{KEY}
+@deffn Function FOR-EACH-KEY-IN-ROW @var{FUNC} @var{MAT} @var{ROW-KEY}
 @findex FOR-EACH-KEY-IN-ROW
 Loop through col-keys in row.
 @end deffn
 
 @anchor{fun-fl.matlisp-for-each-row-key}
-@deffn Function FOR-EACH-ROW-KEY @var{FN} @var{SMAT}
+@deffn Function FOR-EACH-ROW-KEY @var{FUNC} @var{MAT}
 @findex FOR-EACH-ROW-KEY
 Loop through row keys.
 @end deffn
 
-@anchor{fun-fl.matlisp-full-ccs-pattern}
-@deffn Function FULL-CCS-PATTERN @var{NROWS} @var{NCOLS}
-@findex FULL-CCS-PATTERN
-Returns trivial rectangular ccs-patterns.
+@anchor{fun-fl.matlisp-full-compressed-pattern}
+@deffn Function FULL-COMPRESSED-PATTERN @var{NROWS} @var{NCOLS} &OPTIONAL (@var{ORIENTATION} @var{COLUMN})
+@findex FULL-COMPRESSED-PATTERN
+Returns a full compressed pattern.
 @end deffn
 
 @anchor{fun-fl.matlisp-full-tensor}
@@ -1469,6 +2018,8 @@ Construct a full tensor with entries of @arg{type}.
 @deftp Class FULL-TENSOR
 @tindex FULL-TENSOR
 Mixin for full tensors.
+
+Superclasses: TENSOR
 
 Direct slots:
 @itemize
@@ -1494,35 +2045,35 @@ calls the corresponding generic function, e.g. GEMM-NN!.
 @end deffn
 
 @anchor{fun-fl.matlisp-gemm-nn!}
-@deffn Function GEMM-NN! @var{ALPHA} @var{X} @var{Y} @var{BETA} @var{Z}
+@deffn Function GEMM-NN! @var{A} @var{X} @var{Y} @var{B} @var{Z}
 @findex GEMM-NN!
-General matrix-matrix multiplication: Z <- alpha * X * Y
-+ beta * Z
+General matrix-matrix multiplication:
+@math{Z <- alpha * X * Y + beta * Z}
 @end deffn
 
 @anchor{fun-fl.matlisp-gemm-nt!}
-@deffn Function GEMM-NT! @var{ALPHA} @var{X} @var{Y} @var{BETA} @var{Z}
+@deffn Function GEMM-NT! @var{A} @var{X} @var{Y} @var{B} @var{Z}
 @findex GEMM-NT!
-General matrix-matrix multiplication: Z <- alpha * X * Y'
-+ beta * Z
+General matrix-matrix multiplication:
+@math{Z <- alpha * X * Y' + beta * Z}
 @end deffn
 
 @anchor{fun-fl.matlisp-gemm-tn!}
-@deffn Function GEMM-TN! @var{ALPHA} @var{A} @var{Y} @var{BETA} @var{X}
+@deffn Function GEMM-TN! @var{A} @var{X} @var{Y} @var{B} @var{Z}
 @findex GEMM-TN!
-General matrix-matrix multiplication: Z <- alpha * X' * Y
-+ beta * Z
+General matrix-matrix multiplication:
+@math{Z <- alpha * X' * Y + beta * Z}
 @end deffn
 
 @anchor{fun-fl.matlisp-gemm-tt!}
-@deffn Function GEMM-TT! @var{ALPHA} @var{A} @var{Y} @var{BETA} @var{X}
+@deffn Function GEMM-TT! @var{A} @var{X} @var{Y} @var{B} @var{Z}
 @findex GEMM-TT!
-General matrix-matrix multiplication: Z <- alpha * X' * Y'
-+ beta * Z
+General matrix-matrix multiplication:
+@math{Z <- alpha * X' * Y' + beta * Z}
 @end deffn
 
 @anchor{fun-fl.matlisp-gesv}
-@deffn Function GESV @var{X} @var{B}
+@deffn Function GESV @var{A} @var{B}
 @findex GESV
 Rewriting for GESV in terms of GESV!.
 @end deffn
@@ -1534,10 +2085,15 @@ Rewriting for GETRF  in terms of GETRF!.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrf!}
-@deffn Function GETRF! @var{MAT} &OPTIONAL @var{IPIV}
+@deffn Function GETRF! @var{A} &OPTIONAL @var{IPIV}
 @findex GETRF!
-Computes the PLU decomposition of X (overwriting X).
-Returns X and as a second value the permuations vector.
+Computes the PA=LU decomposition of @arg{A} which is
+stored again in @arg{A}.  @arg{ipiv} can be a pre-allocated vector which
+the routine fills with the indices for column pivoting, or NIL which
+implies that the routine allocates such a vector itself.  If @arg{ipiv} is
+@symbol{:none}, no pivoting is done.  Returns @arg{A} as the first value,
+the pivot vector as a second value, and a boolean as the third value
+indicating that the decomposition succeeded.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrs}
@@ -1547,10 +2103,70 @@ Rewriting for GETRS in terms of GETRS!.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrs!}
-@deffn Function GETRS! @var{LR} @var{B} &OPTIONAL @var{IPIV}
+@deffn Function GETRS! @var{LU} @var{B} &OPTIONAL @var{IPIV}
 @findex GETRS!
-Solves the given PLU decomposition for the rhs b while
-overwriting b.
+Solves the PA=LU decomposition specified by @arg{LU} and
+@arg{ipiv} for the rhs @arg{b}.  The result is stored in @arg{b}.
+@end deffn
+
+@anchor{fun-fl.matlisp-ggev}
+@deffn Function GGEV @var{A} @var{B} &OPTIONAL @var{JOB}
+@findex GGEV
+Syntax: (GGEV A B [job])
+
+Purpose: Computes the generalized eigenvalues and left/right eigenvectors
+of @math{A - s B}.
+
+  1. (GGEV A B :N) => lambda
+
+     Computes the generalized eigenvalues of @math{A - s B}.
+
+  2. (GGEV A B :V) => lambda, V, W
+
+     Computes generalized eigenvalues and eigenvectors of (A - sB).
+
+     @math{ A*V = B*V*diag(lambda), \ W'*A = diag(lambda)*W'*B}
+            
+     with V and W orthogonal (unitary).
+
+Remark: The symmetric/hermitian counterpart of this routine is
+@function{hegv}.
+@end deffn
+
+@anchor{fun-fl.matlisp-hegv}
+@deffn Function HEGV @var{A} @var{B} &OPTIONAL @var{JOB}
+@findex HEGV
+Syntax: (HEGV A B [job])
+
+Purpose: Computes the generalized eigenvalues and left/right eigenvectors
+of @math{A - s B} for Hermitian matrices A and B.
+
+  1. (HEGV A B :N) => lambda
+
+     Computes the generalized eigenvalues of @math{A - s B}.
+
+  2. (HEGV A B :V) => lambda, V
+
+     Computes generalized eigenvalues and eigenvectors of (A - sB).
+
+     @math{ A*V = B*V*diag(lambda), \ W'*A = diag(lambda)*W'*B}
+            
+     with V and W orthogonal (unitary).
+
+Remark: The non-symmetric counterpart of this routine is
+@function{ggev}.
+@end deffn
+
+@anchor{fun-fl.matlisp-in-pattern-p}
+@deffn Function IN-PATTERN-P @var{TENSOR} &REST @var{INDICES}
+@findex IN-PATTERN-P
+Returns T, if the indices are in the nonzero pattern.
+@end deffn
+
+@anchor{fun-fl.matlisp-index-range-disjoint-p}
+@deffn Function INDEX-RANGE-DISJOINT-P @var{MAT1} @var{MAT2}
+@findex INDEX-RANGE-DISJOINT-P
+Checks if the range of indices of two sparse matrices is disjoint.
 @end deffn
 
 @anchor{fun-fl.matlisp-int-vec}
@@ -1566,10 +2182,56 @@ Uniform @type{int} vector.
 @end deftp
 
 @anchor{fun-fl.matlisp-join}
-@deffn Function JOIN @var{X} @var{Y} &OPTIONAL (@var{ORIENTATION} @var{HORIZONTAL})
+@deffn Function JOIN @var{ORIENTATION} &REST @var{MATRICES}
 @findex JOIN
-Joins X and Y horizontally or vertically depending on the
-value of orientation.
+Joins @arg{matrices} either horizontally or vertically depending on
+@arg{orientation}.  Due to the call to @function{zeros} this is not yet a
+generic function.
+@end deffn
+
+@anchor{fun-fl.matlisp-join-horizontal!}
+@deffn Function JOIN-HORIZONTAL! @var{RESULT} &REST @var{MATRICES}
+@findex JOIN-HORIZONTAL!
+Joins @arg{matrices} horizontally into result.
+@end deffn
+
+@anchor{fun-fl.matlisp-join-instance}
+@deffn Function JOIN-INSTANCE @var{ORIENTATION} @var{MATRIX} &REST @var{MATRICES}
+@findex JOIN-INSTANCE
+Compute an instance for storing the join of
+  @arg{orientation} applied to matrix and matrices.
+@end deffn
+
+@anchor{fun-fl.matlisp-join-vertical!}
+@deffn Function JOIN-VERTICAL! @var{RESULT} &REST @var{MATRICES}
+@findex JOIN-VERTICAL!
+Joins @arg{matrices} vertically into result.
+@end deffn
+
+@anchor{fun-fl.matlisp-key->size}
+@deffn Function KEY->SIZE @var{SVEC}
+@findex KEY->SIZE
+Returns NIL, if @arg{svec} cannot extend automatically when
+  being accessed.  Otherwise returns a function mapping keys to vector block
+  sizes.
+@end deffn
+
+@anchor{fun-fl.matlisp-keys}
+@deffn Function KEYS @var{DIC}
+@findex KEYS
+Returns a list of all keys of @arg{dic}.
+@end deffn
+
+@anchor{fun-fl.matlisp-keys-of-column}
+@deffn Function KEYS-OF-COLUMN @var{MAT} @var{KEY}
+@findex KEYS-OF-COLUMN
+All row keys in the given column for a matrix.
+@end deffn
+
+@anchor{fun-fl.matlisp-keys-of-row}
+@deffn Function KEYS-OF-ROW @var{MAT} @var{KEY}
+@findex KEYS-OF-ROW
+All column keys in the given row for a matrix.
 @end deffn
 
 @anchor{fun-fl.matlisp-l2-norm}
@@ -1579,10 +2241,18 @@ Returns the 2-norm of @arg{x}.
 @end deffn
 
 @anchor{fun-fl.matlisp-laplace-full-matrix}
-@deffn Function LAPLACE-FULL-MATRIX @var{N}
+@deffn Function LAPLACE-FULL-MATRIX @var{N} &OPTIONAL (@var{DIM} 1)
 @findex LAPLACE-FULL-MATRIX
-Generates the matrix for a 1-dimensional Laplace problem discretized
-with the 3-point stencil on a structured mesh.
+Generates the matrix for a @arg{dim}-dimensional Laplace problem
+discretized with the @math{2*@arg{dim}+1}-point stencil on a structured
+mesh with Dirichlet boundary conditions.
+@end deffn
+
+@anchor{fun-fl.matlisp-laplace-sparse-matrix}
+@deffn Function LAPLACE-SPARSE-MATRIX @var{N}
+@findex LAPLACE-SPARSE-MATRIX
+Generates a sparse matrix for a 1-dimensional Laplace problem
+discretized with the 3-point stencil on a structured mesh.
 @end deffn
 
 @anchor{fun-fl.matlisp-linf-norm}
@@ -1597,16 +2267,28 @@ Returns the maximum norm of @arg{x}.
 Returns the @arg{p}-norm of @arg{x}.
 @end deffn
 
+@anchor{fun-fl.matlisp-m*}
+@deffn Function M* @var{X} @var{Y}
+@findex M*
+Multiply X by Y.
+@end deffn
+
 @anchor{fun-fl.matlisp-m*-product-instance}
-@deffn Function M*-PRODUCT-INSTANCE @var{A} @var{Y}
+@deffn Function M*-PRODUCT-INSTANCE @var{X} @var{Y}
 @findex M*-PRODUCT-INSTANCE
-Returns a zero matrix for storing the product of X and Y.
+Allocates an instance for the product of X and Y.
 @end deffn
 
 @anchor{fun-fl.matlisp-m*-tn}
 @deffn Function M*-TN @var{X} @var{Y}
 @findex M*-TN
-By default M*-TN is rewritten in terms of GEMM-TN!.
+Multiply X^t by Y.
+@end deffn
+
+@anchor{fun-fl.matlisp-m*-tn-product-instance}
+@deffn Function M*-TN-PRODUCT-INSTANCE @var{X} @var{Y}
+@findex M*-TN-PRODUCT-INSTANCE
+Allocates an instance for the product of X^t and Y.
 @end deffn
 
 @anchor{fun-fl.matlisp-m+}
@@ -1682,8 +2364,32 @@ given @arg{dimensions}.
 Generates a real matrix of dimension @arg{dim} x 1.
 @end deffn
 
+@anchor{fun-fl.matlisp-mat-diff}
+@deffn Function MAT-DIFF @var{X} @var{Y}
+@findex MAT-DIFF
+Prints a list of differences between X and Y.
+@end deffn
+
+@anchor{fun-fl.matlisp-matrix-block}
+@deffn Function MATRIX-BLOCK @var{SMAT} @var{ROW-KEY} @var{COL-KEY}
+@findex MATRIX-BLOCK
+Low-level block lookup for a sparse block matrix.
+@end deffn
+
+@anchor{fun-fl.matlisp-matrix-column}
+@deffn Function MATRIX-COLUMN @var{MAT} @var{COL-KEY}
+@findex MATRIX-COLUMN
+Returns a dictionary mapping row-key to entry.
+@end deffn
+
+@anchor{fun-fl.matlisp-matrix-row}
+@deffn Function MATRIX-ROW @var{MAT} @var{ROW-KEY}
+@findex MATRIX-ROW
+Returns a dictionary mapping col-key to entry.
+@end deffn
+
 @anchor{fun-fl.matlisp-matrix-slice}
-@deffn Function MATRIX-SLICE @var{MAT} &KEY (@var{FROM-ROW} 0) (@var{FROM-COL} 0) (@var{NROWS} (@var{-} (@var{NROWS} @var{MAT}) @var{FROM-ROW})) (@var{NCOLS} (@var{-} (@var{NCOLS} @var{MAT}) @var{FROM-COL}))
+@deffn Function MATRIX-SLICE @var{X} &KEY @var{FROM-ROW} @var{FROM-COL} @var{NROWS} @var{NCOLS} (@var{NCOLS} (@var{-} (@var{NCOLS} @var{MAT}) @var{FROM-COL})) (@var{NROWS} (@var{-} (@var{NROWS} @var{MAT}) @var{FROM-ROW})) (@var{FROM-COL} 0) (@var{FROM-ROW} 0)
 @findex MATRIX-SLICE
 Extract a submatrix of size @arg{nrows} @math{times}
 @arg{ncols} out of @arg{x} starting from position
@@ -1691,7 +2397,7 @@ Extract a submatrix of size @arg{nrows} @math{times}
 @end deffn
 
 @anchor{fun-fl.matlisp-matrix-transpose-instance}
-@deffn Function MATRIX-TRANSPOSE-INSTANCE @var{SMAT}
+@deffn Function MATRIX-TRANSPOSE-INSTANCE @var{X}
 @findex MATRIX-TRANSPOSE-INSTANCE
 Returns a zero matrix for storing the transpose of X.
 @end deffn
@@ -1702,35 +2408,62 @@ Returns a zero matrix for storing the transpose of X.
 Returns T if X and Y have equal entries, otherwise NIL.
 @end deffn
 
-@anchor{fun-fl.matlisp-mextract}
-@deffn Function MEXTRACT @var{X} @var{Y} @var{ROW-OFF} @var{COL-OFF}
-@findex MEXTRACT
-Extract matrix Y out of matrix X from the position given
+@anchor{fun-fl.matlisp-mextract!}
+@deffn Function MEXTRACT! @var{X} @var{Y} @var{ROW-OFFSET} @var{COL-OFFSET}
+@findex MEXTRACT!
+Extract matrix X out of matrix Y from the position given
 by ROW-OFFSET and COL-OFFSET.
 @end deffn
 
-@anchor{fun-fl.matlisp-minject}
-@deffn Function MINJECT @var{X} @var{Y} @var{ROW-OFF} @var{COL-OFF}
-@findex MINJECT
+@anchor{fun-fl.matlisp-midentity-p}
+@deffn Function MIDENTITY-P @var{NUMBER} &OPTIONAL @var{THRESHOLD}
+@findex MIDENTITY-P
+Returns T, if @arg{mat} is the identity, i.e. if the
+  elementwise difference to the identity is not larger than
+  @arg{threshold}.
+@end deffn
+
+@anchor{fun-fl.matlisp-minject!}
+@deffn Function MINJECT! @var{X} @var{Y} @var{ROW-OFFSET} @var{COL-OFFSET}
+@findex MINJECT!
 Inject matrix X in matrix Y at the position given by
 ROW-OFFSET and COL-OFFSET.
 @end deffn
 
+@anchor{fun-fl.matlisp-mrandom}
+@deffn Function MRANDOM @var{N} &OPTIONAL @var{M} (@var{TYPE} (@var{QUOTE} @var{DOUBLE-FLOAT})) (@var{RANGE} 1.0)
+@findex MRANDOM
+Returns a random nxn or (if m is provided) nxm matrix.  The value is
+freshly allocated.
+@end deffn
+
 @anchor{fun-fl.matlisp-mref}
-@deffn Function MREF @var{SMAT} @var{ROW-KEY} @var{COL-KEY}
+@deffn Function MREF @var{A} @var{I} @var{J}
 @findex MREF
 Returns the matrix element @code{A[i,j]}.
 @end deffn
 
+@anchor{fun-fl.matlisp-msquare-p}
+@deffn Function MSQUARE-P @var{MAT}
+@findex MSQUARE-P
+Returns T, iff @arg{mat} is square.
+@end deffn
+
+@anchor{fun-fl.matlisp-msymmetric-p}
+@deffn Function MSYMMETRIC-P @var{MAT}
+@findex MSYMMETRIC-P
+Returns T, if @arg{mat} is symmetric.
+@end deffn
+
 @anchor{fun-fl.matlisp-multiplicity}
-@deffn Function MULTIPLICITY @var{<ANSATZ-SPACE>}
+@deffn Function MULTIPLICITY @var{VEC}
 @findex MULTIPLICITY
 We allow multiple vectors, for solving linear problems
 in parallel.
 @end deffn
 
 @anchor{fun-fl.matlisp-mzerop}
-@deffn Function MZEROP @var{SMAT} &OPTIONAL (@var{THRESHOLD} 0.0)
+@deffn Function MZEROP @var{X} &OPTIONAL @var{THRESHOLD}
 @findex MZEROP
 Returns T if each entry of @arg{x} is smaller or equal
 than @arg{threshold}.
@@ -1739,11 +2472,11 @@ than @arg{threshold}.
 @anchor{fun-fl.matlisp-ncols}
 @deffn Function NCOLS @var{MAT}
 @findex NCOLS
-Number of matrix rows.
+Number of matrix columns.
 @end deffn
 
 @anchor{fun-fl.matlisp-norm}
-@deffn Function NORM @var{X} &OPTIONAL (@var{P} 2)
+@deffn Function NORM @var{X} &OPTIONAL @var{P}
 @findex NORM
 Returns the @arg{p}-norm of @arg{x}.
 @end deffn
@@ -1760,10 +2493,53 @@ Scales @arg{x} to have @arg{p}-norm equal to 1.
 Scales @arg{x} destructively to have @arg{p}-norm equal to 1.
 @end deffn
 
+@anchor{fun-fl.matlisp-nr-of-entries}
+@deffn Function NR-OF-ENTRIES @var{VECTOR}
+@findex NR-OF-ENTRIES
+Total number of (block) entries for vectors.
+@end deffn
+
 @anchor{fun-fl.matlisp-nrows}
 @deffn Function NROWS @var{MAT}
 @findex NROWS
 Number of matrix rows.
+@end deffn
+
+@anchor{fun-fl.matlisp-ones}
+@deffn Function ONES @var{N} &OPTIONAL (@var{M} @var{N}) (@var{TYPE} (@var{QUOTE} @var{DOUBLE-FLOAT}))
+@findex ONES
+Returns nxn or (if m is provided) nxm ones.  The value is freshly
+allocated.
+@end deffn
+
+@anchor{fun-fl.matlisp-range-and-domain-disjoint-p}
+@deffn Function RANGE-AND-DOMAIN-DISJOINT-P @var{MAT}
+@findex RANGE-AND-DOMAIN-DISJOINT-P
+Checks if index range and index domain of some matrix are disjoint.
+@end deffn
+
+@anchor{fun-fl.matlisp-remove-column}
+@deffn Function REMOVE-COLUMN @var{SMAT} @var{COL-KEY}
+@findex REMOVE-COLUMN
+Removes a column of @arg{smat}.
+@end deffn
+
+@anchor{fun-fl.matlisp-remove-key}
+@deffn Function REMOVE-KEY @var{SOBJ} &REST @var{INDICES}
+@findex REMOVE-KEY
+Remove the entry for @arg{key} from the sparse object.
+@end deffn
+
+@anchor{fun-fl.matlisp-remove-row}
+@deffn Function REMOVE-ROW @var{SMAT} @var{ROW-KEY}
+@findex REMOVE-ROW
+Removes a row of @arg{smat}.
+@end deffn
+
+@anchor{fun-fl.matlisp-row-keys}
+@deffn Function ROW-KEYS @var{MAT}
+@findex ROW-KEYS
+All row keys for a matrix.
 @end deffn
 
 @anchor{fun-fl.matlisp-scal}
@@ -1782,6 +2558,49 @@ X <- alpha X
 @deffn Function SCALAR-TYPE @var{VECTOR}
 @findex SCALAR-TYPE
 Type of the scalars for the vector class.
+@end deffn
+
+@anchor{fun-fl.matlisp-shift-diagonal-inverter}
+@deffn Function SHIFT-DIAGONAL-INVERTER @var{ETA}
+@findex SHIFT-DIAGONAL-INVERTER
+Can be used for obtainint a diagonal modification to get ILU_mod.
+@end deffn
+
+@anchor{fun-fl.matlisp-show}
+@deffn Function SHOW @var{MATRIX} &KEY @var{KEYS} (@var{ZEROS} @var{T}) &ALLOW-OTHER-KEYS
+@findex SHOW
+Shows the contents of @arg{matrix} in a readable form.
+@end deffn
+
+@anchor{fun-fl.matlisp-sparse-m*}
+@deffn Function SPARSE-M* @var{A} @var{B} &KEY @var{JOB} @var{SPARSITY} (@var{SPARSITY} @var{A}) (@var{JOB} @var{NN})
+@findex SPARSE-M*
+Sparse matrix-matrix or matrix-vector multiplication.
+Usually, m* should be used.  But in situations, where A or B are very
+sparse, the complexity of this routine is much lower.
+@end deffn
+
+@anchor{fun-fl.matlisp-sparse-matrix->ccs}
+@deffn Function SPARSE-MATRIX->CCS @var{A} &KEY @var{KEYS} @var{ROW-KEYS} @var{COL-KEYS} @var{RANGES} @var{ROW-RANGES} @var{COL-RANGES}
+@findex SPARSE-MATRIX->CCS
+Converts the sparse matrix @arg{A} to CCS format.  @arg{row-keys} and
+@arg{col-keys} may denote a submatrix, @arg{col-ranges} and
+@arg{row-ranges} may be used for extracting even subblocks of the entries.
+This is a rather difficult routine, which might suggest switching to CCS
+completely.
+@end deffn
+
+@anchor{fun-fl.matlisp-sparse-tensor}
+@deffn Function SPARSE-TENSOR @var{CONTENTS}
+@findex SPARSE-TENSOR
+Constructor for @class{sparse-tensor}.
+@end deffn
+
+@anchor{fun-fl.matlisp-sparse-vector->matlisp}
+@deffn Function SPARSE-VECTOR->MATLISP @var{SVEC} &OPTIONAL @var{KEYS} @var{RANGES}
+@findex SPARSE-VECTOR->MATLISP
+Transforms all or a part of @arg{svec} corresponding to the keys in
+@arg{keys} and maybe the ranges in 'ranges' to a matlisp matrix.
 @end deffn
 
 @anchor{fun-fl.matlisp-standard-matrix}
@@ -1805,6 +2624,12 @@ Direct slots:
 @end itemize
 @end deftp
 
+@anchor{fun-fl.matlisp-standard-matrix-p}
+@deffn Function STANDARD-MATRIX-P @var{OBJ}
+@findex STANDARD-MATRIX-P
+Tests if @arg{obj} is a @class{standard-matrix}.
+@end deffn
+
 @anchor{class-fl.matlisp-store-vector}
 @deftp Class STORE-VECTOR
 @tindex STORE-VECTOR
@@ -1823,16 +2648,49 @@ Direct slots:
 @end itemize
 @end deftp
 
+@anchor{class-fl.matlisp-tensor}
+@deftp Class TENSOR
+@tindex TENSOR
+Tensor superclass.
+@end deftp
+
+@anchor{fun-fl.matlisp-tensor-for-each}
+@deffn Function TENSOR-FOR-EACH @var{FUNC} @var{TENSOR} &KEY @var{JOB} @var{DEPTH} (@var{JOB} @var{BOTH}) &ALLOW-OTHER-KEYS
+@findex TENSOR-FOR-EACH
+Applies @arg{func} to each index of @arg{tensor} up to
+  @arg{depth}.  @arg{job} can be :entry, :index, or :both.
+@end deffn
+
+@anchor{fun-fl.matlisp-tensor-map}
+@deffn Function TENSOR-MAP @var{FUNC} @var{TENSOR}
+@findex TENSOR-MAP
+Maps @arg{tensor} with @arg{func} to a tensor of the
+same type.
+@end deffn
+
+@anchor{fun-fl.matlisp-tensor-ref}
+@deffn Function TENSOR-REF @var{TENSOR} &REST @var{INDICES}
+@findex TENSOR-REF
+Reader for a tensor entry.
+@end deffn
+
 @anchor{fun-fl.matlisp-total-entries}
-@deffn Function TOTAL-ENTRIES @var{MAT}
+@deffn Function TOTAL-ENTRIES @var{VECTOR}
 @findex TOTAL-ENTRIES
 Total number of entries for block vectors.
+@end deffn
+
+@anchor{fun-fl.matlisp-total-nrows}
+@deffn Function TOTAL-NROWS @var{MAT}
+@findex TOTAL-NROWS
+Total number of rows for a matrix (works also for block
+  matrices).
 @end deffn
 
 @anchor{fun-fl.matlisp-transpose}
 @deffn Function TRANSPOSE @var{X}
 @findex TRANSPOSE
-Rewriting for TRANSPOSE.
+Transpose the matrix @arg{x}.
 @end deffn
 
 @anchor{fun-fl.matlisp-transpose!}
@@ -1861,20 +2719,20 @@ in dimension @arg{dim}.
 @end deffn
 
 @anchor{fun-fl.matlisp-vector-slice}
-@deffn Function VECTOR-SLICE @var{VEC} @var{OFFSET} @var{SIZE}
+@deffn Function VECTOR-SLICE @var{X} @var{OFFSET} @var{SIZE}
 @findex VECTOR-SLICE
 Extract a subvector of size @arg{size} out of @arg{x}
 starting from position @arg{offset}.
 @end deffn
 
 @anchor{fun-fl.matlisp-vlength}
-@deffn Function VLENGTH @var{MAT}
+@deffn Function VLENGTH @var{VEC}
 @findex VLENGTH
 Length of vector.
 @end deffn
 
 @anchor{fun-fl.matlisp-vref}
-@deffn Function VREF @var{SVEC} @var{KEY}
+@deffn Function VREF @var{X} @var{I}
 @findex VREF
 Reader for @math{x_i}.
 @end deffn
@@ -1885,240 +2743,14 @@ Reader for @math{x_i}.
 X <- 0 X.  Uses SCAL!.
 @end deffn
 
-@node Package FL.ALGEBRA, Package FL.FUNCTION, Package FL.MATLISP, Reference manual
-@section Package FL.ALGEBRA
-
-This package defines classes for sparse matrices and
-methods operating on them.  The interface is mostly the one used in the
-package @package{FL.MATLISP} extended suitably.
-
-This module contains definitions for doing linear algebra in @femlisp{} and
-consists of several files.  Besides others, these are @path{vector.lisp}
-and @path{matrix.lisp}, where an abstract interface for linear algebra on
-vectors and matrices is defined.  In @path{matlisp.lisp}, this interface is
-realised for Matlisp matrices, and in addition the Matlisp operations are
-partially extended to arrays.  In @path{crs.lisp}, the well-known compact
-row-ordered storage is defined for storing sparse matrices, and
-@path{tensor.lisp} and @path{sparse-tensor.lisp} contain class and method
-definitions for full and sparse tensors of arbitrary rank.
-
-The file @path{sparse.lisp} then introduces a sparse storage scheme for
-block vectors and block matrices over arbitrary index sets.  This is very
-convenient for functions and linear operators defined on unstructured grids
-because the geometric grid objects themselves can index their degrees of
-freedom.  It also allows for local updates when advanced adaptive schemes
-like the one proposed in @cite{(Ruede 1993)} are used.
-
-At the moment, the classes @class{<sparse-matrix>} and
-@class{<sparse-matrix>} which are defined in @file{sparse.lisp} are used
-almost exclusively.  Those classes are hash-table based, which implies that
-almost every index set can be used.  Basic methods for those classes are
-also defined in @path{sparse.lisp}.  An LU decomposition for
-@class{<sparse-matrix>} is implemented in @file{sparselu.lisp}.
-
-Unfortunately, the use of hash-tables instead of arrays is much slower than
-working with, for example, compact row-ordered storage.  Thus, good
-performance can only be expected if the inner blocks are relatively large.
-This is the case for systems of equations and/or approximations of higher
-order.  Future versions of @femlisp{} will probably improve on that by
-using an array-based scheme similar to the one in
-@path{sparse-tensor.lisp}.
-
-@anchor{class-fl.algebra-<sparse-matrix>}
-@deftp Class <SPARSE-MATRIX>
-@tindex <SPARSE-MATRIX>
-The <sparse-matrix> represents an unordered matrix graph
-indexed by general keys.
-
-Superclasses: <MATRIX> MUTEX-MIXIN
-
-Direct slots:
-@itemize
-@item ROW-TABLE: Table of rows.
-@item COLUMN-TABLE: Table of columns.
-@item PRINT-ROW-KEY: Print function for row keys.
-@item PRINT-COL-KEY: Print function for column keys.
-@item ROW-KEY->SIZE: Function determining the number of rows of a block.
-@item COL-KEY->SIZE: Function determining the number of columns of a block.
-@item KEYS->PATTERN: Function determining the pattern of a block.
-@end itemize
-@end deftp
-
-@anchor{class-fl.algebra-<sparse-tensor>}
-@deftp Class <SPARSE-TENSOR>
-@tindex <SPARSE-TENSOR>
-A general sparse tensor class which is implemented as a
-sparse vector containing full-or sparse tensor entries.
-
-Direct slots:
-@itemize
-@item RANK: Tensor rank.
-@item INDICES: The (nonzero) indices of the first slot.
-@item ENTRIES: The (nonzero) entries of the first slot.
-@end itemize
-@end deftp
-
-@anchor{class-fl.algebra-<sparse-vector>}
-@deftp Class <SPARSE-VECTOR>
-@tindex <SPARSE-VECTOR>
-Sparse block vector class indexed with general keys.
-
-Superclasses: MUTEX-MIXIN
-
-Direct slots:
-@itemize
-@item BLOCKS: Table of blocks.
-@item KEY->SIZE: Function determining the dimension of a block.
-@item PRINT-KEY: Print function for a key.
-@item MULTIPLICITY: Multiplicity of the sparse vector.  A
-multiplicity different from 1 is used when handling multiple right-hand
-sides and solutions simultaneously.
-@end itemize
-@end deftp
-
-@anchor{fun-fl.algebra-combined-projection}
-@deffn Function COMBINED-PROJECTION @var{P1} @var{P2}
-@findex COMBINED-PROJECTION
-Returns a projection to the range of the given projections.
+@anchor{fun-fl.matlisp-zeros}
+@deffn Function ZEROS @var{N} &OPTIONAL (@var{M} @var{N}) (@var{TYPE} (@var{QUOTE} @var{DOUBLE-FLOAT}))
+@findex ZEROS
+Returns nxn or (if m is provided) nxm zeros.  The value is freshly
+allocated.
 @end deffn
 
-@anchor{fun-fl.algebra-crs-matrix}
-@deffn Function CRS-MATRIX @var{TYPE}
-@findex CRS-MATRIX
-Construct a CRS matrix with entries of @arg{type}.
-@end deffn
-
-@anchor{class-fl.algebra-crs-matrix}
-@deftp Class CRS-MATRIX
-@tindex CRS-MATRIX
-This is an abstract class @class{crs-matrix} which is
-made concrete by combining it with a store-vector.
-
-Superclasses: <MATRIX>
-
-Direct slots:
-@itemize
-@item PATTERN: The pattern of the CRS matrix.  This is kept
-separate such that the same pattern can be used for many matrices.
-@end itemize
-@end deftp
-
-@anchor{class-fl.algebra-crs-pattern}
-@deftp Class CRS-PATTERN
-@tindex CRS-PATTERN
-A CRS (compact row-ordered storage) pattern allowing for
-identification, see @cite{(Neuss 1998)}, for use within a
-@class{crs-matrix}.
-
-Direct slots:
-@itemize
-@item NROWS: Number of rows in the pattern.
-@item NCOLS: Number of columns in the pattern.
-@item NR-OF-ENTRIES: NIL
-@item STORE-SIZE: NIL
-@item ROW-STARTS: NIL
-@item COL-INDS: NIL
-@item OFFSETS: NIL
-@end itemize
-@end deftp
-
-@anchor{fun-fl.algebra-diagonal-sparse-tensor}
-@deffn Function DIAGONAL-SPARSE-TENSOR @var{VALUES} &OPTIONAL @var{NCOMPS}
-@findex DIAGONAL-SPARSE-TENSOR
-Constructs a sparse tensor of rank 2 where @arg{values} are the diagonal
-entries.  If @arg{ncomps} is given then the tensor dimension is nxn with
-each diagonal entry being @arg{values}.
-@end deffn
-
-@anchor{fun-fl.algebra-extend-by-identity}
-@deffn Function EXTEND-BY-IDENTITY @var{MAT} @var{EXTEND} &KEY @var{IGNORE} (@var{COPY} @var{T})
-@findex EXTEND-BY-IDENTITY
-Extends A such that the keys in extend which are not in ignore are
-mapped to identity.
-@end deffn
-
-@anchor{fun-fl.algebra-extended-extract}
-@deffn Function EXTENDED-EXTRACT @var{ASA} @var{SKEL} &KEY (@var{ROW?} @var{T}) (@var{COL?} @var{T}) &ALLOW-OTHER-KEYS
-@findex EXTENDED-EXTRACT
-Extracts a sub-matrix from a sparse matrix.
-@end deffn
-
-@anchor{fun-fl.algebra-full-crs-pattern}
-@deffn Function FULL-CRS-PATTERN @var{NROWS} @var{NCOLS}
-@findex FULL-CRS-PATTERN
-Returns trivial rectangular crs-patterns.
-@end deffn
-
-@anchor{fun-fl.algebra-in-pattern-p}
-@deffn Function IN-PATTERN-P @var{TENSOR} &REST @var{INDICES}
-@findex IN-PATTERN-P
-Returns a getter/setter pair for the specified location.
-@end deffn
-
-@anchor{fun-fl.algebra-index-range-disjoint-p}
-@deffn Function INDEX-RANGE-DISJOINT-P @var{MAT1} @var{MAT2}
-@findex INDEX-RANGE-DISJOINT-P
-Checks if the range of indices of two sparse matrices is disjoint.
-@end deffn
-
-@anchor{fun-fl.algebra-laplace-sparse-matrix}
-@deffn Function LAPLACE-SPARSE-MATRIX @var{N}
-@findex LAPLACE-SPARSE-MATRIX
-Generates a sparse matrix for a 1-dimensional Laplace problem
-discretized with the 3-point stencil on a structured mesh.
-@end deffn
-
-@anchor{fun-fl.algebra-multiplicity}
-@deffn Function MULTIPLICITY @var{<ANSATZ-SPACE>}
-@findex MULTIPLICITY
-We allow multiple vectors, for solving linear problems
-in parallel.
-@end deffn
-
-@anchor{fun-fl.algebra-range-and-domain-disjoint-p}
-@deffn Function RANGE-AND-DOMAIN-DISJOINT-P @var{MAT}
-@findex RANGE-AND-DOMAIN-DISJOINT-P
-Checks if index range and index domain of some matrix are disjoint.
-@end deffn
-
-@anchor{fun-fl.algebra-shift-diagonal-inverter}
-@deffn Function SHIFT-DIAGONAL-INVERTER @var{ETA}
-@findex SHIFT-DIAGONAL-INVERTER
-Can be used for obtainint a diagonal modification to get ILU_mod.
-@end deffn
-
-@anchor{fun-fl.algebra-shift-pattern}
-@deffn Function SHIFT-PATTERN @var{PATTERN} @var{SHIFT}
-@findex SHIFT-PATTERN
-shift-pattern: This function shifts a pattern to
-its actual offsets in the sparse graph.
-@end deffn
-
-@anchor{fun-fl.algebra-sparse-m*}
-@deffn Function SPARSE-M* @var{A} @var{B} &KEY (@var{SPARSITY} @var{A}) (@var{JOB} @var{NN})
-@findex SPARSE-M*
-Sparse matrix-matrix or matrix-vector multiplication.
-Usually, m* should be used.  But in situations, where A or B are very
-sparse, the complexity of this routine is much lower.
-@end deffn
-
-@anchor{fun-fl.algebra-sparse-matrix->ccs}
-@deffn Function SPARSE-MATRIX->CCS @var{A} &KEY @var{KEYS} @var{ROW-KEYS} @var{COL-KEYS} @var{RANGES} @var{ROW-RANGES} @var{COL-RANGES}
-@findex SPARSE-MATRIX->CCS
-Converts the sparse matrix @arg{A} to CCS format.  @arg{row-keys} and
-@arg{col-keys} may denote a submatrix, @arg{col-ranges} and
-@arg{row-ranges} may be used for extracting even subblocks of the entries.
-This is a rather difficult routine, which might suggest switching to CCS
-completely.
-@end deffn
-
-@anchor{fun-fl.algebra-total-entries}
-@deffn Function TOTAL-ENTRIES @var{MAT}
-@findex TOTAL-ENTRIES
-Total number of entries for block vectors.
-@end deffn
-
-@node Package FL.FUNCTION, Package FL.MESH, Package FL.ALGEBRA, Reference manual
+@node Package FL.FUNCTION, Package FL.MESH, Package FL.MATLISP, Reference manual
 @section Package FL.FUNCTION
 
 NIL
@@ -2133,7 +2765,7 @@ Superclasses: <FUNCTION>
 
 Direct slots:
 @itemize
-@item VALUE: NIL
+@item VALUE: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2148,8 +2780,8 @@ slot.
 
 Direct slots:
 @itemize
-@item DOMAIN-DIMENSION: NIL
-@item IMAGE-DIMENSION: NIL
+@item DOMAIN-DIMENSION: Self-explanatory.
+@item IMAGE-DIMENSION: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2163,8 +2795,8 @@ Superclasses: <FUNCTION>
 
 Direct slots:
 @itemize
-@item A: NIL
-@item B: NIL
+@item A: Self-explanatory.
+@item B: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2200,9 +2832,9 @@ Superclasses: <FUNCTION>
 
 Direct slots:
 @itemize
-@item EVALUATOR: NIL
-@item GRADIENT: NIL
-@item JET: NIL
+@item EVALUATOR: Self-explanatory.
+@item GRADIENT: Self-explanatory.
+@item JET: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2215,12 +2847,6 @@ velocity omega.  Without arguments it yields a function mapping @math{R^1}
 isometrically to @math{S^1}.
 @end deffn
 
-@anchor{fun-fl.function-compose}
-@deffn Function COMPOSE &REST @var{FUNCTIONS}
-@findex COMPOSE
-Returns the composition of @arg{functions}.
-@end deffn
-
 @anchor{fun-fl.function-cubic-spline}
 @deffn Function CUBIC-SPLINE @var{Y}
 @findex CUBIC-SPLINE
@@ -2229,7 +2855,7 @@ given.  This function returns an interpolating spline.
 @end deffn
 
 @anchor{fun-fl.function-differentiable-p}
-@deffn Function DIFFERENTIABLE-P @var{F} &OPTIONAL (@var{K} 1)
+@deffn Function DIFFERENTIABLE-P @var{F} &OPTIONAL @var{K}
 @findex DIFFERENTIABLE-P
 Returns t if f is differentiable or differentiable of the
 given degree.
@@ -2242,7 +2868,7 @@ Returns a matrix A suitable for describing the ellipse as (Ax,x)=1.
 @end deffn
 
 @anchor{fun-fl.function-evaluate}
-@deffn Function EVALUATE @var{DOF} @var{FE-FUNC}
+@deffn Function EVALUATE @var{F} @var{X}
 @findex EVALUATE
 Generic evaluation of functions on an argument.  Numbers and
 arrays are treated as constants.  Special evaluation is defined for multivariate
@@ -2250,7 +2876,7 @@ polynomials on vectors and for <function> objects.
 @end deffn
 
 @anchor{fun-fl.function-evaluate-gradient}
-@deffn Function EVALUATE-GRADIENT @var{POLYGON} @var{S}
+@deffn Function EVALUATE-GRADIENT @var{F} @var{X}
 @findex EVALUATE-GRADIENT
 Generic evaluation of gradients of differentiable functions.
 @end deffn
@@ -2319,7 +2945,7 @@ Superclasses: <VECTOR>
 
 Direct slots:
 @itemize
-@item COEFFS: NIL
+@item COEFFS: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2342,6 +2968,12 @@ radius.
 @deffn Function SHIFT-POLYNOMIAL @var{POLY} @var{DIM}
 @findex SHIFT-POLYNOMIAL
 Shifts a polynomial in dimension, e.g. x_1 becomes x_2.
+@end deffn
+
+@anchor{fun-fl.function-sparse-real-derivative}
+@deffn Function SPARSE-REAL-DERIVATIVE @var{SPARSE-F}
+@findex SPARSE-REAL-DERIVATIVE
+Warning: works only for real-valued functions!
 @end deffn
 
 @anchor{fun-fl.function-special-1d-function}
@@ -2407,9 +3039,9 @@ Superclasses: <STANDARD-CELL>
 
 Direct slots:
 @itemize
-@item DIMENSION: NIL
-@item MIDPOINT: NIL
-@item HOLES: NIL
+@item DIMENSION: Self-explanatory.
+@item MIDPOINT: Self-explanatory.
+@item HOLES: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2440,8 +3072,6 @@ Superclasses: <SKELETON> PROPERTY-MIXIN
 
 Direct slots:
 @itemize
-@item BOUNDARY: A skeleton containing all boundary patches which is used for
-classification of patches.
 @item CLASSIFIERS: A list of functions of two arguments -patch and classifications so
 far- which are called from the right to classify the patch.
 @end itemize
@@ -2459,7 +3089,7 @@ Superclasses: <MESH>
 
 Direct slots:
 @itemize
-@item LEVELS: NIL
+@item LEVELS: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2471,7 +3101,7 @@ special mapping.
 
 Direct slots:
 @itemize
-@item MAPPING: NIL
+@item MAPPING: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2493,7 +3123,7 @@ Superclasses: <SKELETON>
 Direct slots:
 @itemize
 @item DOMAIN: The domain of the mesh.
-@item PARAMETRIC: NIL
+@item PARAMETRIC: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2518,8 +3148,8 @@ values is different depending on the subclass derived from skeleton.
 
 Direct slots:
 @itemize
-@item DIM: NIL
-@item ETABLES: NIL
+@item DIMENSION: Self-explanatory.
+@item ETABLES: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2532,7 +3162,7 @@ Superclasses: <CELL>
 
 Direct slots:
 @itemize
-@item POSITION: NIL
+@item POSITION: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -2576,6 +3206,12 @@ list.
 @deffn Function CELLS-OF-HIGHEST-DIM @var{SKEL}
 @findex CELLS-OF-HIGHEST-DIM
 Returns the cells of @arg{skel} of highest dimension in form of a list.
+@end deffn
+
+@anchor{fun-fl.mesh-check}
+@deffn Function CHECK @var{OBJ}
+@findex CHECK
+Checks the data structure of @arg{obj}.
 @end deffn
 
 @anchor{fun-fl.mesh-combine-identifications}
@@ -2624,6 +3260,18 @@ Returns T iff CELL is a cube.
 Returns the diameter of a cell.
 @end deffn
 
+@anchor{fun-fl.mesh-dimension-of-part}
+@deffn Function DIMENSION-OF-PART @var{SKEL} @var{PART}
+@findex DIMENSION-OF-PART
+Parts of a skeleton can be named with the property @symbol{:part}.
+@end deffn
+
+@anchor{fun-fl.mesh-domain-boundary}
+@deffn Function DOMAIN-BOUNDARY @var{DOMAIN}
+@findex DOMAIN-BOUNDARY
+The boundary of the domain as a skeleton.
+@end deffn
+
 @anchor{fun-fl.mesh-domain-characteristics}
 @deffn Function DOMAIN-CHARACTERISTICS @var{DOMAIN}
 @findex DOMAIN-CHARACTERISTICS
@@ -2641,9 +3289,11 @@ all cells, otherwise it loops through cells and properties.
 @end deffn
 
 @anchor{fun-fl.mesh-embedded-dimension}
-@deffn Function EMBEDDED-DIMENSION @var{SKEL}
+@deffn Function EMBEDDED-DIMENSION @var{OBJECT}
 @findex EMBEDDED-DIMENSION
-Dimension of the embedding space for object.
+Dimension of the embedding space for @arg{object}.  If
+  @arg{check} is T, a test is performed if the dimension is well-defined
+  for all parts of @arg{object}.  If not, NIL is returned.
 @end deffn
 
 @anchor{fun-fl.mesh-ensure-domain}
@@ -2679,6 +3329,13 @@ Returns the factor-simplices.
 Returns a list of cells contained in skel and satisfying test.
 @end deffn
 
+@anchor{fun-fl.mesh-find-patch}
+@deffn Function FIND-PATCH @var{DOMAIN} @var{CLASSIFIERS} &KEY @var{MIDPOINT}
+@findex FIND-PATCH
+Searches for a patch of @arg{domain} having the given list
+@arg{classifiers}.
+@end deffn
+
 @anchor{fun-fl.mesh-for-each-cell-of-highest-dimension-on-surface}
 @deffn Function FOR-EACH-CELL-OF-HIGHEST-DIMENSION-ON-SURFACE @var{FUNC} @var{H-MESH}
 @findex FOR-EACH-CELL-OF-HIGHEST-DIMENSION-ON-SURFACE
@@ -2710,7 +3367,7 @@ distance to global-pos is returned.
 @end deffn
 
 @anchor{fun-fl.mesh-global->local}
-@deffn Function GLOBAL->LOCAL @var{VTX} @var{GLOBAL-POS}
+@deffn Function GLOBAL->LOCAL @var{CELL} @var{GLOBAL-POS}
 @findex GLOBAL->LOCAL
 Mainly useful for finite element evaluation: from the
 local position, the value of a fe function can be obtained by
@@ -2719,7 +3376,7 @@ step for linear mappings.
 @end deffn
 
 @anchor{fun-fl.mesh-hierarchically-ordered-cells}
-@deffn Function HIERARCHICALLY-ORDERED-CELLS @var{H-MESH} &KEY @var{LEVEL}
+@deffn Function HIERARCHICALLY-ORDERED-CELLS @var{H-MESH} &KEY (@var{WHERE} @var{SURFACE}) @var{LEVEL}
 @findex HIERARCHICALLY-ORDERED-CELLS
 Sorts the cells up to the given level (defaulting to the last
 level) hierarchically for use in something similar to the nested
@@ -2781,10 +3438,14 @@ Inserts a list of cells into a skeleton.
 @end deffn
 
 @anchor{fun-fl.mesh-inside-cell?}
-@deffn Function INSIDE-CELL? @var{CELL} @var{POS}
+@deffn Function INSIDE-CELL? @var{CELL} @var{GLOBAL-POS} &OPTIONAL @var{THRESHOLD}
 @findex INSIDE-CELL?
-Checks if global-pos is inside the interior of the cell.
-It calls coordinates-inside? which is defined for every cell class.
+Checks if @arg{global-pos} is inside the interior of the
+@arg{cell}.  It calls @function{global->local} to obtain local coordinates
+and then @function{coordinates-inside?} to check if those are inside the
+cell.  If @arg{threshold} is a non-negative number, an additional check is
+performed, if the local coordinates map to @arg{global-pos} with accuracy
+threshold.
 @end deffn
 
 @anchor{fun-fl.mesh-iterate-identifications}
@@ -2804,19 +3465,19 @@ either cells or identifications.
 @anchor{fun-fl.mesh-l-domain}
 @deffn Function L-DOMAIN @var{DIM}
 @findex L-DOMAIN
-Creates an L-domain by cutting out a small cube of the uniform refinement of
+Creates an L-domain by cutting out cubes from the uniform refinement of
 the unit cube.
 @end deffn
 
 @anchor{fun-fl.mesh-l2dg}
-@deffn Function L2DG @var{SIMPLEX} @var{LOCAL-POS}
+@deffn Function L2DG @var{CELL} @var{LOCAL-POS}
 @findex L2DG
 Computes the gradient for a multilinear
 interpolation from the vertices.
 @end deffn
 
 @anchor{fun-fl.mesh-l2g}
-@deffn Function L2G @var{VTX} @var{LOCAL-POS}
+@deffn Function L2G @var{CELL} @var{LOCAL-POS}
 @findex L2G
 Computes the global position by interpolation from the
 vertices.
@@ -2829,7 +3490,7 @@ Returns the level of @arg{cell} in the hirearchical mesh @arg{h-mesh}.
 @end deffn
 
 @anchor{fun-fl.mesh-local->dglobal}
-@deffn Function LOCAL->DGLOBAL @var{VTX} @var{LOCAL-POS}
+@deffn Function LOCAL->DGLOBAL @var{CELL} @var{LOCAL-POS}
 @findex LOCAL->DGLOBAL
 local->Dglobal checks if a mapping is given for the cell.
 If yes, then the gradient of this mapping is evaluated (if available).  If no,
@@ -2861,6 +3522,12 @@ Creates a cell of class CELL-CLASS having the given CORNERS.
 @deffn Function MAKE-CELL-FROM-VERTICES @var{CELL-CLASS} @var{VERTICES}
 @findex MAKE-CELL-FROM-VERTICES
 Creates a cell of class CELL-CLASS having the given VERTICES.
+@end deffn
+
+@anchor{fun-fl.mesh-make-classifier}
+@deffn Function MAKE-CLASSIFIER @var{TEST} @var{CLASSIFICATION}
+@findex MAKE-CLASSIFIER
+Returns a classifier for patches.
 @end deffn
 
 @anchor{fun-fl.mesh-make-hierarchical-mesh-from-domain}
@@ -2902,6 +3569,13 @@ General vertex constructor.
 Constructs a cell class with <mapped-cell> mixin.
 @end deffn
 
+@anchor{fun-fl.mesh-mark-skeleton}
+@deffn Function MARK-SKELETON @var{SKEL} @var{PROP} @var{VALUE}
+@findex MARK-SKELETON
+Marks all cells of @arg{skel} with the given @arg{prop}/@arg{value}
+pair.
+@end deffn
+
 @anchor{fun-fl.mesh-member-of-skeleton?}
 @deffn Function MEMBER-OF-SKELETON? @var{CELL} @var{SKEL}
 @findex MEMBER-OF-SKELETON?
@@ -2916,7 +3590,7 @@ documentations for the exact definition.
 @end deffn
 
 @anchor{fun-fl.mesh-midpoint}
-@deffn Function MIDPOINT @var{<BOUNDARY-CELL>}
+@deffn Function MIDPOINT @var{CELL}
 @findex MIDPOINT
 Returns cell midpoint in global coordinates.
 @end deffn
@@ -3002,7 +3676,7 @@ Tests if a cell is a reference cell.
 @end deffn
 
 @anchor{fun-fl.mesh-refine}
-@deffn Function REFINE @var{H-MESH} &KEY (@var{INDICATOR} (@var{CONSTANTLY} @var{T}))
+@deffn Function REFINE @var{SKEL} &KEY @var{INDICATOR} (@var{INDICATOR} (@var{CONSTANTLY} @var{T})) @var{HIGHEST} (@var{DECOUPLE} @var{T}) &ALLOW-OTHER-KEYS
 @findex REFINE
 Refines @arg{skel} either locally or globally depending
 on the @function{indicator}.
@@ -3057,6 +3731,12 @@ Direct slots:
 Returns a representative for this object.
 @end deffn
 
+@anchor{fun-fl.mesh-simplex-class}
+@deffn Function SIMPLEX-CLASS @var{DIM} &OPTIONAL @var{MAPPED} @var{DISTORTED}
+@findex SIMPLEX-CLASS
+Returns the n-simplex class.
+@end deffn
+
 @anchor{fun-fl.mesh-simplex-product-domain}
 @deffn Function SIMPLEX-PRODUCT-DOMAIN @var{DIMS}
 @findex SIMPLEX-PRODUCT-DOMAIN
@@ -3075,13 +3755,6 @@ second is @arg{skel-2}, the third is a hash-table mapping overlapping cells
 from @arg{skel-2} to their counterpart in @arg{skel-1}.
 @end deffn
 
-@anchor{fun-fl.mesh-skel-for-each}
-@deffn Function SKEL-FOR-EACH @var{FUNC} @var{SKEL} &KEY @var{DIRECTION} @var{DIMENSION} @var{WHERE} @var{WITH-PROPERTIES}
-@findex SKEL-FOR-EACH
-Loops through a skeleton applying func.  When direction is :down then loops
-with dimension of the cells decreasing, otherwise increasing.
-@end deffn
-
 @anchor{fun-fl.mesh-skel-ref}
 @deffn Function SKEL-REF @var{SKEL} @var{CELL}
 @findex SKEL-REF
@@ -3089,10 +3762,16 @@ Returns the properties of @arg{cell} in @arg{skel}.
 @end deffn
 
 @anchor{fun-fl.mesh-skeleton}
-@deffn Function SKELETON @var{CELL}
+@deffn Function SKELETON @var{CELL-OR-CELLS}
 @findex SKELETON
 Returns a skeleton for the given cell or the given
 cells.
+@end deffn
+
+@anchor{fun-fl.mesh-skeleton-disjoint-union}
+@deffn Function SKELETON-DISJOINT-UNION &REST @var{SKELS}
+@findex SKELETON-DISJOINT-UNION
+Builds a disjoint union skeleton of all skeletons.
 @end deffn
 
 @anchor{fun-fl.mesh-skeleton-without-cell}
@@ -3158,6 +3837,14 @@ This function returns the surface cells of highest dimension of a
 locally refined hierarchical-mesh structure.
 @end deffn
 
+@anchor{fun-fl.mesh-test-condition}
+@deffn Function TEST-CONDITION @var{CONDITION} @var{CLASSIFICATIONS}
+@findex TEST-CONDITION
+Test if @arg{condition} holds for @arg{classifications}.
+@arg{condition} should be a logical combination of the keyword symbols in
+the list @arg{classification}.
+@end deffn
+
 @anchor{fun-fl.mesh-triangulate}
 @deffn Function TRIANGULATE @var{DOMAIN} &REST @var{ARGS} &KEY @var{PARAMETRIC} &ALLOW-OTHER-KEYS
 @findex TRIANGULATE
@@ -3209,11 +3896,15 @@ e.g. @class{<cdr-problem>} in @package{FL.CDR},
 @tindex <COEFFICIENT>
 The coefficient class.
 
+Superclasses: PROPERTY-MIXIN
+
 Direct slots:
 @itemize
+@item NAME: Self-explanatory.
 @item DIMENSION: The dimension of the cell on which this coefficient is
 active.  The value T means that it is active on all cells lying on the
-patch.
+patch.  The default value NIL means that it is active on cells with the
+same dimension as the patch.
 @item DEMANDS: A list indicating which information the evaluation
 function needs.  Possible choices depend on problem and discretization,
 e.g. @code{:local}, @code{:global}, @code{:fe}, @code{:cell} are possible
@@ -3231,27 +3922,22 @@ keyword parameters which should correspond to the list in DEMANDS.
 @deftp Class <DOMAIN-PROBLEM>
 @tindex <DOMAIN-PROBLEM>
 An instance of this class describes a problem posed on
-the domain @slot{domain}.  The slot @slot{coefficients} contains a table
-mapping domain patches to property lists of the form (@symbol{identifier1}
-@code{coefficient1} @symbol{identifier2} @code{coefficient2} ...).  Here
-identifiers are special symbols and the coefficients are objects of type
-@class{<coefficient>}.  When the problem instance is initialized this table
-is usually set up by calling the function @function{patch->coefficients}
-which has to be provided as a key argument.  The slot @slot{multiplicity}
-can be chosen as a positive integer @math{n} if the problem is posed with
-@math{n} different right hand sides simultaneously.
-
-Note also that for nonlinear problems, where the coefficients depend on the
-solution, an approximate solution can be found as a property of the
-problem.
+@slot{domain} with coefficients given on each patch of the domain.  The
+slot @slot{multiplicity} is a positive integer which denotes the number of
+right-hand sides and solutions (e.g. when computing several eigenvectors at
+once).
 
 Superclasses: <PROBLEM>
 
 Direct slots:
 @itemize
-@item DOMAIN: NIL
-@item COEFFICIENTS: Hash table which maps domain patches to coefficients.
-@item MULTIPLICITY: NIL
+@item DOMAIN: Self-explanatory.
+@item COMPONENTS: A list whose elements are lists of the form
+(symbol dim) or (symbol dim type) or (symbol subcomponents) describing
+the components occuring in the pde.  Alternatively, this slot can contain a
+function/dictionary mapping patches to such lists.
+@item MULTIPLICITY: Multiplicity of the right-hand side.
+@item COEFFICIENTS: A function mapping patches to coefficient lists.
 @end itemize
 @end deftp
 
@@ -3262,8 +3948,8 @@ A mixin for eigenvalue problems.
 
 Direct slots:
 @itemize
-@item LAMBDA: The multiplier for the mass matrix, usually equal to the
-eigenvalue.
+@item MULTIPLICITY: The multiplicity of the eigenspace.
+@item EIGENVALUES: The current approximation of the eigenvalues.
 @item MU: The multiplier for the system matrix.
 @end itemize
 @end deftp
@@ -3295,8 +3981,8 @@ Superclasses: <EVP>
 
 Direct slots:
 @itemize
-@item A: (Energy) matrix A.
-@item B: (Mass) matrix B.
+@item STIFFNESS-MATRIX: Self-explanatory.
+@item MASS-MATRIX: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -3309,8 +3995,8 @@ Superclasses: <PROBLEM>
 
 Direct slots:
 @itemize
-@item MATRIX: NIL
-@item RHS: NIL
+@item MATRIX: Self-explanatory.
+@item RHS: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -3333,7 +4019,7 @@ Superclasses: <PROBLEM>
 Direct slots:
 @itemize
 @item LINEARIZATION: A function linearizing the problem.
-@item INITIAL-GUESS: An initial guess for a solution.
+@item SOLUTION: An approximation to the solution.
 @end itemize
 @end deftp
 
@@ -3361,7 +4047,7 @@ iterative solvers.
 
 Direct slots:
 @itemize
-@item OUTPUT: NIL
+@item OUTPUT: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -3378,40 +4064,46 @@ A mixin which should be used together with a
 Adds a list of fe-functions to the demands.
 @end deffn
 
-@anchor{fun-fl.problem-boundary-coefficient-p}
-@deffn Function BOUNDARY-COEFFICIENT-P @var{PROBLEM} @var{COEFF}
-@findex BOUNDARY-COEFFICIENT-P
-Tests, if @arg{coeff} is a boundary coefficient of @arg{problem}.
-@end deffn
-
-@anchor{fun-fl.problem-boundary-coefficients}
-@deffn Function BOUNDARY-COEFFICIENTS @var{PROBLEM}
-@findex BOUNDARY-COEFFICIENTS
-Returns a list of possible boundary coefficients for
-@arg{problem}.
-@end deffn
-
-@anchor{fun-fl.problem-coefficient-p}
-@deffn Function COEFFICIENT-P @var{PROBLEM} @var{COEFF}
-@findex COEFFICIENT-P
-Test if @arg{coeff} is a coefficient of @arg{problem}.
+@anchor{macro-fl.problem-coeff}
+@deffn Macro COEFF @var{NAME} @var{ARGS} &BODY @var{BODY}
+@findex COEFF
+A local @mac{coeff} defines a coefficient function inside
+@mac{setup-coefficients}.  It is defined here at the toplevel such that the
+Lisp editor indents the definitions correctly.
 @end deffn
 
 @anchor{fun-fl.problem-coefficients-of-cell}
-@deffn Function COEFFICIENTS-OF-CELL @var{CELL} @var{MESH} @var{MSP}
+@deffn Function COEFFICIENTS-OF-CELL @var{CELL} @var{MESH} @var{PROBLEM}
 @findex COEFFICIENTS-OF-CELL
-An accessor for the coefficients of @arg{problem} valid
-for @arg{cell}.
+Returns the coefficients of @arg{problem} on @arg{cell}.
 @end deffn
 
 @anchor{fun-fl.problem-coefficients-of-patch}
 @deffn Function COEFFICIENTS-OF-PATCH @var{PATCH} @var{PROBLEM}
 @findex COEFFICIENTS-OF-PATCH
-An accessor for the coefficients of @arg{patch} for @arg{problem}.
+Reader for the coefficients of @arg{patch} for @arg{problem}.
+@end deffn
+
+@anchor{fun-fl.problem-component-position}
+@deffn Function COMPONENT-POSITION @var{COMPONENTS} @var{COMP}
+@findex COMPONENT-POSITION
+Translates a symbol denoting a component to a position.
+@end deffn
+
+@anchor{fun-fl.problem-components-of-cell}
+@deffn Function COMPONENTS-OF-CELL @var{CELL} @var{MESH} @var{PROBLEM}
+@findex COMPONENTS-OF-CELL
+Returns the components of @arg{problem} on @arg{cell}.
+@end deffn
+
+@anchor{fun-fl.problem-components-of-patch}
+@deffn Function COMPONENTS-OF-PATCH @var{PATCH} @var{PROBLEM}
+@findex COMPONENTS-OF-PATCH
+Reader for the components of @arg{problem} on @arg{patch}.
 @end deffn
 
 @anchor{fun-fl.problem-constant-coefficient}
-@deffn Function CONSTANT-COEFFICIENT @var{VALUE} &REST @var{OTHER-VALUES}
+@deffn Function CONSTANT-COEFFICIENT @var{NAME} @var{VALUE} &REST @var{OTHER-VALUES}
 @findex CONSTANT-COEFFICIENT
 Returns a coefficient which takes the given value.  Several values can
 be passed which is needed, for example, for returning also the type of a
@@ -3425,8 +4117,20 @@ Returns a coefficient function which sets Dirichlet zero boundary
 conditions for all components of a PDE system.
 @end deffn
 
+@anchor{macro-fl.problem-create-problem}
+@deffn Macro CREATE-PROBLEM @var{TYPE} (&KEY @var{DOMAIN} @var{COMPONENTS} (@var{MULTIPLICITY} 1) @var{PROPERTIES}) &BODY @var{BODY}
+@findex CREATE-PROBLEM
+Creates a PDE problem.  @arg{type} is the type of the problem which
+can be the name of a problem class or a list of class names.  @arg{domain}
+is the domain for this problem, @arg{multiplicity} is the multiplicity of
+the solution, e.g. the number of eigenvectors we search for.  In
+@arg{body}, patch-dependent coefficients should be defined with
+@mac{setup-coefficients}.  It is also possible to define patch-dependent
+components with @mac{setup-components}.
+@end deffn
+
 @anchor{fun-fl.problem-dual-problem}
-@deffn Function DUAL-PROBLEM @var{PROBLEM} @var{CELL->RHS}
+@deffn Function DUAL-PROBLEM @var{PROBLEM} @var{FUNCTIONAL}
 @findex DUAL-PROBLEM
 Returns the dual problem for @arg{problem} with the
 right-hand side given by @arg{functional}.  The solution of this problem
@@ -3441,7 +4145,7 @@ Evaluates the energy bilinear form for a generalized eigenvalue problem.
 @end deffn
 
 @anchor{fun-fl.problem-ensure-coefficient}
-@deffn Function ENSURE-COEFFICIENT @var{OBJ}
+@deffn Function ENSURE-COEFFICIENT @var{NAME} @var{OBJ}
 @findex ENSURE-COEFFICIENT
 Returns @arg{obj} if it is a coefficient, converts @arg{obj} into a
 coefficient depending on the space variable if @arg{obj} is a function;
@@ -3449,17 +4153,31 @@ otherwise, @arg{obj} is made into a constant coefficient.
 @end deffn
 
 @anchor{fun-fl.problem-ensure-residual}
-@deffn Function ENSURE-RESIDUAL @var{LSE} @var{BLACKBOARD}
+@deffn Function ENSURE-RESIDUAL @var{PROBLEM} @var{BLACKBOARD}
 @findex ENSURE-RESIDUAL
 Ensures that the field :RESIDUAL is computed and that
 the flag :RESIDUAL-P is set on the blackboard.
 @end deffn
 
 @anchor{fun-fl.problem-ensure-solution}
-@deffn Function ENSURE-SOLUTION @var{NLPB} @var{BLACKBOARD}
+@deffn Function ENSURE-SOLUTION @var{PROBLEM} @var{BLACKBOARD}
 @findex ENSURE-SOLUTION
 Ensures that the field :SOLUTION is set on the
 blackboard.
+@end deffn
+
+@anchor{fun-fl.problem-extract-from}
+@deffn Function EXTRACT-FROM @var{SOLUTION} @var{FROM} @var{NCOMPS} &OPTIONAL @var{SCALAR-P} @var{INDEX}
+@findex EXTRACT-FROM
+Extracts numbers or subvectors from the solution vector.
+@end deffn
+
+@anchor{fun-fl.problem-extraction-information}
+@deffn Function EXTRACTION-INFORMATION @var{COMPONENTS} @var{COMPONENT}
+@findex EXTRACTION-INFORMATION
+If @arg{component} is in @arg{components}, a triple consisting of
+position, length, and a flag is returned.  The flag is true, if the
+component is a scalar.
 @end deffn
 
 @anchor{fun-fl.problem-filter-applicable-coefficients}
@@ -3469,25 +4187,25 @@ Filters out the applicable coefficients for the respective cell with the
 given patch.
 @end deffn
 
-@anchor{fun-fl.problem-f[u]->coefficient}
-@deffn Function F[U]->COEFFICIENT @var{FUNC}
-@findex F[U]->COEFFICIENT
+@anchor{fun-fl.problem-fu->coefficient}
+@deffn Function FU->COEFFICIENT @var{NAME} @var{FUNC}
+@findex FU->COEFFICIENT
 The function argument @arg{func} is transformed into a coefficient
 depending on the solution.
 @end deffn
 
-@anchor{fun-fl.problem-f[xu]->coefficient}
-@deffn Function F[XU]->COEFFICIENT @var{FUNC}
-@findex F[XU]->COEFFICIENT
-The function argument @arg{func} is transformed into a coefficient
-depending on position and solution.
-@end deffn
-
-@anchor{fun-fl.problem-f[x]->coefficient}
-@deffn Function F[X]->COEFFICIENT @var{FUNC}
-@findex F[X]->COEFFICIENT
+@anchor{fun-fl.problem-fx->coefficient}
+@deffn Function FX->COEFFICIENT @var{NAME} @var{FUNC}
+@findex FX->COEFFICIENT
 The function argument @arg{func} is transformed into a coefficient
 depending on global coordinates.
+@end deffn
+
+@anchor{fun-fl.problem-fxu->coefficient}
+@deffn Function FXU->COEFFICIENT @var{NAME} @var{FUNC}
+@findex FXU->COEFFICIENT
+The function argument @arg{func} is transformed into a coefficient
+depending on position and solution.
 @end deffn
 
 @anchor{fun-fl.problem-get-coefficient}
@@ -3499,20 +4217,15 @@ Get coefficient @arg{name} from the list @arg{coeffs}.
 @anchor{fun-fl.problem-get-property}
 @deffn Function GET-PROPERTY @var{OBJECT} @var{PROPERTY}
 @findex GET-PROPERTY
-Gets @arg{property} for @arg{object}.
+Gets @arg{property} for @arg{object}.  Returns NIL also if
+@arg{property} is not available.
 @end deffn
 
-@anchor{fun-fl.problem-interior-coefficient-p}
-@deffn Function INTERIOR-COEFFICIENT-P @var{PROBLEM} @var{COEFF}
-@findex INTERIOR-COEFFICIENT-P
-Tests, if @arg{coeff} is an interior coefficient of @arg{problem}.
-@end deffn
-
-@anchor{fun-fl.problem-interior-coefficients}
-@deffn Function INTERIOR-COEFFICIENTS @var{PROBLEM}
-@findex INTERIOR-COEFFICIENTS
-Returns a list of possible interior coefficients for
-@arg{problem}.
+@anchor{fun-fl.problem-identification-coefficient}
+@deffn Function IDENTIFICATION-COEFFICIENT @var{MASTER} @var{MAPPING}
+@findex IDENTIFICATION-COEFFICIENT
+A special coefficient used for identifying parts of the domain.  The
+  coefficient evaluation returns the master coordinates.
 @end deffn
 
 @anchor{fun-fl.problem-linear-p}
@@ -3534,13 +4247,12 @@ SOLUTION.  The result should be a linear problem.
 Constructs a standard LSE.
 @end deffn
 
-@anchor{fun-fl.problem-map-coefficients}
-@deffn Function MAP-COEFFICIENTS @var{FUNC} @var{COEFFS}
-@findex MAP-COEFFICIENTS
-Maps a given coefficient list @arg{coeffs} into a new coefficient list.
-@arg{func} takes coefficient name and coefficient and returns two values
-for new coefficient name and coefficient.  If the first value returned is
-@code{NIL}, this coefficient is not collected.
+@anchor{fun-fl.problem-make-coefficients-for}
+@deffn Function MAKE-COEFFICIENTS-FOR @var{PROBLEM} @var{NAME} @var{PATCH} @var{DEMANDS} @var{EVALUATOR}
+@findex MAKE-COEFFICIENTS-FOR
+Generates a coefficient while dispatching on problem and
+coefficient name.  May return a single coefficient or a list of several
+coefficients.
 @end deffn
 
 @anchor{fun-fl.problem-mass}
@@ -3550,7 +4262,7 @@ Evaluates the mass bilinear form for a generalized eigenvalue problem.
 @end deffn
 
 @anchor{fun-fl.problem-multiplicity}
-@deffn Function MULTIPLICITY @var{<ANSATZ-SPACE>}
+@deffn Function MULTIPLICITY @var{VEC}
 @findex MULTIPLICITY
 We allow multiple vectors, for solving linear problems
 in parallel.
@@ -3563,9 +4275,15 @@ Constructs a standard NLSE.
 @end deffn
 
 @anchor{fun-fl.problem-nr-of-components}
-@deffn Function NR-OF-COMPONENTS @var{MSFE}
+@deffn Function NR-OF-COMPONENTS @var{PROBLEM}
 @findex NR-OF-COMPONENTS
 Returns the number of components for @arg{problem}.
+@end deffn
+
+@anchor{fun-fl.problem-prepare-coefficient-arguments}
+@deffn Function PREPARE-COEFFICIENT-ARGUMENTS @var{COMPONENTS} @var{ARGS}
+@findex PREPARE-COEFFICIENT-ARGUMENTS
+Prepares arguments for the given coefficient function.
 @end deffn
 
 @anchor{fun-fl.problem-required-fe-functions}
@@ -3576,14 +4294,14 @@ in the property list @arg{coeffs}.
 @end deffn
 
 @anchor{fun-fl.problem-select-linear-solver}
-@deffn Function SELECT-LINEAR-SOLVER @var{PROBLEM} @var{BLACKBOARD}
+@deffn Function SELECT-LINEAR-SOLVER @var{OBJECT} @var{BLACKBOARD}
 @findex SELECT-LINEAR-SOLVER
 Selects a linear solver for OBJECT.  OBJECT is usually a
 matrix or a linear problem with certain characteristics.
 @end deffn
 
 @anchor{fun-fl.problem-select-solver}
-@deffn Function SELECT-SOLVER @var{PROBLEM} @var{BLACKBOARD}
+@deffn Function SELECT-SOLVER @var{OBJECT} @var{BLACKBOARD}
 @findex SELECT-SOLVER
 Selects a solver for OBJECT.  OBJECT is usually a
 problem with certain characteristics.
@@ -3596,8 +4314,20 @@ Returns two values.  The first says if @arg{problem} is
 self-adjoint, the second says if that value has really been checked.
 @end deffn
 
+@anchor{macro-fl.problem-setup-coefficients}
+@deffn Macro SETUP-COEFFICIENTS (@var{PATCH}) &BODY @var{PATCH-DEFINITIONS}
+@findex SETUP-COEFFICIENTS
+Defines coefficients dispatching on @arg{patch}.
+@end deffn
+
+@anchor{macro-fl.problem-setup-components}
+@deffn Macro SETUP-COMPONENTS (@var{PATCH}) &BODY @var{PATCH-DEFINITIONS}
+@findex SETUP-COMPONENTS
+Defines components dispatching on @arg{patch}.
+@end deffn
+
 @anchor{fun-fl.problem-solve}
-@deffn Function SOLVE @var{BLACKBOARD} &OPTIONAL @var{DUMMY}
+@deffn Function SOLVE @var{SOLVER} &OPTIONAL @var{BLACKBOARD}
 @findex SOLVE
 Solve a problem specified on the blackboard.  Returns a
 modified blackboard.  The returned blackboard is guaranteed to contain at
@@ -3631,7 +4361,12 @@ Defines convection-diffusion-reaction problems
 @tindex <CDR-PROBLEM>
 Convection-diffusion-reaction problem.
 
-Superclasses: <PDE-PROBLEM>
+Superclasses: <ELLSYS-PROBLEM>
+
+Direct slots:
+@itemize
+@item COMPONENTS: Self-explanatory.
+@end itemize
 @end deftp
 
 @anchor{fun-fl.cdr-bratu-problem}
@@ -3641,7 +4376,7 @@ Returns a linearization for the Bratu problem @math{-Delta u +e^u =0}.
 @end deffn
 
 @anchor{fun-fl.cdr-cdr-model-problem}
-@deffn Function CDR-MODEL-PROBLEM @var{DOMAIN} &KEY (@var{DIFFUSION} @var{NIL} @var{DIFFUSION-P}) (@var{SOURCE} @var{NIL} @var{SOURCE-P}) (@var{DIRICHLET} @var{NIL} @var{DIRICHLET-P}) @var{GAMMA} @var{CONVECTION} @var{REACTION} @var{INITIAL} @var{EVP} @var{PROPERTIES}
+@deffn Function CDR-MODEL-PROBLEM @var{DOMAIN} &KEY (@var{DIFFUSION} @var{NIL} @var{DIFFUSION-P}) (@var{SOURCE} @var{NIL} @var{SOURCE-P}) (@var{DIRICHLET} @var{NIL} @var{DIRICHLET-P}) @var{GAMMA} @var{CONVECTION} @var{REACTION} @var{SIGMA} @var{INITIAL} @var{EVP} (@var{MULTIPLICITY} 1) @var{PROPERTIES}
 @findex CDR-MODEL-PROBLEM
 Generates a convection-diffusion-reaction model problem.  Defaults are
 identity diffusion, right-hand-side equal 1, and Dirichlet zero boundary
@@ -3667,7 +4402,8 @@ following form which is suited for a fixed-point iteration:
 
 @math{-div(a(x,u_old,nabla u_old) nabla u)
  - div(b(x,u_old,nabla u_old) u) +
- + c(x,u_old,nabla u_old) u
+ + c(x,u_old,nabla u_old) nabla u +
+ + r(x,u_old,nabla u_old) u
 = f(x,u_old, nabla u_old) 
 - div(g(x,u_old, nabla u_old))
 - div(a(x,u_old,nabla u_old) h(x,u_old, nabla u_old)) }
@@ -3684,15 +4420,10 @@ Systems of convection-diffusion-reaction equations.  The
 coefficients should be vector-valued functions in this case.
 
 Superclasses: <PDE-PROBLEM>
-
-Direct slots:
-@itemize
-@item NR-OF-COMPONENTS: NIL
-@end itemize
 @end deftp
 
 @anchor{fun-fl.ellsys-ellsys-model-problem}
-@deffn Function ELLSYS-MODEL-PROBLEM @var{DOMAIN} @var{NCOMPS} &KEY @var{A} @var{B} @var{C} @var{F} @var{G} @var{H} @var{DIRICHLET} @var{INITIAL} @var{EVP} @var{PROPERTIES} @var{DERIVED-CLASS}
+@deffn Function ELLSYS-MODEL-PROBLEM @var{DOMAIN} @var{COMPONENTS} &KEY @var{A} @var{B} @var{C} @var{D} @var{R} @var{F} @var{G} @var{H} (@var{DIRICHLET} @var{NIL} @var{DIRICHLET-P}) @var{INITIAL} @var{SIGMA} @var{EVP} @var{PROPERTIES} @var{DERIVED-CLASS}
 @findex ELLSYS-MODEL-PROBLEM
 Generates a rather general elliptic problem on the given domain.
 @end deffn
@@ -3705,8 +4436,16 @@ each component.  @arg{value} should be a vector or a number and contains
 the amount of diffusion in each component.
 @end deffn
 
+@anchor{fun-fl.ellsys-linearization}
+@deffn Function LINEARIZATION @var{REACTION-JET}
+@findex LINEARIZATION
+Returns a list of two functions namely @math{u mapsto R(u)-DR(u)u}
+and @math{u mapsto -DR(u)} which can be used directly in the
+discretization as source and reaction term.
+@end deffn
+
 @anchor{fun-fl.ellsys-nr-of-components}
-@deffn Function NR-OF-COMPONENTS @var{MSFE}
+@deffn Function NR-OF-COMPONENTS @var{PROBLEM}
 @findex NR-OF-COMPONENTS
 Returns the number of components for @arg{problem}.
 @end deffn
@@ -3741,47 +4480,31 @@ and @math{mu}, i.e.:
 delta_{kl} + delta_{kj} delta_{il})}.
 @end deffn
 
-@node Package FL.NAVIER-STOKES, Package FL.CDRSYS, Package FL.ELASTICITY, Reference manual
+@node Package FL.NAVIER-STOKES, Package FL.DISCRETIZATION, Package FL.ELASTICITY, Reference manual
 @section Package FL.NAVIER-STOKES
 
-Defines the class of Navier-Stokes problems.
+Defines incompressible Navier-Stokes problems as a
+special case of general elliptic systems.
 
 @anchor{class-fl.navier-stokes-<navier-stokes-problem>}
 @deftp Class <NAVIER-STOKES-PROBLEM>
 @tindex <NAVIER-STOKES-PROBLEM>
 Navier-Stokes problem.
 
-Superclasses: <PDE-PROBLEM>
-@end deftp
-
-@node Package FL.CDRSYS, Package FL.DISCRETIZATION, Package FL.NAVIER-STOKES, Reference manual
-@section Package FL.CDRSYS
-
-This package contains some definitions for systems of
-convection-diffusion-reaction equations.  These are a special case of
-general elliptic systems defined in @path{ellsys.lisp}.
-
-@anchor{class-fl.cdrsys-<cdrsys-problem>}
-@deftp Class <CDRSYS-PROBLEM>
-@tindex <CDRSYS-PROBLEM>
-Problem class for a system of
-convection-diffusion-reaction equations.
-
 Superclasses: <ELLSYS-PROBLEM>
 @end deftp
 
-@anchor{fun-fl.cdrsys-cdrsys-model-problem}
-@deffn Function CDRSYS-MODEL-PROBLEM @var{DOMAIN} @var{NCOMPS} &KEY (@var{DIFFUSION} @var{NIL} @var{DIFFUSION-P}) (@var{SOURCE} @var{NIL} @var{SOURCE-P}) (@var{DIRICHLET} @var{NIL} @var{DIRICHLET-P}) @var{CONVECTION} @var{REACTION} @var{INITIAL} @var{EVP} @var{PROPERTIES}
-@findex CDRSYS-MODEL-PROBLEM
-Generates a system of convection-diffusion-reaction equations.  Defaults
-are identity diffusion, right-hand-side equal 1, and Dirichlet zero
-boundary conditions for each component.  Ordinary function are converted
-into coefficient functions depending on a global coordinate.  The first
-argument can be either a domain or an integer n which is interpreted as the
-n-dimensional unit cube.
+@anchor{fun-fl.navier-stokes-navier-stokes-inertia-coefficients}
+@deffn Function NAVIER-STOKES-INERTIA-COEFFICIENTS @var{DIM} @var{REYNOLDS}
+@findex NAVIER-STOKES-INERTIA-COEFFICIENTS
+Yields a quasi-Newton linearization of the term @math{u . grad u} which
+has the form
+@math{a Re u0 . grad u + b Re u . grad u0 = (a + b - 1) Re u0 . grad u0}
+a and b are given by the values of the special variables @var{*alpha*} and
+@var{*beta*}.
 @end deffn
 
-@node Package FL.DISCRETIZATION, Package FL.CDR-FE, Package FL.CDRSYS, Reference manual
+@node Package FL.DISCRETIZATION, Package FL.ELLSYS-FE, Package FL.NAVIER-STOKES, Reference manual
 @section Package FL.DISCRETIZATION
 
 The @package{FL.DISCRETIZATION} package defines
@@ -3822,11 +4545,17 @@ structure.  There is a somewhat less flexible interface provided by the
 funtion @function{discretize-globally} which calls
 @function{fe-discretize}.
 
-In the files @path{cdr-fe.lisp}, @path{elasticity-fe.lisp} and
+In the files @path{ellsys-fe.lisp}, @path{elasticity-fe.lisp} and
 @path{navier-stokes.lisp} one can find methods for local assembly for the
 different problems.  They are defined in own packages which use both the
 package @package{FL.DISCRETIZATION} and the package for the particular
 problem.
+
+@anchor{var-fl.discretization-*quadrature-order*}
+@defvr Variable *QUADRATURE-ORDER*
+@vindex *QUADRATURE-ORDER*
+Quadrature order to be used.  NIL determines the order automatically.
+@end defvr
 
 @anchor{var-fl.discretization-*suggested-discretization-order*}
 @defvr Variable *SUGGESTED-DISCRETIZATION-ORDER*
@@ -3838,26 +4567,15 @@ taken into account by methods to @arg{select-discretization}.
 @anchor{class-fl.discretization-<ansatz-space-automorphism>}
 @deftp Class <ANSATZ-SPACE-AUTOMORPHISM>
 @tindex <ANSATZ-SPACE-AUTOMORPHISM>
-A sparse-matrix which is interpreted as an automorphism
-for an ansatz-space.  Should probably be made a specialization of
-ansatz-space-morphism.
+A automorphism of an ansatz space.
 
-Superclasses: <ANSATZ-SPACE-OBJECT> <SPARSE-MATRIX>
+Superclasses: <ANSATZ-SPACE-MORPHISM> <ANSATZ-SPACE-OBJECT>
 @end deftp
 
 @anchor{class-fl.discretization-<ansatz-space-morphism>}
 @deftp Class <ANSATZ-SPACE-MORPHISM>
 @tindex <ANSATZ-SPACE-MORPHISM>
-A sparse-matrix which is interpreted as an morphism
-between two ansatz-spaces.
-
-Superclasses: <SPARSE-MATRIX>
-
-Direct slots:
-@itemize
-@item DOMAIN-ANSATZ-SPACE: NIL
-@item IMAGE-ANSATZ-SPACE: NIL
-@end itemize
+A mapping between two ansatz-spaces.
 @end deftp
 
 @anchor{class-fl.discretization-<ansatz-space-vector>}
@@ -3866,7 +4584,7 @@ Direct slots:
 A sparse vector which is interpreted as the ansatz-space
 for a specific fe-class on a given mesh.
 
-Superclasses: <ANSATZ-SPACE-OBJECT> <SPARSE-VECTOR>
+Superclasses: <ANSATZ-SPACE-OBJECT> <HT-SPARSE-VECTOR>
 @end deftp
 
 @anchor{class-fl.discretization-<ansatz-space>}
@@ -3883,21 +4601,6 @@ Direct slots:
 @item FE-CLASS: The finite element class for this ansatz space.
 @item PROBLEM: The proplem for this ansatz space which determines essential constraints.
 @item MESH: The mesh for this ansatz space which determines hanging-node constraints.
-@item MULTIPLICITY: Should be a copy of problem multiplicity.
-@end itemize
-@end deftp
-
-@anchor{class-fl.discretization-<cell-fe-discretization>}
-@deftp Class <CELL-FE-DISCRETIZATION>
-@tindex <CELL-FE-DISCRETIZATION>
-Finite element discretization where the finite elements
-can differ from cell to cell.  Especially, hp-FEM are included.
-
-Superclasses: <FE-DISCRETIZATION>
-
-Direct slots:
-@itemize
-@item CELL->FE: A function mapping a cell to a finite element.
 @end itemize
 @end deftp
 
@@ -3905,6 +4608,8 @@ Direct slots:
 @deftp Class <DISCRETIZATION>
 @tindex <DISCRETIZATION>
 Discretization base class.
+
+Superclasses: PROPERTY-MIXIN
 @end deftp
 
 @anchor{class-fl.discretization-<fe-discretization>}
@@ -3924,7 +4629,7 @@ Superclasses: <STANDARD-FE-DISCRETIZATION>
 
 Direct slots:
 @itemize
-@item ORDER: NIL
+@item ORDER: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -3943,9 +4648,11 @@ Superclasses: <FE>
 
 Direct slots:
 @itemize
-@item DOFS: NIL
-@item BASIS: NIL
-@item ORDER: NIL
+@item DOFS: The associated dofs.  These are Lagrange
+functionals associated to the basis functions used for interpolating smooth
+functions.
+@item BASIS: The fe's basis functions.
+@item ORDER: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -3953,9 +4660,15 @@ Direct slots:
 @deftp Class <STANDARD-FE-DISCRETIZATION>
 @tindex <STANDARD-FE-DISCRETIZATION>
 Finite element discretization where the finite element
-depends only on the type of the reference cell.
+depends only on the cell (usually via its reference cell).
 
-Superclasses: <CELL-FE-DISCRETIZATION>
+Superclasses: <FE-DISCRETIZATION>
+
+Direct slots:
+@itemize
+@item CELL->FE: A function mapping a cell to a finite element. Usually this
+will be a closure memoized over the reference cell.
+@end itemize
 @end deftp
 
 @anchor{class-fl.discretization-<vector-fe-discretization>}
@@ -3967,7 +4680,7 @@ Superclasses: <STANDARD-FE-DISCRETIZATION>
 
 Direct slots:
 @itemize
-@item COMPONENTS: NIL
+@item COMPONENTS: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -3975,22 +4688,21 @@ Direct slots:
 @deftp Class <VECTOR-FE>
 @tindex <VECTOR-FE>
 Finite element for vector functions.  Components is a
-vector of scalar finite elements.  Local-offset is an array of the same
-length which contains the offsets for each component in the local
-discretization vector.  Subcell-offsets is an array consisting of arrays
-which yield such an offset for every subcell.
+vector of scalar finite elements.  Subcell-offsets is an array consisting
+of arrays which yield such an offset for every subcell.
 
 Superclasses: <FE>
 
 Direct slots:
 @itemize
-@item COMPONENTS: NIL
-@item DOFS: NIL
+@item COMPONENTS: Self-explanatory.
+@item DOFS: Self-explanatory.
+@item BASIS: Self-explanatory.
 @end itemize
 @end deftp
 
 @anchor{fun-fl.discretization-assemble-interior}
-@deffn Function ASSEMBLE-INTERIOR @var{ANSATZ-SPACE} &KEY @var{LEVEL} (@var{WHERE} @var{SURFACE}) @var{MATRIX} @var{RHS} (@var{MASS-FACTOR} 0.0) (@var{STIFFNESS-FACTOR} 1.0)
+@deffn Function ASSEMBLE-INTERIOR @var{ANSATZ-SPACE} &KEY @var{LEVEL} (@var{WHERE} @var{SURFACE}) @var{MATRIX} @var{MASS-MATRIX} @var{RHS}
 @findex ASSEMBLE-INTERIOR
 Assemble the interior, i.e. ignore constraints arising from boundaries
 and hanging nodes.  Discretization is done using the ansatz space
@@ -4000,21 +4712,12 @@ number when assembling coarse level matrices for multigrid.  The argument
 @arg{where} is a flag indicating where assembly is to be done.  It should
 be one of the keywords @code{:surface}, @code{:refined}, @code{:all}.  The
 arguments @arg{matrix}, @arg{rhs} should contain vectors/matrices where the
-local assembly is accumulated.  The numbers @arg{mass-factor} and
-@arg{stiffness-factor} determine weights for mass and stiffness matrix
-which is used when solving time-dependent and eigenvalue problems.
-Boundary conditions and constraints are not taken into account within this
-routine.
+local assembly is accumulated.  Boundary conditions and constraints are not
+taken into account within this routine.
 
 In general, this function does most of the assembly work.  Other steps like
-handling constraints are intricate, but usually of lower complexity.
-@end deffn
-
-@anchor{fun-fl.discretization-cell->matrix-value-blocks}
-@deffn Function CELL->MATRIX-VALUE-BLOCKS @var{CELL} @var{FE} @var{SMAT}
-@findex CELL->MATRIX-VALUE-BLOCKS
-Gets all value-blocks associated with the local
-stiffness matrix.  If necessary, those value-blocks are generated.
+handling constraints are intricate, but usually of lower computational
+complexity.
 @end deffn
 
 @anchor{fun-fl.discretization-cell-key}
@@ -4023,8 +4726,15 @@ stiffness matrix.  If necessary, those value-blocks are generated.
 If cell is identified, its identification is the key.
 @end deffn
 
+@anchor{fun-fl.discretization-cell-lagrange-fe}
+@deffn Function CELL-LAGRANGE-FE @var{CELL} @var{ORDER} @var{TYPE} &OPTIONAL @var{DISC}
+@findex CELL-LAGRANGE-FE
+Returns a Lagrange fe depending on reference cell, an order (which
+can be number or vector), and a type symbol.
+@end deffn
+
 @anchor{fun-fl.discretization-choose-start-vector}
-@deffn Function CHOOSE-START-VECTOR @var{AS} @var{PROBLEM}
+@deffn Function CHOOSE-START-VECTOR @var{ANSATZ-SPACE}
 @findex CHOOSE-START-VECTOR
 Choose a reasonable start vector for some strategy.
 @end deffn
@@ -4047,13 +4757,13 @@ fe-functions to be evalutated.
 @end deffn
 
 @anchor{fun-fl.discretization-discretization-order}
-@deffn Function DISCRETIZATION-ORDER @var{VECFE-DISC}
+@deffn Function DISCRETIZATION-ORDER @var{DISC}
 @findex DISCRETIZATION-ORDER
 Returns the order of the discretization.
 @end deffn
 
 @anchor{fun-fl.discretization-discretize}
-@deffn Function DISCRETIZE @var{FEDISC} @var{PROBLEM} @var{BLACKBOARD}
+@deffn Function DISCRETIZE @var{DISCRETIZATION} @var{PROBLEM} @var{BLACKBOARD}
 @findex DISCRETIZE
 Calculates matrix and right-hand side for the
 @var{discretization} and the @var{problem}.  Further parameters are
@@ -4068,7 +4778,7 @@ finite elments given by @arg{fe-class}.
 @end deffn
 
 @anchor{fun-fl.discretization-discretize-locally}
-@deffn Function DISCRETIZE-LOCALLY @var{MSP} @var{COEFFS} @var{FE} @var{QRULE} @var{GEOMETRY} &REST @var{ARGS} &ALLOW-OTHER-KEYS
+@deffn Function DISCRETIZE-LOCALLY @var{PROBLEM} @var{COEFFS} @var{FE} @var{QRULE} @var{FE-GEOMETRY} &KEY @var{MATRIX} @var{MASS-MATRIX} @var{RHS} @var{LOCAL-U} @var{LOCAL-V} @var{FE-PARAMETERS} @var{LOCAL-U} @var{LOCAL-V} @var{RESIDUAL-P} @var{FE-PARAMETERS} &ALLOW-OTHER-KEYS
 @findex DISCRETIZE-LOCALLY
 Computes a local stiffness matrix and right-hand side.
 The algorithm will usually work as follows:
@@ -4086,9 +4796,7 @@ The algorithm will usually work as follows:
   @end enumerate
 @end enumerate
 
-@arg{mass-factor} and @arg{stiffness-factor} are weights for mass and
-stiffness matrix which are used for solving eigenvalue and time-dependent
-problems.  If @arg{local-u} and @arg{local-v} are set, then
+If @arg{local-u} and @arg{local-v} are set, then
 @arg{local-v}*@arg{local-mat}*@arg{local-u} and
 @arg{local-v}*@arg{local-rhs} is computed.  This feature may be used later
 on for implementing matrixless computations.
@@ -4103,13 +4811,13 @@ coordinate of a sub-cell of a reference cell.
 
 Direct slots:
 @itemize
-@item INDEX: index of the dof in the cell-dof array
-@item SUBCELL-INDEX: index of the reference subcell on which the dof is defined
-@item IN-VBLOCK-INDEX: index of the dof in the subcell vblock
-@item SUBCELL: reference subcell on which the dof is defined
-@item COORD: local coordinate of the dof in the reference subcell
-@item GCOORD: global coordinate of the dof on the reference cell
-@item FUNCTIONAL: a functional for functions defined on the reference cell
+@item INDEX: Index of the dof in the cell-dof array
+@item SUBCELL: Reference subcell on which the dof is defined
+@item SUBCELL-INDEX: Index of the reference subcell on which the dof is defined
+@item IN-VBLOCK-INDEX: Index of the dof in the subcell vblock
+@item COORD: Local coordinate of the dof in the reference subcell
+@item GCOORD: Global coordinate of the dof on the reference cell
+@item FUNCTIONAL: A functional for functions defined on the reference cell
 @end itemize
 @end deftp
 
@@ -4129,7 +4837,7 @@ constraints are included in matrix and rhs.
 @end deffn
 
 @anchor{fun-fl.discretization-essential-boundary-constraints}
-@deffn Function ESSENTIAL-BOUNDARY-CONSTRAINTS @var{MSP} @var{ANSATZ-SPACE} &REST @var{ARGS} &KEY @var{LEVEL} @var{WHERE} &ALLOW-OTHER-KEYS
+@deffn Function ESSENTIAL-BOUNDARY-CONSTRAINTS @var{PROBLEM} @var{ANSATZ-SPACE} &KEY @var{LEVEL} @var{WHERE} @var{INTERFACE} @var{LEVEL} @var{WHERE} (@var{WHERE} @var{SURFACE}) &ALLOW-OTHER-KEYS
 @findex ESSENTIAL-BOUNDARY-CONSTRAINTS
 Computation of essential constraints.  Should probably
 be incorporated into the ansatz-space definition.
@@ -4149,6 +4857,13 @@ Finite element discretization for an ansatz space provided on the
 blackboard.
 @end deffn
 
+@anchor{fun-fl.discretization-fe-extraction-information}
+@deffn Function FE-EXTRACTION-INFORMATION @var{FE} @var{INDICES}
+@findex FE-EXTRACTION-INFORMATION
+Computes information for extracting components out of a vector finite
+ element.
+@end deffn
+
 @anchor{fun-fl.discretization-gauss-rule}
 @deffn Function GAUSS-RULE @var{FACTOR-DIMS} @var{S}
 @findex GAUSS-RULE
@@ -4156,38 +4871,38 @@ Returns an s-point Gauss integration rule.
 @end deffn
 
 @anchor{fun-fl.discretization-get-fe}
-@deffn Function GET-FE @var{DISC} @var{CELL}
+@deffn Function GET-FE @var{FE-DISC} @var{CELL}
 @findex GET-FE
 Returns the finite element for the given discretization
 and reference cell.
 @end deffn
 
 @anchor{fun-fl.discretization-get-local-from-global-mat}
-@deffn Function GET-LOCAL-FROM-GLOBAL-MAT @var{CELL} @var{FE} @var{SMAT}
+@deffn Function GET-LOCAL-FROM-GLOBAL-MAT @var{GLOBAL-MAT} @var{CELL} &OPTIONAL @var{DOMAIN-CELL}
 @findex GET-LOCAL-FROM-GLOBAL-MAT
 Maps the region in the global stiffness matrix
-determined by cell and fe to a local matrix array.
+determined by cell to a local matrix array.
 @end deffn
 
 @anchor{fun-fl.discretization-get-local-from-global-vec}
-@deffn Function GET-LOCAL-FROM-GLOBAL-VEC @var{CELL} @var{FE} @var{SVEC}
+@deffn Function GET-LOCAL-FROM-GLOBAL-VEC @var{CELL} @var{GLOBAL-VEC}
 @findex GET-LOCAL-FROM-GLOBAL-VEC
-Maps the region in global-vec determined by cell and fe
-to a local vector.
+Maps the region in global-vec determined by cell to a
+local vector.
 @end deffn
 
 @anchor{fun-fl.discretization-increment-global-by-local-mat}
-@deffn Function INCREMENT-GLOBAL-BY-LOCAL-MAT @var{CELL} @var{FE} @var{SMAT} @var{LOCAL-MAT}
+@deffn Function INCREMENT-GLOBAL-BY-LOCAL-MAT @var{GLOBAL-MAT} @var{LOCAL-MAT} @var{CELL} &OPTIONAL @var{DOMAIN-CELL}
 @findex INCREMENT-GLOBAL-BY-LOCAL-MAT
 Increments the region in global-mat determined by cell
-and fe to the values of local-mat.
+to the values of local-mat.
 @end deffn
 
 @anchor{fun-fl.discretization-increment-global-by-local-vec}
-@deffn Function INCREMENT-GLOBAL-BY-LOCAL-VEC @var{CELL} @var{FE} @var{SVEC} @var{LOCAL-VEC}
+@deffn Function INCREMENT-GLOBAL-BY-LOCAL-VEC @var{CELL} @var{GLOBAL-VEC} @var{LOCAL-VEC}
 @findex INCREMENT-GLOBAL-BY-LOCAL-VEC
 Increments the region in global-vec determined by cell
-and fe to the values of the local vector array.
+to the values of the local vector array.
 @end deffn
 
 @anchor{fun-fl.discretization-interpolation-matrix}
@@ -4200,7 +4915,7 @@ type having a default value @var{*interpolation-type*}.
 @end deffn
 
 @anchor{fun-fl.discretization-ip-gradients}
-@deffn Function IP-GRADIENTS @var{FE} @var{QRULE}
+@deffn Function IP-GRADIENTS @var{FE} @var{OBJ}
 @findex IP-GRADIENTS
 Returns a vector of local gradient matrices for
 @arg{obj} which may be a vector of integration points or a quadrature rule.
@@ -4208,15 +4923,22 @@ Note that this function is memoized using an :around method.
 @end deffn
 
 @anchor{fun-fl.discretization-ip-values}
-@deffn Function IP-VALUES @var{FE} @var{QRULE}
+@deffn Function IP-VALUES @var{FE} @var{OBJ}
 @findex IP-VALUES
 Returns a vector of ip values for @arg{obj} which may
 be a vector of integration points or a quadrature rule.  Note that this
 function is memoized using an :around method.
 @end deffn
 
+@anchor{fun-fl.discretization-lagrange-ansatz-space}
+@deffn Function LAGRANGE-ANSATZ-SPACE @var{PROBLEM} @var{MESH} &KEY (@var{ORDER} 1) (@var{TYPE} @var{UNIFORM})
+@findex LAGRANGE-ANSATZ-SPACE
+A constructor for a problem-dependent Lagrange fe.  Here, the number of
+components may vary with the respective patch.
+@end deffn
+
 @anchor{fun-fl.discretization-lagrange-fe}
-@deffn Function LAGRANGE-FE @var{ORDER} &KEY @var{NR-COMPS} (@var{TYPE} @var{UNIFORM})
+@deffn Function LAGRANGE-FE @var{ORDER} &KEY (@var{NR-COMPS} 1) (@var{TYPE} @var{UNIFORM})
 @findex LAGRANGE-FE
 Constructor for Lagrange fe.
 @end deffn
@@ -4232,12 +4954,6 @@ by interpolating the boundary map via Lagrange interpolation.
 @deffn Function LOCAL-IMATRIX @var{RULE} @var{FE} &OPTIONAL (@var{TYPE} @var{LOCAL})
 @findex LOCAL-IMATRIX
 Memoized call of compute-local-imatrix.
-@end deffn
-
-@anchor{fun-fl.discretization-local-offset}
-@deffn Function LOCAL-OFFSET @var{FE}
-@findex LOCAL-OFFSET
-Reader for the local-offset of this component in the local cell vector.
 @end deffn
 
 @anchor{fun-fl.discretization-local-pmatrix}
@@ -4259,15 +4975,30 @@ Deprecated.
 @end deffn
 
 @anchor{fun-fl.discretization-make-fe-ansatz-space}
-@deffn Function MAKE-FE-ANSATZ-SPACE @var{FE-CLASS} @var{PROBLEM} @var{MESH} &OPTIONAL @var{MULTIPLICITY}
+@deffn Function MAKE-FE-ANSATZ-SPACE @var{FE-CLASS} @var{PROBLEM} @var{MESH}
 @findex MAKE-FE-ANSATZ-SPACE
-<ansatz-space> constructor.  Somewhat shorter than with MAKE-INSTANCE.
+Constructor of @class{<ansatz-space>}.
 @end deffn
 
-@anchor{fun-fl.discretization-nr-of-components}
-@deffn Function NR-OF-COMPONENTS @var{MSFE}
-@findex NR-OF-COMPONENTS
-Returns the number of components for @arg{problem}.
+@anchor{fun-fl.discretization-make-local-mat}
+@deffn Function MAKE-LOCAL-MAT @var{AS1} @var{CELL1} &OPTIONAL (@var{AS2} @var{AS1}) (@var{CELL2} @var{CELL1})
+@findex MAKE-LOCAL-MAT
+Generates a local matrix discretization for the given ansatz-space(s).
+@end deffn
+
+@anchor{fun-fl.discretization-make-local-vec}
+@deffn Function MAKE-LOCAL-VEC @var{ANSATZ-SPACE} @var{CELL}
+@findex MAKE-LOCAL-VEC
+Generates a local vector for local discretization.
+@end deffn
+
+@anchor{fun-fl.discretization-multiple-evaluate-local-fe}
+@deffn Function MULTIPLE-EVALUATE-LOCAL-FE @var{LOCAL-VEC} @var{SHAPE-VALUES}
+@findex MULTIPLE-EVALUATE-LOCAL-FE
+Evaluates the vector given in @arg{local-vec} at multiple points.  Here
+@arg{local-vec} should be a data vector obtained with
+@function{get-local-from-global-vec} and @arg{ip-values} should be a vector
+obtained from @function{ip-values}.
 @end deffn
 
 @anchor{fun-fl.discretization-projection-matrix}
@@ -4299,24 +5030,31 @@ Returns a representative for this object.
 @end deffn
 
 @anchor{fun-fl.discretization-select-discretization}
-@deffn Function SELECT-DISCRETIZATION @var{MSP} @var{BLACKBOARD}
+@deffn Function SELECT-DISCRETIZATION @var{PROBLEM} @var{BLACKBOARD}
 @findex SELECT-DISCRETIZATION
 Select a discretization for the given @var{problem}
 depending on the parameters on the @var{blackboard}.
 @end deffn
 
 @anchor{fun-fl.discretization-set-global-to-local-mat}
-@deffn Function SET-GLOBAL-TO-LOCAL-MAT @var{CELL} @var{FE} @var{SMAT} @var{LOCAL-MAT}
+@deffn Function SET-GLOBAL-TO-LOCAL-MAT @var{GLOBAL-MAT} @var{LOCAL-MAT} @var{CELL} &OPTIONAL @var{DOMAIN-CELL}
 @findex SET-GLOBAL-TO-LOCAL-MAT
-Sets the region in global-mat determined by cell and fe
-to the values of the local matrix array.
+Sets the region in global-mat determined by cell to the
+values of the local matrix array.
 @end deffn
 
 @anchor{fun-fl.discretization-set-global-to-local-vec}
-@deffn Function SET-GLOBAL-TO-LOCAL-VEC @var{CELL} @var{FE} @var{SVEC} @var{LOCAL-VEC}
+@deffn Function SET-GLOBAL-TO-LOCAL-VEC @var{CELL} @var{GLOBAL-VEC} @var{LOCAL-VEC}
 @findex SET-GLOBAL-TO-LOCAL-VEC
-Sets the region in global-vec determined by cell and fe
-to the values of the local vector array.
+Sets the region in global-vec determined by cell to the
+values of the local vector array.
+@end deffn
+
+@anchor{fun-fl.discretization-special-ansatz-space-vector}
+@deffn Function SPECIAL-ANSATZ-SPACE-VECTOR @var{ANSATZ-SPACE} &OPTIONAL (@var{TYPE} @var{RANDOM}) (@var{VALUE} 1.0)
+@findex SPECIAL-ANSATZ-SPACE-VECTOR
+Returns a ansatz space vector for @arg{ansatz-space} filled with
+constant or random entries.  Essential constraints are satisfied.
 @end deffn
 
 @anchor{fun-fl.discretization-subcell-offsets}
@@ -4333,30 +5071,13 @@ in a sparse vector value block corresponding to the subcell.
 Builds a transfer matrix from domain-as to image-as.
 @end deffn
 
-@node Package FL.CDR-FE, Package FL.ELLSYS-FE, Package FL.DISCRETIZATION, Reference manual
-@section Package FL.CDR-FE
-
-This package specializes the finite element
-discretization for convection-diffusion-reaction problems.
-
-It can handle the following equation:
-
-@math{- partial_i (K_{ij} (partial_j u + g_j) + partial_i (c_i u) + r u = f}
-
-Here, @math{K} is the diffusion tensor, @math{c} is the convection vector,
-@math{r} is the reaction coefficient, @math{f} is the source function, and
-@math{g} is a distributional source.
-
-@node Package FL.ELLSYS-FE, Package FL.ELASTICITY-FE, Package FL.CDR-FE, Reference manual
+@node Package FL.ELLSYS-FE, Package FL.ELASTICITY-FE, Package FL.DISCRETIZATION, Reference manual
 @section Package FL.ELLSYS-FE
 
-Finite element discretization of an elliptic system, see
-the description in the ELLSYS package.  The result is a local matrix A and
-local rhs b.  They will usually depend on u_old which is stored in the
-solution vector.
-
-This discretization is a unification of scalar and elasticity
-discretization, and might replace those later on.
+Finite element discretization of a general second order
+elliptic system, see the description in the ELLSYS package.  The result is
+a local matrix A and local rhs b.  They will usually depend on u_old which
+is stored in the solution vector.
 
 @node Package FL.ELASTICITY-FE, Package FL.NAVIER-STOKES-FE, Package FL.ELLSYS-FE, Reference manual
 @section Package FL.ELASTICITY-FE
@@ -4375,7 +5096,7 @@ generalized Taylor hood elements.
 @anchor{fun-fl.navier-stokes-fe-navier-stokes-lagrange-fe}
 @deffn Function NAVIER-STOKES-LAGRANGE-FE @var{ORDER} @var{DIM} @var{DELTA}
 @findex NAVIER-STOKES-LAGRANGE-FE
-Returns a generalized Tylor-Hood element @math{(Q^{k+delta})^d/Q^k} of
+Returns a generalized Taylor-Hood element @math{(Q^{k+delta})^d/Q^k} of
 order @math{k} in dimension @math{d}.
 @end deffn
 
@@ -4424,7 +5145,7 @@ Superclasses: <LINEAR-ITERATION>
 
 Direct slots:
 @itemize
-@item PRECONDITIONER: NIL
+@item PRECONDITIONER: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -4439,7 +5160,7 @@ Superclasses: <LINEAR-ITERATION>
 Direct slots:
 @itemize
 @item INNER-ITERATION: Iteration which is used to solve for each block.
-@item ORDERING: NIL
+@item ORDERING: Self-explanatory.
 @item STORE-P: T if diagonal can be stored.
 @end itemize
 @end deftp
@@ -4453,7 +5174,7 @@ Superclasses: <LINEAR-ITERATION>
 
 Direct slots:
 @itemize
-@item PRECONDITIONER: NIL
+@item PRECONDITIONER: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -4484,8 +5205,8 @@ slot.
 
 Direct slots:
 @itemize
-@item DOMAIN-DIMENSION: NIL
-@item IMAGE-DIMENSION: NIL
+@item DOMAIN-DIMENSION: Self-explanatory.
+@item IMAGE-DIMENSION: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -4515,9 +5236,9 @@ Superclasses: <LINEAR-ITERATION>
 
 Direct slots:
 @itemize
-@item OMEGA: NIL
-@item ETA: NIL
-@item ORDERING: NIL
+@item OMEGA: Self-explanatory.
+@item ETA: Self-explanatory.
+@item ORDERING: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -4576,7 +5297,8 @@ e.g. <gauss-seidel> or <multigrid>.
 
 Direct slots:
 @itemize
-@item DAMP: NIL
+@item DAMP: Self-explanatory.
+@item STORE-P: Store decomposition for multiple applications.
 @end itemize
 @end deftp
 
@@ -4599,11 +5321,6 @@ Direct slots:
 A linear iteration interface for the LU exact solver.
 
 Superclasses: <LINEAR-ITERATION>
-
-Direct slots:
-@itemize
-@item STORE-P: Store decomposition for multiple applications.
-@end itemize
 @end deftp
 
 @anchor{class-fl.iteration-<multi-iteration>}
@@ -4649,6 +5366,7 @@ Superclasses: <LINEAR-SOLVER>
 Direct slots:
 @itemize
 @item FALLBACK: The fallback iteration.
+@item FALLBACK-P: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -4662,7 +5380,7 @@ Superclasses: <ITERATIVE-SOLVER>
 
 Direct slots:
 @itemize
-@item SOLVER-FUNCTION: NIL
+@item SOLVER-FUNCTION: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -4675,12 +5393,18 @@ Superclasses: <BLOCK-ITERATION>
 
 Direct slots:
 @itemize
-@item OMEGA: NIL
+@item OMEGA: Self-explanatory.
 @end itemize
 @end deftp
 
+@anchor{fun-fl.iteration-blocks}
+@deffn Function BLOCKS @var{VEC}
+@findex BLOCKS
+Returns a dictionary mapping keys to entries for @arg{vec}.
+@end deffn
+
 @anchor{fun-fl.iteration-evaluate}
-@deffn Function EVALUATE @var{DOF} @var{FE-FUNC}
+@deffn Function EVALUATE @var{F} @var{X}
 @findex EVALUATE
 Generic evaluation of functions on an argument.  Numbers and
 arrays are treated as constants.  Special evaluation is defined for multivariate
@@ -4688,25 +5412,25 @@ polynomials on vectors and for <function> objects.
 @end deffn
 
 @anchor{fun-fl.iteration-evaluate-gradient}
-@deffn Function EVALUATE-GRADIENT @var{POLYGON} @var{S}
+@deffn Function EVALUATE-GRADIENT @var{F} @var{X}
 @findex EVALUATE-GRADIENT
 Generic evaluation of gradients of differentiable functions.
 @end deffn
 
 @anchor{fun-fl.iteration-finally}
-@deffn Function FINALLY @var{ITSOLVE} @var{BLACKBOARD}
+@deffn Function FINALLY @var{ITER} @var{BLACKBOARD}
 @findex FINALLY
 Performs final operations.
 @end deffn
 
 @anchor{fun-fl.iteration-initially}
-@deffn Function INITIALLY @var{ROTHE} @var{BLACKBOARD}
+@deffn Function INITIALLY @var{ITER} @var{BLACKBOARD}
 @findex INITIALLY
 Performs initial operations.
 @end deffn
 
 @anchor{fun-fl.iteration-intermediate}
-@deffn Function INTERMEDIATE @var{ROTHE} @var{BLACKBOARD}
+@deffn Function INTERMEDIATE @var{ITER} @var{BLACKBOARD}
 @findex INTERMEDIATE
 Is called after initialization and after each step.
 @end deffn
@@ -4737,14 +5461,14 @@ LU decomposition without pivoting.
 @end deffn
 
 @anchor{fun-fl.iteration-make-iterator}
-@deffn Function MAKE-ITERATOR @var{S1-CGIT} @var{A}
+@deffn Function MAKE-ITERATOR @var{LINIT} @var{MAT}
 @findex MAKE-ITERATOR
 Constructs an iterator object given a linear iteration
 and a matrix.
 @end deffn
 
 @anchor{fun-fl.iteration-next-step}
-@deffn Function NEXT-STEP @var{ROTHE} @var{BLACKBOARD}
+@deffn Function NEXT-STEP @var{ITER} @var{BLACKBOARD}
 @findex NEXT-STEP
 Does a step of the iteration.
 @end deffn
@@ -4756,7 +5480,7 @@ Returns an iterator which does several steps of the given iterator.
 @end deffn
 
 @anchor{fun-fl.iteration-setup-blocks}
-@deffn Function SETUP-BLOCKS @var{VANKA} @var{ASA}
+@deffn Function SETUP-BLOCKS @var{BLOCKIT} @var{MATRIX}
 @findex SETUP-BLOCKS
 Setup routine for determining the blocking of unknowns.
 Returns a list of blocks where each block is a vector of keys.  May return
@@ -4766,7 +5490,7 @@ components.
 @end deffn
 
 @anchor{fun-fl.iteration-terminate-p}
-@deffn Function TERMINATE-P @var{FE-STRATEGY} @var{BLACKBOARD}
+@deffn Function TERMINATE-P @var{ITER} @var{BLACKBOARD}
 @findex TERMINATE-P
 Tests terminating conditions.  Returns either NIL or
 :success or :failure.
@@ -4815,14 +5539,14 @@ Superclasses: <LINEAR-ITERATION>
 
 Direct slots:
 @itemize
-@item PRE-SMOOTHER: NIL
-@item PRE-STEPS: NIL
-@item POST-SMOOTHER: NIL
-@item POST-STEPS: NIL
-@item GAMMA: NIL
-@item BASE-LEVEL: NIL
-@item COARSE-GRID-ITERATION: NIL
-@item FMG: NIL
+@item PRE-SMOOTHER: Self-explanatory.
+@item PRE-STEPS: Self-explanatory.
+@item POST-SMOOTHER: Self-explanatory.
+@item POST-STEPS: Self-explanatory.
+@item GAMMA: Self-explanatory.
+@item BASE-LEVEL: Self-explanatory.
+@item COARSE-GRID-ITERATION: Self-explanatory.
+@item FMG: Self-explanatory.
 @item COMBINATION: Switch between additive and multiplicative
 combination of corrections from different levels.  The additive version
 should be used as a preconditioner.
@@ -4855,12 +5579,12 @@ Superclasses: <SELECTION-AMG>
 
 Direct slots:
 @itemize
-@item THETA: NIL
+@item THETA: Self-explanatory.
 @end itemize
 @end deftp
 
 @anchor{fun-fl.multigrid-coarse-grid-matrix}
-@deffn Function COARSE-GRID-MATRIX @var{AMG} @var{A} @var{P} @var{R}
+@deffn Function COARSE-GRID-MATRIX @var{AMG} @var{MAT} @var{PROLONGATION} @var{RESTRICTION}
 @findex COARSE-GRID-MATRIX
 Computes a coarse-grid matrix from amg, mat,
 prolongation and restriction.
@@ -4891,7 +5615,7 @@ avoiding generic arithmetic.
 @end deffn
 
 @anchor{fun-fl.multigrid-multilevel-decomposition}
-@deffn Function MULTILEVEL-DECOMPOSITION @var{MGIT} @var{MAT}
+@deffn Function MULTILEVEL-DECOMPOSITION @var{MG-IT} @var{A}
 @findex MULTILEVEL-DECOMPOSITION
 The central generic function constructing the multilevel
 hierarchy.
@@ -4919,7 +5643,7 @@ prolongation.
 @end deffn
 
 @anchor{fun-fl.multigrid-select-smoother}
-@deffn Function SELECT-SMOOTHER @var{MGIT} @var{MSP}
+@deffn Function SELECT-SMOOTHER @var{MG-IT} @var{MATRIX}
 @findex SELECT-SMOOTHER
 Select a suitable smoother depending on multigrid
 iteration and matrix.
@@ -5122,10 +5846,10 @@ Superclasses: <REFINEMENT-INDICATOR>
 
 Direct slots:
 @itemize
-@item FRACTION: NIL
-@item PIVOT-FACTOR: NIL
-@item FROM-LEVEL: NIL
-@item BLOCK-P: NIL
+@item FRACTION: Self-explanatory.
+@item PIVOT-FACTOR: Self-explanatory.
+@item FROM-LEVEL: Self-explanatory.
+@item BLOCK-P: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -5151,7 +5875,7 @@ neighboring cells does not become larger than a factor of 4.
 
 Direct slots:
 @itemize
-@item ENSURE-MESH-QUALITY: NIL
+@item ENSURE-MESH-QUALITY: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -5164,7 +5888,7 @@ Superclasses: <REFINEMENT-INDICATOR>
 
 Direct slots:
 @itemize
-@item IN-REGION: NIL
+@item IN-REGION: Self-explanatory.
 @end itemize
 @end deftp
 
@@ -5182,12 +5906,12 @@ Superclasses: <ITERATION>
 Direct slots:
 @itemize
 @item MODEL-TIME: Current time in the time-stepping scheme.
-@item TIME-STEP: NIL
+@item TIME-STEP: Self-explanatory.
 @item SCHEME: Time-stepping scheme,
 e.g. @code{:implicit-euler} or @code{:crank-nicolson}.
-@item STATIONARY-SUCCESS-IF: NIL
-@item STATIONARY-FAILURE-IF: NIL
-@item PLOT: NIL
+@item STATIONARY-SUCCESS-IF: Self-explanatory.
+@item STATIONARY-FAILURE-IF: Self-explanatory.
+@item PLOT: Self-explanatory.
 @item OBSERVE: Providing initform for <iteration> slot.
 @end itemize
 @end deftp
@@ -5202,7 +5926,7 @@ Superclasses: <FE-APPROXIMATION>
 
 Direct slots:
 @itemize
-@item OBSERVE: NIL
+@item OBSERVE: Self-explanatory.
 @item SOLVER: The solver for solving the discretized systems.
 @end itemize
 @end deftp
@@ -5225,7 +5949,7 @@ Superclasses: <REFINEMENT-INDICATOR>
 @end deftp
 
 @anchor{fun-fl.strategy-estimate}
-@deffn Function ESTIMATE @var{ERREST} @var{BLACKBOARD}
+@deffn Function ESTIMATE @var{ERROR-ESTIMATOR} @var{BLACKBOARD}
 @findex ESTIMATE
 Yields both local and global estimate.
 @end deffn
@@ -5250,27 +5974,27 @@ Default graphics program.
 @end defvr
 
 @anchor{fun-fl.graphic-graphic-commands}
-@deffn Function GRAPHIC-COMMANDS @var{ASA} @var{PROGRAM} &ALLOW-OTHER-KEYS
+@deffn Function GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY (@var{LINEWIDTH} 1) &ALLOW-OTHER-KEYS
 @findex GRAPHIC-COMMANDS
 Returns commands for plotting to be sent to the graphics
 program.
 @end deffn
 
 @anchor{fun-fl.graphic-graphic-file-name}
-@deffn Function GRAPHIC-FILE-NAME @var{OBJECT} @var{PROGRAM} &ALLOW-OTHER-KEYS
+@deffn Function GRAPHIC-FILE-NAME @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY @var{SYSTEM-P} &ALLOW-OTHER-KEYS
 @findex GRAPHIC-FILE-NAME
 Return a filename for the data of this plot.
 @end deffn
 
 @anchor{fun-fl.graphic-graphic-write-data}
-@deffn Function GRAPHIC-WRITE-DATA @var{STREAM} @var{ASA} @var{PROGRAM} &KEY @var{DIMENSION} &ALLOW-OTHER-KEYS
+@deffn Function GRAPHIC-WRITE-DATA @var{STREAM} @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY @var{TRANSFORMATION} (@var{DEPTH} 0) @var{SHAPE} (@var{RANK} 0) @var{CELL->VALUES} @var{CELLS} @var{PART} @var{DIMENSION} &ALLOW-OTHER-KEYS
 @findex GRAPHIC-WRITE-DATA
 Write the data file for @arg{program} to
 @arg{stream}.
 @end deffn
 
 @anchor{fun-fl.graphic-send-graphic-commands}
-@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{PARAS} &KEY (@var{OUTPUT} "gnuplot.ps") (@var{TERMINAL} "x11") (@var{TICS} @var{T}) (@var{BORDER} @var{T}) @var{BOTTOM} @var{TOP} @var{RIGHT} @var{LEFT} &ALLOW-OTHER-KEYS
+@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY (@var{WINDOW} "femlisp-image") @var{FILENAME} @var{FORMAT} (@var{HEIGHT} 480) (@var{WIDTH} 480) (@var{RESOLUTION} 480) (@var{BACKGROUND} @var{BLACK}) @var{DIMENSION} (@var{OUTPUT} "gnuplot.ps") (@var{TERMINAL} "x11") (@var{TICS} @var{T}) (@var{BORDER} @var{T}) @var{BOTTOM} @var{TOP} @var{RIGHT} @var{LEFT} &ALLOW-OTHER-KEYS
 @findex SEND-GRAPHIC-COMMANDS
 Routine for sending commands to the graphics server.
 @end deffn
@@ -5284,7 +6008,7 @@ plot several types of objects, e.g. cells, meshes, finite element and
 coefficient functions.
 
 @anchor{fun-fl.plot-plot}
-@deffn Function PLOT @var{ASA} &REST @var{REST} &ALLOW-OTHER-KEYS
+@deffn Function PLOT @var{OBJECT} &KEY @var{TRANSFORMATION} @var{PART} @var{SHAPE} (@var{RANK} 0) @var{KEY} (@var{COMPONENT} 0) (@var{INDEX} 0) @var{DEPTH} @var{CELLS} @var{COEFFICIENT} (@var{REFINEMENTS} 0) @var{PARAMETRIC} @var{DOMAIN} @var{MESH} &ALLOW-OTHER-KEYS
 @findex PLOT
 Plot is a generic function which dispatches depending on
 the type of object it receives.  Its behaviour can additionally be modified
@@ -5394,7 +6118,8 @@ enhanced domain approximation.
 @anchor{fun-fl.domains-patch-in-inlay-p}
 @deffn Function PATCH-IN-INLAY-P @var{PATCH}
 @findex PATCH-IN-INLAY-P
-Checks if the patch is part of the inlay including its boundary.
+Checks if the patch is part of the inlay including its boundary.  This
+is done by checking if all corners lie in the interior of the unit cell.
 @end deffn
 
 @anchor{fun-fl.domains-patch-on-inner-boundary-p}
@@ -5427,4 +6152,23 @@ Boundary which is interpolated from heights.
 
 This package uses most other Femlisp packages.  It is
 meant to be the package a Femlisp user works in.
+
+@anchor{var-fl.application-*result*}
+@defvr Variable *RESULT*
+@vindex *RESULT*
+Special variable used for storing the blackbboard of the last
+computation.
+@end defvr
+
+@anchor{fun-fl.application-quit}
+@deffn Function QUIT 
+@findex QUIT
+Quits Femlisp.
+@end deffn
+
+@anchor{macro-fl.application-storing}
+@deffn Macro STORING &BODY @var{BODY}
+@findex STORING
+Stores the result of @arg{body} in @var{*result*}.
+@end deffn
 

@@ -24,6 +24,8 @@ Common Lisp
 @alias package = code
 @alias arg = var
 @alias function = code
+@alias func = code
+@alias mac = code
 @alias symbol = code
 @alias class = symbol
 @alias type = symbol
@@ -31,9 +33,15 @@ Common Lisp
 @alias path = file
 @alias program = file
 
-@set EDITION 0.6
-@set VERSION 0.9.9
-@set UPDATED 26 August 2006
+@macro slisp{code}
+@lisp
+\code\
+@end lisp
+@end macro
+
+@set EDITION 0.7
+@set VERSION 0.9.10
+@set UPDATED 10 March 2010
 
 @c for install-info
 @dircategory Math
@@ -52,7 +60,7 @@ Copyright @copyright{} 2006 Nicolas Neuss, University of Karlsruhe.
 This is Version @value{EDITION} of the @femlisp{} manual, last updated
 @value{UPDATED}, for @femlisp{} @value{VERSION}.
 
-Copyright @copyright{} 2005 Nicolas Neuss.
+Copyright @copyright{} 2005-2010 Nicolas Neuss.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -93,6 +101,7 @@ equations.
 * First steps::                 
 * Programming techniques::      
 * Overview::                    
+* FAQ::                         
 * Reference manual::            
 * Copyright::                   
 * Bibliography::                
@@ -100,6 +109,12 @@ equations.
 
 @detailmenu
  --- The Detailed Node Listing ---
+
+Introduction, Installation, Top, Top
+
+* Tools for solving PDEs::      
+* Common Lisp::                 
+* Advantages::                  
 
 Installation
 
@@ -151,6 +166,22 @@ Programming techniques
 * Blackboards::                 
 * Documentation::               
 
+Overview
+
+* Features::                    
+* Structure::                   
+
+FAQ
+
+* Installation and Getting Started::  
+* Mesh Management::             
+* Linear Algebra::              
+* Problems::                    
+* Discretization::              
+* Solvers::                     
+* Parallelization::             
+* General::                     
+
 Reference manual
 
 * Package FL.UTILITIES::        
@@ -163,7 +194,6 @@ Reference manual
 * Package FL.ALIEN::            
 * Package FL.MULTIPROCESSING::  
 * Package FL.MATLISP::          
-* Package FL.ALGEBRA::          
 * Package FL.FUNCTION::         
 * Package FL.MESH::             
 * Package FL.PROBLEM::          
@@ -171,9 +201,7 @@ Reference manual
 * Package FL.ELLSYS::           
 * Package FL.ELASTICITY::       
 * Package FL.NAVIER-STOKES::    
-* Package FL.CDRSYS::           
 * Package FL.DISCRETIZATION::   
-* Package FL.CDR-FE::           
 * Package FL.ELLSYS-FE::        
 * Package FL.ELASTICITY-FE::    
 * Package FL.NAVIER-STOKES-FE::  
@@ -194,6 +222,7 @@ Reference manual
 @include starter.texinfo
 @include programming-techniques.texinfo
 @include overview.texinfo
+@include FAQ.texinfo
 @include reference-manual.texinfo
 @include copyright.texinfo
 @include bibliography.texinfo

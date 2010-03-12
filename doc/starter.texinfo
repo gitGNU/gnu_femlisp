@@ -47,14 +47,14 @@ solution has increased beyond 20 seconds.
 
 @lisp
 (let ((problem (cdr-model-problem (n-cube-domain 2)
-                  :source #'(lambda (x) #I(exp(x[0]+x[1]))))))
-  (defparameter *result*
-     (solve (blackboard :problem problem :success-if '(> :time 20)))))
+                :source #'(lambda (x) #I(exp(x[0]+x[1]))))))
+  (storing
+    (solve (blackboard :problem problem :success-if '(> :time 20)))))
 @end lisp
 
-The result of the call to @function{solve} is a blackboard which we
-saved in the global variable @var{*result*} for later reference.  We
-can extract items from there using the function @code{getbb}, e.g. for
+The result of the call to @function{solve} is a blackboard which we is
+saved in the global variable @var{*result*} for later reference.  We can
+extract items from there using the function @code{getbb}, e.g. for
 plotting the solution:
 @lisp
 (plot (getbb *result* :solution))
@@ -71,15 +71,14 @@ refined mesh using as termination criterion that the time for
 approximating the solution has increased beyond 20 seconds.
 
 @lisp
-(defparameter *result*
-   (solve (blackboard :problem (bratu-problem 2) 
-                      :success-if '(> :time 20) :output :all)))
+(storing (solve (blackboard :problem (bratu-problem 2) 
+                            :success-if '(> :time 20) :output :all)))
 @end lisp
 
-Again, the result of the call to @function{solve} is a blackboard
-which we saved in the global variable @var{*result*} for later
-reference.  It is interesting to study the actual definition of the
-Bratu problem in the function @function{bratu-problem}.
+Again, the result of the call to @function{solve} is a blackboard which
+is saved in the global variable @var{*result*} for later reference.  It
+is interesting to study the actual definition of the Bratu problem in
+the function @function{bratu-problem}.
 
 @node Elasticity problem, Navier-Stokes problem, Nonlinear diffusion problem, Solving problems
 @subsection Elasticity problem
@@ -97,11 +96,10 @@ for approximating the solution has increased beyond 20 seconds.
 (let* ((problem
         (elasticity-model-problem
          (n-cube-domain 2) :lambda 1.0 :mu 1.0
-         :force (vector #m(1.0) #m(0.0))))
-       (blackboard
-        (blackboard :problem problem :output t
-                    :success-if '(> :time 20.0))))
-  (defparameter *result* (solve blackboard)))
+         :force (vector #m(1.0) #m(0.0)))))
+  (storing
+    (solve (blackboard :problem problem :output t
+                       :success-if '(> :time 20.0)))))
 @end lisp
 
 @lisp
@@ -128,11 +126,11 @@ number 10.  During the approximation the velocity components at the
 midpoint @math{(0.5,0.5)} are printed.
 
 @verbatim
-(defparameter *result*
+(storing
   (solve 
    (blackboard
     :problem (driven-cavity 2 :reynolds 10.0) :base-level 0
-    :success-if '(> :time 20.0) :output t :observe
+    :success-if '(> :time 40.0) :output t :observe
     (append *stationary-fe-strategy-observe*
 	    (list
 	     (list (format nil "~{                 u~1D~}" '(1 2))
@@ -140,9 +138,23 @@ midpoint @math{(0.5,0.5)} are printed.
 		   #'(lambda (blackboard)
 		       (let ((val (fe-value (getbb blackboard :solution)
                                     #d(0.5 0.5))))
-			 (loop for i below dim collect
+			 (loop for i below 2 collect
 			      (vref (aref val i) 0))))))))))
 @end verbatim
+
+@lisp
+(plot (getbb *result* :solution))
+@end lisp
+now plots the x-component of the solution, whereas 
+@lisp
+(plot (getbb *result* :solution) :component 1)
+@end lisp
+plots the y-component.
+
+A vector plot can be achieved using
+@lisp
+(plot (getbb *result* :solution) :component 'fl.navier-stokes::u :rank 1 :shape 2)
+@end lisp
 
 @node Heat equation, Eigenvalue problems, Navier-Stokes problem, Solving problems
 @subsection Heat equation

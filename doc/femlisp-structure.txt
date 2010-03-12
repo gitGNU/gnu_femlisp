@@ -16,8 +16,8 @@
    ITERATION   |             |   /    |
           \    |             |  /     |   
            \   |             | /      |    
-            ALGEBRA        MESH    GRAPHIC
-              |             |         |   
+            \  |            MESH    GRAPHIC
+             \ |            |         |   
               +-------------+---------+
               |             |         |    
             MACROS      UTILITIES   MATLISP

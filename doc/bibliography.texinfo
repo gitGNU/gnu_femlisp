@@ -32,7 +32,7 @@ J. Matrix Anal. Appl. 20, 1999, pp. 720-755.
 @item (Fateman)
 R. Fateman: @emph{Software fault prevention by language choice: why C is
 not my favorite language}.
-@url{http://www.cs.berkeley.edu/fateman/software.pdf}.
+@url{http://www.cs.berkeley.edu/~fateman/papers/software.pdf}.
 
 @item (Fateman et al, 1995)
 R. Fateman, K. A. Broughan, D. K. Willcock, and D. Rettig: @emph{Fast

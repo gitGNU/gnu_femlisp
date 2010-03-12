@@ -1,17 +1,27 @@
-@node Overview, Reference manual, Programming techniques, Top
+@node Overview, FAQ, Programming techniques, Top
 @chapter Overview
+
+@menu
+* Features::                    
+* Structure::                   
+@end menu
+
+@node Features, Structure, Overview, Overview
+@section Features
 
 In brief, @femlisp{} has the following features:
 
 @itemize @bullet
 @item Unstructured grids in arbitrary space dimensions @math{n \geq 0}.
-Cells can be arbitrary products of simplices.
-@item Isoparametric and non-parametric element mappings
-@item Local grid refinement
+@item Cells can be arbitrary products of simplices.
+@item Isoparametric and non-parametric cells
 @item Lagrange finite elements of arbitrary order
-@item Several types of PDEs are already implemented:
+@item Local and anisotropic mesh refinement
+@item Coupled problems on different-dimensional domain parts
+@item General variational formulation of PDE systems 
+@item Several special PDE types:
 @itemize
-@item Convection-diffusion-reaction equations
+@item Convection-diffusion-reaction
 @item Elasticity
 @item Navier-Stokes
 @end itemize
@@ -21,6 +31,9 @@ Cells can be arbitrary products of simplices.
 @item Graphics (using @emph{Data Explorer}, @emph{Gnuplot})
 @item Interactive environment
 @end itemize
+
+@node Structure,  , Features, Overview
+@section Structure
 
 The following picture shows the internal structure of @femlisp{} which
 consists of several modules.  In the figure, the module dependency is
@@ -35,18 +48,16 @@ The @femlisp{} modules can be roughly ordered in levels.  The lowest
 level consists of the three modules @package{MACROS},
 @package{UTILITIES}, and @package{MATLISP}.  @package{MACROS} and
 @module{UTILITIES} extend CL with some useful macro and function
-definitions, while @module{MATLISP} contains a Common Lisp
-implementation of some BLAS and LAPACK routines which is similar to
-@emph{Matlisp}, see @cite{Matlisp}.
+definitions, while @module{MATLISP} contains on the one hand a Common
+Lisp implementation of some BLAS and LAPACK routines which is similar to
+@emph{Matlisp}, see @cite{Matlisp}, on the other hand routines for
+handling sparse matrices and vectors.
 
-The second level consists of the modules @module{ALGEBRA},
-@module{MESH} and @module{GRAPHIC}.  @module{GRAPHIC} provides a
-low-level interface to external graphic software; at the moment both
-IBM's @emph{OpenDX} and @emph{Gnuplot} are supported.
-@module{ALGEBRA} contains the data structures and operations used for
-linear algebra and @module{MESH} contains mesh management including
-domain definitions.  Both the @module{MESH} and @module{ALGEBRA}
-module will be discussed in more detail below.
+The second level consists of the modules @module{MESH} and
+@module{GRAPHIC}.  @module{GRAPHIC} provides a low-level interface to
+external graphic software; at the moment both IBM's @emph{OpenDX} and
+@emph{Gnuplot} are supported.  @module{MESH} contains mesh management
+including domain definitions.
 
 The third level consists of the following modules:
 @enumerate
@@ -83,11 +94,12 @@ are defined in their own packages.
 
 @end enumerate
 
-The fourth level provides another level of abstraction.  It consists
-of the modules @module{STRATEGY} and @module{PLOT}.  @module{STRATEGY}
-provides methods for solving problems by adaptive FEM, and
-@module{PLOT} defines generic functions and methods for
-post-processing (plotting of coefficients, meshes, and functions).
+The fourth level provides another level of abstraction.  It consists of
+the modules @module{STRATEGY} and @module{PLOT}.  @module{STRATEGY}
+provides methods for solving problems by adaptive FEM and also schemes
+for solving time-dependent problems.  @module{PLOT} defines generic
+functions and methods for post-processing (plotting of coefficients,
+meshes, and functions).
 
 The fifth level @module{APPLICATION} has access to a lot of basic
 modules, especially @module{STRATEGY}, @module{DISCRETIZATION}, and
