@@ -5,16 +5,19 @@ Femlisp needs the following more or less urgently:
 
 * Remove the Femlisp-related bugs from the file BUGS
 
+* Graphics: Interface to VTK
+
+* Mesh
+ - interface to 3D mesh generator tetgen
+
 * Discretization
  - submesh fe and associated quadrature rules
  - sparse interpolation/projection matrices
 
-* Mesh
- - interface to 3D mesh generator 
-
 * Linear algebra
  - switch from sparse-matrix to CCS (?)
  - more Krylov-type methods
+ - (maybe): interface to PETSC
 
 * Problem solving
  - more time-stepping schemes
