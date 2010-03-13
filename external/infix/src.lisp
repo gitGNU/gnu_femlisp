@@ -251,13 +251,14 @@
 ;;; ********************************
 
 (defpackage #:infix (:use #-:lucid #:common-lisp
-			  #+:lucid "LISP" #+:lucid "LUCID-COMMON-LISP"))
+			  #+:lucid "LISP" #+:lucid "LUCID-COMMON-LISP")
+            (:export #:test-infix #:string->prefix))
+
 (in-package #:infix)
-(export '(test-infix string->prefix))
 
 (pushnew :infix *features*)
 
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *version* "1.3  28-JUN-96")
   (defparameter *print-infix-copyright* t
     "If non-NIL, prints a copyright notice upon loading this file.")
@@ -291,6 +292,10 @@
 (defparameter *infix-readtable* (copy-readtable nil))
 (defparameter *normal-readtable* (copy-readtable nil))
 
+(defmacro infix-error (format-string &rest args)
+  `(let ((*readtable* *normal-readtable*)) 
+     (error ,format-string ,@args)))
+
 (defun infix-reader (stream subchar arg)
   ;; Read either #I(...) or #I"..."
   (declare (ignore arg subchar))
@@ -318,10 +323,6 @@
       (with-input-from-string (stream (concatenate 'string "#I(" string ")"))
 	(read stream))
       string))
-
-(defmacro infix-error (format-string &rest args)
-  `(let ((*readtable* *normal-readtable*)) 
-     (error ,format-string ,@args)))
 
 (defun read-infix (stream)
   (let* ((result (gather-superiors '\) stream)) ; %infix-end-token%
@@ -515,7 +516,7 @@
 (defun get-token-infix-operator (token)
   (gethash token *token-infix-operator-table*))
 
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro define-token-operator (operator-name &key
 						 (prefix nil prefix-p)
 						 (infix nil infix-p))
@@ -543,7 +544,7 @@
 			      (list infix)))))))))
 
 ;;; Readtable definitions for characters, so that the right token is returned.
-(eval-when (compile load eval)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro define-character-tokenization (char function)
     `(set-macro-character ,char ,function nil *infix-readtable*)))
 
