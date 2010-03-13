@@ -14,20 +14,17 @@ This is a list of known bugs:
   multigrid of Ruge-Stueben type works for equations also in the case of
   local refinement.
 
-* There are some bugs in the Data explorer which have not yet been worked
-  around.  E.g, you cannot assign other colors to plots of 1d fe
-  functions.  And on some systems black lines can appear on plots of
-  some regular meshes.
+* There are some bugs in Data explorer (or in the interface):
 
-* On Windows/Cygwin, the communication with OpenDX does not yet work.  A
-  remedy is to use OpenDX as a separate application on the output file
-  @path{femlisp/images/output.dx}.  This bug may well lie outside of
-  Femlisp, since also "dx -script" in an xterm window does not work.
+  - script mode has problems depending on the "-processors 1" option,
+    sometimes that option has to be provided, sometimes not
 
-* Sometimes the option "-np 1" has to be passed to DX (e.g. with SBCL),
-  sometimes not (CLISP, Clozure CL).
+  - Windows are not closed when terminating the program, but have to be
+    killed separately.
 
-* Terminating a SLIME/Femlisp session where DX or Gnuplot pictures have
-  been shown, the DX or Gnuplot job is not stopped but instead starts to
-  use up a lot of CPU time.
+  - One cannot assign other colors to plots of 1d fe functions.  
+
+  - And on some systems black lines can appear on plots of some regular
+    meshes.
+
 
