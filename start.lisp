@@ -47,9 +47,12 @@
 (or (ignore-errors (require :asdf))
     (load #p"femlisp:external;asdf.lisp"))
 
+(pushnew #p"femlisp:" asdf::*central-registry*)
+
 (let ((asdf::*compile-file-failure-behaviour* :error))
   (asdf:operate 'asdf::load-op :femlisp))
 
 (pushnew :femlisp *features*)
 
 (fl.start:femlisp-banner)
+
