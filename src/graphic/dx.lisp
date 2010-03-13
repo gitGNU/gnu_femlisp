@@ -54,7 +54,7 @@
         (when *dx-pathname*
           (fl.port:run-program
            *dx-pathname*
-	   ;; -processors 1 is apparently needed with SBCL
+	   ;; -processors 1 is apparently needed with opendx-4.4.4
            ;; but unfortunately breaks CLISP
            '("-script" "-cache" "off" "-log" "on"
              "-processors" "1"
