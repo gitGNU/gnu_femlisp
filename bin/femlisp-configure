@@ -3,15 +3,7 @@
 FEMLISP_CL=`which lisp`
 if test -z "$FEMLISP_CL"
 then
-    FEMLISP_CL=`which cmucl`
-fi
-if test -z "$FEMLISP_CL"
-then
     FEMLISP_CL=`which sbcl`
-    if test -n "$FEMLISP_CL"
-	then
-	FEMLISP_CL_TYPE=sbcl
-    fi
 fi
 echo "Enter the path to your CL executable [$FEMLISP_CL]: "
 read input
