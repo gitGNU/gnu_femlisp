@@ -363,5 +363,6 @@
       ((:file "effcoeff")))
      )					; application components
     )					; applications module
+    (:file "finalize" :depends-on ("applications"))
    )					; femlisp modules
   )

@@ -52,7 +52,3 @@
 (let ((asdf::*compile-file-failure-behaviour* :error))
   (asdf:operate 'asdf::load-op :femlisp))
 
-(pushnew :femlisp *features*)
-
-(fl.start:femlisp-banner)
-

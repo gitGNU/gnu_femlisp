@@ -1,15 +1,15 @@
 ;;; -*- mode: lisp; fill-column: 75; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; __FILENAME__.lisp - Sample header for a Femlisp source file
+;;; finalize.lisp - Femlisp setup file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2010 Nicolas Neuss, Karlsruhe Institute of Technology
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
-;;; modification, are permitted provided that the following conditions
-;;; are met:
+;;; modification, are permitted provided that the following conditions are
+;;; met:
 ;;; 
 ;;; 1. Redistributions of source code must retain the above copyright
 ;;; notice, this list of conditions and the following disclaimer.
@@ -32,9 +32,9 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :fl.application)
+(in-package :fl.start)
 
-(file-documentation
- "Note also that for including substantial contributions of someone else
-into Femlisp I will need to ask for adequate permissions.")
+(pushnew :femlisp *features*)
+
+(femlisp-banner)
 
