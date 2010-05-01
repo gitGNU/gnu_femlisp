@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 FEMLISP_CL=`which lisp`
 if test -z "$FEMLISP_CL"

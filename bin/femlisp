@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #PBS -l nodes=1:ppn=2,mem=2gb
 
 if test -z "$FEMLISP_CL"; then
