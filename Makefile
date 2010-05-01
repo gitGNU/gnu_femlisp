@@ -39,7 +39,7 @@ configure:
 	cd bin; ./femlisp-configure
 
 documentation:
-	cd doc; make all
+	cd doc; $(MAKE) all
 
 download_superlu:
 	echo "Downloading SuperLU in femlisp/external."
@@ -48,7 +48,7 @@ download_superlu:
 	tar xzf superlu_3.0.tar.gz; rm -f superlu_3.0.tar.gz;
 
 superlu:
-	cd interface; make superlu
+	cd interface; $(MAKE) superlu
 
 triangle:
 	echo "Installing Triangle in femlisp/external.  Note that Triangle	\
@@ -56,7 +56,7 @@ comes with a separate license which you should read (and accept) before		\
 using it."
 	cd external; mkdir triangle; cd triangle;\
 	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
-	unzip triangle.zip; rm triangle.zip; make triangle
+	unzip triangle.zip; rm triangle.zip; $(MAKE) triangle
 
 tetgen:
 	echo "Installing Tetgen in femlisp/external.  Note that Tetgen	\
@@ -67,7 +67,7 @@ using it."
 	unzip tetgen1.4.0.zip; rm tetgen1.4.0.zip; 
 
 umfpack:
-	cd interface; make umfpack
+	cd interface; $(MAKE) umfpack
 
 femlisp:
 	sh ./bin/femlisp --save-core-and-die
@@ -75,9 +75,9 @@ femlisp:
 clean:
 	rm -f *.x86f *.fasl *.ufasl *.fas? *.fas *.o *.amd64f *.lx32fsl
 	cd bin; rm -f *.core
-	cd doc; make clean;
-	cd src; make clean;
+	cd doc; $(MAKE) clean;
+	cd src; $(MAKE) clean;
 
 cleanall: clean
-	cd external; make clean;
-	cd interface; make clean;
+	cd external; $(MAKE) clean;
+	cd interface; $(MAKE) clean;
