@@ -34,18 +34,9 @@
 
 (in-package :fl.plot)
 
-(defun write-positions (stream position-array &optional (header t))
-  "Write a header and all positions to the stream."
-  (let ((dim (length (elt position-array 0))))
-    (assert (every #'(lambda (pos) (= dim (length pos))) position-array))
-    ;; write positions
-    (when header
-      (format stream "object 1 class array type float rank 1 shape ~D items ~D data follows~%"
-	      dim (length position-array)))
-    (loop for position across position-array do
-	 (loop for coord across position do
-	      (format stream "~G " (float coord 1.0))
-	    finally (terpri stream)))))
+(defun dx-position-header (dim nr-positions)
+   (format nil "object 1 class array type float rank 1 shape ~D items ~D data follows~%"
+           dim nr-positions))
 
 (defparameter *dx-bug-transformation*
   (make-instance '<linear-function>

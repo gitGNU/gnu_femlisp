@@ -49,7 +49,7 @@ times."
   (ensure cells
 	  (cells-of-highest-dim
 	   (or mesh (uniformly-refined-mesh domain refinements :parametric parametric))))
-  (apply #'graphic-output f :dx
+  (apply #'call-next-method f
 	 :dimension (domain-dimension f)
 	 :rank (if (= (image-dimension f) 1) 1 2)
 	 :shape (image-dimension f)

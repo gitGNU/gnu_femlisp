@@ -89,7 +89,7 @@ several solutions if @arg{asv} has multiplicity larger 1."
 			  ((3 4) 2)
 			  (t 3)))))
     ;; (ensure rank (if (and component index) 0 1))
-    (apply #'graphic-output asv :dx
+    (apply #'call-next-method asv
 	   :depth depth
 	   :cells (or cells (plot-cells mesh :part part))
 	   :dimension (plot-dimension dim)

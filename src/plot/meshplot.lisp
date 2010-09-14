@@ -54,7 +54,7 @@
 (defmethod plot ((skel <skeleton>) &rest rest
 		 &key transformation &allow-other-keys)
   (let ((dim (embedded-dimension skel)))
-    (apply #'graphic-output skel :dx
+    (apply #'call-next-method skel
 	   :dimension (plot-dimension dim)
 	   :transformation (or transformation (plot-transformation dim))
 	   rest)))

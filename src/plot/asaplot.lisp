@@ -62,7 +62,7 @@ Display (image);
 |#
 
 (defmethod graphic-write-data (stream (asa <ansatz-space-automorphism>) (program (eql :dx))
-				   &key dimension &allow-other-keys)
+                               &key dimension &allow-other-keys)
   (let ((node-indices (make-hash-table)))
     ;; write positions
     (format stream "object 1 class array type float rank 1 shape ~D items ~D data follows~%"
@@ -90,5 +90,8 @@ Display (image);
   (format stream "end~%"))
 
 (defmethod plot ((asa <ansatz-space-automorphism>) &rest rest)
-  (apply #'graphic-output asa :dx :dimension (dimension (mesh asa)) rest))
+  (apply #'call-next-method asa
+         :dimension (dimension (mesh asa))
+         rest))
+
 

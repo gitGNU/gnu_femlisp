@@ -38,22 +38,28 @@
 ;;;; Public interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric plot (object &key &allow-other-keys)
-  (:documentation "Plot is a generic function which dispatches depending on
-the type of object it receives.  Its behaviour can additionally be modified
-by keyword parameters."))
-
 (defparameter *plot* (if fl.graphic::*dx-pathname* t :message)
   "If set to NIL, plotting is disabled.  If set to :message, a message is
 printed to *trace-output* instead of plotting.")
 
-(defmethod plot :around (object &key &allow-other-keys)
-  "Handles the *plot* parameter."
-  (case *plot*
-    ((t) (call-next-method))
-    (:message (format *trace-output* "~&<Plotting suppressed>~%")))
-  ;; and generally we return the object itself
-  object)
+(defgeneric plot (object &key &allow-other-keys)
+  (:documentation "Plot is a generic function which dispatches depending on
+the type of object it receives.  Its behaviour can additionally be modified
+by keyword parameters.")
+  (:method (object &rest key-args
+            &key (program *default-graphic-program*) &allow-other-keys)
+    "Default method which might be overridden by other, e.g. for preprocessing
+the keyword argument list."
+    (apply #'graphic-output object program key-args))
+  (:method :around (object &key &allow-other-keys)
+           "This around method handles the *plot* parameter and returns the
+object such that specialized methods do not have to care about this."
+           (case *plot*
+             ((t) (call-next-method))
+             (:message (format *trace-output* "~&<Plotting suppressed>~%")))
+           ;; and generally we return the object itself
+           object)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; graphic-write-data
@@ -98,6 +104,11 @@ cell of @arg{cell} as a vector."
   "Returns a suitable hash-table key for the vertex of cell."
   (cons cell local-vtx))
 
+(defun find-local-index (cell local-vtx position-indices)
+  (gethash (make-key cell local-vtx) position-indices))
+(defun (setf find-local-index) (value cell local-vtx position-indices)
+  (setf (gethash (make-key cell local-vtx) position-indices) value))
+
 (defun compute-position-indices (cells depth)
   "Collects all vertices of surface cells into a hash-table and indexes
 them.  When type is :continuous, then the key is the vertex, otherwise the
@@ -123,7 +134,7 @@ this number for the actual cell."
 		(setq vertices (reverse vertices))))
 	    vertices)
 	do
-	  (setf (gethash (make-key cell local-vtx) position-indices)
+	  (setf (find-local-index cell local-vtx position-indices)
 		(incf global-index))))
     position-indices))
 
@@ -141,7 +152,7 @@ this number for the actual cell."
 	       (setq mini-cell (cell->cube mini-cell)))
 	     (push
 	      (mapcar
-	       #'(lambda (local-vtx) (gethash (make-key cell local-vtx) position-indices))
+               (_ (find-local-index cell _ position-indices))
 	       (let ((vertices (vertices mini-cell)))
 		 ;; check orientation, if necessary swap vertices
 		 (if (and (simplex-p mini-cell)
@@ -166,8 +177,7 @@ this number for the actual cell."
 	     (depth (if (numberp depth) depth (funcall depth cell)))
 	     (vertices (refcell-refinement-vertices cell depth)))
 	(dotimes (i (length vertices))
-	  (setf (aref data (gethash (make-key cell (aref vertices i))
-				    position-indices))
+	  (setf (aref data (find-local-index cell (aref vertices i) position-indices))
 		(vref values i)))))
     ;; return data field
     data))
@@ -182,7 +192,7 @@ array."
 	(loop
 	   for local-vtx across (refcell-refinement-vertices cell depth)
 	   do
-	   (setf (aref position-array (gethash (make-key cell local-vtx) position-indices))
+	   (setf (aref position-array (find-local-index cell local-vtx position-indices))
 		 (let ((pos (local->global cell (vertex-position local-vtx))))
 		   (if transformation
 		       (evaluate transformation pos)
@@ -190,4 +200,18 @@ array."
       (dbg :plot "Positions=~A" position-array)
     position-array))
 
+
+(defvar *position-header* 'dx-position-header)
+
+(defun write-positions (stream position-array &optional (header *position-header*))
+  "Write a header and all positions to the stream."
+  (let ((dim (length (elt position-array 0))))
+    (assert (every #'(lambda (pos) (= dim (length pos))) position-array))
+    ;; write positions
+    (when header
+      (format stream (funcall header dim (length position-array))))
+    (loop for position across position-array do
+	 (loop for coord across position do
+	      (format stream "~G " (float coord 1.0))
+	    finally (terpri stream)))))
 

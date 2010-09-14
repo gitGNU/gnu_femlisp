@@ -45,7 +45,8 @@
 handle coefficients depending on finite element functions."
   (ensure mesh (uniformly-refined-hierarchical-mesh
 		(domain problem) refinements :parametric parametric))
-  (apply #'graphic-output problem :dx
+  (apply #'call-next-method
+         problem
 	 :dimension (dimension mesh)
 	 :cells (plot-cells mesh)
 	 :rank rank :shape shape
