@@ -333,6 +333,10 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
            (list* :test-not (or test #'eql)
                   (sans rest :test :test-not))))
 
+(defun filter-if (&rest args)
+  "The positive version of REMOVE-IF-NOT."
+  (apply #'remove-if-not args))
+
 (defun map-product (func list &rest rest-lists)
   "Applies @arg{func} to a product of lists.  Example:
 @lisp
@@ -347,6 +351,11 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 (defun mklist (obj)
   "Wraps @arg{obj} in a list, if it is not already a list."
   (if (listp obj) obj (list obj)))
+
+(defun first-only (list)
+  "Checks if @arg{list} is a singleton and returns its first element."
+  (assert (<= (length list) 1))
+  (first list))
 
 (defun check-properties (place properties)
   "Checks if all of the @arg{properties} are in the property list

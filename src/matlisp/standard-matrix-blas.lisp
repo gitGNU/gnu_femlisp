@@ -344,6 +344,10 @@ nrows and ncols of the given matrices."
 	       (z (ones n n type)))
 	  (dotimes (i 100000)
 	    (gemm! 1.0f0 x y 0.0f0 z))))
+
+  ;;; something special - used in matheum web pages
+  (let ((A (make-instance (standard-matrix 'integer) :content #2a((2 3) (4 5)))))
+    (m* A A))
   )
 
 ;;; (fl.matlisp::test-standard-matrix-blas)

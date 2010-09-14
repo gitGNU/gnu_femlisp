@@ -64,12 +64,16 @@ Remark: The non-symmetric counterpart of this routine is
       (:lower
        (loop for i below n do
 	    (loop for j upto i do
-		 (setf (vref store #I"i+j*(2*n-j-1)/2")
+		 (setf (vref store
+                             ;; #I"i+j*(2*n-j-1)/2"
+                             (+ i (* 1/2 j (- (* 2 n) j 1))))
 		       (mref A i j)))))
       (:upper
        (loop for j below n do
 	    (loop for i upto j do
-		 (setf (vref store #I"i+j*(j+1)/2")
+		 (setf (vref store
+                             ;; #I"i+j*(j+1)/2"
+                             (+ i (* 1/2 j (1+ j))))
 		       (mref A i j))))))))
 
 (defmethod hegv ((A standard-matrix) (B standard-matrix) &optional (job :N))

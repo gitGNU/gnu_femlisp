@@ -122,5 +122,5 @@ software, and you are welcome to redistribute it under certain
 conditions.
 
 You can enter \"(fl.demo:femlisp-demo)\" to get a guided tour
-through Femlisp, and enter \"(quit)\" to leave the program.~%~%"
+through Femlisp.~%~%"
    *femlisp-version*))

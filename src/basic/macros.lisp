@@ -393,11 +393,11 @@ use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
 	      x
 	      (car x)))))
 
-(defmacro chain (arg &body clauses)
+(defmacro chain (arg &body expressions)
   "Anaphoric macro on the symbol _ which allows to express a chain of
 operations."
   `(let ((_ ,arg))
-    ,@(loop for clause in clauses collect `(setq _ ,clause))
+    ,@(loop for expr in expressions collect `(setq _ ,expr))
     _))
 
 (defmacro _ (&body body)
@@ -493,4 +493,6 @@ Arguments are '_', '_1', ..., '_5'."
          (("X" "b") 'B)
          (t 'C)))
 
+  (chain (+ 2 3) (* _ 2) (expt _ _))
+  
   )

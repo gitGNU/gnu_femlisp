@@ -33,6 +33,36 @@
 (in-package :fl.matlisp)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; float scalars
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun float-accuracy (type)
+  (or (if (symbolp type)
+          (case type
+            (single-float 'single-float)
+            (double-float 'double-float))
+          (when (complex-type type)
+            (float-accuracy (second type))))
+      'number))
+
+(defun complex-type (type)
+  (and (listp type) (eq (first type) 'complex)))
+
+(defun float-type-union (type1 type2)
+  (let ((accuracy-1 (float-accuracy type1))
+        (accuracy-2 (float-accuracy type2)))
+    (cond ((eql accuracy-1 'number) 'number)
+          ((eql accuracy-2 'number) 'number)
+          (t (let* ((accuracy
+                     (if (or (eql accuracy-1 'double-float)
+                             (eql accuracy-2 'double-float))
+                         'double-float
+                         'single-float)))
+               (if (or (complex-type type1) (complex-type type2))
+                   (list 'complex accuracy)
+                   accuracy))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; BLAS macros
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -71,7 +101,7 @@ name being the symbol @arg{name}.")
 		    (length template-args)))
 	   (primary-args (subseq template-args 0 pos))
 	   (rest-args (subseq template-args pos)))
-      (let (matrices number-args numbers specialized-class element-type)
+      (let (matrices number-args numbers element-types)
 	(loop for template-arg in primary-args
 	   and actual-arg in actual-args
 	   for arg = (if (consp template-arg)
@@ -80,35 +110,33 @@ name being the symbol @arg{name}.")
 	   do
 	   (cond
 	     ((matrix-p template-arg)
-	      (cond (specialized-class
-		     (unless (eq specialized-class (class-of actual-arg))
-		       (error "Template depends on different classes: ~A <-> ~A."
-                              specialized-class (class-of actual-arg))))
-		    (t
-		     (setq specialized-class (class-of actual-arg))
-		     (setq element-type (element-type actual-arg))))
+	      (push (element-type actual-arg) element-types)
 	      (push arg matrices))
 	     ((number-p template-arg)
 	      (push arg number-args)
 	      (push actual-arg numbers))
 	     ;; otherwise: do nothing
 	     ))
-	(dolist (number numbers)
-	  (unless (subtypep (type-of number) element-type)
-	    (error "Type of number does not fit with element-type.")))
-	`(defmethod
-	     ,name
-	     (,@(loop for arg in primary-args collect
-		     (if (matrix-p arg)
-			 `(,(car arg) ,(class-name specialized-class))
-			 arg))
-	      ,@rest-args)
-	   (declare (type ,element-type ,@number-args))
-	   #+lispworks (declare (optimize (float 0)))
-	   (very-quickly
-	     ,(subst element-type 'element-type
-		     `(macrolet ,blas-macros
-			,@body))))))))
+        (let ((element-type (reduce #'float-type-union element-types)))
+          (dolist (number numbers)
+            (unless (subtypep (type-of number) element-type)
+              (error "Type of float number has to fit with the most general matrix
+	    element-type.")))
+          `(defmethod
+               ,name
+               (,@(loop for template-arg in primary-args
+                     and actual-arg in actual-args
+                     collect
+		     (if (matrix-p template-arg)
+			 `(,(car template-arg) ,(class-name (class-of actual-arg)))
+			 template-arg))
+                ,@rest-args)
+             (declare (type ,element-type ,@number-args))
+             #+lispworks (declare (optimize (float 0)))
+             (very-quickly
+               ,(subst element-type 'element-type
+                       `(macrolet ,blas-macros
+                          ,@body)))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 
@@ -170,3 +198,9 @@ of a type that can be handled by the BLAS routines which are tested.")
 	      (/ (* (funcall flop-calculator size)
 		    count)
 		 (* 1e6 time))))))
+
+;;; Testing
+
+(defun test-blas-basic ()
+  (float-type-union 'single-float 'number)
+  )

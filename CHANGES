@@ -1,5 +1,12 @@
 # -*- mode: text; -*-
 
+* Current work:
+
+VTK graphics.
+
+As a first step for the incorporation of complex-valued solutions, BLAS
+routines may now depend on different matrix classes.
+
 * From Femlisp-0.9.9 to Femlisp-0.9.10:
 
 Several DX graphic windows are allowed in parallel.

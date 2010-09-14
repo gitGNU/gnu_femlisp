@@ -58,22 +58,6 @@ describes the use of the respective file."
 this object."))
   (:documentation "A mixin which adds a slot of properties to the class."))
 
-;;; old interface: deprecated
-
-#+(or)
-(defun property-set-p (object property)
-  "Returns T if @arg{property} is found in the object's properties."
-  (get-properties (slot-value object 'properties) (list property)))
-
-#+(or)
-(defmacro with-properties (properties object &body body)
-  "Work with @arg{properties} on the property list of @arg{object}."
-  (with-gensyms (obj)
-    `(let ((,obj ,object))
-       (symbol-macrolet ,(loop for prop in properties collect
-			      `(,prop (getf (properties ,obj) ',prop)))
-	 ,@body))))
-
 ;;; old/new interface
 
 (defun get-property (object property)

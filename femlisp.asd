@@ -245,6 +245,7 @@
     ((:file "graphics-defp" :depends-on ())
      (:file "graphics" :depends-on ("graphics-defp"))
      (:file "dx" :depends-on ("graphics"))
+     (:file "vtk" :depends-on ("graphics"))
      (:file "gnuplot" :depends-on ("graphics"))))
    (:module
     "plot"
@@ -254,12 +255,14 @@
     ((:file "plot-defp")
      (:file "plot" :depends-on ("plot-defp"))
      (:file "plot-dx" :depends-on ("plot"))
-     (:file "plot-gnuplot" :depends-on ("plot"))
      (:file "meshplot" :depends-on ("plot-dx"))
      (:file "feplot" :depends-on ("meshplot"))
      (:file "coeffplot" :depends-on ("feplot"))
      (:file "function-plot" :depends-on ("plot-dx"))
-     (:file "asaplot" :depends-on ("plot-dx"))))
+     (:file "asaplot" :depends-on ("plot-dx"))
+     (:file "plot-gnuplot" :depends-on ("plot"))
+     (:file "plot-vtk" :depends-on ("plot"))
+     ))
    ;;
    ;; Strategy
    ;;
