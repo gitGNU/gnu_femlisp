@@ -34,10 +34,15 @@
 
 (in-package :fl.plot)
 
+(defun vtk-position-header (dim n)
+  (declare (ignore dim))
+  (format nil "POINTS ~D float~%" n))
+
 (defmethod graphic-write-data (stream object (program (eql :vtk))
 			       &key cells cell->values shape
 			       (depth 0) transformation
                                &allow-other-keys)
+  (declare (optimize debug))
   (declare (ignore object))
   (unless cells (return-from graphic-write-data))
   (let* ((dim (dimension (car cells)))
@@ -51,10 +56,7 @@
     (format stream "# vtk DataFile Version 2.0~%femlisp-vtk~%ASCII~%DATASET UNSTRUCTURED_GRID~%~%")
 
     ;; write point data
-    (write-positions stream position-array
-                     (lambda (dim n)
-                       (declare (ignore dim))
-                       (format nil "POINTS ~D float~%" n)))
+    (write-positions stream position-array 'vtk-position-header)
     (terpri stream)
 
     (assert (and (= dim 3) (every #'simplex-p cells)) ()
@@ -62,15 +64,15 @@
 
     (let ((connections (connections cells position-indices depth)))
       ;; corner info header
-      (format stream "CELLS ~A ~A~%"
+      (format stream "CELLS ~D ~D~%"
               (length connections)
               (reduce #'+ connections :key (_ (1+ (length _)))))
       ;; corner info
       (loop for conn in connections do
-           (format stream "~A ~{~D~^ ~}~%" (length conn) conn))
+           (format stream "~D ~{~D~^ ~}~%" (length conn) conn))
       
       ;; write cell type info
-      (format stream "~%CELL_TYPES ~A~%~{~A~%~}~%"
+      (format stream "~%CELL_TYPES ~D~%~{~D~%~}~%"
               (length connections)
               (mapcar (constantly 10) connections)))
     
