@@ -47,10 +47,6 @@
     (make-instance
      '<linear-function> :A (eye 3 dim))))
 
-(defmethod graphic-commands ((skel <skeleton>) (program (eql :dx))
-			     &rest rest)
-  (apply #'fl.graphic::dx-commands-mesh rest))
-
 (defmethod plot ((skel <skeleton>) &rest rest
 		 &key transformation &allow-other-keys)
   (let ((dim (embedded-dimension skel)))
@@ -62,22 +58,27 @@
 (defmethod plot ((cell <cell>) &rest rest)
   (apply #'plot (skeleton cell) rest))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Plot with DX
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod graphic-commands ((skel <skeleton>) (program (eql :dx))
+			     &rest rest)
+  (apply #'fl.graphic::dx-commands-mesh rest))
+
+
 (defmethod graphic-write-data (stream (skel <skeleton>) (program (eql :dx))
 			       &key (cells nil cells-p) part transformation)
   "Plots a mesh. If provided, @arg{cells} should be 1-cells."
   (unless cells-p
-    (setq cells (find-cells
-                 (lambda (cell)
-                   (or (null part)
-                       (eq (fl.mesh::get-patch-property cell skel :part) part)))
-                 skel :dimension 1 :where :surface)))
+    (setq cells (1d-surface-cells skel part)))
   (unless cells (return-from graphic-write-data))
   (assert (every #'(lambda (cell) (= (dimension cell) 1)) cells))
   (let* ((position-indices (compute-position-indices cells 0))
 	 (position-array (position-array cells position-indices 0 transformation)))
     ;; write positions
     (dbg :plot "Positions:~%~A" position-array)
-    (write-positions stream position-array)
+    (write-positions stream position-array 'dx-position-header)
     ;; write connections
     (format stream "object 2 class array type int rank 1 shape 2 items ~D data follows~%"
 	    (length cells))
@@ -114,6 +115,38 @@ camera = AutoCamera(image,direction="front");
 image = Render(image, camera);
 Display (image);
 |#
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Plot with VTK
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod graphic-write-data (stream (skel <skeleton>) (program (eql :vtk))
+			       &key (cells nil cells-p) part transformation)
+  "Plots a mesh. If provided, @arg{cells} should be 1-cells."
+  (unless cells-p
+    (setq cells (1d-surface-cells skel part)))
+  (unless cells (return-from graphic-write-data))
+  (assert (every #'(lambda (cell) (= (dimension cell) 1)) cells))
+  ;;; Not yet changed from DX output
+  (let* ((position-indices (compute-position-indices cells 0))
+	 (position-array (position-array cells position-indices 0 transformation)))
+    ;; write positions
+    (dbg :plot "Positions:~%~A" position-array)
+    (write-positions stream position-array 'vtk-position-header)
+    ;; write connections
+    (let ((n (length cells)))
+      (format stream "CELLS ~D ~D~%" n (* 3 n))
+      (let* ((bdry (boundary (n-cube 1)))
+             (from (aref bdry 1)) (to (aref bdry 0)))
+        (dolist (cell cells)
+          (format stream "2 ~D ~D~%"
+                  (gethash (cons cell from) position-indices)
+                  (gethash (cons cell to) position-indices)))))
+    (let ((n (length position-array)))
+      (format stream "POINT_DATA ~D~%SCALARS scalar_data float 1~%LOOKUP_TABLE default~%~{~A~%~}"
+            n (make-list n :initial-element 0)))))
+
+;;;; Testing
 
 (defun test-meshplot ()
   (plot (n-cube 4) :transformation
