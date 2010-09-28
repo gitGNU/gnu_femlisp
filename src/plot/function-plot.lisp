@@ -34,8 +34,6 @@
 
 (in-package :fl.plot)
 
-
-
 (defmethod graphic-commands ((f <function>) (program (eql :dx)) &rest rest)
   (apply #'fl.graphic::dx-commands-data rest))
 
@@ -62,7 +60,7 @@ times."
 		  (refcell-refinement-vertex-positions cell depth)))
 	 rest))
 
-;;; Testing:
+;;; Testing
 
 (defun test-function-plot ()
   (let ((domain (n-cube-domain 2)))

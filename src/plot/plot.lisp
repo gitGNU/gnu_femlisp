@@ -186,7 +186,7 @@ this number for the actual cell."
 (defun position-array (cells position-indices depth &optional transformation)
   "Collects all positions in the hash-table POSITION-INDICES into an
 array."
-  (let ((position-array (make-array (hash-table-count position-indices))))
+  (lret ((position-array (make-array (hash-table-count position-indices))))
     (dolist (cell cells)
       (let ((depth (if (numberp depth) depth (funcall depth cell))))
 	(loop
@@ -197,13 +197,20 @@ array."
 		   (if transformation
 		       (evaluate transformation pos)
 		       pos))))))
-      (dbg :plot "Positions=~A" position-array)
-    position-array))
+    (dbg :plot "Positions=~A" position-array)))
 
+(defun 1d-surface-cells (skel &optional part)
+  "Extracts the 1D-surface cells (maybe specialized to a certain part) for
+drawing a wire plot of the mesh."
+  (find-cells (lambda (cell)
+                (or (null part)
+                    (eq (fl.mesh::get-patch-property cell skel :part) part)))
+              skel :dimension 1 :where :surface))
 
-(defvar *position-header* 'dx-position-header)
+(defvar *position-header* nil)
 
-(defun write-positions (stream position-array &optional (header *position-header*))
+(defun write-positions (stream position-array &optional
+                        (header *position-header*))
   "Write a header and all positions to the stream."
   (let ((dim (length (elt position-array 0))))
     (assert (every #'(lambda (pos) (= dim (length pos))) position-array))

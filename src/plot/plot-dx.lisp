@@ -66,7 +66,7 @@ data-- or some function mapping cells to a list of corner values."
 	 (simplices (remove-if-not #'simplex-p cells))
 	 (other-cells (remove-if #'simplex-p cells)))
 	 
-    (write-positions stream position-array)
+    (write-positions stream position-array 'dx-position-header)
     
     ;; write simplices
     (when simplices
