@@ -116,8 +116,15 @@
      ))
    ))
 
+#-infix
+(defsystem :infix
+  :depends-on ()
+  :pathname #.(translate-logical-pathname #p"femlisp:external;infix;")
+  :components
+  ((:file "src")))
+
 (defsystem :femlisp
-  :depends-on (:femlisp-basic :femlisp-matlisp)
+  :depends-on (:femlisp-basic :femlisp-matlisp #-infix :infix)
   :components
   ((:module
     "function"
