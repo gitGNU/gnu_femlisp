@@ -75,7 +75,7 @@
       (format stream "~%CELL_TYPES ~D~%~{~D~%~}~%"
               (length connections)
               (mapcar (constantly 10) connections)))
-    
+    ;; Quad: 9, Hexahedron: 12, Wedge=Dreieck x Line: 13
     ;; write data
     (when values
       (format stream "POINT_DATA ~A~%SCALARS scalar_data float ~A~%LOOKUP_TABLE default~%"

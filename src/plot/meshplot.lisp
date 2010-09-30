@@ -141,18 +141,23 @@ Display (image);
   (assert (every #'(lambda (cell) (= (dimension cell) 1)) cells))
   (let* ((vertex-indices (compute-cell-vertices cells))
 	 (position-array (meshplot-position-array vertex-indices transformation)))
+    ;; write datafile header
+    (format stream "# vtk DataFile Version 2.0~%femlisp-vtk~%ASCII~%DATASET UNSTRUCTURED_GRID~%~%")
     ;; write positions
     (write-positions stream position-array 'vtk-position-header)
-    ;; write connections
-    (let ((n (length cells)))
-      (format stream "CELLS ~D ~D~%" n (* 3 n)))
-    (dolist (cell cells)
-      (format stream "2 ~{~D~^ ~}~%"
-              (mapcar (rcurry #'gethash vertex-indices)
-                      (vertices cell))))
-    (let ((n (length position-array)))
-      (format stream "POINT_DATA ~D~%SCALARS scalar_data float 1~%LOOKUP_TABLE default~%~{~A~%~}"
-            n (make-list n :initial-element 0)))))
+    ;; write lines
+    (let ((n-points (length position-array))
+          (n-lines (length cells)))
+      (format stream "~%CELLS ~D ~D~%" (1+ n-lines) (+ 1 n-points (* 3 n-lines)))
+      (format stream "~D~{ ~D~}~%" n-points (range< 0 n-points))
+      (dolist (cell cells)
+        (format stream "2 ~{~D~^ ~}~%"
+                (mapcar (rcurry #'gethash vertex-indices)
+                        (vertices cell))))
+      (format stream "~%CELL_TYPES ~D~%2~%~{~D~&~}"
+              (1+ n-lines) (make-list n-lines :initial-element 3))
+      (format stream "~%CELL_DATA ~D~%SCALARS scalar_data float 1~%LOOKUP_TABLE default~%1~%~{~A~%~}"
+              (1+ n-lines) (make-list n-lines :initial-element 0)))))
 
 ;;;; Testing
 
