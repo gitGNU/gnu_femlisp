@@ -593,21 +593,16 @@ value T if the queue was empty.")
   "Call @arg{func} given in the first argument on each key of
 @arg{hash-table}.  @arg{func} must return the new key and the new value as
 two values.  Those pairs are stored in a new hash-table."
-  (let ((new-ht (make-hash-table :test (hash-table-test hash-table))))
-    (dohash ((key val) hash-table)
-      (multiple-value-bind (new-key new-val)
-	  (funcall func key val)
-	(setf (gethash new-key new-ht) new-val)))
-    new-ht))
+  (lret ((new-ht (make-hash-table :test (hash-table-test hash-table))))
+    (maphash (lambda (key val)
+               (multiple-value-bind (new-key new-val)
+                   (funcall func key val)
+                 (setf (gethash new-key new-ht) new-val)))
+             hash-table)))
 
 (defun copy-hash-table (hash-table)
   "Copy @arg{hash-table}."
   (map-hash-table #'(lambda (key value) (values key value)) hash-table))
-
-(defun get-arbitrary-key-from-hash-table (hash-table)
-  "Get an arbitrary key from @arg{hash-table}."
-  (dohash (key hash-table)
-    (return-from get-arbitrary-key-from-hash-table key)))
 
 (defun display-ht (hash-table)
   "Display @arg{hash-table} in the form key1 -> value1 ..."

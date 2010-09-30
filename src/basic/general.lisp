@@ -172,6 +172,32 @@ this object."))
   (:method (dic)
     (mapper-collect #'dic-for-each-key dic)))
 
+(defmacro dodic ((looping-var dic) &body body)
+  "Loops through @arg{dic}.  If @arg{looping-var} is an atom
+@emph{key}, loop through the keys; if it is a list of the form
+@emph{(value)} loop through the values; if it is a list of the form
+@emph{(key value)} loop through key and value."
+  (let ((key (if (single? looping-var)
+                 (gensym)
+                 (if (atom looping-var) looping-var (car looping-var))))
+        (value (if (atom looping-var)
+                   (gensym)
+                   (car (last looping-var)))))
+    `(block nil
+       (dic-for-each
+        (lambda (,key ,value)
+          ,@(when (atom looping-var) `((declare (ignore ,value))))
+          ,@(when (single? looping-var) `((declare (ignore ,key))))
+          ,@body)
+        ,dic))))
+
+(defun get-key-from-dic (dic)
+  "Returns a key from dic if nonempty."
+  (unless (dic-empty-p dic)
+    (dodic (key dic)
+      (return-from get-key-from-dic
+        (values key t)))))
+      
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Dictionaries and memoization
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
