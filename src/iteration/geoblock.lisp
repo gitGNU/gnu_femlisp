@@ -89,6 +89,7 @@ identification and hanging nodes."
     ;; return result
     block-keys))
 
+#+(or)  
 (defun find-connected-blocks-in-table (table asa)
   (flet ((extend (keys)
 	   (let ((new ()))
@@ -101,7 +102,7 @@ identification and hanging nodes."
 			(remhash ck table))))
 		asa rk)))))
     (loop until (zerop (hash-table-count table)) collecting
-	  (loop with key = (get-arbitrary-key-from-hash-table table)
+	  (loop with key = (get-key-from-dic table)
 		with keys = (list key)
 		initially (remhash key table)
 		for extend = (extend keys)
