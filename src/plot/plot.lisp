@@ -128,7 +128,7 @@ this number for the actual cell."
 	for local-vtx across
 	  (let ((vertices (refcell-refinement-vertices cell depth)))
 	    (when (= (dimension cell) 1)
-	      ;; the following is a cludge because DX strangely breaks for
+	      ;; the following is a kludge because DX strangely breaks for
 	      ;; unordered vertices
 	      (when (minusp (mref (l2Dg cell #d(0.5)) 0 0))
 		(setq vertices (reverse vertices))))

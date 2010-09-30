@@ -66,6 +66,20 @@
 			     &rest rest)
   (apply #'fl.graphic::dx-commands-mesh rest))
 
+(defun compute-cell-vertices (cells)
+  (lret ((count -1)
+         (table (make-hash-table)))
+    (loop for cell in cells do
+         (loop for vtx in (vertices cell) do
+              (ensure (gethash vtx table)
+                      (incf count))))))
+
+(defun meshplot-position-array (vertex-indices transformation)
+  (lret ((positions (make-array (hash-table-count vertex-indices))))
+    (dodic ((vtx k) vertex-indices)
+      (setf (aref positions k)
+            (evaluate (or transformation #'identity)
+                      (vertex-position vtx))))))
 
 (defmethod graphic-write-data (stream (skel <skeleton>) (program (eql :dx))
 			       &key (cells nil cells-p) part transformation)
@@ -74,20 +88,18 @@
     (setq cells (1d-surface-cells skel part)))
   (unless cells (return-from graphic-write-data))
   (assert (every #'(lambda (cell) (= (dimension cell) 1)) cells))
-  (let* ((position-indices (compute-position-indices cells 0))
-	 (position-array (position-array cells position-indices 0 transformation)))
+  (let* ((vertex-indices (compute-cell-vertices cells))
+	 (position-array (meshplot-position-array vertex-indices transformation)))
     ;; write positions
     (dbg :plot "Positions:~%~A" position-array)
     (write-positions stream position-array 'dx-position-header)
     ;; write connections
     (format stream "object 2 class array type int rank 1 shape 2 items ~D data follows~%"
 	    (length cells))
-    (let* ((bdry (boundary (n-cube 1)))
-	   (from (aref bdry 1)) (to (aref bdry 0)))
-      (dolist (cell cells)
-	(format stream "~D ~D~%"
-		(gethash (cons cell from) position-indices)
-		(gethash (cons cell to) position-indices))))
+    (dolist (cell cells)
+      (format stream "~{~D~^ ~}~%"
+              (mapcar (rcurry #'gethash vertex-indices)
+                      (vertices cell))))
     (format stream "~
 attribute \"ref\" string \"positions\"~%~
 attribute \"element type\" string \"lines\"~%~
@@ -127,21 +139,17 @@ Display (image);
     (setq cells (1d-surface-cells skel part)))
   (unless cells (return-from graphic-write-data))
   (assert (every #'(lambda (cell) (= (dimension cell) 1)) cells))
-  ;;; Not yet changed from DX output
-  (let* ((position-indices (compute-position-indices cells 0))
-	 (position-array (position-array cells position-indices 0 transformation)))
+  (let* ((vertex-indices (compute-cell-vertices cells))
+	 (position-array (meshplot-position-array vertex-indices transformation)))
     ;; write positions
-    (dbg :plot "Positions:~%~A" position-array)
     (write-positions stream position-array 'vtk-position-header)
     ;; write connections
     (let ((n (length cells)))
-      (format stream "CELLS ~D ~D~%" n (* 3 n))
-      (let* ((bdry (boundary (n-cube 1)))
-             (from (aref bdry 1)) (to (aref bdry 0)))
-        (dolist (cell cells)
-          (format stream "2 ~D ~D~%"
-                  (gethash (cons cell from) position-indices)
-                  (gethash (cons cell to) position-indices)))))
+      (format stream "CELLS ~D ~D~%" n (* 3 n)))
+    (dolist (cell cells)
+      (format stream "2 ~{~D~^ ~}~%"
+              (mapcar (rcurry #'gethash vertex-indices)
+                      (vertices cell))))
     (let ((n (length position-array)))
       (format stream "POINT_DATA ~D~%SCALARS scalar_data float 1~%LOOKUP_TABLE default~%~{~A~%~}"
             n (make-list n :initial-element 0)))))
@@ -155,6 +163,8 @@ Display (image);
 			     (0.0 0.8  -0.6  0.0)
 			     (0.0 0.56  0.57 0.6))))
   (plot (skeleton-boundary (n-ball-domain 3)))
+  (plot (n-cube 2))
+  (plot (n-cube 2) :program :vtk)
   )
 
 (fl.tests::adjoin-test 'test-meshplot)
