@@ -123,7 +123,7 @@ graphs."
 		       cells position-indices depth cell->values))))
     (flet ((index->xpos (index) (aref (aref position-array index) 0)))
       (dolist (connection (sort (connections cells position-indices depth)
-				#'<= :key (compose #'index->xpos #'car)))
+				#'<= :key (compose #'index->xpos #'second)))
 	(dolist (index connection)
 	  (format stream "~,,,,,,'EG ~,,,,,,'EG~%" (index->xpos index)
 		  (if values (aref values index) 0.0)))))))

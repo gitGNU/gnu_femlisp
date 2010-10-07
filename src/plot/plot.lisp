@@ -139,10 +139,10 @@ this number for the actual cell."
     position-indices))
 
 (defun connections (cells position-indices depth)
-  "Returns the connections in a list.  Each list item is again a list
-consisting of cell and vertex indices.  @arg{depth} can be a number
-representing the number of cell subdivisions, or a function which yields
-this number for the actual cell."
+  "Returns the connections in a list.  Each list item is again a list consisting
+of the reference cell and the vertex indices extracted from the table
+@arg{position-indices}.  @arg{depth} can be a number representing the number of
+cell subdivisions, or a function which yields this number for the actual cell."
   (let ((connection-list ()))
     (dolist (cell cells connection-list)
       (let ((depth (if (numberp depth) depth (funcall depth cell))))
@@ -151,15 +151,17 @@ this number for the actual cell."
 	     (unless (simplex-p mini-cell)
 	       (setq mini-cell (cell->cube mini-cell)))
 	     (push
-	      (mapcar
-               (_ (find-local-index cell _ position-indices))
-	       (let ((vertices (vertices mini-cell)))
-		 ;; check orientation, if necessary swap vertices
-		 (if (and (simplex-p mini-cell)
-			  (minusp (det (local->Dglobal
-					mini-cell (local-coordinates-of-midpoint mini-cell)))))
-		     (cons (cadr vertices) (cons (car vertices) (cddr vertices)))
-		     vertices)))
+              (list*
+               (reference-cell mini-cell)
+               (mapcar
+                (_ (find-local-index cell _ position-indices))
+                (let ((vertices (vertices mini-cell)))
+                  ;; check orientation, if necessary swap vertices
+                  (if (and (simplex-p mini-cell)
+                           (minusp (det (local->Dglobal
+                                         mini-cell (local-coordinates-of-midpoint mini-cell)))))
+                      (cons (cadr vertices) (cons (car vertices) (cddr vertices)))
+                      vertices))))
 	      connection-list))
 	 (fl.mesh::refcell-refinement-skeleton
 	  (reference-cell cell) depth 0)

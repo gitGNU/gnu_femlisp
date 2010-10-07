@@ -38,6 +38,16 @@
   (declare (ignore dim))
   (format nil "POINTS ~D float~%" n))
 
+(defun write-vtk-positions (stream position-array)
+  (format nil "POINTS ~D float~%" (length position-array))
+  (loop for position across position-array do
+	 (loop for i below 3 do
+	      (format stream "~G "
+                      (if (< i (length position))
+                          (float (aref position i) 1.0)
+                          0.0))
+	    finally (terpri stream))))
+
 (defmethod graphic-write-data (stream object (program (eql :vtk))
 			       &key cells cell->values shape
 			       (depth 0) transformation
@@ -45,8 +55,7 @@
   (declare (optimize debug))
   (declare (ignore object))
   (unless cells (return-from graphic-write-data))
-  (let* ((dim (dimension (car cells)))
-	 (position-indices (compute-position-indices cells depth))
+  (let* ((position-indices (compute-position-indices cells depth))
 	 (position-array (position-array cells position-indices depth transformation))
 	 (values (and cell->values
 		      (compute-all-position-values
@@ -56,26 +65,35 @@
     (format stream "# vtk DataFile Version 2.0~%femlisp-vtk~%ASCII~%DATASET UNSTRUCTURED_GRID~%~%")
 
     ;; write point data
-    (write-positions stream position-array 'vtk-position-header)
+    (write-vtk-positions stream position-array)
     (terpri stream)
-
-    (assert (and (= dim 3) (every #'simplex-p cells)) ()
-            "Only tetrahedra are implemented because I do not know other VTK cell types")
 
     (let ((connections (connections cells position-indices depth)))
       ;; corner info header
       (format stream "CELLS ~D ~D~%"
               (length connections)
-              (reduce #'+ connections :key (_ (1+ (length _)))))
+              (reduce #'+ connections :key #'length))
       ;; corner info
-      (loop for conn in connections do
-           (format stream "~D ~{~D~^ ~}~%" (length conn) conn))
+      (loop for (cell . conn) in connections do
+           (typecase cell
+             (fl.mesh::<1-1-product-cell>
+              (destructuring-bind (a b c d) conn
+                (format stream "4 ~D ~D ~D ~D~%" a b d c)))
+             (fl.mesh::<1-1-1-product-cell>
+              (destructuring-bind (a b c d e f g h) conn
+                (format stream "8 ~D ~D ~D ~D ~D ~D ~D ~D~%" a b d c e f h g)))
+             (t (format stream "~D ~{~D~^ ~}~%" (length conn) conn))))
       
       ;; write cell type info
-      (format stream "~%CELL_TYPES ~D~%~{~D~%~}~%"
-              (length connections)
-              (mapcar (constantly 10) connections)))
-    ;; Quad: 9, Hexahedron: 12, Wedge=Dreieck x Line: 13
+      (format stream "~%CELL_TYPES ~D~%" (length connections))
+      (loop for conn in connections do
+           (format stream "~D~%"
+                   (etypecase (first conn)
+                     (fl.mesh::<1-simplex> 13)
+                     (fl.mesh::<2-simplex> (error "NYI"))
+                     (fl.mesh::<3-simplex> 10)
+                     (fl.mesh::<1-1-product-cell> 9)
+                     (fl.mesh::<1-1-1-product-cell> 12)))))
     ;; write data
     (when values
       (format stream "POINT_DATA ~A~%SCALARS scalar_data float ~A~%LOOKUP_TABLE default~%"

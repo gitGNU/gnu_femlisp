@@ -74,7 +74,7 @@ data-- or some function mapping cells to a list of corner values."
 	(format stream "object 2 class array type int rank 1 shape ~D items ~D data follows~%"
 		(1+ dim) (length connections))
 	(loop for connection in connections do
-	      (format stream "~{~D~^ ~}~%" connection))
+	      (format stream "~{~D~^ ~}~%" (rest connection)))
 	(format stream "attribute \"element type\" string \"~A\"~%"
 		(case dim (1 "lines") (2 "triangles") (3 "tetrahedra")))
 	(format stream "attribute \"ref\" string \"positions\"~%")))
@@ -85,7 +85,7 @@ data-- or some function mapping cells to a list of corner values."
 	(format stream "object 3 class array type int rank 1 shape ~D items ~D data follows~%"
 		(expt 2 dim) (length connections))
 	(loop for connection in connections do
-	      (format stream "~{~D~^ ~}~%" connection))
+	      (format stream "~{~D~^ ~}~%" (rest connection)))
 	(format stream "attribute \"element type\" string \"~A\"~%"
 		(ecase dim (2 "quads") (3 "cubes")))
 	(format stream "attribute \"ref\" string \"positions\"~%")))
