@@ -39,7 +39,7 @@
   (format nil "POINTS ~D float~%" n))
 
 (defun write-vtk-positions (stream position-array)
-  (format nil "POINTS ~D float~%" (length position-array))
+  (format stream "POINTS ~D float~%" (length position-array))
   (loop for position across position-array do
 	 (loop for i below 3 do
 	      (format stream "~G "
