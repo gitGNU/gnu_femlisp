@@ -2,6 +2,11 @@
 
 * Current work:
 
+Mesh graphic output is not redundant any more (before, vertices appeared
+several times similar to plotting of discontinuous functions plots)
+
+mesh/easymesh.lisp was removed - we do not support that format anymore
+
 VTK graphics.
 
 As a first step for the incorporation of complex-valued solutions, BLAS

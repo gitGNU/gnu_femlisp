@@ -24,7 +24,7 @@ This is a list of known bugs:
 
   - One cannot assign other colors to plots of 1d fe functions.  
 
-  - And on some systems black lines can appear on plots of some regular
-    meshes.
+  - On some systems black lines can appear on plots of some regular meshes.
 
+  - The size of glyphs cannot be reasonably influenced for DIM=3.
 
