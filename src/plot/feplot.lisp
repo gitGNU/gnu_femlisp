@@ -46,9 +46,48 @@ the given depth."
 		   (reference-cell fe) depth)))))
 
 (defmethod graphic-commands ((asv <ansatz-space-vector>) (program (eql :dx))
-			     &rest rest)
-  (apply #'fl.graphic::dx-commands-data rest))
-
+			     &key (foreground :white) dimension shape range
+                             &allow-other-keys)
+  (let ((axis-color (ecase foreground (:black "black")(:white "white")))
+	(graph-color (ecase foreground (:black "black")(:white "white"))))
+    (case dimension
+      (1 (list
+	  "data = Options(data, \"mark\", \"circle\");"
+	  ;; workaround for a DX bug, see bug-2.dx 
+	  (if (eq foreground :white)
+	      (format nil "data = Color(data);")  ; ??
+	      (format nil "data = Color(data,~S);" graph-color))
+	  (format nil "image = Plot(data, colors=~S);" axis-color)
+	  ;;"xyplot = Plot(data);"
+	  ;;"camera = AutoCamera(xyplot);"
+	  ;;"image = Render (xyplot, camera);"
+	  ))
+      (2 (cons
+	  (if range
+	      (format nil "colored = AutoColor(data, min=~A, max=~A);"
+		      (first range) (second range))
+	      "colored = AutoColor(data);")
+	  (if (and shape (= shape 2))
+	      (list
+	       "samples = Sample(data, 400);"
+	       (if range
+		   (format nil "glyphs = AutoGlyph(samples, type=\"arrow\",min=~A,max=~A);"
+			   (first range) (second range))
+		   "glyphs = AutoGlyph(samples, type=\"arrow\");")
+	       "image = Collect(colored,glyphs);")
+	      (list
+	       "surface = Isosurface(data, number=20);"
+	       "image = Collect(surface,colored);"))))
+      (3 (list
+	  "connections = ShowConnections(data);"
+	  "tubes = Tube(connections, 0.01);"
+	  (if range
+	      (format nil "image = AutoColor(tubes, min=~A, max=~A);"
+		      (first range) (second range))
+	      "image = AutoColor(tubes);")
+	  ;;"camera = AutoCamera(tubes, \"off diagonal\");"
+	  ;;"image = Render(tubes, camera);"
+	  )))))
 
 (defgeneric plot-cells (skel &key &allow-other-keys)
   (:method ((skel <skeleton>) &key &allow-other-keys)

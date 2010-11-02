@@ -63,8 +63,32 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod graphic-commands ((skel <skeleton>) (program (eql :dx))
-			     &rest rest)
-  (apply #'fl.graphic::dx-commands-mesh rest))
+                             &key dimension tubes (glyphs t) glyph-scale background
+                             &allow-other-keys)
+  (list
+   "connections = ShowConnections(data);"
+   (if tubes
+       (format nil "tubes = Tube(connections,~F);"
+	       (if (numberp tubes)
+		   tubes
+		   (case dimension
+		     ((1 2) 0.01)
+		     (t 0.01))))
+       "tubes = connections;")
+   (when (eq background :white)
+     "tubes = Color(tubes, \"black\");")
+   (when glyphs
+     (format nil "glyphs = Glyph(data~@[,scale=~A~]);"
+             (or glyph-scale
+                 (case dimension
+                   ((1 2) 0.01)
+                   ((3) 0.1)              ; does not work unfortunately
+                   ))))
+   (if glyphs
+       "image = Collect(tubes,glyphs);"
+       "image = tubes;")
+   ))
+
 
 (defun compute-cell-vertices (cells)
   (lret ((count -1)
