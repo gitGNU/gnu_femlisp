@@ -336,6 +336,7 @@
        (:file "bratu")
        (:file "evp-cdr")
        (:file "heat")
+       (:file "sturm")
        ))
      (:module
       "elasticity"
