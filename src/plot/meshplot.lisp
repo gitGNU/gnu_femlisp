@@ -82,7 +82,7 @@
              (or glyph-scale
                  (case dimension
                    ((1 2) 0.01)
-                   ((3) 0.1)              ; does not work unfortunately
+                   ((3) nil)              ; does not work unfortunately
                    ))))
    (if glyphs
        "image = Collect(tubes,glyphs);"
@@ -168,7 +168,7 @@ Display (image);
     ;; write datafile header
     (format stream "# vtk DataFile Version 2.0~%femlisp-vtk~%ASCII~%DATASET UNSTRUCTURED_GRID~%~%")
     ;; write positions
-    (write-positions stream position-array 'vtk-position-header)
+    (write-vtk-positions stream position-array)
     ;; write lines
     (let ((n-points (length position-array))
           (n-lines (length cells)))

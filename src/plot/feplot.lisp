@@ -80,7 +80,7 @@ the given depth."
 	       "image = Collect(surface,colored);"))))
       (3 (list
 	  "connections = ShowConnections(data);"
-	  "tubes = Tube(connections, 0.01);"
+	  "tubes = Tube(connections, 0.1);"
 	  (if range
 	      (format nil "image = AutoColor(tubes, min=~A, max=~A);"
 		      (first range) (second range))
@@ -93,15 +93,14 @@ the given depth."
   (:method ((skel <skeleton>) &key &allow-other-keys)
     (cells-of-dim skel 1))
   (:method ((h-mesh <hierarchical-mesh>) &key part &allow-other-keys)
-    (let ((dim (min 3 (if part
-                          (dimension-of-part h-mesh part)
-                          (dimension h-mesh)))))
-      (find-cells
-       (lambda (cell)
-         (and (= (dimension cell) dim)
+    (find-cells
+     (lambda (cell)
+       (let ((patch (patch-of-cell cell h-mesh)))
+         (and (member :substance (patch-classification patch (domain h-mesh)))
+              (= (dimension cell) (dimension patch))
               (or (null part)
-                  (eq (fl.mesh::get-patch-property cell h-mesh :part) part))))
-       h-mesh :where :surface))))
+                  (eq (fl.mesh::get-patch-property cell h-mesh :part) part)))))
+       h-mesh :where :surface)))
 
 (defmethod plot ((asv <ansatz-space-vector>) &rest rest
 		 &key cells depth (index 0) (component 0) key transformation
@@ -183,4 +182,16 @@ Display (image, camera, where=where);
 
 content = ReadImageWindow(where);
 WriteImage(content, "test", "tiff");
+|#
+
+#| Test of 3d scalar plotting with dx
+dx -script -processors 1
+
+data = Import("test.dx");
+connections = ShowConnections(data);
+tubes = Tube(connections, 0.1);
+image = AutoColor(tubes,min=-2.0,max=4.0);
+where=SuperviseWindow("femlisp-image",size=[480,480],visibility=1);
+camera = AutoCamera(image, direction="off diagonal", background="black", resolution=480, aspect=1.0);
+Display (image, camera, where=where);
 |#

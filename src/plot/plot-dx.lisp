@@ -46,53 +46,54 @@
   "Transformation which drops the ugly line occuring for me due to some bug
 either in DX or Mesa.")
 
+(defparameter *shapes*
+  '((2 (1) 2 "lines")
+    (3 (2) 3 "triangles")
+    (4 (1 1) 4 "quads")
+    (5 (3) 4 "tetrahedra")
+    (6 (2 1) 8 "cubes")
+    (7 (1 2) 8 "cubes")
+    (8 (1 1 1) 8 "cubes"))
+  "The shapes which are handled by DX plotting.")
+
 (defmethod graphic-write-data (stream object (program (eql :dx))
 			       &key cells cell->values
 			       (rank 0) shape
 			       (depth 0) transformation)
-  "Rather general plotting procedure writing data to a file.  Plots in
-Gnuplot format in 1D, to DX format in 2D and 3D.  Can plot data either
-discontinuous or continuous at the cell boundaries when coefficient
-functions are involved.  cell->values has to be either nil --meaning no
-data-- or some function mapping cells to a list of corner values."
+  "Rather general plotting procedure writing data to a file.  Plots in DX format
+for 1D, 2D, and 3D.  Can plot data either discontinuous or continuous at the
+cell boundaries when coefficient functions are involved.  cell->values has to be
+either nil --meaning no data-- or some function mapping cells to a list of
+corner values."
   (declare (ignore object))
   (unless cells (return-from graphic-write-data))
-  (let* ((dim (dimension (car cells)))
-	 (position-indices (compute-position-indices cells depth))
+  (let* ((position-indices (compute-position-indices cells depth))
 	 (position-array (position-array cells position-indices depth transformation))
 	 (values (and cell->values
 		      (compute-all-position-values
 		       cells position-indices depth cell->values)))
-	 (simplices (remove-if-not #'simplex-p cells))
-	 (other-cells (remove-if #'simplex-p cells)))
+         (groups ()))
 	 
     (write-positions stream position-array 'dx-position-header)
     
-    ;; write simplices
-    (when simplices
-      (let ((connections (connections simplices position-indices depth)))
-	(format stream "object 2 class array type int rank 1 shape ~D items ~D data follows~%"
-		(1+ dim) (length connections))
-	(loop for connection in connections do
-	      (format stream "~{~D~^ ~}~%" (rest connection)))
-	(format stream "attribute \"element type\" string \"~A\"~%"
-		(case dim (1 "lines") (2 "triangles") (3 "tetrahedra")))
-	(format stream "attribute \"ref\" string \"positions\"~%")))
-       
-    ;; write other-cells (these are written as cubes)
-    (when other-cells
-      (let ((connections (connections other-cells position-indices depth)))
-	(format stream "object 3 class array type int rank 1 shape ~D items ~D data follows~%"
-		(expt 2 dim) (length connections))
-	(loop for connection in connections do
-	      (format stream "~{~D~^ ~}~%" (rest connection)))
-	(format stream "attribute \"element type\" string \"~A\"~%"
-		(ecase dim (2 "quads") (3 "cubes")))
-	(format stream "attribute \"ref\" string \"positions\"~%")))
+    (loop for (object shape nr-vertices element-type) in *shapes*
+       for current-cells = (filter shape cells :key #'factor-dimensions :test #'equalp)
+       for connections = (connections current-cells position-indices depth)
+       when connections do
+         (assert (same-p connections :key #'length))
+         (push (list object element-type) groups)
+         (format stream "object ~D class array type int rank 1 shape ~D items ~D data follows~%"
+                 object nr-vertices (length connections))
+         (loop for connection in connections do
+              (format stream "~{~D~^ ~}~%" (rest connection)))
+         (format stream "attribute \"element type\" string \"~A\"~%" element-type)
+         (format stream "attribute \"ref\" string \"positions\"~%"))
+    ;; we want groups from lines to cubes
+    (setf groups (reverse groups))
     
     ;; write data
     (when values
-      (format stream "object 4 class array type float rank ~D" rank)
+      (format stream "object 9 class array type float rank ~D" rank)
       (when shape (format stream " shape ~D" shape))
       (format stream " items ~D data follows~%" (length values))
       (dovec (value values)
@@ -102,21 +103,15 @@ data-- or some function mapping cells to a list of corner values."
       (format stream "attribute \"dep\" string \"positions\"~%"))
 
     ;; epilogue
-    (when simplices
-      (format stream "object \"simplex-part\" class field~%")
-      (format stream "component \"positions\" value 1~%")
-      (format stream "component \"connections\" value 2~%")
-      (when values
-	(format stream "component \"data\" value 4~%")))
-    (when other-cells
-      (format stream "object \"quad-part\" class field~%")
-      (format stream "component \"positions\" value 1~%")
-      (format stream "component \"connections\" value 3~%")
-      (when values
-	(format stream "component \"data\" value 4~%")))
-    (when (and simplices other-cells)
-      (format stream "object \"both-grids\" class group~%")
-      (format stream "member \"simplex-part\" value \"simplex-part\"~%")
-      (format stream "member \"quad-part\" value \"quad-part\"~%"))
+    (loop for (object element-type) in groups do
+         (format stream "object \"~A-part\" class field~%" element-type)
+         (format stream "component \"positions\" value 1~%")
+         (format stream "component \"connections\" value ~D~%" object)
+         (when values
+           (format stream "component \"data\" value 9~%")))
+    (when groups
+      (format stream "object \"all-grids\" class group~%")
+      (mapc (_ (format stream "member \"~A-part\" value \"~A-part\"~%" _ _))
+            (mapcar #'second groups)))
     (format stream "end~%")))
 

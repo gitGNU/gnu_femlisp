@@ -90,7 +90,7 @@
            (format stream "~D~%"
                    (etypecase (first conn)
                      (fl.mesh::<1-simplex> 13)
-                     (fl.mesh::<2-simplex> (error "NYI"))
+                     (fl.mesh::<2-simplex> 5)
                      (fl.mesh::<3-simplex> 10)
                      (fl.mesh::<1-1-product-cell> 9)
                      (fl.mesh::<1-1-1-product-cell> 12)))))
