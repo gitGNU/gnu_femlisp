@@ -150,7 +150,8 @@ This problem was suggested by Sebastian Sturm."
   (plot (sturm-mesh (sturm-domain)))
   
   (solve-sturm-problem 1 4)
-  (plot (getbb *result* :solution))
+  (plot (getbb *result* :solution) :program :vtk)
+  (plot (getbb *result* :mesh) :program :vtk)
   
   )
 
