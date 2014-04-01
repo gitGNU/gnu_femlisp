@@ -130,6 +130,10 @@ computed."
 		  do (setq f (* f (fac k)))
 		  finally (return f)))))))
 
+(defun binomial (n k)
+  "Binomial coefficient"
+  (/ (factorial n) (* (factorial k) (factorial (- n k)))))
+         
 (definline square (x)
   "Return the square of @arg{x}."
   (* x x))
@@ -263,11 +267,17 @@ Example: (translate \"abcdefg\" '((\"a\" . \"x\")  (\"b\" . \"yz\")))"
 
 (defun array-for-each (func &rest arrays)
   "Calls @arg{func} on all element tuples of the array arguments."
-  (assert (same-p arrays :test #'equalp :key #'array-dimensions))
+  (assert (samep arrays :test #'equalp :key #'array-dimensions))
   (dotuple (indices (array-dimensions (car arrays)))
     (apply func (mapcar #'(lambda (array)
 			    (apply #'aref array indices))
 			arrays))))
+
+(defun make-filled-array (dims &rest args &key initializer &allow-other-keys)
+  (lret ((result (apply #'make-array dims (sans args :initializer))))
+    (dotuple (indices (array-dimensions result))
+      (setf (apply #'aref result indices)
+            (apply initializer indices)))))
 
 (defun undisplace-array (array)
   "Return the fundamental array and the start and end positions into it of
@@ -284,7 +294,7 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 ;;;; List operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun same-p (sequence &key (test #'eql) (key #'identity))
+(defun samep (sequence &key (test #'eql) (key #'identity))
   "Returns t if @arg{sequence} consists of equal elements."
   (or (= 0 (length sequence))
       (let ((item (funcall key (elt sequence 0))))
@@ -426,6 +436,25 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 		 (null dims))))
     (rec trees (tree-uniform-number-of-branches trees))))
 
+(defun on-subtrees (func tree)
+  "Calls @arg{func} on every subtree of @arg{tree}."
+  (labels ((rec (subtree)
+             (funcall func subtree)
+	     (when (listp subtree)
+               (mapc #'rec subtree))))
+    (rec tree)))
+
+(defun find-subtree-if (test tree &key (key #'identity))
+  "Finds a leaf in @arg{tree} where @arg{test} returns true."
+  (on-subtrees (lambda (subtree)
+	       (when (funcall test (funcall key subtree))
+		 (return-from find-subtree-if subtree)))
+	     tree)
+  nil)
+
+(defun find-subtree (atom tree &key (key #'identity) (test #'eql))
+  (find-subtree-if (curry test atom) tree :key key))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Queues
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -456,7 +485,11 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 value T if the queue was empty.")
   (:method ((queue queue))
     (let ((emptyp (emptyp queue)))
-      (values (pop (head queue)) emptyp))))
+      (values (lret ((item (pop (head queue))))
+                ;; clean-up queue
+                (when (emptyp queue)
+                  (setf (tail queue) nil)))
+                emptyp))))
 
 (defun queue->list (queue)
   "Transforms @arg{queue} to a list."
@@ -534,6 +567,10 @@ value T if the queue was empty.")
 	(setf (dll-last dll) predecessor)
 	(setf (dli-pred successor) predecessor))))
 
+(defun dll-for-each (func dll)
+  (loop for item = (dll-first dll) then (dli-succ item) until (null item)
+       do (funcall func (dli-object item))))
+
 (defun dll-find (key dll)
   (loop for item = (dll-first dll) then (dli-succ item) until (null item)
 	when (eq key (dli-object item)) do (return item)))
@@ -541,17 +578,23 @@ value T if the queue was empty.")
 (defun dll-remove (obj dll)
   (dll-remove-item (dll-find obj dll) dll))
 
+(defun dll-peek-first (dll)
+  (whereas ((entry (dll-first dll)))
+    (values (dli-object entry) entry)))
+
 (defun dll-pop-first (dll)
-  (let ((entry (dll-first dll)))
-    (when entry
-      (dll-remove-item entry dll)
-      (dli-object entry))))
+  (whereas ((entry (dll-first dll)))
+    (dll-remove-item entry dll)
+    (dli-object entry)))
+
+(defun dll-peek-last (dll)
+  (whereas ((entry (dll-last dll)))
+    (values (dli-object entry) entry)))
 
 (defun dll-pop-last (dll)
-  (let ((entry (dll-last dll)))
-    (when entry
-      (dll-remove-item entry dll)
-      (dli-object entry))))
+  (whereas ((entry (dll-last dll)))
+    (dll-remove-item entry dll)
+    (dli-object entry)))
 
 (defun dll->list (dll)
   (loop for item = (dll-first dll) then (dli-succ item) until (null item)
@@ -881,6 +924,14 @@ parameter.  Example:
       (and (not (member (car list) (cdr list)))
 	   (set-p (cdr list)))))
 
+(defun set-equal (set1 set2 &key (test #'eql))
+  "Tests two sets for equality, e.g.
+@lisp
+  (set-equal '(a b) '(b a)) @result{} T
+@end lisp"
+  (and (null (set-difference set1 set2 :test test))
+       (null (set-difference set2 set1 :test test))))
+
 (defun maximally-connected (connected disconnected &key (test #'eql) (combine #'adjoin))
   "Finds a maximally connected set by taking the union of the elements in
 connected with the sets of disconnected-sets.  Returns the maximally
@@ -1075,7 +1126,7 @@ Returns @arg{obj1}."
 (defun mapper-select-first (mapper &rest rest-args)
   "Select the arguments with which a mapping construct calls a given function.  E.g.
 @lisp
-(mapper-select-first #'mapc '(3 4 5) '(7 8 9)) @result{} 3,7
+  (mapper-select-first #'mapc '(3 4 5) '(7 8 9)) @result{} 3,7
 @end lisp"
   (apply mapper
          (lambda (&rest args)
@@ -1086,7 +1137,7 @@ Returns @arg{obj1}."
 (defun mapper-collect (mapper &rest rest-args)
   "Collects the arguments with which a mapping construct calls a given function.  E.g.
 @lisp
-(mapper-collect #'mapc '(3 4 5)) @result{} (3 4 5)
+  (mapper-collect #'mapc '(3 4 5)) @result{} (3 4 5)
 @end lisp"
   (let ((result ()))
     (apply mapper (_ (push _ result)) rest-args)
@@ -1095,24 +1146,25 @@ Returns @arg{obj1}."
 (defun mapper-some (test mapper &rest rest-args)
   "Tests if the test is fulfilled for some argument on which the mapper is
 called: @lisp
-(mapper-some #'plusp #'mapc '(-3 4 5)) @result{} T
+  (mapper-some #'plusp #'mapc '(-3 4 5)) @result{} T
 @end lisp"
-  (apply mapper (_ (when (funcall test _)
-                     (return-from mapper-some t)))
+  (apply mapper (lambda (&rest args)
+                  (when (apply test args)
+                    (return-from mapper-some t)))
          rest-args)
   nil)
 
 (defun mapper-every (test mapper &rest rest-args)
   "Tests if the test is fulfilled for every argument on which the mapper is
 called: @lisp
-(mapper-every #'plusp #'mapc '(3 4 5)) @result{} T
+  (mapper-every #'plusp #'mapc '(3 4 5)) @result{} T
 @end lisp"
   (not (apply #'mapper-some (complement test) mapper rest-args)))
 
 (defun mapper-sum (mapper &rest rest-args)
   "Sums the arguments with which a mapping construct calls a given function.  E.g.
 @lisp
-(mapper-sum #'mapc '(3 4 5)) @result{} 12
+ (mapper-sum #'mapc '(3 4 5)) @result{} 12
 @end lisp"
   (lret ((result 0))
     (apply mapper (_ (incf result _)) rest-args)))
@@ -1120,7 +1172,7 @@ called: @lisp
 (defun mapper-count (mapper &rest rest-args)
   "Counts the arguments with which a mapping construct calls a given function.  E.g.
 @lisp
-(mapper-sum #'mapc '(3 4 5)) @result{} 3
+  (mapper-sum #'mapc '(3 4 5)) @result{} 3
 @end lisp"
   (lret ((result 0))
     (apply mapper (_ (incf result)) rest-args)))
@@ -1176,6 +1228,8 @@ called: @lisp
   (partial-sums #(1 2 3))
   (let ((x (list->queue '(1 2 3))))
     (dequeue x))
+
+  (make-filled-array '(2 2) :initializer (_ (* _1 _2)))
   )
 
 ;; (fl.utilities::test-utilities)

@@ -128,16 +128,18 @@ components."
     (when plot
       ;; plot components of cell solution tensor
       (dotimes (i dim)
-	(dotimes (j (1+ dim))
-	  (plot (getbb *result* :solution) :component j :index i)
-	  (sleep 1.0))))
+        (plot (getbb *result* :solution) :component 'fl.navier-stokes::u :index i
+              :rank 1 :shape 2)
+        (sleep 2.0)
+        (plot (getbb *result* :solution) :component 'fl.navier-stokes::p :index i)
+        (sleep 2.0)))
     ;; compute the homogenized coefficient
     (format t "The permeability tensor is:~%~A~%~%"
 	    (permeability-tensor *result*))))
 
 #+(or)
-(stokes-darcy-demo (ns-hole-cell-problem 2)
-		   :order 1 :levels 2 :store-p nil :output :all :plot nil :delta 1)
+(stokes-darcy-demo (ns-hole-cell-problem 3)
+		   :order 1 :levels 1 :store-p nil :output :all :plot t :delta 1)
 
 ;;; BUG: (discretization-order (fe-class (getbb *result* :solution)))
 

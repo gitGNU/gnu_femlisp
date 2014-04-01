@@ -407,6 +407,10 @@ masters."
   "Select a suitable solver depending on the pde problem."
   (select-linear-solver (problem asa) blackboard))
 
+#+(or)
+(defmethod getrf! ((asa <ansatz-space-automorphism>) &optional ipiv)
+  (call-next-method asa (or ipiv (hierarchically-ordered-cells (mesh asa)))))
+
 
 ;;;; Testing
 (defun test-sparseas ()

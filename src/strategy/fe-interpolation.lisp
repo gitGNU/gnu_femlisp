@@ -90,9 +90,11 @@ moment."
 				(princ patch) (terpri)
 				(list (function->coefficient
 				       'INITIAL
-				       #'(lambda (x)
+				       (lambda (x)
 					(let ((phi (float (* 2 pi (aref x 0))
                                                           1.0)))
+                                          ;; we declare the type for making SBCL happy
+                                          (declare (type (double-float 0.0 #.(* 2 pi)) phi))
 					  (vector (cos phi) (sin phi)))))))))
 		  (strategy (make-instance
 			     '<fe-interpolation> :coefficient 'INITIAL

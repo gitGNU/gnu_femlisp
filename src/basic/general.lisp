@@ -284,6 +284,10 @@ this object."))
                 (dll-rear-insert (cons key value) store)))))
   value)
 
+(defmethod dic-for-each (func (dic sorted-hash-table))
+  (with-slots (store) dic
+    (dll-for-each (_ (funcall func (car _) (cdr _))) store)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; cache-dictionary
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -415,18 +419,24 @@ threads, if @arg{type} is :local, it is special for each thread."
 				 (setf (dic-ref ,'(,table) ,',key)
 				       (apply ,,func ,',key))))))))
 		   (memoizing-let (,key-exprs &body ,value-body)
-		     `(let ,,key-exprs
-		       ;; declares should be inserted here from value-body
-		       (fl.multiprocessing:with-mutex (,',mutex)
-			 (let ((,',key (list ,@(mapcar #'car ,key-exprs))))
-			   (multiple-value-bind (,',value ,',foundp)
-			       (dic-ref ,'(,table) ,',key)
-			     (if ,',foundp
-				 ,',value
-				 (progn
-				   ,',(when debug `(dbg :memoize "Memoizing: id=~A, key=~A" ,id ,key))
-				   (setf (dic-ref ,'(,table) ,',key)
-					 (progn ,@,value-body))))))))))
+                     (let ((,key-exprs
+                            (mapcar (lambda (entry)
+                                      (if (symbolp entry)
+                                          (list entry entry)
+                                          entry))
+                                    ,key-exprs)))
+                       `(let ,,key-exprs
+                          ;; declares should be inserted here from value-body
+                          (fl.multiprocessing:with-mutex (,',mutex)
+                            (let ((,',key (list ,@(mapcar #'car ,key-exprs))))
+                              (multiple-value-bind (,',value ,',foundp)
+                                  (dic-ref ,'(,table) ,',key)
+                                (if ,',foundp
+                                    ,',value
+                                    (progn
+                                      ,',(when debug `(dbg :memoize "Memoizing: id=~A, key=~A" ,id ,key))
+                                      (setf (dic-ref ,'(,table) ,',key)
+                                            (progn ,@,value-body)))))))))))
 	  ,@body)))))
 
 
@@ -470,7 +480,8 @@ threads, if @arg{type} is :local, it is special for each thread."
 		      (* k k))))))
   (with-memoization ()
     (flet ((test (n)
-	     (memoizing-let ((k (* 2 n))
+	     (memoizing-let (n
+                             (k (* 2 n))
 			     (l (* 3 n)))
 	       (sleep 1)
 	       (* k l))))

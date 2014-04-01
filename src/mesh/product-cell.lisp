@@ -49,9 +49,35 @@
 boundary is taken from the list of lower-dimensional products supplied in
 table.  The tensor product boundary is in the order de1 x e2, e1 x de2."))
 
-(defmethod make-product-cell :before ((cell1 <mapped-cell>) (cell2 <mapped-cell>) table)
+(defun cartesian-product-map (func1 func2)
+  (let ((n1 (domain-dimension func1))
+        (n2 (domain-dimension func2))
+        (m1 (image-dimension func1))
+        (m2 (image-dimension func2)))
+    (make-instance
+     '<special-function>
+     :domain-dimension (+ n1 n2)
+     :image-dimension (+ m1 m2)
+     :evaluator (lambda (v)
+                  (join :vertical
+                        (evaluate func1 (vector-slice v 0 n1))
+                        (evaluate func2 (vector-slice v n1 n2))))
+     :gradient (and (differentiable-p func1) (differentiable-p func2)
+                    (lambda (v)
+                      (lret ((result (make-real-matrix (+ m1 m2) (+ n1 n2))))
+                        (minject! (evaluate-gradient func1 (vector-slice v 0 n1))
+                                  result 0 0)
+                        (minject! (evaluate-gradient func2 (vector-slice v n1 n2))
+                                  result m1 n1)))))))
+   
+(defmethod make-product-cell :around ((cell1 <cell>) (cell2 <cell>) table)
   (declare (ignore table))
-  (error "Product-Cell mappings do not yet work."))
+  (lret ((product (call-next-method)))
+    (when (or (mapped-p cell1) (mapped-p cell2))
+      (change-class
+       product (mapped-cell-class (class-of product))
+       :mapping
+       (cartesian-product-map (cell-mapping cell1) (cell-mapping cell2))))))
 
 (defun product-table (skel1 skel2)
   (let ((product-table (make-hash-table :test #'equal)))
@@ -137,16 +163,17 @@ table.  The tensor product boundary is in the order de1 x e2, e1 x de2."))
 the scalar product with the list of corners."
   (if (single? factors)
       (euclidean->barycentric local-pos)
-      (let* ((dim1 (dimension (first factors)))
+      (let* ((etype (array-element-type local-pos))
+             (dim1 (dimension (first factors)))
 	     (weights-of-edges
 	      (barycentric-coordinates-factors
 	       (rest factors)
-	       (make-array (- (length local-pos) dim1) :element-type 'double-float
+	       (make-array (- (length local-pos) dim1) :element-type etype
 			   :displaced-to local-pos :displaced-index-offset dim1))))
 	(apply #'concatenate 'double-vec
 	       (map 'list #'(lambda (factor) (scal factor weights-of-edges))
 		    (euclidean->barycentric
-		     (make-array dim1 :element-type 'double-float :displaced-to local-pos)))))))
+		     (make-array dim1 :element-type etype :displaced-to local-pos)))))))
 
 (defmethod barycentric-coordinates ((cell <product-cell>) local-pos)
   (barycentric-coordinates-factors

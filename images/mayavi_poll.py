@@ -11,8 +11,8 @@
 
 import os
 from os.path import join, abspath, dirname
-from enthought.mayavi.scripts import mayavi2
-from enthought.mayavi.sources.vtk_file_reader import VTKFileReader
+from mayavi.script import mayavi2
+from mayavi.sources.vtk_file_reader import VTKFileReader
 #from enthought.mayavi.modules.outline import Outline
 from enthought.mayavi.modules.api import Surface
 from enthought.mayavi.modules.contour_grid_plane import ContourGridPlane

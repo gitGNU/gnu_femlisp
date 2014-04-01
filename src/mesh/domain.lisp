@@ -131,6 +131,11 @@ compute the boundary afterwards."
 		  (funcall (car classifiers) patch (classify (cdr classifiers))))))
     (classify (slot-value domain 'classifiers))))
 
+(defun make-domain (skel &rest args)
+  "Changes a skeleton into a domain."
+  (assert (typep skel '<skeleton>))
+  (apply #'change-class skel '<domain> args))
+
 #+(or)
 (defun test-condition (condition classifications)
   "Test if @arg{condition} which at the moment should be either an AND or
@@ -206,7 +211,7 @@ assumed to be provided in an exact form."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun n-simplex-domain (dim)
-  (change-class (skeleton (n-simplex dim)) '<domain>))
+  (make-domain (skeleton (n-simplex dim))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; product-cells, n-cubes
@@ -214,7 +219,7 @@ assumed to be provided in an exact form."
 
 (defun simplex-product-domain (dims)
   "Generates a product-cell domain for the given factor dimensions."
-  (change-class (skeleton (ensure-simplex-product dims)) '<domain>))
+  (make-domain (skeleton (ensure-simplex-product dims))))
 
 (defun classify-top-bottom-lateral (&optional (bottom 0.0) (top 1.0) (left 0.0) (right 1.0))
   "Returns a classifier for identifying top, bottom, and lateral parts of a
@@ -239,12 +244,12 @@ cube domain."
     classifications))
 
 (defun n-cube-domain (dim)
-  (change-class (skeleton (n-cube dim)) '<domain>
-		:classifiers (list (classify-top-bottom-lateral)
-				   (lambda (cell classifications)
-				     (when (mzerop (midpoint cell))
-				       (pushnew :origin classifications))
-				     classifications))))
+  (make-domain (skeleton (n-cube dim))
+               :classifiers (list (classify-top-bottom-lateral)
+                                  (lambda (cell classifications)
+                                    (when (mzerop (midpoint cell))
+                                      (pushnew :origin classifications))
+                                    classifications))))
 
 (defun ensure-domain (domain)
   "If @arg{domain} is an integer, return the corresponding
@@ -271,7 +276,7 @@ vertices of the copy."
 	    (setf (aref pos i)
 		  (coerce (elt dims (if (zerop (aref pos i)) 0 1))
 			  'double-float))))
-    (change-class new-skel '<domain>)))
+    (make-domain new-skel)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -402,25 +407,25 @@ the unit cube."
   (let* ((skel (refine (skeleton (n-cube dim))))
 	 (upper-right-cell
 	  (find-cell-from-position skel (make-double-vec dim 0.75))))
-    (change-class (skeleton-without-cell skel upper-right-cell)
-		  '<domain>)))
+    (make-domain (skeleton-without-cell skel upper-right-cell))))
 
 (defun L-domain (dim)
   "Creates an L-domain by cutting out cubes from the uniform refinement of
 the unit cube."
-  (change-class
+  (make-domain
    (skeleton (remove-if
 	      (lambda (cell)
 		(let ((midpoint (midpoint cell)))
 		  (and (> (aref midpoint 0) 0.5)
 		       (> (aref midpoint 1) 0.5))))
 	      (cells-of-highest-dim
-	       (refine (skeleton (n-cube dim))))))
-   '<domain>))
+	       (refine (skeleton (n-cube dim))))))))
 
 
 ;;;; Testing
 (defun test-domain ()
+  (doskel (cell *rotated-square-domain* :direction :down)
+    (print cell))
   (describe (n-cube-domain 2))
   (corners (n-simplex 2))
   (let ((*print-skeleton-values* t))

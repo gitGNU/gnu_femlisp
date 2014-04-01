@@ -35,12 +35,12 @@
 (defpackage "FL.MACROS"
   (:use "COMMON-LISP")
   (:export
-   "WITH-GENSYMS" "SYMCONC" "AWHEN" "WHEREAS" "AIF" "BIF"
+   "WITH-GENSYMS" "ONCE-ONLY" "SYMCONC" "AWHEN" "WHEREAS" "AIF" "BIF"
    "GENCASE" "STRINGCASE"
    "AAND" "ACOND" "SYMBOL-MACROLETF" "DELETEF" "_F" "IT" "ENSURE" "ECHO"
    "REMOVE-THIS-METHOD"
    "NAMED-LET"
-   "WITH-ARRAYS" "MULTI-FOR" "INLINING" "DEFINLINE"
+   "WITH-ARRAYS" "MULTI-FOR" "MULTI-DOTIMES" "INLINING" "DEFINLINE"
    "?1" "?2" "?3" "?4" "?5" "?6"
    "DELAY" "FORCE"
    "FLUID-LET" "LRET" "LRET*"
@@ -60,6 +60,18 @@ code in @arg{body}."
   `(let ,(mapcar #'(lambda (s) `(,s (gensym ,(symbol-name s))))
 		 syms)
     ,@body)))
+
+(defmacro once-only (variables &rest body)
+  "Slightly modified macro taken from
+   <http://groups.google.com/comp.lang.lisp/msg/2a92ad69a8185866>."
+  (let ((temps (mapcar (lambda (x) (gensym (symbol-name x))) variables)))
+    ``(let
+          (,,@(mapcar #'(lambda (tmp var)
+                          ``(,',tmp ,,var))
+                      temps variables))
+        ,(let ,(mapcar #'(lambda (var tmp) `(,var ',tmp))
+                       variables temps)
+              .,body))))
 
 (defun symconc (&rest args)
   "This function builds a symbol from its arguments and interns it.  This
@@ -255,28 +267,45 @@ DEFMETHOD definition."
               ,@body))
      (,name ,@(mapcar #'second bindings))))
 
-(defmacro multi-for ((var start stop) &body body)
+(defmacro multi-for ((var start stop &key from-end) &body body)
   "Loops for @arg{var} being an integer vector starting from @arg{start}
-upto @arg{end}.  Example:
+upto @arg{stop}.  Examples:
 @lisp
   (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))
+  (multi-for (x #(1 1) #(3 3) :from-end t) (princ x) (terpri))
 @end lisp"
+  (assert (typep from-end 'boolean))
   (let ((fixnum-vec '(simple-array fixnum (*))))
     (with-gensyms
 	(inc! begin end inside)
-      `(let ((,begin (coerce ,start ',fixnum-vec))
-	     (,end (coerce ,stop ',fixnum-vec)))
-	;;(declare (type ,fixnum-vec ,begin ,start))
-	(flet ((,inc! (x)
-		 (declare (type ,fixnum-vec x))
-		 (dotimes (i (length ,begin))
-		   (cond ((< (aref x i) (aref ,end i))
-			  (incf (aref x i))
-			  (return t))
-			 (t (setf (aref x i) (aref ,begin i)))))))
-	  (do ((,var (copy-seq ,begin))
-	       (,inside (every #'<= ,begin ,end) (,inc! ,var)))
-	      ((not ,inside)) ,@body))))))
+      `(let* ((,begin (coerce ,start ',fixnum-vec))
+              (,end (coerce ,stop ',fixnum-vec)))
+         ;;(declare (type ,fixnum-vec ,begin ,start))
+         (flet ((,inc! (x)
+                  (declare (type ,fixnum-vec x))
+                  (loop ,@(if from-end
+                              `(for i from (1- (length ,begin)) downto 0)
+                              `(for i from 0 below (length ,begin)))
+                     do
+                     (cond ((< (aref x i) (aref ,end i))
+                           (incf (aref x i))
+                           (return t))
+                          (t (setf (aref x i) (aref ,begin i)))))))
+          (do ((,var (copy-seq ,begin))
+               (,inside t (,inc! ,var)))
+              ((not ,inside)) ,@body))))))
+
+(defmacro multi-dotimes ((var stop) &body body)
+  "Special case of @func{multi-for}.  Loops starting from a zero-vector to @arg{stop}.
+Examples:
+@lisp
+  (multi-dotimes (x #(3 3)) (princ x) (terpri))
+@end lisp"
+  (let ((fixnum-vec '(simple-array fixnum (*))))
+    (with-gensyms (end)
+      `(let* ((,end (map ',fixnum-vec #'1- ,stop)))
+         (multi-for (,var (make-array (length ,end) :initial-element 0 :element-type 'fixnum) ,end)
+           ,@body)))))
 
 (defmacro with-array ((access array) &body body)
   "Posted by Kent Pitman at cll,8.5.2007 as 'array-access'."
@@ -324,6 +353,17 @@ restricted macro was posted by KMP at 8.5.2007 under the name 'array-access'."
   (:method ((obj function))
     "A simple lambda delay is forced using evaluation."
     (funcall obj)))
+
+(defmacro collecting (&body body)
+  "Collect objects into a list.  Example:
+@lisp
+  (collecting (collect 1) (collect 2))
+@end lisp"
+  (with-gensyms (result)
+    `(let (,result)
+       (macrolet ((collect (x) `(push ,x ,',result)))
+         ,@body)
+       (nreverse ,result))))
 
 (defmacro inlining (&rest definitions)
   "Declaims the following definitions inline together with executing them."
@@ -409,11 +449,11 @@ Arguments are '_', '_1', ..., '_5'."
        (declare (ignorable _))
        ,@body)))
 
-;;; Macros posted by Kent Pitman on cll, 28.7.2007
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Optimization
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; Macros posted by Kent Pitman on cll, 28.7.2007
 
 (defmacro quickly (&body forms)
   `(locally (declare (optimize (speed 3) #+lispworks (float 0)))
@@ -494,5 +534,5 @@ Arguments are '_', '_1', ..., '_5'."
          (t 'C)))
 
   (chain (+ 2 3) (* _ 2) (expt _ _))
-  
+  (collecting (collect 1) (collect 'A))
   )

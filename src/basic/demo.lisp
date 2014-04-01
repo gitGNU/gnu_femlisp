@@ -81,7 +81,7 @@ Abbreviations are possible, e.g. 'hom-2' for
 
 (defvar *demo-root*
   (make-demo
-   :name "demo"
+   :name "Demo"
    :short "Femlisp demo suite"
    :long
    "This is the root of the standard Femlisp demos.  Choose the

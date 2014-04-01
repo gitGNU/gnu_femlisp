@@ -37,28 +37,25 @@
 (file-documentation "This file contains routines for computing
 eigenvalue/eigenvector pairs for convection-diffusion-reaction problems.")
 
-(defvar *laplace-eigenvalue-demo*
-  (make-demo
-   :name "eigenvalues"
-   :short "Some eigenvalue problems"))
-(adjoin-demo *laplace-eigenvalue-demo* *laplace-demo*)
-
 (defun laplace-eigenvalue-computation
-    (domain &key output plot (dirichlet 0.0))
+    (domain &key output plot (dirichlet 0.0) (multiplicity 1)
+     (shift (if dirichlet 0.0 1.0)) (time 20) (nr-levels 5))
   "Function performing the eigenvalue demo for the Laplace operator."
   (let ((problem (cdr-model-problem
-		  domain :evp t :dirichlet dirichlet)))
+		  domain :evp t :multiplicity multiplicity
+                  :dirichlet dirichlet)))
     (storing
       (solve (blackboard
-	      :problem problem :base-level 3
-	      :success-if '(or (>= :time 20) (>= :nr-levels 5))
+	      :problem problem :base-level 0
+	      :success-if `(or (>= :time ,time) (>= :nr-levels ,nr-levels))
 	      :output output :observe
 	      (append *stationary-fe-strategy-observe*
-		      (list (list "             lambda" "~19,10,2E"
-				  #'(lambda (bb) (declare (ignore bb))
-					    (unbox (slot-value problem 'eigenvalues)))))))))
+		      (list (list "             lambda" "~A"
+				  (_ (map 'vector (rcurry #'- shift)
+                                          (slot-value problem 'eigenvalues)))))))))
     (when plot
-      (plot (getbb *result* :solution)))))
+      (loop for i below multiplicity do
+           (plot (getbb *result* :solution) :index i)))))
 
 (defun make-laplace-eigenvalue-demo (domain domain-name)
   (let ((title domain-name)
@@ -72,11 +69,68 @@ step." domain-name)))
 	    :name title :short short :long long
 	    :execute (lambda ()
 		       (laplace-eigenvalue-computation
-			domain :plot t :output 1)))))
-      (adjoin-demo demo *laplace-eigenvalue-demo*))))
+			domain :multiplicity 3 :plot t :output 1)))))
+      (adjoin-demo demo *eigenvalue-demo*))))
 
+#+(or)
+(let ((FL.DISCRETIZATION:*SUGGESTED-DISCRETIZATION-ORDER* 1))
+  (laplace-eigenvalue-computation
+   (?2 (cylinder-domain 1.0 1.0)
+       (circle-ring-domain 1.0 1.5 :channel-breadth 0.0)
+       (reservoir-domain 1.0 1.5 1.0))
+   :multiplicity 1 :time 150 :nr-levels 5 :output 1))
+
+;; (laplace-eigenvalue-computation (cylinder-domain 1.0 1.0)
+;;                                 :multiplicity 3 :time 1000 :nr-levels 3 :output :all)
+;;; First zero of Bessel(0) = lambda_1 = 2.404825557695773
+;;; Therefore eigenvalue = lambda_1^2 = 5.78318596297
+
+;;;                                        5.783183821630505
+;;;                                        5.783185865288665
+;;; cylinder
+;;; lambda1^2+pi^2= 15.6527903641
+
+;; 15.338358832149563
+;; 15.641985755747394
+
+;;; auf großem Gebiet:
+;;; lambda1/4=1.445796490588467
+;;; 1.4457860789623667
+;;; 1.4457964410120385
+;;; 1.4457964903780134
+;;;       1:  1.44579649074     scheint auch sehr gut zu stimmen
+;;;       2:  1.4457964906571028
+
+;;; Mit Dreieck
+;;; 1.4461086803627932
+;;; 1.4461203521690598
+;;; 1.4461201219288802
+;;; 1.4461199921531585
+;;; -> sieht auch gut aus
+
+;;; Mit Neumann-Randbedingungen
+
+#+(or)
+(laplace-eigenvalue-computation (circle-ring-domain 1.0 1.5)
+                                :multiplicity 3 :time 1000 :nr-levels 3 :output 1)
+
+;;; Order=1 auf Kreis(ring) mit r=1.5 (exakt=5.78318596297/2.25=2.57030487243)
+   ;; 0       8        27     0.4  #(2.2694504532190947 3.262817890161257
+   ;;                                3.83328738108937)  
+   ;; 1      32       114     1.3  #(2.5845092366236324 7.08947513627384
+   ;;                                7.533151431978448)  
+   ;; 2     128       429    11.9  #(2.575413358209864 6.765188827135567
+   ;;                                6.766696316748804)  
+   ;; 3     512      1632    48.9  #(2.5716794784553527 6.604136808837907
+   ;;                                6.60453520088074)  
+   ;; 4    2048      6339   199.7  #(2.5706554413092086 6.5496691543420225
+   ;;                                6.549770322754479)  
+
+;;;(plot (getbb *result* :solution) :index 0)
 (make-laplace-eigenvalue-demo (n-simplex-domain 1) "unit-interval")
 (make-laplace-eigenvalue-demo (n-cube-domain 2) "unit-quadrangle")
+(make-laplace-eigenvalue-demo (circle-ring-domain 1.0 nil) "unit-circle")
+(make-laplace-eigenvalue-demo (cylinder-domain 1.0 1.0) "cylinder")
 
 #+(or)
 (let ((problem (cdr-model-problem

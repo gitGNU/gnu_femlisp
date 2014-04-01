@@ -317,7 +317,7 @@ transforms also the result."))
 ;;; Numerical gradient
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun numerical-gradient (func &key (shift 1.0d-8))
+(defun numerical-gradient (func &key (shift 1.0d-6))
   "Computes the numerical gradient of func at pos."
   #'(lambda (pos)
       (transpose

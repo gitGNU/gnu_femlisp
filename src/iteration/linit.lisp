@@ -127,7 +127,8 @@ iteration."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <lu> (<linear-iteration>)
-  ()
+  ((store-p :initarg :store-p :initform t
+	    :documentation "Store decomposition for multiple applications."))
   (:documentation "A linear iteration interface for the LU exact solver."))
 
 (defmethod make-iterator ((linit <lu>) mat)
@@ -135,7 +136,14 @@ iteration."))
   (with-slots (damp store-p) linit
     (let (lu ipiv)
       (when store-p
-	(multiple-value-setq (lu ipiv) (getrf! (copy mat))))
+        (acond ((and (typep mat 'property-mixin)
+                     (get-property mat 'fl.iteration::lu-decomposition))
+                (setq lu (car it) ipiv (cdr it)))
+               (t
+                (multiple-value-setq (lu ipiv) (getrf! (copy mat)))
+                (when (typep mat 'property-mixin)
+                  (setf (get-property mat 'fl.iteration::lu-decomposition)
+                        (cons lu ipiv))))))
       (make-instance
        '<iterator>
        :matrix mat

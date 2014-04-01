@@ -34,9 +34,6 @@
 
 (in-package :fl.plot)
 
-(defmethod graphic-commands ((f <function>) (program (eql :dx)) &rest rest)
-  (apply #'fl.graphic::dx-commands-data rest))
-
 (defmethod plot ((f <function>) &rest rest &key cells mesh domain parametric
 		 (depth 0) (key #'identity) (refinements 0) &allow-other-keys)
   "Plots @arg{function} on the given cell list @arg{cells}.  If @arg{cells}
@@ -49,7 +46,7 @@ times."
 	   (or mesh (uniformly-refined-mesh domain refinements :parametric parametric))))
   (apply #'call-next-method f
 	 :dimension (domain-dimension f)
-	 :rank (if (= (image-dimension f) 1) 1 2)
+	 :rank 1
 	 :shape (image-dimension f)
 	 :cells cells
 	 :cell->values
@@ -63,22 +60,33 @@ times."
 ;;; Testing
 
 (defun test-function-plot ()
-  (let ((domain (n-cube-domain 2)))
-    (plot (make-instance
-	   '<special-function> :evaluator
-	   #'(lambda (x)
-	       (let ((x (aref x 0))
-		     (y (aref x 1)))
-		 (if (or (> (abs (- 0.5 x)) 0.4)
-			 (> (abs (- 0.5 y)) 0.4))
-		     0.0
-		     (let ((x (/ (- x 0.1) 0.8))
-			   (y (/ (- y 0.1) 0.8)))
-		       #I(x*(1-x)*y*(1-y)*sin(10*pi*x)*sin(8*pi*y))))))
-	   :domain-dimension (dimension domain)
-	   :image-dimension 1)
+
+  (let* ((domain (n-cube-domain 2))
+         (func (make-instance
+                '<special-function> :evaluator
+                (_ (let ((x (aref _ 0))
+                         (y (aref _ 1)))
+                     (if (or (> (abs (- 0.5 x)) 0.4)
+                             (> (abs (- 0.5 y)) 0.4))
+                         0.0
+                         (let ((x (/ (- x 0.1) 0.8))
+                               (y (/ (- y 0.1) 0.8)))
+                           #I(x*(1-x)*y*(1-y)*sin(10*pi*x)*sin(8*pi*y))))))
+                :domain-dimension (dimension domain)
+                :image-dimension 1)))
+    (plot func :domain domain :refinements 4 :depth 2))
+  
+  (let* ((domain (n-cube-domain 2))
+         (func (make-instance
+                '<special-function> :evaluator
+                #'(lambda (x)
+                    (let ((x (aref x 0))
+                          (y (aref x 1)))
+                      (double-vec x y)))
+                :domain-dimension (dimension domain) :image-dimension 2)))
+    (plot func
 	  :domain domain
-	  :refinements 4 :depth 2))
+	  :refinements 2))
   )
 
 ;;; (test-function-plot)

@@ -47,8 +47,8 @@ is stored in the solution vector."))
 (in-package :fl.ellsys-fe)
 
 (defun ensure-m-matrix-property (mat)
-  "Problematic, because it discretizes convection only with first order
-accuracy."
+  "Problematic, because, when applied to the convection contribution,
+it reduces the discretization to first order accuracy."
   (for-each-row-key
    (lambda (i)
      (for-each-key-in-row
@@ -77,6 +77,7 @@ documentation of the package @package{ELLSYS}."
   (let ((cell (getf fe-geometry :cell))
 	(ip-values (ip-values vecfe qrule))
 	(ip-gradients (ip-gradients vecfe qrule)))
+    (dbg :disc "Number of quadrature points = ~A" (length ip-values))
 
     ;; loop over quadrature points
     (loop
@@ -114,19 +115,27 @@ documentation of the package @package{ELLSYS}."
 		      (gemm! weight (m* (aref left-gradients j) diffusion) (aref right-gradients i)
 			     1.0 (mref matrix i j) :NT))
 		  diff-tensor)))
+	      (FL.ELLSYS::AI		; resistance
+	       (let ((resistance-tensor (evaluate coeff coeff-input)))
+		 (dbg :disc "Discretizing resistance")
+                 (for-each-entry-and-key
+                  #'(lambda (resistance i j)
+                      (let ((factor (m/ (m*-tn Dphi (m* resistance Dphi)))))
+                        (gemm! weight (m* (aref shape-grads j) factor) (aref shape-grads i)
+                               1.0 (mref matrix i j) :NT)))
+		  resistance-tensor)))
 	      (FL.ELLSYS::B
 	       (dbg :disc "Discretizing convection")
 	       (let ((velocity-tensor (evaluate coeff coeff-input)))
 		 (for-each-entry-and-key
 		  #'(lambda (velocity i j)
-                      (if *upwinding*
-                          (let ((contribution
-                                 (m* (m* (aref left-gradients i) velocity)
-                                     (transpose (aref right-vals j)))))
-                            (axpy! weight (ensure-m-matrix-property contribution)
-                                   (mref matrix i j)))
-                          (gemm! weight (m* (aref left-gradients i) velocity)
-                                 (aref right-vals j) 1.0 (mref matrix i j) :NT)))
+                      (let ((convection-contribution
+                             (m*-nt (m* (aref left-gradients i) (scal -1.0 velocity))
+                                    (aref right-vals j))))
+                        (when *upwinding*
+                          (scal! 2.0 (ensure-m-matrix-property convection-contribution)))
+                        (axpy! weight convection-contribution
+                               (mref matrix i j))))
 		  velocity-tensor)))
 	      (FL.ELLSYS::C
 	       (dbg :disc "Discretizing non-conservative convection")
@@ -137,7 +146,9 @@ documentation of the package @package{ELLSYS}."
                           (let ((contribution
                                  (m* (aref left-vals i)
                                      (transpose (m* (aref right-gradients j) velocity)))))
-                            (axpy! weight (ensure-m-matrix-property contribution)
+                            (axpy! (* 1.0 ; enhancement factor for consistency
+                                      weight)
+                                   (ensure-m-matrix-property contribution)
                                    (mref matrix i j)))
                           (gemm! weight (aref left-vals i)
                                  (m* (aref right-gradients j) velocity)

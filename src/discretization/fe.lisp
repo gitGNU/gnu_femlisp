@@ -184,7 +184,7 @@ in a sparse vector value block corresponding to the subcell."
   (with-slots (components dofs basis properties)
     vecfe
     (assert components)
-    (assert (same-p components :key #'reference-cell))
+    (assert (samep components :key #'reference-cell))
     ;; setup derived slots
     (setf (slot-value vecfe 'refcell)
 	  (reference-cell (aref components 0)))
@@ -460,6 +460,7 @@ scalar product in pairing."
   "Collects cell geometry information at @arg{sample-points} inside a
 property list."
   ;;(declare (optimize speed))
+  (dbg :fe "Using qrule with ~A points" n)
   (let ((global-coords (multiple-local->global cell sample-points))
 	(gradients (multiple-local->Dglobal cell sample-points))
 	(volumes (make-array n))
@@ -484,6 +485,17 @@ property list."
     (list :cell cell :local-coords sample-points :global-coords global-coords
 	  :gradients gradients :volume volumes :gradient-inverses gradient-inverses
 	  :weights combined-weights)))
+
+(defun volume-of-cell (cell &optional (s 1))
+  (let* ((qrule (gauss-rule (factor-dimensions cell) s))
+         (geo (fe-cell-geometry cell (integration-points qrule)
+                                :weights (integration-weights qrule))))
+    (reduce #'+ (getf geo :weights))))
+
+(defun domain-volume (domain &optional (s 1))
+  (lret ((sum 0.0))
+    (doskel (cell domain :dimension :highest)
+      (incf sum (volume-of-cell cell s)))))
 
 ;;; For the following to be effective, we should eliminate the consing by
 ;;; handing over a geometry to be filled

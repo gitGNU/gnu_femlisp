@@ -579,6 +579,7 @@ hash-tables of keys (or NIL, which means to allow every key)."
   (let ((sum (m+ P1 P2)))
     (m- sum (sparse-m* P1 P2))))
 
+(defgeneric remove-projection-range (mat projection &key &allow-other-keys))
 
 (defmethod remove-projection-range ((vec <vector>) projection &key &allow-other-keys)
   (for-each-row-key
@@ -689,12 +690,14 @@ problem."
   (:method  ((mat <sparse-dictionary-matrix>) key)
     (dic-ref (column-table mat) key)))
 
-(defmethod (setf matrix-row) (row-table (mat <sparse-dictionary-matrix>) key)
-  (setf (dic-ref (row-table mat) key)
-        row-table))
+(defgeneric (setf matrix-row) (row-table mat key)
+  (:method (row-table (mat <sparse-dictionary-matrix>) key)
+    (setf (dic-ref (row-table mat) key)
+          row-table)))
 
-(defmethod (setf matrix-column) (col-table (mat <sparse-dictionary-matrix>) key)
-  (setf (dic-ref (column-table mat) key) col-table))
+(defgeneric (setf matrix-column) (column-table mat key)
+  (:method (col-table (mat <sparse-dictionary-matrix>) key)
+    (setf (dic-ref (column-table mat) key) col-table)))
 
 (defmethod matrix-block ((smat <sparse-dictionary-matrix>) row-key col-key)
   (dic-ref (matrix-row smat row-key) col-key))
@@ -780,16 +783,17 @@ indexed by general keys."))
                         (sans args '(:type))))
 
 (defmethod (setf matrix-block) (value (smat <ht-sparse-matrix>) row-key col-key)
-  (setf (gethash col-key
-		 (or (gethash row-key (row-table smat))
-		     (setf (gethash row-key (row-table smat))
-			   (make-hash-table :size 30))))
-	value)
-  (setf (gethash row-key
-		 (or (gethash col-key (column-table smat))
-		     (setf (gethash col-key (column-table smat))
-			   (make-hash-table :size 30))))
-	value))
+  (with-mutual-exclusion (smat)
+    (setf (gethash col-key
+                   (or (gethash row-key (row-table smat))
+                       (setf (gethash row-key (row-table smat))
+                             (make-hash-table :size 30))))
+          value)
+    (setf (gethash row-key
+                   (or (gethash col-key (column-table smat))
+                       (setf (gethash col-key (column-table smat))
+                             (make-hash-table :size 30))))
+          value)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Tests

@@ -65,72 +65,134 @@
   (setq ordering (coerce (or ordering (row-keys A)) '(simple-array * (*))))
   
   (let ((L (make-full-block-analog A))
-	(D (make-full-block-analog A))
-	(U (make-full-block-analog A)))
+        (D (make-full-block-analog A))
+        (U (make-full-block-analog A)))
     (declare (type <sparse-matrix> L D U))
     
     ;; Extract part out of A into U.  Entries are transformed into matlisp
     ;; matrices.  Zero entries are dropped.
     (loop for row-key across ordering
-	  for entry = (mref A row-key row-key) do
-	  (assert entry)
-	  (setf (mref U row-key row-key)
-		(typecase entry
-		  (compressed-matrix (compressed->matlisp entry))
-		  (t (copy entry)))))
+       for entry = (mref A row-key row-key) do
+         (assert entry)
+         (setf (mref U row-key row-key)
+               (typecase entry
+                 (compressed-matrix (compressed->matlisp entry))
+                 (t (copy entry)))))
     (loop for row-key across ordering do
-	  (for-each-key-and-entry-in-row
-	   #'(lambda (col-key entry)
-	       (when (and (matrix-row U col-key) (not (mzerop entry)))
-		 (setf (mref U row-key col-key)
-		       (typecase entry
-			 (compressed-matrix (compressed->matlisp entry))
-			 (t (copy entry))))))
-	   A row-key))
+         (for-each-key-and-entry-in-row
+          #'(lambda (col-key entry)
+              (when (and (matrix-row U col-key) (not (mzerop entry)))
+                (setf (mref U row-key col-key)
+                      (typecase entry
+                        (compressed-matrix (compressed->matlisp entry))
+                        (t (copy entry))))))
+          A row-key))
 
     ;; decomposition
-    (loop
-     for k across ordering do
-     (let* ((U_kk (mref U k k))
-	    (D_kk (if diagonal-inverter
-		      (funcall diagonal-inverter U_kk)
-		      (m/ U_kk))))
-     (setf (mref D k k) D_kk)	; store D
-     (remove-key U k k)		; clean U
-     (let ((col-k (matrix-column U k))
-	   (row-k (matrix-row U k)))
-       (when col-k
-	 (loop for i being each hash-key of col-k
-	       and Uik being each hash-value of col-k
-	       unless (matrix-row D i) do
-	       (let ((factor (m* Uik D_kk))
-		     (row-i (matrix-row U i)))
-		 (setf (mref L i k) factor) ; store L
-		 (remove-key U i k)	; clean U
-		 (when row-k
-		   (loop for j being each hash-key of row-k
-			 and Ukj being each hash-value of row-k do
-			 (let ((mblock (gethash j row-i)))
-			   (cond ((or mblock (not incomplete))
-				  (setq mblock (or mblock (mref U i j)))
-				  ;; (decf (vref mblock 0) (* (vref factor 0) (vref Ukj 0)))
-				  (gemm! -1.0 factor Ukj 1.0 mblock))
-				 (t (unless (zerop omega)
-				      (modify-diagonal (mref U i i) (m* factor (mref U i j)) omega)))
-				 ))))))))))
+    (dovec (k ordering)
+      (let* ((U_kk (mref U k k))
+             (D_kk (if diagonal-inverter
+                       (funcall diagonal-inverter U_kk)
+                       (m/ U_kk))))
+        (setf (mref D k k) D_kk)	; store D
+        (remove-key U k k)		; clean U
+        (let ((col-k (matrix-column U k))
+              (row-k (matrix-row U k))
+              (*number-of-threads* 2))
+          (with-workers
+              ((lambda (i)
+                 (let ((factor (mref L i k))
+                       (row-i (matrix-row U i)))
+                   (when row-k
+                     (dodic ((j Ukj) row-k)
+                       (let ((mblock (gethash j row-i)))
+                         (cond ((or mblock (not incomplete))
+                                (setq mblock (or mblock (mref U i j)))
+                                ;; (decf (vref mblock 0) (* (vref factor 0) (vref Ukj 0)))
+                                (gemm! -1.0 factor Ukj 1.0 mblock))
+                               (t (unless (zerop omega)
+                                    (modify-diagonal (mref U i i) (m* factor (mref U i j)) omega)))
+                               )))))))
+            (when col-k
+              (dodic (i col-k)
+                (unless (matrix-row D i)
+                  (let* ((Uik (dic-ref col-k i))
+                         (factor (m* Uik D_kk)))
+                    (setf (mref L i k) factor) ; store L
+                    (remove-key U i k)	; clean U
+                    (work-on i)))))))))
+    
     ;; finally return the result
     (make-instance '<ldu-sparse> :lower-left L :diagonal D
 		   :upper-right U :ordering ordering)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; nested disection numbering
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun distance-numbering (mat key-table key)
+  "Result is a table mapping the keys from @arg{key-table}
+to their distance from @arg{key}."
+  (lret ((result (make-instance 'sorted-hash-table)))
+    (when (dic-ref key-table key)
+      (setf (dic-ref result key) 0)
+      (dic-for-each
+       (lambda (key index)
+         (for-each-key-in-row
+          (lambda (rk)
+            (when (dic-ref key-table rk)
+              (unless (dic-ref result rk)
+                (setf (dic-ref result rk) (1+ index)))))
+          mat key))
+       result))))
+
+(defun last-key (sorted-ht)
+  "Returns the last key in a sorted hash table.
+This function should be in the interface of the sorted hash table."
+  (car (dll-peek-last (slot-value sorted-ht 'fl.utilities::store))))
+
+(defun find-ordering (mat keys)
+  "Finds a nested disection ordering of @arg{keys}
+with respect to the graph given by @arg{mat}."
+  (if (<= (length keys) 2)
+      keys
+      (let* ((key-table (map-list-in-hash-table (_ (values _ t)) keys))
+             (key (first keys))
+             (middle-distance (distance-numbering mat key-table key))
+             (left (last-key middle-distance))
+             (left-distance (distance-numbering mat key-table left))
+             (right (last-key left-distance))
+             (right-distance (distance-numbering mat key-table right)))
+        (unless (= (length keys)
+                   (length (keys left-distance))
+                   (length (keys middle-distance))
+                   (length (keys right-distance)))
+          ;; algorithm does not work
+          (dbg :sparselu "Giving up finding a good ordering - need better algorithm for unsymmetric matrices")
+          (return-from find-ordering keys))
+        (let (interface left right)
+          (dic-for-each-key
+           (lambda (key)
+             (let ((k (dic-ref left-distance key))
+                   (l (dic-ref right-distance key)))
+               (cond 
+                 ((or (= k l) (= (1+ k) l)) (push key interface))
+                 ((< k l) (push key left))
+                 (t (push key right)))))
+           key-table)
+          ;;
+          (append (find-ordering mat left)
+                  (find-ordering mat right)
+                  interface)))))
 
 ;;; Matlisp/LAPACK interface
 
 (defmethod getrf! ((A <sparse-matrix>) &optional ipiv)
-  (assert (null ipiv))
-  (values (sparse-ldu A :ordering nil) nil t))
+  (ensure ipiv (find-ordering A (row-keys A)))
+  (dbg-show :sparselu A)
+  (values (sparse-ldu A :ordering ipiv) ipiv t))
 
 (defmethod getrs! ((ldu <ldu-sparse>) (result <ht-sparse-vector>) &optional ipiv)
-  (assert (null ipiv))
   ;; solve (I + L) result~ = rhs
   (loop with L of-type <sparse-matrix> = (lower-left ldu)
 	for i across (ordering ldu)

@@ -107,6 +107,14 @@ oscillating domain."
     2 4 3 :plot t :plot-mesh t :amplitude 0.15 :shift 1.0 :extensible nil
     :solver (lu-solver) :output :all)))
 
+;; (plot (getbb *result* :solution) :depth 2)
+;; (describe (refcell-refinement-skeleton (n-cube 1) 2 0 t))
+;; (fl.plot::compute-position-indices
+;;  (surface-cells-of-highest-dim (mesh (getbb *result* :solution)))
+;;  0)
+
+;; (time (uniformly-refined-hierarchical-mesh (n-cube-domain 3) 5))
+
 #|
 (require :sb-sprof)
 
@@ -195,8 +203,8 @@ functional."))
 	 ;; ensure that we have no dramatic performance drop.
 	 ;; @var{work} was about 1000 for Femlisp-0.9.4 on ortler
 	 (format t "~F ~F  ->  ~F~%"
-		 (common-lisp-speed :cache 0.0 :memory 1.0)
-		 (common-lisp-speed :cache 1.0 :memory 0.0)
+		 (common-lisp-speed :memory-weight 0.0)
+		 (common-lisp-speed :memory-weight 1.0)
 		 work)
      ;;; 0.5/0.5 -> 2500 on ortler
 	 (when (> work 2500)

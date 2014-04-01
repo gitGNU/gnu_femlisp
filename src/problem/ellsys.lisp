@@ -49,7 +49,7 @@ of convection-diffusion-reaction equations.  The system is given in the
 following form which is suited for a fixed-point iteration:
 
 @math{-div(a(x,u_old,\nabla u_old) \nabla u)
- - div(b(x,u_old,\nabla u_old) u) +
+ + div(b(x,u_old,\nabla u_old) u) +
  + c(x,u_old,\nabla u_old) \nabla u +
  + r(x,u_old,\nabla u_old) u
 = f(x,u_old, \nabla u_old) 

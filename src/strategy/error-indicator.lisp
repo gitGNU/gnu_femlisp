@@ -104,6 +104,27 @@ error estimator yields a large eta."
     (setf refinement-table hash-table))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; isotropizing-refinement-indicator
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <isotropizing-refinement-indicator> (<refinement-indicator>)
+  ()
+  (:documentation "Marks anisotropic product cells in such a way that they
+  become isotropic."))
+
+(defmethod indicate ((indicator <isotropizing-refinement-indicator>)
+                     blackboard)
+  (with-items (&key mesh refinement-table)
+      blackboard
+    (let ((hash-table (make-hash-table))
+	  (in-region (in-region indicator)))
+      (doskel (cell mesh :where :surface)
+	(when (funcall in-region cell)
+	  (setf (gethash cell hash-table) cell)))
+      (setf refinement-table hash-table)))
+  (error "NYI"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; largest-eta-indicator
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -139,7 +160,8 @@ error estimator yields a large eta."
 		      for parent = (parent cell mesh)
 		      unless (gethash cell hash-table) do
 		      (when (or (and upper-part (<= i upper-part))
-				(and pivot (>= (abs (gethash cell eta)) pivot)))
+				(and pivot (>= (abs (gethash cell eta))
+                                               pivot)))
 			(setf (gethash cell hash-table) t)
 			(when (and (block-p indicator) parent)
 			  (loop for child across (children parent mesh)

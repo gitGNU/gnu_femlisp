@@ -62,8 +62,12 @@
 (defmethod graphic-input-stream ((program (eql :gnuplot)))
   (fl.port:process-input (ensure-gnuplot-process)))
 
-(defun gnuplot-input-stream () (fl.port:process-input (ensure-gnuplot-process)))
-(defun gnuplot-output-stream () (fl.port:process-output (ensure-gnuplot-process)))
+(defun gnuplot-input-stream ()
+  (whereas ((process (ensure-gnuplot-process)))
+    (fl.port:process-input process)))
+(defun gnuplot-output-stream ()
+  (whereas ((process (ensure-gnuplot-process)))
+    (fl.port:process-output process)))
 
 #+(or)  ; (ensure-gnuplot-process)
 (when *gnuplot-process*
@@ -91,11 +95,14 @@
                  :directory (pathname-directory (images-pathname))))
 
 (defun wait-for-gnuplot ()
+  "Does not work - somehow Gnuplot does not print anything to its output
+stream in contrast to DX."
   (whereas ((stream (gnuplot-output-stream)))
-    (loop for line = (read-line stream)
-	  until (equalp line "Femlisp request processed")
-	  do (when (dbg-p :graphic)
-	       (format *trace-output* "~A~%" line)))))
+    (dbg :graphic "Waiting for Gnuplot:")
+    (loop for line = (prog1 (read-line stream nil nil)
+                       (dbg :graphic "Waiting... Read: ~A~%" line))
+       until (search "Femlisp request processed" line)
+       finally (break))))
 
 (defmethod send-graphic-commands (object (program (eql :gnuplot)) &rest paras
 				  &key left right top bottom
@@ -119,10 +126,13 @@
 	(format stream "set xtics~%set ytics;~%")
 	(format stream "set noxtics~%set noytics;~%"))
     (format stream "set terminal ~A;~%" terminal)
-    (format stream "set output ~S;~%"
-	    (concatenate 'string (namestring (images-pathname)) output))
+    (let ((output-file
+           (concatenate 'string (namestring (images-pathname)) output)))
+      (format stream "set output ~S;~%" output-file))
     (loop for script-command in (apply #'graphic-commands object program paras) do
-	  (format stream "~A~%" script-command))
-    (format stream "print \"\\nFemlisp request processed\";~%")
-    (force-output stream)))
+         (format stream "~A;~%" script-command))
+    (format stream "print \"\\nFemlisp request processed\\n\";~%")
+    (finish-output stream)
+    ;; (wait-for-gnuplot)          ; does not work maybe due to readline
+    ))
 

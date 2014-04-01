@@ -233,7 +233,9 @@ occur for the inexact arithmetic."
   ;;; Maxima:
   (gauss-rule-for-simplex 2 3)
   (gauss-lobatto-points 2)
-  (gauss-lobatto-points-on-unit-interval 2))
+  (gauss-lobatto-points-on-unit-interval 2)
+  (length (integration-points (gauss-rule '(1 2) 20)))
+  )
 
 (fl.tests:adjoin-test 'test-quadrature)
 

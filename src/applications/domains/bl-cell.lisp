@@ -69,10 +69,9 @@ enhanced domain approximation."
     (identify-unit-cell-faces upper-cell :indices (range<= 0 (- dim 2)))
     (let ((lower-cell (transformed-skeleton
 		       upper-cell :transformation (bottom-mapping dim f grad-f))))
-      (change-class (if upper
-			(skel-add! upper-cell lower-cell)
-			lower-cell)
-		    '<domain>))))
+      (make-domain (if upper
+                       (skel-add! upper-cell lower-cell)
+                       lower-cell)))))
 
 (defun boundary-layer-cell-domain (dim f &key grad-f (extensible t)
 				   (upper t) &allow-other-keys)

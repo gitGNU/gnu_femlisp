@@ -276,6 +276,13 @@ starting from position @arg{offset}."))
 @arg{ncols} out of @arg{x} starting from position
 @arg{from-row}/@arg{from-col}."))
 
+(defgeneric submatrix (mat &key row-indices col-indices)
+  (:documentation "General extraction of submatrices specified
+by non-adjacent lists of row- and column indices."))
+
+(defgeneric diagonal (A)
+  (:documentation "Extracts the diagonal from matrix @arg{A} as a vector."))
+
 (defgeneric join-horizontal! (result &rest matrices)
   (:documentation "Joins @arg{matrices} horizontally into result.")
   (:method (result &rest matrices)
@@ -386,21 +393,35 @@ calls the corresponding generic function, e.g. GEMM-NN!."
     (gemm-tn! (coerce 1 (scalar-type x)) x y
 	      (coerce 0 (scalar-type x)) (m*-tn-product-instance x y))))
 
+(defgeneric m*-nt-product-instance (x y)
+  (:documentation "Allocates an instance for the product of X and Y^t.")
+  (:method (x y)
+    (make-instance (class-of y) :nrows (nrows x) :ncols (nrows y))))
+
+(defgeneric m*-nt (x y)
+  (:documentation "Multiply X by Y^t.")
+  (:method (x y)
+    "By default, M*-NT is rewritten in terms of GEMM!."
+    (gemm-nt! (coerce 1 (scalar-type x)) x y
+	      (coerce 0 (scalar-type x)) (m*-nt-product-instance x y))))
+
 (defun getrf (x &optional ipiv)
-  "Rewriting for GETRF  in terms of GETRF!."
+  "Rewriting for GETRF in terms of GETRF!."
   (getrf! (copy x) ipiv))
 
 (defun getrs (lu b &optional ipiv)
   "Rewriting for GETRS in terms of GETRS!."
   (getrs! lu (copy b) ipiv))
 
-(defmethod gesv! (A b)
-  "Solves a linear system A X = B for X via GETRF and GETRS!."
-  (multiple-value-bind (LR ipiv info)
-      (getrf A)
-    (if (numberp info)
-	(error "argument A given to GESV! is singular to working machine precision")
-	(getrs! LR b ipiv))))
+(defgeneric gesv! (A b)
+  (:documentation "Solves a linear system A X = B for X.")
+  (:method (A b)
+    "Default method solves LSE via GETRF and GETRS!."
+    (multiple-value-bind (LR ipiv info)
+        (getrf A)
+      (if (numberp info)
+          (error "argument A given to GESV! is singular to working machine precision")
+          (getrs! LR b ipiv)))))
 
 (defun gesv (A b)
   "Rewriting for GESV in terms of GESV!."

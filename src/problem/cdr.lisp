@@ -165,8 +165,10 @@ cube."
   (let ((dim (dimension domain)))
     ;; set default values
     (unless diffusion-p (setq diffusion (eye dim)))
-    (unless source-p (setq source (if evp 0.0 1.0)))
-    (unless dirichlet-p (setq dirichlet 0.0))
+    (unless source-p (setq source (if evp
+                                      (zeros 1 multiplicity)
+                                      (ones 1 multiplicity))))
+    (unless dirichlet-p (setq dirichlet (zeros 1 multiplicity)))
     (setq diffusion (ensure-1-component-tensor diffusion))
     (setq convection (ensure-1-component-tensor convection))
     (setq source (ensure-1-component-vector source))
@@ -194,7 +196,7 @@ cube."
 	  (when gamma
 	    `(,(ensure-vector-coefficient 'FL.ELLSYS::G gamma)))
 	  (when initial
-	    `(,(ensure-vector-coefficient 'INITIAL initial)))
+	    `(,(ensure-vector-coefficient 'FL.PROBLEM::INITIAL initial)))
 	  (when sigma
 	    `(,(ensure-tensor-coefficient 'FL.ELLSYS::SIGMA sigma)))
 	  )))
@@ -247,11 +249,20 @@ F(u)} for the nonlinear problem @math{-\Delta u +F(u) =0}."
                                   (eye (dimension patch))) 1))))
 
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
+                                  (coeff (eql 'FL.CDR::ISOTROPIC-RESISTANCE))
+				  patch args eval)
+  (make-coefficients-for problem 'FL.ELLSYS::AI patch args
+                         (lambda (&rest args)
+                           (diagonal-sparse-tensor
+                            (scal (apply eval args)
+                                  (eye (embedded-dimension patch))) 1))))
+
+(defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				 (coeff (eql 'FL.CDR::CONVECTION)) patch args eval)
   (make-coefficients-for problem 'FL.ELLSYS::B patch args
 			 (lambda (&rest args)
 			   (diagonal-sparse-tensor
-                            (ensure-matlisp (apply eval args) :column-vector)
+                            (ensure-matlisp (apply eval args) :column)
                             1))))
 
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
@@ -259,14 +270,14 @@ F(u)} for the nonlinear problem @math{-\Delta u +F(u) =0}."
   (make-coefficients-for problem 'FL.ELLSYS::C patch args
 			 (lambda (&rest args)
 			   (diagonal-sparse-tensor
-                            (ensure-matlisp (apply eval args) :column-vector)
+                            (ensure-matlisp (apply eval args) :column)
                             1))))
 
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				 (coeff (eql 'FL.CDR::SCALAR-SOURCE)) patch args eval)
   (make-coefficients-for problem 'FL.ELLSYS::F patch args
 			 (lambda (&rest args)
-			   (vector (ensure-matlisp (apply eval args) :row-vector)))))
+			   (vector (ensure-matlisp (apply eval args) :row)))))
 		    
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				 (coeff (eql 'FL.CDR::REACTION)) patch args eval)
@@ -287,13 +298,13 @@ F(u)} for the nonlinear problem @math{-\Delta u +F(u) =0}."
 				  patch args eval)
   (make-coefficients-for problem 'FL.PROBLEM::CONSTRAINT patch args
 			 (lambda (&rest args)
-			   (values #(t) (vector (ensure-matlisp (apply eval args) :row-vector))))))
+			   (values #(t) (vector (ensure-matlisp (apply eval args) :row))))))
 
 (defmethod make-coefficients-for ((problem fl.cdr::<cdr-problem>)
 				 (coeff (eql 'FL.CDR::INITIAL-VALUE)) patch args eval)
   (make-coefficients-for problem 'FL.PROBLEM::INITIAL patch args
 			 (lambda (&rest args)
-			   (vector (ensure-matlisp (apply eval args) :row-vector)))))
+			   (vector (ensure-matlisp (apply eval args) :row)))))
 		    
 
 

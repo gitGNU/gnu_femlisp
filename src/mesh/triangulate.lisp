@@ -5,6 +5,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2004 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2010 Nicolas Neuss, KIT Karlsruhe.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -20,15 +21,15 @@
 ;;; 
 ;;; THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
 ;;; WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-;;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
-;;; NO EVENT SHALL THE AUTHOR, THE UNIVERSITY OF HEIDELBERG OR OTHER
-;;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-;;; EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-;;; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-;;; PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-;;; LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+;;; IN NO EVENT SHALL THE AUTHOR, THE UNIVERSITY OF HEIDELBERG, THE KIT,
+;;; OR OTHER CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+;;; SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+;;; LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+;;; DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+;;; THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+;;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+;;; OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -38,7 +39,7 @@
 ;;; Boundary cells
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <boundary-cell> (<standard-cell>)
+(defclass <boundary-cell> (<cell-with-boundary>)
   ((dimension :reader dimension :initarg :dimension)
    (midpoint :reader midpoint :initform nil :initarg :midpoint)
    (holes :reader holes :initform () :initarg :holes))
@@ -69,25 +70,36 @@ triangulation programs."))
 ;;; Triangulation interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun triangulate (domain &rest args &key parametric &allow-other-keys)
+(defun triangulate (domain &rest args &key parametric (check-p t) &allow-other-keys)
   "Triangulate @arg{domain} by successively building a mesh on the domain
 skeleton starting from the 0-dimensional patches."
   (assert (not (eq parametric :from-domain)))
-  (let ((mesh (make-instance '<mesh> :domain domain :parametric parametric)))
-    (loop for dim upto (dimension domain) do
-	  (setq args (apply #'extend-triangulation mesh dim args)))
-    (check mesh)
-    mesh))
+  (lret ((embedded-dim (embedded-dimension domain))
+         (mesh (make-instance '<mesh> :domain domain :parametric parametric)))
+    (loop for dim upto (dimension domain)
+       and program in '(:internal :internal :triangle :tetgen)
+       do
+         (apply #'extend-triangulation mesh dim embedded-dim program args)
+         (when check-p (check mesh)))))
 
-(defgeneric extend-triangulation (mesh dim &key &allow-other-keys)
-  (:documentation "Extend an existing triangulation on the
-@arg{dim}-1-skeleton to the @arg{dim}-skeleton."))
+(defgeneric extend-triangulation (mesh dim embedded-dim program
+                                       &key &allow-other-keys)
+  (:documentation "Extend an existing triangulation on the @arg{dim}-1-skeleton
+to the @arg{dim}-skeleton using @arg{program}.")
+  (:method :before (mesh dim embedded-dim program &key &allow-other-keys)
+    "Checks that no higher-dimensional cells already exist.  This might be
+too restrictive later on."
+    (assert (zerop (loop for k from (1+ dim) upto (dimension mesh)
+                      sum (nr-of-cells mesh dim))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Triangulation of 0-dimensional patches
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod extend-triangulation (mesh (dim (eql 0)) &rest args)
+(defmethod extend-triangulation (mesh (dim (eql 0)) embedded-dim
+                                 (program (eql :internal))
+                                 &key &allow-other-keys)
+  (declare (ignore embedded-dim program))
   (let* ((domain (domain mesh))
 	 (patches (cells-of-dim domain 0)))
     (loop for patch = (first patches) while patch do
@@ -97,11 +109,10 @@ skeleton starting from the 0-dimensional patches."
 				      identified-patches)))
        (loop for cell in identified-cells
 	     and patch in identified-patches do
-	     (setf (patch-of-cell cell mesh) patch))
+	     (setf (skel-ref mesh cell)
+                   (list 'PATCH patch)))
        (identify identified-cells mesh)
-       (setq patches (nset-difference patches identified-patches)))))
-  ;; pass on args
-  args)
+       (setq patches (nset-difference patches identified-patches))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Triangulation of 1-dimensional patches
@@ -167,13 +178,19 @@ function @arg{patch->raster} mapping patches to complete rasters."
 	   (dolist (cell cluster)
 	     (setf (cell-identification cell mesh) id))))))
 
-(defmethod extend-triangulation (mesh (dim (eql 1)) &rest keys)
+(defmethod extend-triangulation (mesh (dim (eql 1)) embedded-dim
+                                 (program (eql :internal)) &rest keys)
   "Generates a mesh on the 1-skeleton for domain.  Identification is taken
 care of."
+  (declare (ignore embedded-dim program))
   (declare (optimize debug))
   (let ((patch->nodes (make-hash-table)) ; table of (s . node(s)) entries
-	(vertex-table (make-hash-table))
-	(domain (domain mesh)))
+	(domain (domain mesh))
+        (count 0))
+    ;; Triangulation uses a global numbering of vertices which we start now
+    (doskel (vtx mesh :dimension 0)
+      (setf (get-cell-property vtx mesh 'TRIANGULATION-INDEX)
+            (incf count)))
     ;; initialize tables of patch vertices
     (doskel (patch domain :dimension 1)
       (push (cons 0.0 (find-cell
@@ -187,13 +204,16 @@ care of."
 	(when (eq patch (car identified-patches))
 	  (let ((raster (apply #'compute-raster patch keys)))
 	    (dolist (s raster)
-	      (let ((identified-cells
-		     (mapcar #'(lambda (patch)
-				 (make-vertex (local->global patch (double-vec s))))
-			     identified-patches)))
+	      (let* ((lcoord (double-vec s))
+                     (identified-cells
+                      (mapcar #'(lambda (patch)
+                                  (make-vertex (local->global patch lcoord)))
+                              identified-patches)))
 		(loop for cell in identified-cells
 		      and patch in identified-patches do
-		      (setf (patch-of-cell cell mesh) patch)
+		      (setf (skel-ref mesh cell)
+                            (list 'PATCH patch 'LOCAL-COORD lcoord
+                                  'TRIANGULATION-INDEX (incf count)))
 		      (unless (single? identified-cells)
 			(identify identified-cells mesh))
 		      (push (cons s cell) (gethash patch patch->nodes)))))))))
@@ -204,15 +224,12 @@ care of."
 			   (eq (patch-of-cell cell mesh) (aref (boundary patch) 0)))
 		       mesh))
 	    (gethash patch patch->nodes)))
-    ;; number all those vertices
-    (let ((count 0))
-      (doskel (vertex mesh :dimension 0)
-	(setf (gethash vertex vertex-table) (incf count))
-	(dbg :triangulate "Node ~D: ~A"  count (vertex-position vertex))))
     ;; generate the edges
     (dolist (patch (cells-of-dim (domain mesh) 1))
+      (dbg :triangulate "Patch : ~A" patch)
       (loop for (a b) on (gethash patch patch->nodes) while b do
-	    (when (> (gethash (cdr a) vertex-table) (gethash (cdr b) vertex-table))
+	    (when (> (get-cell-property (cdr a) mesh 'TRIANGULATION-INDEX)
+                     (get-cell-property (cdr b) mesh 'TRIANGULATION-INDEX))
 	      (rotatef a b))
 	    (let ((mapping
 		   (aand (mapping patch)
@@ -223,31 +240,20 @@ care of."
 	    (setf (skel-ref mesh (make-line (cdr a) (cdr b) :mapping mapping))
 		  (list 'PATCH patch))
 	    (dbg :triangulate "Edge : ~A" (list a b)))))
-    (fix-identification-for-positive-dimension mesh 1)
-    ;; we return the vertex-table for further processing.  This might be
-    ;; removed when indices are incorporated into the mesh data structure.
-    (list* :vertex-table vertex-table keys)))
+    (fix-identification-for-positive-dimension mesh 1)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Triangulation of 2-dimensional patches
+;;;; Triangulation of higher dimensional patches
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric triangulate-2d (mesh program &key &allow-other-keys)
-  (:documentation "Extends the mesh on the 1-skeleton to the 2-skeleton
-using @arg{program}."))
+;;; This is handled by the external programs Triangle (2D) and Tetgen (3D).  We
+;;; only care about making cells parametric if necessary.
 
-(defmethod extend-triangulation (mesh (dim (eql 2)) &rest keys
-				 &key (program :triangle) vertex-table
-				 &allow-other-keys)
-  "Calls the generic @function{triangulate-2d} which dispatches on the
-triangulation program."
-  (triangulate-2d mesh program :vertex-table vertex-table)
-  keys)
-
-(defmethod extend-triangulation :after (mesh (dim (eql 2)) &key &allow-other-keys)
+(defmethod extend-triangulation :after (mesh dim embedded-dim program &key &allow-other-keys)
   "Does the setup of isoparametric mapping of boundary cells."
-  (when (parametric mesh)
-    (doskel (cell mesh :dimension 2)
+  (declare (ignore embedded-dim program))
+  (when (and (>= dim 2) (parametric mesh))
+    (doskel (cell mesh :dimension dim)
       (when (some #'(lambda (side)
 		      (and (not (eq (patch-of-cell cell mesh)
 				    (patch-of-cell side mesh)))

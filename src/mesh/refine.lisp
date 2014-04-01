@@ -57,6 +57,21 @@ vertex.lisp, simplex.lisp, and product-cell.lisp.")
   (:documentation "Rule for refining reference cells.  Those rules are
 stored in the refine-info slot of the cell class."))
 
+(defclass <anisotropic-rule-mixin> ()
+  ((types :initarg :types))
+  (:documentation "Mixin for an anisotropic refrule.  This type of rule
+ includes copy and regular refinement as special cases."))
+
+(defun anisotropic-rule-p (rule)
+  (typep rule '<anisotropic-rule-mixin>))
+
+(defun anisotropic-name (types)
+  (intern (format nil "ANISOTROPIC-~{~:[F~;T~]~}" types)
+          (find-package "KEYWORD")))
+
+(defmethod print-object :after ((refrule refinement-rule) stream)
+  (format stream "{~A}" (names refrule)))
+
 (defun get-refinement-rule (cell id)
   "Finds the refinement rule for @arg{cell} defined by the @arg{id}.  This
 @arg{id} can be a number (position of the rule, T (meaning 0), or some
@@ -87,7 +102,19 @@ returned: the rule and its position in the refinement-rule vector."
 		      (plusp (length refinement-rules)))
 	     (error "Regular refinement should be at position zero."))
 	   (setf refinement-rules
-		 (concatenate 'vector refinement-rules (vector rule))))))))
+		 (concatenate 'vector refinement-rules (vector rule)))))))
+  rule)
+
+(defun add-new-refinement-rule (rule)
+  "Adds a new @arg{rule} to the refinement rules of @arg{cell}."
+  (let ((refcell (reference-cell rule)))
+    (assert (notany (_ (intersection (names rule) (names _)))
+                    (refinement-rules refcell)))
+    ;; ensure that the regular rule is already there
+    (assert (get-refinement-rule refcell :regular))
+    ;; add new rule 
+    (setf (get-refinement-rule refcell (names rule))
+          rule)))
 
 (defun rule-position (id cell)
   (if (numberp id)
@@ -110,25 +137,25 @@ returned: the rule and its position in the refinement-rule vector."
 positions should already be filled with the refinements of the cell's
 boundary.  Returns a vector of children."
   (declare (type simple-vector subcell-refinements refinfo))
-  (declare (optimize speed (safety 1)))
+  (declare (optimize debug speed))  ; ((speed (safety 1)))
   (lret ((my-refinement (make-array (length refinfo) :initial-element nil)))
     (setf (aref subcell-refinements 0) my-refinement)
-    (loop for (child . vec) across refinfo ; ! was child-refcell
+    (loop for (refchild . vec) across refinfo ; ! was child-refcell
        and n of-type (integer 0 (#.array-dimension-limit)) from 0 do
        (symbol-macrolet ((new-child (aref my-refinement n)))
          (cond
-           ((vertex-p child)
+           ((vertex-p refchild)
             (setf new-child (make-vertex (local->global cell vec))))
-           (t (setf new-child (make-instance (class-of child)))
+           (t (setf new-child (make-instance (class-of refchild)))
               (setf (slot-value new-child 'boundary)
                     (map 'cell-vec
                          #'(lambda (k&j)
                              (aref (the simple-vector
                                      (aref subcell-refinements (car k&j))) (cdr k&j)))
                          vec))
-              (when (mapped-p child)
+              (when (mapped-p refchild)
                 (setf (slot-value new-child 'mapping)
-                      (compose-2 (cell-mapping cell) (cell-mapping child))))))))))
+                      (compose-2 (cell-mapping cell) (cell-mapping refchild))))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; refinement information in a skeleton
@@ -237,9 +264,16 @@ transform-A, transform-b:  determine the transformation mapping for the child"
 
 (deftype child-info-vec () '(simple-array <child-info> (*)))
 
-(defun refine-info->refinement-rule (names refcell refine-info)
+(defun refine-info->refinement-rule (refcell refine-info)
   "This generates a refinement-rule from the older refine-info data."
-  (let ((rule (make-instance 'refinement-rule :names names :reference-cell refcell)))
+  (let* ((types (make-list (length (factor-simplices refcell)) :initial-element t))
+         (rule (make-instance
+                (fl.amop:find-programmatic-class '(refinement-rule <anisotropic-rule-mixin>))
+                :reference-cell refcell
+                :names (if (vertex-p refcell)
+                           '(:copy :regular :anisotropic-)
+                           (list :regular (anisotropic-name types)))
+                :types types)))
     (with-slots (boundary-refinement-rules refinement-info)
 	rule
       (setf boundary-refinement-rules
@@ -308,19 +342,13 @@ memoized, see the documentation of *REFCELL-REFINEMENT-MEMOIZE-DEPTH*."
   (let ((key (list refcell level rule)))
     (or (gethash key *refcell-refinement-table*)
 	(let ((result
-	       (cond
-		 ((zerop level) (skeleton refcell))
-                 ((= level 1)
-                  (refine (refcell-refinement-skeleton refcell (1- level) rule)
-                          :indicator (curry #'induced-refinement-of-subcell-refcells refcell rule)
-                          :decouple nil :highest t))
-		 (t
-                  ;; this works at the moment only for special cases like
-                  ;; regular or copy refinement, because anisotropic rules would
-                  ;; have to induce successive refinements of their subparts
-                  ;; which does probably not make too much sense.
-                  (refine (refcell-refinement-skeleton refcell (1- level) rule)
-			    :decouple nil :indicator (constantly rule) :highest t)))))
+	       (if (zerop level)
+                   (skeleton refcell)
+                   ;; the following makes sense at the moment only for special cases
+                   ;; regular or copy refinement.
+                   (refine (refcell-refinement-skeleton refcell (1- level) rule)
+                           :indicator (constantly rule)
+                           :decouple nil :highest t))))
 	  (dbg :refine "Generating new refinement skeleton.~%Key=~A" key)
 	  (when (or (<= level 1)	; is needed for refinement
 		    (and *refcell-refinement-memoize-depth*
@@ -362,12 +390,9 @@ memoized, see the documentation of *REFCELL-REFINEMENT-MEMOIZE-DEPTH*."
   ;; generate regular refinement-rule from refine-info
   (declare (optimize debug))
   (with-cell-information (refinement-rules)
-    refcell
+      refcell
     (setf refinement-rules
 	  (vector (refine-info->refinement-rule
-		   (if (vertex-p refcell)
-		       (list :regular :copy)
-		       (list :regular))
 		   refcell (refine-info refcell)))))
   (assert (get-refinement-rule refcell 0))
   (assert (get-refinement-rule refcell t))
@@ -478,15 +503,34 @@ or only the highest-dimensional cells."))
   (assert (or region  ; h-mesh refinement
 	      (not (eq skel refined-skel))))
   (ensure region skel)
-  (skel-for-each
-   #'(lambda (cell)
-       (unless (refined-p cell skel)
-	 (whereas ((rule (funcall indicator cell)))
-	   (let ((rule (get-refinement-rule cell rule)))
-	     (if rule
-		 (refine-cell! rule cell skel refined-skel refined)
-		 (error "Refinement rule not found."))))))
-   region :direction :up :dimension (and highest :highest)))
+  (let ((override-table (make-hash-table :test 'eq)))
+    (doskel (cell region :direction :down)
+      (whereas ((rule (aand (or (gethash cell override-table)
+                                (funcall indicator cell))
+                            (get-refinement-rule cell it))))
+        (loop for side across (boundary cell)
+           and side-rule across (boundary-refinement-rules rule)
+           for indicated-side-rule =
+             (get-refinement-rule side (funcall indicator side))
+           do
+             (unless (eq side-rule indicated-side-rule)
+               (if indicated-side-rule
+                   (error "Rule mismatch:~%cell ~A~%side ~A:~%~
+                   induced:   ~A~%indicated: ~A"
+                   cell side side-rule indicated-side-rule)
+                   ;; we blame the inconsistency on the error indicator
+                   ;; that marks only top-level cells
+                   (setf (gethash side override-table) side-rule))
+               ))))
+    (doskel (cell region :direction :up :dimension (and highest :highest))
+      (unless (refined-p cell skel)
+        (whereas ((rule (or (gethash cell override-table)
+                            (funcall indicator cell))))
+          (let ((rule (get-refinement-rule cell rule)))
+            (if rule
+                (refine-cell! rule cell skel refined-skel refined)
+                (error "Refinement rule not found."))))))))
+
 
 (defgeneric refine (skel &key indicator &allow-other-keys)
   (:documentation "Refines @arg{skel} either locally or globally depending

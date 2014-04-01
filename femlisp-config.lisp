@@ -50,9 +50,12 @@
   "Path to the @program{Gnuplot} executable.")
   
 (defparameter *triangle-path*
-  (or nil ; default: search in path
-      #+(or ccl ecl gcl lispworks) #p"femlisp:external;triangle;triangle")
+  nil  ; default: search in path and try to look in #p"femlisp;external"
   "Path to the @program{triangle} executable.")
+  
+(defparameter *tetgen-path*
+  nil  ; default: search in path and try to look in #p"femlisp;external"
+  "Path to the @program{tetgen} executable.")
   
 (defparameter *images-directory*
   nil ; default: #p"femlisp:images"

@@ -118,7 +118,7 @@ neighbors are generated."
 				:mapping (funcall parametric child))))))))
 
 ;;; (untrace :methods 'refine-cell!)
-(defmethod check :after ((mesh <mesh>))
+(defmethod check progn ((mesh <mesh>))
   "Performs some additional checks for mesh."
   nil)
 
@@ -307,34 +307,37 @@ locally refined hierarchical-mesh structure."
                      (inside-cell? cell midpoint 1.0e-10)
                      (equalp (midpoint cell) midpoint))))))
 
+(defvar *find-cell-base-level* 0
+  "First level on which a cell is searched for containing a given position.")
 
 (defmethod find-cell-from-position ((h-mesh <hierarchical-mesh>) (pos array))
-  "Hierarchical search for a leaf cell containing the given position.  A
-result of NIL is given if no cell covering @arg{pos} is found."
-  (loop for level from 0 below (nr-of-levels h-mesh)
-	for cell = (find-cell-from-position (cells-on-level h-mesh level) pos)
-	unless (null cell) do
-	(return
-	  (loop for children = (children cell h-mesh) while children do
-		(let ((child (loop for child across children
-				   when (and (= (dimension child) (dimension h-mesh))
-					     (inside-cell? child pos))
-				   do (return child))))
-		  (if child
-		      (setq cell child)
-		      ;; In the following case pos is not covered by cell's
-		      ;; children.  This may happen for non-polygonal
-		      ;; domains, but unfortunately also due to rounding
-		      ;; errors.
-		      (return nil)))
-		finally (return cell)))))
+  "Hierarchical search for a leaf cell containing the given position.  A result
+of NIL is given if no cell covering @arg{pos} is found."
+  (loop for level from *find-cell-base-level* below (nr-of-levels h-mesh)
+     for cell = (find-cell-from-position
+                 (cells-on-level h-mesh level) pos)
+     when cell do
+       (return
+         (loop for children = (children cell h-mesh) while children do
+              (let ((child (loop for child across children
+                              when (and (= (dimension child) (dimension h-mesh))
+                                        (inside-cell? child pos))
+                              do (return child))))
+                (if child
+                    (setq cell child)
+                    ;; In the following case pos is not covered by cell's
+                    ;; children.  This may happen for non-polygonal
+                    ;; domains, but unfortunately also due to rounding
+                    ;; errors.
+                    (return nil)))
+              finally (return cell)))))
 
 (defvar *allow-child-patch-change* nil
   "When T it is allowed for a child to have a different patch from its
 father.  This is used at the moment for homogenization of porous domains,
 but it is not a standard situation.")
 
-(defmethod check :after ((h-mesh <hierarchical-mesh>))
+(defmethod check progn ((h-mesh <hierarchical-mesh>))
   "Performs some additional checks for hierarchical meshes."
   (loop for level-mesh across (levels h-mesh) do
 	(doskel (cell level-mesh)

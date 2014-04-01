@@ -51,4 +51,6 @@
    "SPLINE-INTERPOLATED-BL-CELL"
    "BL-PATCH-ON-LOWER-BOUNDARY" "BL-PATCH-ON-PELLET-BOUNDARY"
    "BL-PATCH-ON-UPPER-BOUNDARY" "BL-PATCH-ON-ARTIFICIAL-BOUNDARY")
+  (:export ; circle-ring-domain
+   "CIRCLE-RING-DOMAIN" "CYLINDER-DOMAIN")
   (:documentation "Femlisp package for domain definitions."))

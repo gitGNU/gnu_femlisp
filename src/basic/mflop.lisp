@@ -39,10 +39,10 @@
 
 (in-package :fl.utilities)
 
-(defconstant +N-long+ #x080000)  ; should not fit in secondary cache
-(defconstant +N-short+ #x100)    ; should fit in primary cache
+(defconstant +N-long+ 1000000)  ; should not fit in secondary cache
+(defconstant +N-short+ 400)    ; should fit in primary cache
 
-(defparameter *mflop-delta* 0.3
+(defparameter *mflop-delta* 1.0
   "Time interval in seconds over which we measure performance.")
 
 (defun make-double-float-array (size &optional (initial 0.0))
@@ -74,7 +74,7 @@ needs."
 	       (get-internal-real-time)
 	       (get-internal-run-time))))
     (let ((before (time-stamp)))
-      (quickly
+      (very-quickly
 	(dotimes (i count) (funcall fn)))
       ;; return time in seconds
       (float (/ (- (time-stamp) before)
@@ -90,23 +90,27 @@ Returns the time in seconds together with the repetition count."
 	finally (return (values secs count))))
 
 (defun daxpy-speed (n)
-  "Returns the speed with which @function{daxpy} works for vectors of size
-@arg{n}."
+  "Returns the number of daxpy-ops for vectors of size @arg{n}."
   (let ((x (make-array n :element-type 'double-float :initial-element 2.0))
 	(y (make-array n :element-type 'double-float :initial-element 1.0)))
     ;;(/ (measure-time #'(lambda () (blas::DAXPY n 2.0 x 1 y 1))))
     (multiple-value-bind (secs count)
 	(measure-time-repeated #'(lambda () (daxpy x 2.0 y n)))
-      (/ (* 2 n count) 1.0e6 secs))))
+      (/ (* n count) 1.0e6 secs))))
 
-(defun common-lisp-speed (&key (cache 0.5) (memory 0.5))
+(defun common-lisp-speed (&key (memory-weight 0.5))
   "Returns the speed which should be characteristic for the setting
-determined by the keyword arguments."
-  (+ (* cache (daxpy-speed +N-short+))
-     (* memory (daxpy-speed +N-long+))))
+determined by @arg{memory-weight}.  If this argument is 0.0
+it means that all operations should be inside cache memory
+whereas 1.0 means that the operation are restricted by
+memory bandwidth available."
+  (+ (* (- 1.0 memory-weight) (daxpy-speed +N-short+))
+     (* memory-weight (daxpy-speed +N-long+))))
 
 (defun test-mflop ()
   (daxpy-speed +N-short+)
+  (daxpy-speed 2048)
+  (time (daxpy-speed (expt 2 26)))
   (daxpy-speed +N-long+)
   (common-lisp-speed)
   )

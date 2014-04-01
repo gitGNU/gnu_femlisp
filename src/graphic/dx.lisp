@@ -101,10 +101,11 @@ This is a trick to make @arg{dx} redraw the picture.")
 
 (defun wait-for-dx ()
   (whereas ((stream (dx-output-stream)))
-    (loop for line = (read-line stream)
-	  until (search "0:  ECHO:  Femlisp request processed" line)
-	  do (when (dbg-p :graphic)
-	       (format *trace-output* "~A~%" line)))))
+    (loop for line = (prog1 (read-line stream)
+                       (when (dbg-p :graphic)
+                         (format *trace-output* "Waiting... Read: ~A~%" line)
+                         (force-output *trace-output*)))
+       until (search "0:  ECHO:  Femlisp request processed" line))))
 
 (defparameter *dx-bug-workaround* nil
   "If T switches on hardware rendering.  This variant is problematic,
@@ -115,6 +116,12 @@ E.g. it does not do xy-graphs correctly and fails for @lisp{(plot (n-cube
 (defparameter *show-dx-window* t
   "Show the DX window when something is plotted.  This may be useful on
 Laptops when the window is hidden.")
+
+(defun handshake-with-dx ()
+  (whereas ((stream (dx-input-stream)))
+    (format stream "Echo (\"Femlisp request processed\");~%")
+    (force-output stream)
+    (wait-for-dx)))
 
 (defmethod send-graphic-commands (object (program (eql :dx)) &rest paras
 				  &key dimension (background :black)
@@ -137,14 +144,28 @@ Laptops when the window is hidden.")
       (if *dx-bug-workaround*
 	  (format stream "image = Options(image, \"rendering mode\", \"hardware\");~%")
 	  (format stream "image = Render(image,camera);"))
-      (let ((control "where=SuperviseWindow(~S,size=[~D,~D],visibility=~D);~%"))
-        (when *show-dx-window*
-          (format stream control window width height 2))
-        (format stream control window width height 1))
-      (if *dx-bug-workaround*
-	  ;; corresponding to the above problematic variant
-	  (format stream "Display (image, camera, where=where);~%")
-	  (format stream "Display (image, where=where);~%"))
+      (when (find :screen *output-types*)
+        (let ((control "where=SuperviseWindow(~S,size=[~D,~D],visibility=~D);~%"))
+          (when *show-dx-window*
+            (format stream control window width height 2))
+          (format stream control window width height 1))
+        (if *dx-bug-workaround*
+            ;; corresponding to the above problematic variant
+            (format stream "Display (image, camera, where=where);~%")
+            (format stream "Display (image, where=where);~%")))
+      (awhen (find-if (_ (and (listp _) (eql (first _) :images)))
+                      *output-types*)
+        (whereas ((pathname (funcall (second it))))
+          (flet ((file (type)
+                   (namestring (merge-pathnames pathname (make-pathname :type type)))))
+            (format stream "WriteImage(image, ~S, \"tiff\");" (file nil))
+            ;; unfortunately writing jpg directly does not work (contrary to the DX Reference Manual):
+            ;; "ImageMagick supported format gamma=2.2 compression=JPEG quality=90 resize=50"
+            (handshake-with-dx)
+            (awhen (probe-file "/usr/bin/convert")
+              (fl.port:run-program it (list "-quality" "90" (file "tiff") (file "jpg"))
+                                   :wait t))
+            )))
       (when filename
 	(ensure format "tiff")
 	(cond
@@ -157,7 +178,5 @@ Laptops when the window is hidden.")
 	   (format stream "WriteImage (image,~S,~S);~%"
 		   (concatenate 'string (namestring (images-pathname)) filename)
 		   format))))
-      (format stream "Echo (\"Femlisp request processed\");~%")
-      (force-output stream)
-      (wait-for-dx)
+      (handshake-with-dx)
       )))

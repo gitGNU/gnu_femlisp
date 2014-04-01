@@ -36,6 +36,10 @@
 
 (in-package :fl.matlisp)
 
+(defmethod vref ((obj number) k)
+  (assert (zerop k))
+  obj)
+
 (defmethod nrows ((obj number)) 1)
 (defmethod ncols ((obj number)) 1)
 (defmethod multiplicity ((obj number)) 1)
@@ -61,9 +65,6 @@
 (defmethod m+! ((x number) (y number))
   "Number addition."
   (+ x y))
-(defmethod m*! ((x number) (y number))
-  "Number multiplication."
-  (* x y))
 
 (defmethod fill-random! ((x number) (s number))
   (random s))

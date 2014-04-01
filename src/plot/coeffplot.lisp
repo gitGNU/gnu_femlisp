@@ -34,10 +34,6 @@
 
 (in-package :fl.plot)
 
-(defmethod graphic-commands ((asv <pde-problem>) (program (eql :dx))
-			     &rest rest)
-  (apply 'fl.graphic::dx-commands-data rest))
-
 (defmethod plot ((problem <pde-problem>) &rest rest &key mesh (refinements 0)
 		 (depth 0) (key #'identity) parametric coefficient
 		 (rank 0) shape &allow-other-keys)

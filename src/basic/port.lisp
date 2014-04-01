@@ -273,7 +273,7 @@ compatible way of ensuring method compilation."
 
 (defun process-close (process)
   "Closes @arg{process}."
-  #+(or allegro lispworks) (close (second process))
+  #+(or allegro lispworks sbcl) (close (process-input process))
   #+(or clisp)
   (loop for k in '(1 2 3) do
        (let ((stream (nth k process)))
@@ -282,7 +282,6 @@ compatible way of ensuring method compilation."
   #+cmu (ext:process-close process)
   #+scl (ext:process-kill process :sigkill)
   #+(or ecl gcl) (close process)
-  #+sbcl (sb-ext:process-close process)
   #-(or allegro ccl lispworks clisp cmu scl ecl gcl sbcl)
   (portability-warning 'process-close process)
   )
@@ -414,7 +413,7 @@ compatible way of ensuring method compilation."
    "Returns an array pointer which can be used in a foreign call."
    #+(or allegro lispworks) ptr
    #+(or cmu scl) (system:vector-sap ptr)
-   #+ecl (ffi:c-inline (ptr) (:object) :pointer-void "(#0)->array.self.ch" :one-liner t)
+   #+ecl nil  ; (ffi:c-inline (ptr) (:object) :pointer-void "(#0)->array.self.ch" :one-liner t)
    #+sbcl (sb-sys:vector-sap ptr)
    #+clisp (ffi::foreign-pointer ptr)
    #-(or allegro lispworks cmu scl sbcl ecl clisp)

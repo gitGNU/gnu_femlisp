@@ -40,7 +40,9 @@
   (make-pathname :name "output.vtk"
                  :directory (pathname-directory (images-pathname))))
 
-(defmethod send-graphic-commands (object (program (eql :vtk)) &rest args &key (message t))
+(defmethod send-graphic-commands (object (program (eql :vtk)) &rest args &key message)
+  "Nothing is done here, because at the moment we expect a separate Mayavi
+viewer to handle changes interactively."
   (when message
     (format *trace-output*
             "VTK-file: ~A~%"

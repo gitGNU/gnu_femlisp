@@ -94,7 +94,7 @@ same type.")
       (setf (apply #'mref mat indices) value)))
 
 (defclass full-tensor (tensor)
-  ((dimensions :reader dimensions :initarg :dimensions :type fixnum-vec
+  ((dimensions :reader dimensions :initarg :dimensions
 	       :documentation "The dimensions of the tensor.")
    (offset0 :reader offset0 :initform 0 :initarg :offset0 :type fixnum
 	    :documentation "An initial offset into the store-vector which
@@ -255,20 +255,22 @@ given @arg{dimensions}."
 	(setf (aref result (incf k)) i)
 	finally (return result)))
 
-(defmethod slice ((tensor full-tensor) index-settings)
-  (let ((dimensions (dimensions tensor))
-	(offsets (offsets tensor)))
-    (let ((inds (mapcar #'car index-settings))
-	  (vals (mapcar #'cdr index-settings)))
-      (assert (set-p inds))
-      (let ((rinds (get-remaining-inds (rank tensor) inds)))
-	(make-instance
-	 (full-tensor (element-type tensor))
-	 :dimensions (map 'fixnum-vec (curry #'aref dimensions) rinds)
-	 :offset0 (reduce #'+ (map 'fixnum-vec #'(lambda (ind val) (* (aref offsets ind) val)) inds vals)
-			  :initial-value (offset0 tensor))
-	 :offsets (map 'fixnum-vec (curry #'aref offsets) rinds)
-	 :store (store tensor))))))
+(defgeneric slice (tensor fixed)
+  (:documentation "Slices @arg{tensor}.  @arg{fixed} determines which indices are fixed.")
+  (:method ((tensor full-tensor) index-settings)
+    (let ((dimensions (dimensions tensor))
+          (offsets (offsets tensor)))
+      (let ((inds (mapcar #'car index-settings))
+            (vals (mapcar #'cdr index-settings)))
+        (assert (set-p inds))
+        (let ((rinds (get-remaining-inds (rank tensor) inds)))
+          (make-instance
+           (full-tensor (element-type tensor))
+           :dimensions (map 'fixnum-vec (curry #'aref dimensions) rinds)
+           :offset0 (reduce #'+ (map 'fixnum-vec #'(lambda (ind val) (* (aref offsets ind) val)) inds vals)
+                            :initial-value (offset0 tensor))
+           :offsets (map 'fixnum-vec (curry #'aref offsets) rinds)
+           :store (store tensor)))))))
 
 (defmethod slice-copy ((tensor full-tensor) index-settings)
   (let ((dimensions (dimensions tensor))
@@ -464,7 +466,6 @@ contracted index pair fit."
   (let ((t1 (list->real-tensor '((1.0 2.0) (3.0 4.0))))
 	(t2 (list->real-tensor '((1.0 2.0) (3.0 4.0)))))
     (make-analog t1)
-    (slice t1 '((0 . 1)))
     (m+ t1 t2)
     (rearrange-tensor t1 #(1 0))
     (t* t1 t2 '((0 . 1))))

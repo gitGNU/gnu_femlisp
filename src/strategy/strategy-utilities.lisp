@@ -44,9 +44,12 @@ surface.  This is used in the strategy package."
     (ensure projection (make-ansatz-space-automorphism ansatz-space))
     (let ((local-interpolation (interpolation-matrix ansatz-space :region refined-cells))
 	  (local-projection (projection-matrix ansatz-space :region refined-cells)))
-      ;;(plot solution) (sleep 1.0)
+      (dbg-when :update-i-p-sol
+        (plot solution) (sleep 1.0))
       (copy! (sparse-m* local-interpolation solution :sparsity :A) solution)
-      ;;(plot (getbb blackboard :solution)) (break)
+      (dbg-when  :update-i-p-sol
+        (plot (getbb blackboard :solution))
+        (break))
       (m+! local-interpolation interpolation)
       (m+! local-projection projection))))
 

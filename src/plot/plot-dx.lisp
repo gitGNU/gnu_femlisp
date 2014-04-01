@@ -46,7 +46,7 @@
   "Transformation which drops the ugly line occuring for me due to some bug
 either in DX or Mesa.")
 
-(defparameter *shapes*
+(defparameter *dx-shapes*
   '((2 (1) 2 "lines")
     (3 (2) 3 "triangles")
     (4 (1 1) 4 "quads")
@@ -55,6 +55,52 @@ either in DX or Mesa.")
     (7 (1 2) 8 "cubes")
     (8 (1 1 1) 8 "cubes"))
   "The shapes which are handled by DX plotting.")
+
+(defmethod graphic-commands (object (program (eql :dx))
+			     &key (foreground :white) dimension shape range
+                             &allow-other-keys)
+  "Default method for plotting objects with DX."
+  (declare (ignore object))
+  (let ((axis-color (ecase foreground (:black "black")(:white "white")))
+	(graph-color (ecase foreground (:black "black")(:white "white"))))
+    (case dimension
+      (1 (list
+	  "data = Options(data, \"mark\", \"circle\");"
+	  ;; workaround for a DX bug, see bug-2.dx 
+	  (if (eq foreground :white)
+	      (format nil "data = Color(data);")  ; ??
+	      (format nil "data = Color(data,~S);" graph-color))
+	  (format nil "image = Plot(data, colors=~S);" axis-color)
+	  ;;"xyplot = Plot(data);"
+	  ;;"camera = AutoCamera(xyplot);"
+	  ;;"image = Render (xyplot, camera);"
+	  ))
+      (2 (cons
+	  (if range
+	      (format nil "colored = AutoColor(data, min=~A, max=~A);"
+		      (first range) (second range))
+	      "colored = AutoColor(data);")
+	  (if (and shape (= shape 2))
+	      (list
+	       "samples = Sample(data, 400);"
+	       (if range
+		   (format nil "glyphs = AutoGlyph(samples, type=\"arrow\",min=~A,max=~A);"
+			   (first range) (second range))
+		   "glyphs = AutoGlyph(samples, type=\"arrow\");")
+	       "image = Collect(colored,glyphs);")
+	      (list
+	       "surface = Isosurface(data, number=20);"
+	       "image = Collect(surface,colored);"))))
+      (3 (list
+	  "connections = ShowConnections(data);"
+	  "tubes = Tube(connections, 0.01);"
+	  (if range
+	      (format nil "image = AutoColor(tubes, min=~A, max=~A);"
+		      (first range) (second range))
+	      "image = AutoColor(tubes);")
+	  ;;"camera = AutoCamera(tubes, \"off diagonal\");"
+	  ;;"image = Render(tubes, camera);"
+	  )))))
 
 (defmethod graphic-write-data (stream object (program (eql :dx))
 			       &key cells cell->values
@@ -76,12 +122,12 @@ corner values."
 	 
     (write-positions stream position-array 'dx-position-header)
     
-    (loop for (object shape nr-vertices element-type) in *shapes*
+    (loop for (object shape nr-vertices element-type) in *dx-shapes*
        for current-cells = (filter shape cells :key #'factor-dimensions :test #'equalp)
        for connections = (connections current-cells position-indices depth)
        when connections do
-         (assert (same-p connections :key #'length))
-         (push (list object element-type) groups)
+         (assert (samep connections :key #'length))
+         (push object groups)
          (format stream "object ~D class array type int rank 1 shape ~D items ~D data follows~%"
                  object nr-vertices (length connections))
          (loop for connection in connections do
@@ -103,15 +149,33 @@ corner values."
       (format stream "attribute \"dep\" string \"positions\"~%"))
 
     ;; epilogue
-    (loop for (object element-type) in groups do
-         (format stream "object \"~A-part\" class field~%" element-type)
+    (loop for object in groups do
+         (format stream "object \"part-~A\" class field~%" object)
          (format stream "component \"positions\" value 1~%")
          (format stream "component \"connections\" value ~D~%" object)
          (when values
            (format stream "component \"data\" value 9~%")))
     (when groups
       (format stream "object \"all-grids\" class group~%")
-      (mapc (_ (format stream "member \"~A-part\" value \"~A-part\"~%" _ _))
-            (mapcar #'second groups)))
+      (mapc (_ (format stream "member \"part-~A\" value \"part-~A\"~%" _ _))
+            groups))
     (format stream "end~%")))
 
+;;;; Testing
+
+(defun test-plot-dx ()
+  (let ((count 0))
+    (flet ((pathname-generator ()
+             (translate-logical-pathname
+              (format nil "femlisp:images;img-~D" (incf count)))))
+      (loop repeat 3 collect (pathname-generator))
+      (let ((pathname (pathname-generator)))
+        (flet ((file (type)
+                 (namestring (merge-pathnames pathname (make-pathname :type type)))))
+          (list (file nil) (file "tiff") (file "jpg"))))
+      (let ((fl.graphic::*output-types*
+             (list (list :images #'pathname-generator))))
+        (plot (n-cube 2))
+        (plot (n-cube 3)))))
+  )
+  

@@ -91,6 +91,7 @@ cell of @arg{cell} as a vector."
 			:key (lambda (vtx) (aref (vertex-position vtx) 0)))))
 	  vertex-array)))))
 
+
 (with-memoization (:id 'refcell-refinement-vertex-positions)
   (defun refcell-refinement-vertex-positions (cell level)
     (memoizing-let ((vertices (refcell-refinement-vertices cell level)))
@@ -121,21 +122,21 @@ this number for the actual cell."
 	(flag-1d (every (lambda (cell) (= (dimension cell) 1)) cells)))
     (when flag-1d
       (setq cells (sort (copy-seq cells) #'<
-			:key (lambda (cell) (aref (midpoint cell) 0))))
-      (dbg :plot "Cells=~A" cells))
+			:key (lambda (cell) (aref (midpoint cell) 0)))))
+    (dbg :plot "Cells=~A" cells)
     (dolist (cell cells)
      (loop with depth = (if (numberp depth) depth (funcall depth cell))
 	for local-vtx across
-	  (let ((vertices (refcell-refinement-vertices cell depth)))
+	  (lret ((vertices (refcell-refinement-vertices cell depth)))
 	    (when (= (dimension cell) 1)
 	      ;; the following is a kludge because DX strangely breaks for
 	      ;; unordered vertices
 	      (when (minusp (mref (l2Dg cell #d(0.5)) 0 0))
-		(setq vertices (reverse vertices))))
-	    vertices)
+		(setq vertices (reverse vertices)))))
 	do
 	  (setf (find-local-index cell local-vtx position-indices)
 		(incf global-index))))
+    (dbg :plot "Position-indices=~A" position-indices)
     position-indices))
 
 (defun connections (cells position-indices depth)

@@ -37,7 +37,8 @@
   (:use "COMMON-LISP" "FL.UTILITIES" "FL.MACROS" "FL.PORT" "FL.DEBUG")
   (:export
    ;; threading
-   "MAKE-THREAD" "THREAD-NAME" "LIST-ALL-THREADS" "TERMINATE-THREAD"
+   "MAKE-THREAD" "CURRENT-THREAD" "THREAD-NAME"
+   "LIST-ALL-THREADS" "TERMINATE-THREAD"
    
    "MAKE-MUTEX" "WITH-MUTEX"
    "MUTEX-MIXIN" "WITH-LOCK"
@@ -233,9 +234,12 @@ the function @arg{perform} is called.")
     "The default method for objects does not wait at all.")
   (:method ((wq waitqueue-mixin) &key while until perform)
     (with-mutual-exclusion (wq)
-      (loop while (or (aand while (funcall it wq))
-		      (aand until (not (funcall it wq))))
-	    do (condition-wait (waitqueue wq) (mutex wq)))
+      (loop
+         do (condition-wait (waitqueue wq) (mutex wq))
+         when (or (not (and while until))
+                  (aand while (not (funcall it wq)))
+                  (aand until (funcall it wq)))
+         do (loop-finish))
       (awhen perform (funcall it wq)))))
 
 (defgeneric notify (waitqueue-object &optional n)
@@ -328,11 +332,12 @@ the function @arg{perform} is called.")
    (current-size :initform 0))
   (:documentation "A thread-safe queue waiting for input."))
 
-(defmethod finish ((pq parqueue))
-  (with-mutual-exclusion (pq)
-    (mp-dbg "finishing queue ~A" pq)
-    (setf (finished-p pq) t)
-    (notify pq)))
+(defgeneric finish (object)
+  (:method ((pq parqueue))
+    (with-mutual-exclusion (pq)
+      (mp-dbg "finishing queue ~A" pq)
+      (setf (finished-p pq) t)
+      (notify pq))))
 
 (defmethod enqueue :around (obj (pq parqueue))
   (with-slots (finished-p maximal-size current-size) pq
@@ -443,7 +448,7 @@ queue."))
   "Dynamic variable specialized for each worker thread separately.  Should
 not be used globally.")
 
-(defmethod add-worker ((group work-group))
+(defun add-worker (group)
   (with-mutual-exclusion (group)
     (push (make-thread
 	   (lambda ()
@@ -462,7 +467,7 @@ not be used globally.")
 	   :name "femlisp-worker")
 	  (threads group))))
 
-(defmethod remove-worker ((group work-group) thread)
+(defun remove-worker (group thread)
   "Removes @arg{thread} from @arg{group}."
   (assert (finished-p (tasks group)))
   (with-mutual-exclusion (group)
@@ -472,7 +477,7 @@ not be used globally.")
 	  (delete thread (threads group)))
     (notify group)))
 
-(defmethod send-task ((group work-group) task)
+(defun send-task (group task)
   "Send a task to the work-group."
   (enqueue task (tasks group)))
 
@@ -480,6 +485,7 @@ not be used globally.")
   "The number of threads in which Femlisp tries to split the work for some
 computationally intensive tasks.  If NIL, no threading is used.")
 
+;; (setq *number-of-threads* nil)
 ;; (setq *number-of-threads* 2)
 
 (defun execute-in-parallel (work &key arguments distribute
@@ -507,7 +513,7 @@ which generates the argument-lists by calling the function
 (defun femlisp-workers ()
   (remove-if-not
    (lambda (thread)
-     (member (thread-name thread) '("femlisp-worker" "pipeline-worker")
+     (member (thread-name thread) '("femlisp-worker" "pipeline-worker" "stencil-worker")
              :test #'string=))
    (list-all-threads)))
 
@@ -558,6 +564,51 @@ threads which call @arg{func} on those arguments."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; in general.lisp
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; For testing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; the following does almost no consing (with SBCL, at least) and can
+;;; therefore be efficiently parallelized
+
+(defun mandelbrot-iteration (c)
+  (declare (ftype (function (complex double-float) fixnum))
+           (optimize speed))
+  (loop for k of-type fixnum from 1 below 1000
+       for z of-type (complex double-float) = c then
+       (+ (* z z) c)
+       until (> (abs z) 100.0)
+       finally (return k)))
+
+(defun mandelbrot-box (x1 x2 y1 y2 nx ny &optional result-p)
+  (declare (type double-float x1 x2 y1 y2)
+           (type fixnum nx ny))
+  (let ((dx (/ (- x2 x1) nx))
+        (dy (/ (- y2 y1) ny))
+        (result (make-array (list (1+ nx) (1+ ny)) :element-type 'fixnum))
+        (sum 0))
+    (declare (type double-float dx dy)
+             (type fixnum sum))
+    (loop for kx upto nx
+       for x of-type double-float = x1 then (+ x1 dx) do
+       (loop for ky upto ny
+          for y of-type double-float = y1 then (+ y1 dy) do
+            (incf sum
+                  (setf (aref result kx ky)
+                        (mandelbrot-iteration (complex x y))))))
+    (if result-p result sum)))
+
+(defun simple-consing (n)
+  (loop repeat n do
+       (loop repeat 100 collect nil)))
+
+(defun speedup-test (func)
+  (loop for i from 1 upto 8 do
+       (format t "~R thread~:P~%" i)
+       (let ((*number-of-threads* i))
+         (time (with-workers (func)
+                 (loop repeat i do (work-on)))))))
 
 ;;; Testing
 (defun femlisp-multiprocessing-tests ()
@@ -642,12 +693,9 @@ threads which call @arg{func} on those arguments."
   (assert (null (femlisp-workers)) () "workers remained - E")
   ;; (terminate-workers)
 
-  (let ((n (expt 2 27)))
-    (loop for i from 1 upto 5 do
-	 (format t "~R thread~:P~%" i)
-	 (let ((*number-of-threads* i))
-	   (time (with-workers ((lambda (k) (loop repeat k sum 1)))
-		   (loop repeat i do (work-on n)))))))
+  (speedup-test (let ((n (expt 2 27))) (_ (loop repeat n sum 1))))
+  (speedup-test (_ (mandelbrot-box 0.0 10.0 0.0 10.0 100 100)))
+  (speedup-test (_ (simple-consing 500000)))
 
   (sleep 0.5)
   (assert (null (femlisp-workers)) () "workers remained - F")
@@ -675,7 +723,10 @@ threads which call @arg{func} on those arguments."
   
   ;; (list-all-threads)
   ;; (terminate-workers)
-  
+  (dolist (thread (list-all-threads))
+    (when (string= (thread-name thread) "worker-1")
+      (terminate-thread thread)))
+
   (dbg-off :mp)
   )
 

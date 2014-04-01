@@ -66,6 +66,14 @@ simplex refinement generalized to product cells."))
    :short "Solve several types of pdes"))
 (adjoin-demo *equation-demo* *demo-root*)
 
+(defvar *eigenvalue-demo*
+  (make-demo
+   :name "Eigenvalues"
+   :short "Computing eigenvalues and eigenvectors"
+   :long
+   "Solve PDE eigenvalue problems."))
+(adjoin-demo *eigenvalue-demo* *demo-root*)
+
 (defvar *adaptivity-demo*
   (make-demo
    :name "Adaptivity"

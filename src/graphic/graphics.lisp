@@ -37,6 +37,12 @@
 (defparameter *default-graphic-program* :dx
   "Default graphics program.")
 
+(defparameter *output-types*
+  (list :screen)
+  "Types of output.  Possible entries in this list are:
+   - :screen
+   - (:images successive-pathname-producer)")
+
 (defun images-pathname ()
   "Pathname of the directory for @femlisp{} images."
   (or (aand (or (fl.port::getenv "FEMLISP_IMAGES")

@@ -62,14 +62,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun euclidean->barycentric (pos)
-  (let ((vec (make-double-vec (1+ (length pos))))
-	(sum 1.0))
+  (lret ((sum 1.0)
+         (vec (make-double-vec (1+ (length pos)))))
     (declare (type double-float sum))
     (dotimes (i (length pos))
       (decf sum (setf (aref vec (1+ i)) (aref pos i))))
-    (setf (aref vec 0) sum)
-    ;; return result
-    vec))
+    (setf (aref vec 0) sum)))
 
 (defmethod barycentric-coordinates ((refcell <simplex>) local-pos)
   (euclidean->barycentric local-pos))
@@ -100,9 +98,10 @@ simplex corners."
 		  (- (aref corner row) (aref origin row))))
 	  finally (return mat))))
 
-(defmethod coordinates-inside? ((cell <simplex>) local-pos)
-  (and (not (some #'minusp local-pos))
-       (<= (reduce #'+ local-pos) 1.0)))
+(defmethod coordinates-inside? ((cell <simplex>) local-pos
+                                &aux (threshold (or *inside-threshold* 0.0)))
+  (and (notany (rcurry #'< (- threshold)) local-pos)
+       (<= (reduce #'+ local-pos) (+ 1.0 threshold))))
 
 (defmethod local-coordinates-of-midpoint ((cell <simplex>))
   (let ((dim (dimension cell)))

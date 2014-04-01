@@ -51,7 +51,6 @@
 
 (defun det (mat)
   "Returns the determinant of the square matrix @arg{mat}."
-  (declare (values double-float))
   (if (or (zerop (nrows mat)) (zerop (ncols mat)))
       1.0  ; yields correct value for volume in the vertex case
       (multiple-value-bind (lr pivot)
@@ -138,8 +137,9 @@ double-float array."
   y)
 
 (defmethod getrs! ((lr standard-matrix) (b vector) &optional ipiv)
-  (getrs! lr (ensure-matlisp b) ipiv)
-  b)
+  (let ((b (ensure-matlisp b)))
+    (getrs! lr b ipiv)
+    (store b)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Testing
@@ -162,6 +162,9 @@ double-float array."
     (mapcar #'class-of
 	    (list (eye 2) (ensure-matlisp y) (ensure-matlisp x)))
     (gemm 1.0 (eye 2) (ensure-matlisp x) 1.0 (ensure-matlisp y)))
+  (let* ((b (vector 0.0 -1.0))
+         (x (getrs! (diag #d(1.0 -1.0)) b)))
+    (assert (= (vref x 1) 1.0)))
   )
 
 ;;; (fl.matlisp::test-matlisp-vector-combination)

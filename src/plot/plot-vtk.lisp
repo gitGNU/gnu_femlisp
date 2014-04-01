@@ -89,11 +89,12 @@
       (loop for conn in connections do
            (format stream "~D~%"
                    (etypecase (first conn)
-                     (fl.mesh::<1-simplex> 13)
-                     (fl.mesh::<2-simplex> 5)
-                     (fl.mesh::<3-simplex> 10)
-                     (fl.mesh::<1-1-product-cell> 9)
-                     (fl.mesh::<1-1-1-product-cell> 12)))))
+                     (fl.mesh::<1-simplex> 4)           ; VTK_POLY_LINE
+                     (fl.mesh::<2-simplex> 5)           ; VTK_TRIANGLE
+                     (fl.mesh::<1-1-product-cell> 9)    ; VTK_QUAD
+                     (fl.mesh::<3-simplex> 10)          ; VTK_TETRA
+                     (fl.mesh::<1-1-1-product-cell> 12) ; VTK_HEXAHEDRON
+                     ))))
     ;; write data
     (when values
       (format stream "POINT_DATA ~A~%SCALARS scalar_data float ~A~%LOOKUP_TABLE default~%"

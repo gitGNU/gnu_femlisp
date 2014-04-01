@@ -50,7 +50,7 @@
    "COPY" "COPY!"
    "SCAL" "SCAL!" "M+" "M+!" "M-" "M-!" "M.*" "AXPY" "AXPY!"
    "GEMM!" "GEMM-NN!" "GEMM-NT!" "GEMM-TN!" "GEMM-TT!"
-   "GEMM" "M*" "M*-TN" "M*-PRODUCT-INSTANCE" "M*-TN-PRODUCT-INSTANCE"
+   "GEMM" "M*" "M*-TN" "M*-NT" "M*-PRODUCT-INSTANCE" "M*-TN-PRODUCT-INSTANCE"
    "GETRF!" "GETRF" "GETRS!" "GETRS"
    "GESV!" "GESV" "M/"
    "M./" "M./!" "MAP-MATRIX"

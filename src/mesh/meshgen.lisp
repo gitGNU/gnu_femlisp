@@ -37,15 +37,14 @@
 ;;;; meshgen.lisp contains routines for mesh and hierarchical-mesh
 ;;;; generation.
 
-(defgeneric make-mesh-from-domain (domain &key &allow-other-keys)
-  (:documentation "Transforms a domain which is specified sufficiently well
-into a mesh."))
+(defgeneric make-mesh-from (object &key &allow-other-keys)
+  (:documentation "Makes a mesh from or for the given object."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Meshes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod make-mesh-from-domain ((domain <domain>) &key parametric &allow-other-keys)
+(defmethod make-mesh-from ((domain <domain>) &key parametric &allow-other-keys)
   "This function creates a mesh on the domain skeleton.  The mesh either
 uses the nonlinear mappings of the domain patches (for parametric =
 :from-domain) or approximates those with polygonal (parametric = nil) or
@@ -82,7 +81,7 @@ argument."
 
 (defun uniformly-refined-mesh (domain n &key parametric)
   "Generates a mesh by refining the domain partition uniformly."
-  (do ((mesh (make-mesh-from-domain domain :parametric parametric)
+  (do ((mesh (make-mesh-from domain :parametric parametric)
 	     (refine mesh))
        (k 0 (1+ k)))
       ((= k n) mesh)))
@@ -98,14 +97,18 @@ domain."
 	     (N-patch (funcall patch->mesh-sizes patch)))
 	(multi-for (ivec (make-fixnum-vec patch-dim 1) N-patch)
 	  (let ((corners ()))
-	    (multi-for (jvec (make-fixnum-vec patch-dim -1) (make-fixnum-vec patch-dim 0))
+	    (multi-for (jvec (make-fixnum-vec patch-dim -1)
+                             (make-fixnum-vec patch-dim 0)
+                             :from-end t)
 	      (push (l2g patch
 			 (map 'double-vec
 			      #'(lambda (c N_i) (float (/ c N_i) 1.0))
-			      (m+ ivec jvec) N-patch))
+                              (m+ ivec jvec) N-patch))
 		    corners))
+            (dbg-show :mesh (reverse corners))
 	    (insert-cell-from-corners mesh corners->cell cell-class
-				      (nreverse corners) (list 'PATCH patch))))))
+				      (nreverse corners)
+                                      (list 'PATCH patch))))))
     mesh))
 
 (defun uniform-mesh-on-box-domain (domain N)
@@ -148,7 +151,16 @@ patches."
 
 (defmethod make-hierarchical-mesh-from-domain (domain &key parametric &allow-other-keys)
   "Construct a hierarchical-mesh from a domain."
-  (let ((mesh (make-mesh-from-domain domain :parametric parametric)))
+  (let ((mesh (make-mesh-from domain :parametric parametric)))
+    (change-class mesh '<hierarchical-mesh>)))
+
+(defun make-hierarchical-mesh-from (&rest args)
+  "Creates a hierarchical-mesh from the given arguments.  See @function{MAKE-MESH-FROM}."
+  (change-class (apply #'make-mesh-from args) '<hierarchical-mesh>))
+
+(defmethod make-hierarchical-mesh-from-domain (domain &key parametric &allow-other-keys)
+  "Construct a hierarchical-mesh from a domain."
+  (let ((mesh (make-mesh-from domain :parametric parametric)))
     (change-class mesh '<hierarchical-mesh>)))
 
 (defun uniformly-refined-hierarchical-mesh (domain level &key parametric)
@@ -208,21 +220,23 @@ midpoint."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun test-meshgen ()
-  (triangulize (make-mesh-from-domain (n-cube-domain 2)))
+  (uniform-mesh-on-box-domain (n-cube-domain 3) #(1 1 1))
+  (corners (n-cube 3))
+  (triangulize (make-mesh-from (n-cube-domain 2)))
   (describe (uniformly-refined-mesh (n-simplex-domain 1) 1))
   (describe (uniform-mesh-on-box-domain (n-cube-domain 2) #(2 2)))
   (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-simplex-domain 1) 2)))
     (refine h-mesh)
     (loop repeat 1 do (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25))))
     (describe (refinement-interface h-mesh)))
-  (check-identification (make-mesh-from-domain (n-cell-domain 2)))
+  (check-identification (make-mesh-from (n-cell-domain 2)))
   (describe (copy-skeleton (n-cell-domain 1)))
-  (describe (refine (make-mesh-from-domain (n-cell-domain 1))))
+  (describe (refine (make-mesh-from (n-cell-domain 1))))
   (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-cell-domain 1) 1)))
     (loop repeat 1 do (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25))))
     (describe (refinement-interface h-mesh)))
   (let* ((domain (n-ball-domain 2))
-	 (mesh (make-mesh-from-domain domain)))
+	 (mesh (make-mesh-from domain)))
     (describe mesh))
   )
 

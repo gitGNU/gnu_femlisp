@@ -39,15 +39,12 @@
 be solved at the beginning."
   (declare (ignore rothe))
   (let ((initial (get-coefficient coeffs 'INITIAL))
-	(sigma (get-coefficient coeffs 'SIGMA))
 	(constraints (remove-if-not #'constraint-p coeffs)))
     (if initial
 	(list* (copy-coefficient initial :name 'FL.ELLSYS::F)
-	       (if sigma
-		   (copy-coefficient sigma :name 'FL.ELLSYS::R)
-		   (constant-coefficient 'FL.ELLSYS::R
+               (constant-coefficient 'FL.ELLSYS::R
 					 (diagonal-sparse-tensor
-					  #m(1.0) (nr-of-components problem))))
+					  #m(1.0) (nr-of-components problem)))
 	       constraints)
 	constraints)))
    
@@ -80,8 +77,10 @@ each time step."
 			      :demands '((:fe-parameters :old-solution))
 			      :eval (lambda (&rest args &key old-solution &allow-other-keys)
 				      (let ((old-solution (first old-solution)))
-					(gemm (/ (time-step rothe)) (evaluate sigma args) old-solution
-					      0.0 old-solution))))
+					(?1 (gemm (/ (time-step rothe)) (evaluate sigma args) old-solution
+                                                  0.0 old-solution)
+                                            (m* (scal (time-step rothe) (evaluate sigma args)) old-solution))
+                                        )))
 	       coeffs)
 	coeffs)))
 

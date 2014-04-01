@@ -74,7 +74,7 @@ If content is a 2d array, the dimensions can be deduced."
 		content))
      (unless (slot-boundp matrix 'nrows)
        (setf (slot-value matrix 'nrows) (length content)))
-     (assert (same-p (map 'list #'length content)))
+     (assert (samep (map 'list #'length content)))
      (unless (slot-boundp matrix 'ncols)
        (setf (slot-value matrix 'ncols) (length (car content)))))
     (array
@@ -119,8 +119,11 @@ If content is a 2d array, the dimensions can be deduced."
    "Tests if @arg{obj} is a @class{standard-matrix}."
    (typep obj 'standard-matrix)))
 
-(defun make-real-matrix (&rest args)
-  "Generates a real matrix as specified by its arguments.  If two arguments
+(defparameter *standard-matrix-default-element-type* 'double-float
+  "Default element type for standard matrices.")
+
+(defun make-matrix (&rest args)
+  "Generates a standard matrix as specified by its arguments.  If two arguments
 are provided, they should be numbers which are interpreted as rows and
 columns.  If only one argument is provided, it should be either a number
 meaning the rows and columns of a square matrix or a nested list or vector
@@ -130,11 +133,16 @@ structure defining the contents matrix."
       ((single? args)
        (let ((arg (car args)))
 	 (cond ((numberp arg) (zeros arg arg))
-	       (t (make-instance (standard-matrix 'double-float)
+	       (t (make-instance (standard-matrix *standard-matrix-default-element-type*)
 				 :content arg)))))
       ((single? (cdr args))
        (zeros (first args) (second args)))
       (t (error "Too many arguments.")))))
+
+(defun make-real-matrix (&rest args)
+  "Generates a real matrix as specified by its arguments."
+  (let ((*standard-matrix-default-element-type* 'double-float))
+    (apply #'make-matrix args)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (set-dispatch-macro-character
@@ -143,7 +151,7 @@ structure defining the contents matrix."
        (declare (ignore char n))
        (let ((list (read stream nil nil t)))
 	 ;; TODO: try without quoting
-	 `(make-real-matrix ',list)))))
+	 `(make-matrix ',list)))))
 
 (defun make-real-vector (dim &optional (value 0.0))
   "Generates a real matrix of dimension @arg{dim} x 1."
@@ -177,16 +185,16 @@ structure defining the contents matrix."
        (make-instance
 	(standard-matrix element-type)
 	:store obj 
-	:nrows (if (eq type :column) (length obj) 1)
-	:ncols (if (eq type :row) (length obj) 1))
+	:nrows (ecase type (:column (length obj)) (:row 1))
+	:ncols (ecase type (:row (length obj)) (:column 1)))
        ;; this branch avoids calling make-instance with keyword arguments
        ;; on a class unknown at compile time, because this is a
        ;; performance problem for several CL implementations
        (lret ((result (make-instance (standard-matrix element-type))))
 	 (with-slots (store nrows ncols) result
 	   (setf store obj
-		 nrows (if (eq type :column) (length obj) 1)
-		 ncols (if (eq type :row) (length obj) 1)))))))
+		 nrows (ecase type (:column (length obj)) (:row 1))
+		 ncols (ecase type (:row (length obj)) (:column 1))))))))
   (:method ((obj list) &optional (type :column))
     (ensure-matlisp (coerce obj 'vector) type))
     )
@@ -343,7 +351,6 @@ freshly allocated."
       (setf (mref result i i) (vref vec i)))))
 
 (defmethod diagonal ((A standard-matrix))
-  "Returns the diagonal of @arg{A} as a vector."
   (lret* ((n (min (nrows A) (ncols A)))
 	  (result (zero-vector n (element-type A))))
     (dotimes (i n)

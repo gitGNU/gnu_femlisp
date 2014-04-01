@@ -57,13 +57,11 @@
 	 (fe-2 (get-fe as2 cell2))
 	 (comps-1 (components fe-1))
 	 (comps-2 (components fe-2)))
-    (lret ((result (make-array (list (length comps-1) (length comps-2)))))
-      (for-each-key
-       (lambda (i j)
-	 (setf (aref result i j)
-	       (make-real-matrix (nr-of-dofs (aref comps-1 i))
-				 (nr-of-dofs (aref comps-2 j)))))
-       result))))
+    (make-filled-array
+     (list (length comps-1) (length comps-2))
+     :initializer (lambda (i j)
+                    (make-real-matrix (nr-of-dofs (aref comps-1 i))
+                                      (nr-of-dofs (aref comps-2 j)))))))
 
 ;;; transfer between local and global vector
 
@@ -160,12 +158,12 @@ in the form component-index/in-component-index is computed."
       (destructuring-bind (&key component-index vblock-index in-vblock-index
 				&allow-other-keys)
 	  (fe-secondary-information fe)
-	(coerce (loop for index across indices appending
-		      (loop for c across component-index
-			    and v across vblock-index
-			    and iv across in-vblock-index
-			    when (and (= c index) (zerop v))
-			    collecting iv))
+	(coerce (loop+ ((index indices)) appending
+                   (loop+ ((c component-index)
+                           (v vblock-index)
+                           (iv in-vblock-index))
+                      when (and (= c index) (zerop v))
+                      collecting iv))
 		'vector)))))
 
 (defmethod global-local-vector-operation ((svec <sparse-vector>) (cell <cell>)

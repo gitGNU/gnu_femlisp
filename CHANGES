@@ -2,12 +2,24 @@
 
 * Current work:
 
+Anisotropic refinement included.
+
+There is blending support now in the sense of "transfinite interpolation"
+(which means interpolating a cell map from arbitraty given maps of its
+boundary).
+
+There is now a Femlisp interface to Hang Si's Tetgen.  Domains can be
+defined via their 2D boundaries.  Then 3D patches having such boundaries
+are decomposed into tetrahedra.
+
 Mesh graphic output is not redundant any more (before, vertices appeared
 several times similar to plotting of discontinuous functions plots)
 
 mesh/easymesh.lisp was removed - we do not support that format anymore
 
-VTK graphics.
+VTK graphics.  These are even interactive when you call Mayavi2 using the
+command line "mayavi2 -x mayavi_poll.py" being in the #p"femlisp;images"
+directory.
 
 As a first step for the incorporation of complex-valued solutions, BLAS
 routines may now depend on different matrix classes.

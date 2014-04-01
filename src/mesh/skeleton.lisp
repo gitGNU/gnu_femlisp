@@ -95,11 +95,13 @@ identified with @arg{cell}."))
 
 ;;; Building tools
 
-(defun insert-cell! (skel cell)
-  "Inserts a cell and its boundary into a skeleton."
-  (setf (skel-ref skel cell) nil)
-  (loop for side across (boundary cell) do
-	(insert-cell! skel side)))
+(defun insert-cell! (skel cell &optional properties)
+  "Inserts @arg{cell} and if necessary also its boundary into @arg{skel}.
+If properties are given those are used for @arg{cell}."
+  (setf (skel-ref skel cell) properties)
+  (loop for side across (boundary cell)
+     unless (member-of-skeleton? side skel) do
+       (insert-cell! skel side)))
 
 (defun insert-cells! (skel cells)
   "Inserts a list of cells into a skeleton."
@@ -135,14 +137,19 @@ with dimension of the cells decreasing, otherwise increasing."
 			      (funcall func cell props)
 			      (funcall func cell))))
 		    etable)))
-    (when (eq dimension :highest)
-      (setf dimension (dimension skel)))
-    (multiple-value-bind (first-dim last-dim)
-	(cond (dimension (values (max dimension 0) dimension))
-	      ((eq direction :down) (values (dimension skel) 0))
-	      (t (values 0 (dimension skel))))
-      (loop for dim from first-dim to last-dim do
-	    (etable-for-each (etable skel dim))))))
+    (unless (minusp (dimension skel))  ; nothing there
+      (when (eq dimension :highest)
+        (setf dimension (dimension skel)))
+      (multiple-value-bind (first-dim last-dim)
+          (cond ((consp dimension)
+                 (values (car dimension) (cdr dimension)))
+                ((numberp dimension) (values dimension dimension))
+                (t (values 0 (dimension skel))))
+        (let ((step (if (eq direction :down) -1 1)))
+          (loop repeat (1+ (- last-dim first-dim))
+             for dim = (if (eq direction :down) last-dim first-dim)
+             then (+ dim step) do
+               (etable-for-each (etable skel dim))))))))
 
 (defmacro doskel ((looping-var skel &key (direction :up) where dimension) &body body)
   "Loop through a skeleton.  If looping-var is an atom, it loops through
@@ -195,6 +202,10 @@ pair."
   (let ((cells (apply #'find-cells test skel rest)))
     (assert (<= (length cells) 1))
     (car cells)))
+
+(defgeneric find-cell-from-position (skel pos)
+  (:documentation
+   "Finds a cell from @arg{skel} which contains the global position @arg{pos}."))
 
 (defmethod find-cell-from-position ((skel <skeleton>) (pos array))
   (doskel (cell skel :dimension :highest)
@@ -264,7 +275,7 @@ pair."
   '(:embedded-dimension)
   "Some optional checks for skeletons.")
 
-(defmethod check ((skel <skeleton>))
+(defmethod check progn ((skel <skeleton>))
   "Checks the skeleton.  An error is signaled if the skeleton looks bad."
   ;; check dimensions
   (let ((emb-dim (let ((*check-well-defined-embedded-dimension* t))
@@ -283,6 +294,42 @@ pair."
   (doskel (cell skel)
     (loop for subcell across (subcells cell) do
          (assert (member-of-skeleton? subcell skel)))))
+
+(defun check-for-multiples (skel &key (output t))
+  "Checks for different vertices at the same location and
+for cells of higher dimensions connecting the same vertices
+in a possibly different order.
+Warning: Up to now a quadratic algorithm is used."
+  ;; warning: quadratic algorithm
+  (let (multiples)
+    ;; find multiple vertices
+    (let* ((vertices (coerce (cells-of-dim skel 0) 'vector))
+           (n (length vertices)))
+      (loop for i below n
+         for x = (midpoint (aref vertices i))
+         do
+         (loop for j from (1+ i) below n
+            for y = (midpoint (aref vertices j))
+            do
+            (when (mzerop (m- x y) 1.0e-8)
+              (push (cons x y) multiples)))))
+    ;; find multiple higher-dimensional cells
+    (loop for k from 1 upto (dimension skel)
+       for cells = (cells-of-dim skel k)
+       for boundaries = (mapcar (lambda (cell)
+                                  (cons cell (coerce (boundary cell) 'list)))
+                                cells)
+       do
+       (loop for ((cell1 . bdry1) . others) on boundaries do
+            (loop for (cell2 . bdry2) in others do
+                 (unless (set-difference bdry1 bdry2)
+                   (push (cons cell1 cell2) multiples)))))
+    (setf multiples (nreverse multiples))
+    ;; output
+    (when output
+      (loop for (cell1 . cell2) in multiples do
+           (format t "~A~30T~A~%" cell1 cell2)))
+    multiples))
 
 (defmethod skeleton-substance ((skel <skeleton>))
   "The substance of a skeleton are those cells which are not boundary of a

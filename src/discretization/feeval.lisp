@@ -42,7 +42,12 @@
 
 (defmethod fe-value ((asv <ansatz-space-vector>) global-pos)
   "Evaluates a finite element function at @arg{global-pos}."
-  (let ((cell (find-cell-from-position (mesh asv) global-pos)))
+  (let ((cell (loop for threshold in '(nil 1.0e-12 1.0e-10 1.0e-8)
+                 for cell = (let ((fl.mesh::*inside-threshold* threshold))
+                              (find-cell-from-position (mesh asv) global-pos))
+                 when cell do (return cell))))
+    (unless cell
+      (error "No suitable cell found which may be due to round-off errors."))
     (fe-local-value asv cell (global->local cell global-pos))))
 
 (defmethod fe-local-gradient ((asv <ansatz-space-vector>) cell local-pos)
@@ -59,16 +64,43 @@
   (let ((cell (find-cell-from-position (mesh asv) pos)))
     (fe-local-gradient asv cell (global->local cell pos))))
 
-(defmethod cell-integrate (cell x &key initial-value (combiner #'m+!)
+(defgeneric cell-integrate (cell object &key &allow-other-keys)
+  (:documentation "Integrates @arg{object} on @arg{cell}."))
+
+(defmethod cell-integrate (cell (func function)
+                           &key initial-value (combiner #'m+!)
+                           (quadrature-order *quadrature-order*))
+  "Integrates @arg{func} over @arg{cell}."
+  (dbg :feeval "Cell: ~A" cell)
+  (lret* ((qrule (gauss-rule (mapcar #'dimension (factor-simplices cell))
+                             (ceiling (/ (+ quadrature-order 1) 2))))
+          (result initial-value))
+    (loop
+       for local across (integration-points qrule)
+       and ip-weight across (integration-weights qrule)
+       for value = (evaluate func (local->global cell local))
+       for contribution = (scal (* ip-weight
+                                   (area-of-span (local->Dglobal cell local)))
+                                value)
+       do (setq result
+                (if result
+                    (funcall combiner contribution result)
+                    contribution)))))
+
+(defun cell-volume (cell)
+  (cell-integrate cell (_ 1.0) :quadrature-order (or *quadrature-order* 10)))
+
+(defmethod cell-integrate (cell (x <ansatz-space-vector>)
+                           &key initial-value (combiner #'m+!)
 			   (key #'identity) coeff-func)
   "Integrates the ansatz-space vector @arg{x} on @arg{cell}.  If
 @arg{coeff-fun} is set it should be a function which expects keyword
 arguments @code{:solution} and @code{:global}."
   (dbg :feeval "Cell: ~A" cell)
-  (let* ((fe (get-fe (ansatz-space x) cell))
-	 (qrule (quadrature-rule fe))
-	 (x-values (get-local-from-global-vec cell x))
-	 (result initial-value))
+  (lret* ((fe (get-fe (ansatz-space x) cell))
+          (qrule (quadrature-rule fe))
+          (x-values (get-local-from-global-vec cell x))
+          (result initial-value))
     (loop
      for local across (integration-points qrule)
      and ip-weight across (integration-weights qrule)
@@ -89,26 +121,41 @@ arguments @code{:solution} and @code{:global}."
      do (setq result
 	      (if result
 		  (funcall combiner contribution result)
-		  contribution)))
-    result))
+		  contribution)))))
 
 (defmethod fe-integrate ((asv <ansatz-space-vector>) &key cells skeleton
-			 initial-value (combiner #'m+!) (key #'identity))
+			 initial-value (combiner #'m+!) (key #'identity) coeff-func)
   "Integrates a finite element function over the domain.  key is a
 transformer function, as always (e.g. #'abs if you want the L1-norm)."
-  (let ((result initial-value))
+  (lret ((result initial-value))
     (flet ((accumulate (cell)
 	     (let ((contribution
 		    (cell-integrate
 		     cell asv :initial-value initial-value
-		     :combiner combiner :key key)))
+		     :combiner combiner :key key :coeff-func coeff-func)))
 	       (setq result (if result
 				(funcall combiner contribution result)
 				contribution)))))
       (cond (cells (mapc #'accumulate cells))
 	    (t (doskel (cell (or skeleton (mesh asv)) :dimension :highest :where :surface)
-		 (accumulate cell))))
-      result)))
+		 (accumulate cell)))))))
+
+(defun compute-energy (asv &key cells skeleton)
+  (lret* ((as (ansatz-space asv))
+          (result (zeros (multiplicity as))))
+    (flet ((accumulate (cell)
+	     (let ((local-vec (get-local-from-global-vec cell asv))
+                   (local-mat (getf (assemble-cell cell as :matrix t) :local-mat)))
+               (for-each-key
+                (lambda (i j)
+                  (m+! (m* (transpose (vref local-vec i))
+                           (m* (mref local-mat i j)
+                               (vref local-vec j)))
+                       result))
+                local-mat))))
+      (cond (cells (mapc #'accumulate cells))
+	    (t (doskel (cell (or skeleton (mesh asv)) :dimension :highest :where :surface)
+		 (accumulate cell)))))))
 
 (defun update-cell-extreme-values (cell x min/max component)
   "Computes the extreme values of @arg{x} on @arg{cell}.  Note that the

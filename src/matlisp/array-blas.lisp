@@ -207,6 +207,15 @@ then result is set to increment."
 	      (m+! ,inc ,result))
 	  (setf ,result ,inc)))))
 
+(defmethod join-instance (orientation (vec vector) &rest vecs)
+  (declare (ignore orientation))
+  (apply #'concatenate 'vector vec vecs))
+
+(defmethod minject! ((x vector) (y vector) row-off col-off)
+  (assert (or (zerop row-off) (zerop col-off)))
+  (loop for xc across x and i from (+ row-off col-off) do
+       (setf (aref y i) xc)))
+
 #+(or)
 (defmethod gemm! (alpha (A array) (B array) beta (C array) &optional (job :nn))
   "Gemm! using 2d-arrays.  Entries will often be matrices."

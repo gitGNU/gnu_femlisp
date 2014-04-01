@@ -42,7 +42,13 @@
   (:documentation "We allow multiple vectors, for solving linear problems
 in parallel.")
   (:method (vec)
-    "The default is a multiplicity of 1."))
+    "The default is a multiplicity of 1."
+    1))
+(defgeneric rank (tensor)
+  (:documentation "Rank of a tensor.")
+  (:method ((vec <vector>))
+    "Vectors have rank 1."
+    1))
 
 (defgeneric element-type (vector)
   (:documentation "Type of the elements of the vector/matrix.")

@@ -34,16 +34,20 @@
 
 (in-package :fl.mesh)
 
+(defmethod subskeleton ((skel <skeleton>) test)
+  (lret ((subskel (make-instance '<skeleton> :cells (find-cells test skel))))
+    (doskel (cell subskel)
+      (setf (skel-ref subskel cell) (skel-ref skel cell)))))
+
 (defun skeleton-without-cell (skel cell-to-remove)
   "Removes a cell from a skeleton such that the rest remains a skeleton.
 Warning: does not handle identifications yet."
   (let ((subcells-to-remove (subcells cell-to-remove)))
-    (skeleton
-     (find-cells #'(lambda (cell)
-		     (let ((subcells (subcells cell)))
-		       (not (or (find cell subcells-to-remove)
-				(find cell-to-remove subcells)))))
-		 skel))))
+    (subskeleton
+     skel #'(lambda (cell)
+              (let ((subcells (subcells cell)))
+                (not (or (find cell subcells-to-remove)
+                         (find cell-to-remove subcells))))))))
 
 (defun synchronize-identification (new-skel skel table)
   "Synchronizes identification information between @arg{new-skel} and
@@ -135,8 +139,9 @@ dimensions h_1 x ... x h_dim."
       (let ((corners ()))
 	(multi-for (jvec (make-fixnum-vec dim -1) (make-fixnum-vec dim 0))
 	  (push (map 'double-vec
-		     #'(lambda (k_i h_i) (float (* k_i h_i) 1.0))
-		     (m+ ivec jvec) h)
+		     (lambda (k_i h_i) (float (* k_i h_i) 1.0))
+		     (m+ ivec jvec)
+                     h)
 		corners))
 	(insert-cell-from-corners skel corners->cell cube-class (nreverse corners) ())))))
 
@@ -149,7 +154,7 @@ dimensions h_1 x ... x h_dim."
          (doskel ((cell props) skel)
            (setf (skel-ref result cell) props)))))
 
-(defun skel-add! (skel-1 skel-2 &key (override ()) active-skel-1)
+(defun skel-add! (skel-1 skel-2 &key (override ()) threshold active-skel-1)
   "Adds @arg{skel-2} to @arg{skel-1} destructively for @arg{skel-1}.
 Overlaying cells are identified.  @arg{override} is a list of properties
 which are copied from skel-2 on the overlap.  @arg{active-skel-1} is used
@@ -165,7 +170,11 @@ from @arg{skel-2} to their counterpart in @arg{skel-1}."
 	      (find-cells
 	       #'(lambda (cell-1)
 		   (if (vertex? cell-1)
-		       (equalp (vertex-position cell-1) (vertex-position cell-2))
+                       (let ((pos1 (vertex-position cell-1))
+                             (pos2 (vertex-position cell-2)))
+                         (if threshold
+                             (mzerop (m- pos1 pos2) threshold)
+                             (equalp pos1 pos2)))
 		       (equalp (boundary cell-1) bdry)))
 	       (or active-skel-1 skel-1) :dimension (dimension cell-2))))
 	(cond ((null twins)		; add cell-2 to skel-1
@@ -176,8 +185,9 @@ from @arg{skel-2} to their counterpart in @arg{skel-1}."
 	       (unless (= (length twins) 1)
 		 (error "skel-1 was already not overlap-free."))
 	       (dolist (prop override)
-		 (setf (get-cell-property (car twins) skel-1 prop)
-		       (get-cell-property cell-2 skel-2 prop)))
+                 (when (get-cell-property cell-2 skel-2 prop)
+                   (setf (get-cell-property (car twins) skel-1 prop)
+                         (get-cell-property cell-2 skel-2 prop))))
 	       (setf (gethash cell-2 overlap) (car twins))))))
     (values skel-1 skel-2 overlap)))
 
@@ -230,12 +240,6 @@ positions."
 \(embedded-dimension skel\)."
   (linearly-transformed-skeleton
    skel :A (eye (dimension skel)) :b shift :properties properties))
-
-(defmethod subskeleton ((skel <skeleton>) test)
-  (let ((subskel (make-instance '<skeleton> :cells (find-cells test skel))))
-    (doskel (cell subskel)
-      (setf (skel-ref subskel cell) (skel-ref skel cell)))
-    subskel))
 
 (defun telescope (left-skel left->right)
   ;; generate products of left-skel cells with lines and set their boundaries

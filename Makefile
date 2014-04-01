@@ -31,7 +31,7 @@
 
 help:
 	echo "Options: all, configure, clean, cleanall, documentation, femlisp,";\
-	echo "         help, triangle, superlu, umfpack."
+	echo "         help, triangle, tetgen, superlu, umfpack."
 
 all: configure superlu umfpack triangle femlisp documentation
 
@@ -51,20 +51,17 @@ superlu:
 	cd interface; $(MAKE) superlu
 
 triangle:
-	echo "Installing Triangle in femlisp/external.  Note that Triangle	\
-comes with a separate license which you should read (and accept) before		\
-using it."
+	echo "Installing Triangle in femlisp/external.  Note that Triangle comes with a separate license which you should read and accept before using it."
 	cd external; mkdir triangle; cd triangle;\
 	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
 	unzip triangle.zip; rm triangle.zip; $(MAKE) triangle
 
 tetgen:
-	echo "Installing Tetgen in femlisp/external.  Note that Tetgen	\
-comes with a separate license which you should read (and accept) before		\
-using it."
-	cd external; mkdir tetgen; cd tetgen;\
-	wget http://www.wias-berlin.de/people/si/tetgen1.4.0.zip;\
-	unzip tetgen1.4.0.zip; rm tetgen1.4.0.zip; 
+	echo "Installing Tetgen in femlisp/external.  Note that Tetgen comes with a separate license which you should read and accept before using it."
+	cd external;\
+	wget http://tetgen.berlios.de/files/tetgen1.4.3.tar.gz;\
+	tar xf tetgen1.4.3.tar.gz; rm tetgen1.4.3.tar.gz;\
+	ln -s tetgen1.4.3 tetgen; cd tetgen; rm -f tetgen; $(MAKE)
 
 umfpack:
 	cd interface; $(MAKE) umfpack
@@ -73,10 +70,11 @@ femlisp:
 	sh ./bin/femlisp --save-core-and-die
 
 clean:
-	rm -f *.x86f *.fasl *.ufasl *.fas? *.fas *.o *.amd64f *.lx32fsl
-	cd bin; rm -f *.core
+	rm -f *.x86f *.fasl *.ufasl *.fas? *.fas *.o *.amd64f *.lx32fsl;
+	cd bin; rm -f *.core;
 	cd doc; $(MAKE) clean;
 	cd src; $(MAKE) clean;
+	cd external; $(MAKE) clean;
 
 cleanall: clean
 	cd external; $(MAKE) clean;

@@ -37,7 +37,8 @@
 
 (defpackage "FL.DEBUG"
   (:use "COMMON-LISP")
-  (:export "DBG-ON" "DBG-OFF" "DBG-P" "DBG-WHEN" "DBG" "DBG-INDENT")
+  (:export "DBG-ON" "DBG-OFF" "DBG-P" "DBG-WHEN" "DBG"
+           "DBG-SHOW" "DBG-PRINT" "DBG-INDENT")
   (:documentation "This package adds debugging tools to Femlisp.  This is a
 slightly modified version of the debugging suite proposed in @cite{(Norvig
 1992)}."))
@@ -72,6 +73,20 @@ altogether."
       (format *debug-io* "~&~?~%" format-string args)
       (force-output *debug-io*))))
 
+(defmacro dbg-show (id &rest args)
+  `(dbg ,id "~@{~A=~S~%~}~%"
+        ,@(loop for expr in args appending
+               `(',expr ,expr))))
+
+(defmacro dbg-print (id &rest args)
+  (let ((result (gensym "RESULT")))
+    `(let ((,result (list ,@args)))
+       (apply #'dbg ,id "~@{~A=~S~%~}~%"
+              (loop for expr in ',args
+                 and value in ,result appending
+                 (list expr value)))
+       ,result)))
+
 (defgeneric dbg-indent (id indent format-string &rest args)
   (:documentation "When debugging @arg{id}, print out the arguments
 @arg{args} using the format in @arg{format-string} with indentation given
@@ -80,3 +95,5 @@ by @arg{indent}.")
     (dbg-when id
       (format *debug-io* "~&~VT~?" indent format-string args)
       (force-output *debug-io*))))
+
+;;;; Testing

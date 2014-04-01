@@ -152,11 +152,14 @@
      (:file "simplex" :depends-on ("vertex"))
      (:file "product-cell" :depends-on ("simplex"))
      (:file "skeleton-build" :depends-on ("product-cell" "identify"))
+     (:file "anisotropic" :depends-on ("product-cell" "skeleton-build"))
      (:file "domain" :depends-on ("skeleton-build"))
      (:file "mesh" :depends-on ("domain"))
      (:file "meshgen" :depends-on ("mesh"))
-     (:file "triangulate" :depends-on ("meshgen"))
+     (:file "blending" :depends-on ("meshgen"))
+     (:file "triangulate" :depends-on ("blending"))
      (:file "triangle" :depends-on ("triangulate"))
+     (:file "tetgen" :depends-on ("triangulate" "triangle"))
      (:file "extend" :depends-on ("meshgen"))
      ))
    ;;
@@ -307,9 +310,11 @@
       :depends-on ()
       :components
       ((:file "domains-defp")
+       (:file "circle-ring-domain" :depends-on ("domains-defp"))
+       (:file "bl-cell" :depends-on ("domains-defp"))
        (:file "hole-domain" :depends-on ("domains-defp"))
        (:file "inlay-domain" :depends-on ("hole-domain"))
-       (:file "bl-cell" :depends-on ("domains-defp"))))
+       ))
      (:file "application-defp" :depends-on ("domains"))
      (:file "app-utils" :depends-on ("application-defp"))
      (:module

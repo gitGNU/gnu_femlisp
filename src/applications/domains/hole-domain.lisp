@@ -40,8 +40,8 @@
 	 (1->2 (nth-value 1 (linearly-transformed-skeleton
 			     skel1 :A (scal 0.5 (eye dim))
 			     :b (make-double-vec dim 0.25)))))
-    (change-class
-     (telescope skel1 1->2) '<domain>
+    (make-domain
+     (telescope skel1 1->2)
      :classifiers (list (make-classifier #'patch-on-inner-boundary-p :inlay)))))
 
 (defun n-cell-with-cubic-hole (dim)
@@ -56,8 +56,8 @@ using n-cube patches."
 	 (projection (project-to-ellipsoid midpoint A))
 	 (1->2 (nth-value
 		1 (transformed-skeleton skel1 :transformation projection))))
-    (change-class
-     (telescope skel1 1->2) '<domain>
+    (make-domain
+     (telescope skel1 1->2)
      :classifiers (list (make-classifier #'patch-on-inner-boundary-p :inlay)))))
 
 (defun n-cell-with-ellipsoidal-hole (dim &key A)

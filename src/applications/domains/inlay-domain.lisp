@@ -40,9 +40,8 @@
       (linearly-transformed-skeleton (skeleton (n-cube dim))
 				     :A (scal 0.5 (eye dim))
 				     :b (make-double-vec dim 0.25))
-    (change-class
+    (make-domain
      (skel-add! inlay (n-cube-with-cubic-hole dim))
-     '<domain>
      :classifiers (list (make-classifier #'patch-in-inlay-p :inlay)))))
 
 (defun n-cell-with-cubic-inlay (dim)
@@ -73,9 +72,9 @@
 		  middle-cell)))
 	(skel-add! center-block (telescope center-skin center->middle))
 	(skel-add! center-block (telescope outer-skel outer->middle))
-	(change-class
-	 center-block '<domain> :classifiers
-	 (list (make-classifier #'patch-in-inlay-p :inlay)))))))
+	(make-domain
+         center-block
+         :classifiers (list (make-classifier #'patch-in-inlay-p :inlay)))))))
 
 (defun n-cell-with-ball-inlay (dim &key (radius 0.25))
   "Generates an n-dimensional cell domain with an n-ball inlay."

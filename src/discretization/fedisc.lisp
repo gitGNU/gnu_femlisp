@@ -161,7 +161,7 @@ of a nonlinear problem."
       (setq interior-rhs (make-ansatz-space-vector ansatz-space))
       (when (typep problem '<evp-mixin>)
 	(setf interior-mass-matrix (make-ansatz-space-automorphism ansatz-space)))
-      (assert (same-p (remove nil (list interior-matrix interior-mass-matrix interior-rhs solution))
+      (assert (samep (remove nil (list interior-matrix interior-mass-matrix interior-rhs solution))
 		      :key #'ansatz-space))
       ;; interior assembly
       (assert (null cells) () "TBI: assembly on cells")
