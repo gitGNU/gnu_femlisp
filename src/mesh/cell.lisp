@@ -83,7 +83,7 @@ distortion of the multilinear mapping."))
 		      "FL.MESH")))
 	(or (find-class mapped-class nil)
 	    (let ((new-class (eval `(defclass ,mapped-class
-				     (,@(when distorted 'fl.mesh::<distorted-cell>)
+				     (,@(when distorted '(fl.mesh::<distorted-cell>))
 					fl.mesh::<mapped-cell>
 					,unmapped-class) ()))))
 	      (setf (cell-class-information new-class)
