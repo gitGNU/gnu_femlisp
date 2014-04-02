@@ -1,8 +1,6 @@
-;;;; -*- Mode: Lisp; Package: User; -*-
+;;;; -*- Mode: Lisp -*-
 
-(defpackage #:infix-system (:use #:asdf #:cl))
-(in-package #:infix-system)
+(in-package :asdf)
 
-(defsystem infix
+(defsystem :infix
   :components ((:file "src")))
-
