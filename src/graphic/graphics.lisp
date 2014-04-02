@@ -48,7 +48,7 @@
   (or (aand (or (fl.port:getenv "FEMLISP_IMAGES")
 		fl.start:*images-directory*)
 	    (pathname it))
-      (femlisp-pathname "images/")))
+      (fl.start:femlisp-pathname "images/")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Public interface

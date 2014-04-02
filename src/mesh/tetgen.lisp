@@ -45,7 +45,7 @@
 (defvar *tetgen-pathname*
   (or (aand fl.start::*tetgen-path* (probe-file (pathname it)))
       (fl.port:find-executable "tetgen")
-      (probe-file #p"femlisp:external;tetgen;tetgen"))
+      (fl.start:femlisp-pathname "external/tetgen/tetgen"))
   "Pathname of the @program{tetgen} binary.")
 
 (defun call-tetgen (&key meshsize &allow-other-keys)

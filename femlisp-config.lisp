@@ -57,7 +57,6 @@
 (defparameter *tetgen-path*
   (or nil ; default: search in path
       #+os-unix (femlisp-pathname "external/tetgen/tetgen"))
-  nil  ; default: search in path and try to look in #p"femlisp;external"
   "Path to the @program{tetgen} executable.")
   
 (defparameter *images-directory*

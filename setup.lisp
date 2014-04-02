@@ -6,6 +6,7 @@
 ;;;
 ;;; Copyright (C) 2003-2005 Nicolas Neuss, University of Heidelberg.
 ;;; Copyright (C) 2006-2008 Nicolas Neuss, University of Karlsruhe.
+;;; Copyright (C) 2010-     Nicolas Neuss, University Erlangen-Nuremberg.
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
@@ -37,11 +38,11 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
+(in-package :common-lisp-user)
 
 (defpackage "FL.START"
   (:use "COMMON-LISP")
-  (:export "*FEMLISP-VERSION*" "FEMLISP-HERALD" "FEMLISP-BANNER" "FEMLISP-PATH"
+  (:export "*FEMLISP-VERSION*" "FEMLISP-HERALD" "FEMLISP-BANNER" "FEMLISP-PATHNAME"
            "*TETGEN-PATH*" "*IMAGES-DIRECTORY*" "*MESHES-DIRECTORY*"
            "*BLAS-LIBRARY*" "*LAPACK-LIBRARY*" "*SUPERLU-LIBRARY*" "*UMFPACK-LIBRARY*")
   (:documentation "This package contains some routines called
@@ -62,7 +63,7 @@ during initialization of Femlisp."))
   (asdf:system-relative-pathname :femlisp namestring))
 
 (defvar *femlisp-pathname*
-  (femlisp-path "")
+  (femlisp-pathname "")
   "The pathname for the Femlisp main directory.  This should be the
 location of this file when it is loaded.")
   
@@ -85,22 +86,6 @@ location of this file when it is loaded.")
 #+allegro (setq excl:*global-gc-behavior* :auto)
 #+cmu (setq extensions:*gc-verbose* nil)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Implementation-dependent loading of modules
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(eval-when (:compile-toplevel :load-toplevel)
-  #+sbcl (require 'sb-posix)
-  #+sbcl (require 'sb-introspect)
-  #+allegro (require :osi)
-  )
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Ensure the presence of Common Lisp libraries
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; INFIX
-#-infix (load #p"femlisp:external;infix;src")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; we want to work generally with double float numbers
@@ -119,8 +104,9 @@ location of this file when it is loaded.")
   (format
    t "~&~%*** Femlisp-~A ***
 
-Copyright (C) 2003-2010
-Nicolas Neuss, University Heidelberg, KIT Karlsruhe.
+Copyright (C) 2003-2014
+Nicolas Neuss
+University Heidelberg, KIT Karlsruhe, University Erlangen.
 
 Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
 file LICENSE in the Femlisp main directory.  This is free
@@ -128,5 +114,5 @@ software, and you are welcome to redistribute it under certain
 conditions.
 
 You can enter \"(fl.demo:femlisp-demo)\" to get a guided tour
-through Femlisp.~%~%"
+through Femlisp, and enter \"(quit)\" to leave the program.~%~%"
    *femlisp-version*))
