@@ -40,29 +40,32 @@
 
 (defparameter *dx-path*
   (or nil ; default: search in path
-      #+(or ccl ecl gcl lispworks sbcl clisp) "/usr/bin/dx")
+      #+os-unix "/usr/bin/dx")
   "Path to the @program{DX} executable.")
 
 (defparameter *gnuplot-path*
   (or nil ; default: search in path
-      #+(or ccl ecl gcl lispworks sbcl clisp) "/usr/bin/gnuplot"
-      #+(and acl mswindows) "C:\\cygwin\\bin\\gnuplot.exe")
+      #+os-unix "/usr/bin/gnuplot"
+      #+os-windows "C:\\cygwin\\bin\\gnuplot.exe")
   "Path to the @program{Gnuplot} executable.")
-  
+
 (defparameter *triangle-path*
-  nil  ; default: search in path and try to look in #p"femlisp;external"
+  (or nil ; default: search in path
+      #+os-unix (femlisp-pathname "external/triangle/triangle"))
   "Path to the @program{triangle} executable.")
   
 (defparameter *tetgen-path*
+  (or nil ; default: search in path
+      #+os-unix (femlisp-pathname "external/tetgen/tetgen"))
   nil  ; default: search in path and try to look in #p"femlisp;external"
   "Path to the @program{tetgen} executable.")
   
 (defparameter *images-directory*
-  nil ; default: #p"femlisp:images"
+  nil ; default: (femlisp-pathname "images/")
   "Directory where images are put by default.")
 
 (defparameter *meshes-directory*
-  nil ; default: #p"femlisp:meshes"
+  nil ; default: (femlisp-pathname "meshes/")
   "Directory where meshes are put by default.")
 
 (defparameter *blas-library*
@@ -80,10 +83,10 @@
   "LAPACK library.")
 
 (defparameter *superlu-library*
-  (probe-file #p"femlisp:interface;superlu.so")
+  (probe-file (femlisp-pathname "interface/superlu.so"))
   "Wrapper for SuperLU, if available.")
 
 (defparameter *umfpack-library*
-  (probe-file #p"femlisp:interface;umfpack.so")
+  (probe-file (femlisp-pathname "interface/umfpack.so"))
   "Wrapper for UMFPACK, if available.")
 

@@ -33,22 +33,10 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "COMMON-LISP-USER")
+(in-package :cl-user)
 
-(eval-when (:load-toplevel :execute)
-  (let ((directory (pathname-directory *load-truename*)))
-    (setf (logical-pathname-translations "FEMLISP")
-	  `((#-gcl "**;*.*.*" #+gcl "**;*.*" 
-	     ,(make-pathname :directory `(,@directory :wild-inferiors)
-			     :name :wild :type :wild :version :wild))))))
-
-;;; ensure ASDF
-#-asdf
-(or (ignore-errors (require :asdf))
-    (load #p"femlisp:external;asdf.lisp"))
-
-(pushnew #p"femlisp:" asdf::*central-registry*)
+(require :asdf)
+(asdf:load-system :asdf) ;; give asdf2 a fair chance to upgrade to asdf3.
 
 (let ((asdf::*compile-file-failure-behaviour* :error))
-  (asdf:operate 'asdf::load-op :femlisp))
-
+  (asdf:load-system :femlisp))

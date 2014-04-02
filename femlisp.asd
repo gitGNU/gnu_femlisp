@@ -32,29 +32,24 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Setup the logical host "FEMLISP"
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defpackage :femlisp-system (:use :common-lisp :asdf))
+(in-package :femlisp-system)
 
-(in-package :cl-user)
-
-(eval-when (:load-toplevel :execute)
-  (let ((directory (pathname-directory *load-truename*)))
-    (setf (logical-pathname-translations "FEMLISP")
-	  `((#-gcl "**;*.*.*" #+gcl "**;*.*" 
-	     ,(make-pathname :directory `(,@directory :wild-inferiors)
-			     :name :wild :type :wild :version :wild))))))
-
-(in-package :asdf)
+(defun call-with-femlisp-environment (fun)
+  (let ((*read-default-float-format* 'double-float))
+    (funcall fun)))
 
 (defsystem :femlisp-basic
-  :depends-on (#+(or clisp ccl) :cffi #+(or clisp ccl) :closer-mop)
+  :depends-on (#+(or clisp ccl) :cffi #+(or clisp ccl) :closer-mop
+               #+sbcl (:require "sb-posix") #+sbcl (:require "sb-introspect")
+               #+allegro (:require "osi"))
+  #+asdf3 :around-compile call-with-femlisp-environment
   :components
   ((:file "setup")
    (:module
     "basic"
     :depends-on ("setup")
-    :pathname #.(translate-logical-pathname #p"femlisp:src;basic;")
+    :pathname "src/basic"
     :components
     ((:file "debug" :depends-on ())
      (:file "tests" :depends-on ())
@@ -68,29 +63,25 @@
      (:file "multiprocessing" :depends-on ("utilities" "mflop" "port" "debug"))
      (:file "parcells" :depends-on ("multiprocessing"))
      (:file "general" :depends-on ("amop" "utilities-defp" "multiprocessing"))
-     (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))
-     ))
-   ))
+     (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))))))
 
 (defsystem :femlisp-matlisp
   :depends-on (:femlisp-basic)
+  :pathname "src"
+  #+asdf3 :around-compile call-with-femlisp-environment
   :components
   ((:module
     "alien"
-    :depends-on ()
-    :pathname #.(translate-logical-pathname "femlisp:src;alien;")
     :components
     (;; alien should be recompiled if superlu.so or umfpack.so has changed
      (:file "alien" :depends-on ())
      (:file "alienc" :depends-on ("alien"))
      (:file "lapack" :depends-on ("alien"))
      (:file "superlu" :depends-on ("alien"))
-     (:file "umfpack" :depends-on ("alien"))
-     ))
+     (:file "umfpack" :depends-on ("alien"))))
    (:module
     "matlisp"
     :depends-on ("alien")
-    :pathname #.(translate-logical-pathname "femlisp:src;matlisp;")
     :components
     ((:file "matlisp-defp")
      (:file "ctypes" :depends-on ("matlisp-defp"))
@@ -112,24 +103,15 @@
      (:file "hegv" :depends-on ("standard-matrix"))
      (:file "sparse-vector" :depends-on ("compat" "sparse-tensor"))
      (:file "sparse-matrix" :depends-on ("sparse-vector" "standard-matrix-blas" "compressed"))
-     (:file "sparselu" :depends-on ("sparse-matrix"))
-     ))
-   ))
-
-#-infix
-(defsystem :infix
-  :depends-on ()
-  :pathname #.(translate-logical-pathname #p"femlisp:external;infix;")
-  :components
-  ((:file "src")))
+     (:file "sparselu" :depends-on ("sparse-matrix"))))))
 
 (defsystem :femlisp
-  :depends-on (:femlisp-basic :femlisp-matlisp #-infix :infix)
+  :depends-on ("femlisp-basic" "femlisp-matlisp" "infix")
+  :pathname "src"
+  #+asdf3 :around-compile call-with-femlisp-environment
   :components
   ((:module
     "function"
-    :depends-on ()
-    :pathname #.(translate-logical-pathname "femlisp:src;function;")
     :components
     ((:file "function-defp")
      (:file "function" :depends-on ("function-defp"))
@@ -140,7 +122,6 @@
    ;;
    (:module
     "mesh"
-    :pathname #.(translate-logical-pathname "femlisp:src;mesh;")
     :depends-on ( "function")
     :components
     ((:file "mesh-defp")
@@ -168,7 +149,6 @@
    (:module
     "problem"
     :depends-on ("mesh")
-    :pathname #.(translate-logical-pathname "femlisp:src;problem;")
     :components
     ((:file "problem-defp")
      (:file "problem" :depends-on ("problem-defp"))
@@ -189,7 +169,6 @@
    (:module
     "iteration"
     :depends-on ("function" "problem")
-    :pathname #.(translate-logical-pathname "femlisp:src;iteration;")
     :components
     ((:file "iteration-defp")
      (:file "iterate" :depends-on ("iteration-defp"))
@@ -212,7 +191,6 @@
    (:module
     "discretization"
     :depends-on ("function" "mesh" "problem" "iteration")
-    :pathname #.(translate-logical-pathname "femlisp:src;discretization;")
     :components
     ((:file "discretization-defp")
      (:file "discretization" :depends-on ("discretization-defp"))
@@ -237,20 +215,17 @@
    (:module
     "special-iteration"
     :depends-on ("mesh" "problem" "discretization" "iteration")
-    :pathname #.(translate-logical-pathname #p"femlisp:src;iteration;")
+    :pathname "iteration"
     :components
     ((:file "geomg-defp")
      (:file "geoblock" :depends-on ("geomg-defp"))
      (:file "vanka" :depends-on ("geoblock"))
-     (:file "geomg" :depends-on ("geoblock"))
-     ))
+     (:file "geomg" :depends-on ("geoblock"))))
    ;;
    ;; Post-processing
    ;;
    (:module
     "graphic"
-    :depends-on ()
-    :pathname #.(translate-logical-pathname #p"femlisp:src;graphic;")
     :components
     ((:file "graphics-defp" :depends-on ())
      (:file "graphics" :depends-on ("graphics-defp"))
@@ -260,7 +235,6 @@
    (:module
     "plot"
     :depends-on ("graphic" "mesh" "problem" "discretization")
-    :pathname #.(translate-logical-pathname #p"femlisp:src;plot;")
     :components
     ((:file "plot-defp")
      (:file "plot" :depends-on ("plot-defp"))
@@ -280,7 +254,6 @@
     "strategy"
     :depends-on ("mesh" "problem" "discretization" "iteration"
 			"special-iteration" "plot")
-    :pathname #.(translate-logical-pathname #p"femlisp:src;strategy;")
     :components
     ((:file "strategy-defp")
      (:file "strategy" :depends-on ("strategy-defp"))
@@ -294,8 +267,7 @@
      (:file "fe-evp" :depends-on ("fe-stationary"))
      (:file "rothe" :depends-on ("fe-stationary"))
      (:file "rothe-ellsys" :depends-on ("rothe"))
-     (:file "gps" :depends-on ("fe-stationary"))
-     ))
+     (:file "gps" :depends-on ("fe-stationary"))))
    ;;
    ;; Applications
    ;;
@@ -303,11 +275,9 @@
     "applications"
     :depends-on ("function" "iteration" "mesh"
 		 "problem" "discretization" "strategy" "plot")
-    :pathname #.(translate-logical-pathname #p"femlisp:src;applications;")
     :components
     ((:module
       "domains"
-      :depends-on ()
       :components
       ((:file "domains-defp")
        (:file "circle-ring-domain" :depends-on ("domains-defp"))
@@ -341,22 +311,19 @@
        (:file "bratu")
        (:file "evp-cdr")
        (:file "heat")
-       (:file "sturm")
-       ))
+       (:file "sturm")))
      (:module
       "elasticity"
       :depends-on ("demos" "domains")
       :components
       ((:file "model-problem")
-       (:file "elahom")
-       ))
+       (:file "elahom")))
      (:module
       "navier-stokes"
       :depends-on ("demos" "domains")
       :components
       ((:file "driven-cavity")
-       (:file "hom-ns")
-       ))
+       (:file "hom-ns")))
      (:module
       "articles"
       :depends-on ("demos" "domains" "cdr" "elasticity")

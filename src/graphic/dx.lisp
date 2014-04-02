@@ -58,7 +58,7 @@
            ;; but unfortunately breaks CLISP
            '("-script" "-cache" "off" "-log" "on"
              "-processors" "1"
-             #+mswindows "-native")
+             #+os-windows "-native")
            :wait nil
            :input :stream :output :stream
            :directory (images-pathname))))

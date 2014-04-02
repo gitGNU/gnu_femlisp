@@ -76,7 +76,7 @@ problem for a Lisp.")
   (let ((message (format nil "The function~& ~A~% called with
 parameters~&~A~%has not yet been written for your Lisp.  If you want full
 functionality of Femlisp you should provide it in the file
-@path{femlisp:src;basic;port.lisp}." function args)))
+@path{src/basic/port.lisp}." function args)))
     (ecase *portability-problem-handling*
       (:error (error message))
       (:warn (warn message)))))
@@ -121,9 +121,8 @@ compatible way of ensuring method compilation."
 
 (defun hostname ()
   "Returns the hostname."
-  #+sbcl (sb-unix:unix-gethostname)
-  #-(or sbcl) (getenv "HOSTNAME")
-  )
+  #+asdf3 (uiop:hostname)
+  #-asdf3 (getenv "HOSTNAME"))
 
 (defun find-executable (name)
   "Finds an executable in the current path."
@@ -136,21 +135,9 @@ compatible way of ensuring method compilation."
 
 (defun getenv (var)
   "Return the value of the environment variable."
-  #+allegro (sys::getenv (string var))
-  #+ccl (ccl:getenv (string var))
-  #+clisp (ext:getenv (string var))
-  #+(or cmu scl)
-  (cdr (assoc (string var) ext:*environment-list* :test #'equalp
-              :key #'string))
-  #+ecl (si:getenv (string var))
-  #+gcl (system:getenv (string var))
-  #+lispworks (lw:environment-variable (string var))
-  #+mcl (ccl::getenv var)
-  #+sbcl (sb-ext:posix-getenv var)
-  #-(or allegro ccl clisp cmu scl ecl gcl lispworks mcl sbcl)
-  (portability-warning 'getenv var)
-  )
-  
+  (asdf::getenv var))
+
+;; TODO: use uiop:chdir
 (defun unix-chdir (path)
   "Change the directory to @arg{path}."
   #+allegro (excl.osi:chdir path)
@@ -162,9 +149,9 @@ compatible way of ensuring method compilation."
   #+lispworks (harlequin-common-lisp:change-directory path)
   #+sbcl (sb-posix:chdir path)
   #-(or allegro ccl clisp cmu scl ecl gcl lispworks sbcl)
-  (portability-warning 'unix-chdir path)
-  )
+  (portability-warning 'unix-chdir path))
 
+;; TODO: use uiop:native-namestring
 (defun system-namestring (path)
   #+scl (ext:unix-namestring path)
   #-scl (namestring path)
@@ -174,6 +161,8 @@ compatible way of ensuring method compilation."
 ;;;; Process communication
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; TODO: use uiop:run-program for synchronous use, and
+;; uiop/run-program::%run-program for the asynchronous case
 (defun run-program (program args
                     &key wait directory
                     input (output nil output-p) error-output)
@@ -273,7 +262,7 @@ compatible way of ensuring method compilation."
 
 (defun process-close (process)
   "Closes @arg{process}."
-  #+(or allegro lispworks sbcl) (close (process-input process))
+  #+(or allegro lispworks) (close (second process))
   #+(or clisp)
   (loop for k in '(1 2 3) do
        (let ((stream (nth k process)))
@@ -282,6 +271,7 @@ compatible way of ensuring method compilation."
   #+cmu (ext:process-close process)
   #+scl (ext:process-kill process :sigkill)
   #+(or ecl gcl) (close process)
+  #+sbcl (sb-ext:process-close process)
   #-(or allegro ccl lispworks clisp cmu scl ecl gcl sbcl)
   (portability-warning 'process-close process)
   )
@@ -310,6 +300,7 @@ compatible way of ensuring method compilation."
 ;;; Foreign libraries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; TODO: just use cffi everywhere
 (defun load-foreign-library (file)
   "Loads the foreign library @arg{file}."
   #+allegro (cl:load file)
@@ -546,16 +537,9 @@ that no GC changes array pointers obtained by @function{vector-sap}."
 
 (defun quit ()
   "Quits Femlisp."
-  #+allegro (excl:exit)
-  #+lispworks (lispworks:quit)
-  #+(or cmu scl) (ext:quit)
-  #+ccl (ccl:quit)
-  #+ecl (si:quit)
-  #+gcl (lisp:quit)
-  #+sbcl (sb-ext:quit)
-  #-(or allegro lispworks cmu ccl scl sbcl ecl gcl)
-  (portability-warning 'quit)
-  )
+  #+asdf3 (uiop:quit)
+  #+(and lispworks (not asdf3)) (lispworks:quit)
+  #-(or asdf3 lispworks) (portability-warning 'quit))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Saving a core and restarting
@@ -564,59 +548,32 @@ that no GC changes array pointers obtained by @function{vector-sap}."
 (defun femlisp-restart ()
   #+(or cmu scl) (progn (ext::print-herald))
   (fl.start::femlisp-banner)
-  (setq *package* (find-package :fl.application))
-  )
+  (setq *package* (find-package :fl.application)))
 
 (defun save-femlisp-core-and-die (&optional core-file-name)
   "Saves Femlisp core and quits."
   (unless core-file-name
     (setq core-file-name
-	  (merge-pathnames
-	   (make-pathname
-	    :name (format nil "femlisp-~A"
-			  #+allegro "acl" #+lispworks "lispworks"
-                          #+cmu "cmucl" #+scl "scl" #+sbcl "sbcl"
-                          #+ecl "ecl" #+gcl "gcl" #+clisp "clisp"
-			  #-(or allegro lispworks cmu scl sbcl ecl gcl clisp) "x")
-	    :type "core")
-	   (probe-file #p"femlisp:bin;"))))
+          (asdf:system-relative-pathname
+           :femlisp
+           (format nil "bin/femlisp-~A.core" (asdf::implementation-type)))))
   (format t "Saving ~A~%" core-file-name)
+  (setf *package* (find-package :fl.application))
   #+allegro
   (progn
-    (setq excl:*restart-init-function*
-	  (let ((directory (pathname-directory fl.start::*femlisp-pathname*)))
-	    #'(lambda ()
-		(setf (logical-pathname-translations "FEMLISP")
-		      `(("**;*.*.*"
-			 ,(make-pathname :directory `(,@directory :wild-inferiors)
-					 :name :wild :type :wild :version :wild))))
-		(tpl:setq-default *package* (find-package :fl.application))
-		(rplacd (assoc 'tpl::*saved-package*
-			       tpl:*default-lisp-listener-bindings*)
-			'common-lisp:*package*))))
-    (excl:dumplisp :name core-file-name))
-  #+clisp (EXT:SAVEINITMEM core-file-name)
-  #+(or cmu scl)
-  (ext:save-lisp
-   core-file-name #+cmu :print-herald #+cmu t
-   :init-function
-   (lambda ()
-     (fl.start::femlisp-banner)
-     (setq *package* (find-package :fl.application))
-     (lisp::%top-level)))
-  #+gcl     (si:save-system core-file-name)
-  #+ecl     (quit)
-  #+lispworks (hcl:save-image
-	       core-file-name :environment nil :restart-function
-	       (lambda ()
-		 (fl.start::femlisp-banner)
-		 (setq *package* (find-package :fl.application))))
-  #+sbcl (sb-ext:save-lisp-and-die core-file-name :purify t)
-  #-(or allegro lispworks clisp cmu scl sbcl ecl gcl)  ; do nothing
-  (portability-warning 'save-femlisp-core-and-die core-file-name)
-  ;; we quit in any case
-  #+(or)(quit)
-  )
+    (tpl:setq-default *package* (find-package :fl.application))
+    (rplacd (assoc 'tpl::*saved-package*
+                   tpl:*default-lisp-listener-bindings*)
+            'common-lisp:*package*))
+  #+asdf3 (push 'femlisp-restart uiop:*image-restore-hook*)
+  #.(or
+     #+asdf3.1
+     '(asdf:operate 'asdf:image-op :femlisp)
+     #+(and asdf3 (not (or ecl mkcl)))
+     '(uiop:dump-image core-file-name)
+     '(portability-warning 'save-femlisp-core-and-die core-file-name))
+  #+asdf3 (quit))
+
 
 ;;;; Testing
 (defun test-port ()

@@ -41,7 +41,9 @@
 
 (defpackage "FL.START"
   (:use "COMMON-LISP")
-  (:export "*FEMLISP-VERSION*" "FEMLISP-HERALD" "FEMLISP-BANNER")
+  (:export "*FEMLISP-VERSION*" "FEMLISP-HERALD" "FEMLISP-BANNER" "FEMLISP-PATH"
+           "*TETGEN-PATH*" "*IMAGES-DIRECTORY*" "*MESHES-DIRECTORY*"
+           "*BLAS-LIBRARY*" "*LAPACK-LIBRARY*" "*SUPERLU-LIBRARY*" "*UMFPACK-LIBRARY*")
   (:documentation "This package contains some routines called
 during initialization of Femlisp."))
 
@@ -55,9 +57,13 @@ during initialization of Femlisp."))
 ;;;; Setup the logical host "FEMLISP"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun femlisp-pathname (namestring)
+  "Get pathname relative to the Femlisp directory."
+  (asdf:system-relative-pathname :femlisp namestring))
+
 (defvar *femlisp-pathname*
-    (make-pathname :directory (pathname-directory *load-truename*))
-    "The pathname for the Femlisp main directory.  This should be the
+  (femlisp-path "")
+  "The pathname for the Femlisp main directory.  This should be the
 location of this file when it is loaded.")
   
 (defvar *femlisp-directory* (namestring *femlisp-pathname*)
@@ -67,7 +73,7 @@ location of this file when it is loaded.")
 ;;;; Configuration
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(load "femlisp:femlisp-config.lisp")
+(load (femlisp-pathname "femlisp-config.lisp"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Implementation-dependent configurations

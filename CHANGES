@@ -48,11 +48,11 @@ The ALGEBRA package was restructured.  Especially, @class{<sparse-matrix>}
 is much more general now, and allowed for the introduction of just-in-time
 calculated matrices which will be introduced in some later Femlisp version.
 
-I separated the Femlisp ASDF system definition in @file{femlisp.asd} into
+I separated the Femlisp ASDF system definition in @path{femlisp.asd} into
 ASDF systems called "femlisp-basic", "femlisp-matlisp", and "femlisp".
 Especially "femlisp-basic" can be used also from other applications, and
 "femlisp-matlisp" might develop into a Matlisp replacement.  All system
-definitions are still contained in @file{femlisp:femlisp.asd} (which should
+definitions are still contained in @path{femlisp.asd} (which should
 therefore be linked also under the names femlisp-basic.asd and
 femlisp-matlisp.asd in the ASDF systems directory, if those modules are
 used separately).
@@ -61,16 +61,16 @@ Our institute has purchased a Lispworks license and I have ported Femlisp
 to Lispworks.  Unfortunately, my Allegro license has expired and I cannot
 test with Allegro any more at the moment.
 
-Included code for interfacing to LAPACK in @arg{matlisp;lapack.lisp}.
+Included code for interfacing to LAPACK in @path{matlisp/lapack.lisp}.
 Especially, an interface to the solution of generalized eigenvalue problems
-is available in @arg{matlisp;hegz.lisp} and @arg{matlisp;ggev.lisp}.
+is available in @path{matlisp/hegz.lisp} and @path{matlisp/ggev.lisp}.
 
 The ordering of the matrix arguments of MEXTRACT has been changed to fit
 better with the intuitive language "extract X from Y".  MEXTRACT and
 MINJECT have been renamed to MEXTRACT! and MINJECT! to fit better with the
 naming of other destructive Matlisp functions.
 
-Restructuring of the module "basic" in @arg{femlisp.asd}.  
+Restructuring of the module "basic" in @path{femlisp.asd}.  
 
 Properties of @class{property-mixin} instances can now be accessed using
 @function{slot-value} and @function{with-slots}, in addition to
@@ -79,12 +79,12 @@ not bound otherwise, they are bound to NIL.
 
 Dropped @function{extend-matlisp-function} after a discussion in
 comp.lang.lisp.  The functionality is now provided by @function{matlisp} in
-@file{call-matlisp.lisp}.
+@path{call-matlisp.lisp}.
 
 Fixed an hideous bug in domain.lisp which lead to the wrong
 characterization of the bottom of a cube domain.
 
-There is a new approach of problem definition in @file{problem;pdef.lisp}
+There is a new approach of problem definition in @path{problem/pdef.lisp}
 with the help of a macro @macro{create-problem}.  Old definitions are still
 used, but may finally be replaced.  The performance impact should be traced
 carefully when doing this step.  However, the new form in principle offers
@@ -105,7 +105,7 @@ Generalized fe discretization: the vector form is now used everywhere but
 in internal fe operations.
 
 Structural improvement: the necessary local<->global matrix/vector
-extraction information is computed lazily in @file{sparseif.lisp}, where it
+extraction information is computed lazily in @path{sparseif.lisp}, where it
 is needed.
 
 Performance improvement: avoiding to call @function{make-instance} with
@@ -176,7 +176,7 @@ ECL can now compile Femlisp.  Many thanks to Juan Jose Garcia Ripoll for
 his help.  Unfortunately, the performance of Femlisp/ECL is still abysmal,
 and apparently not all tests pass.
 
-Removed uses of DEFINE-SYMBOL-MACRO in @path{iteration;multigrid.lisp}
+Removed uses of DEFINE-SYMBOL-MACRO in @path{iteration/multigrid.lisp}
 because, first, GCL does not have it yet, and second, it lead to somewhat
 obscure code.
 
@@ -197,11 +197,11 @@ Removed the dependency on UFFI introduced in Femlisp-0.9.7.
 
 * From Femlisp-0.9.6 to Femlisp-0.9.7:
 
-There is a directory @path{femlisp:private} where users can put private
-stuff.  If a file @path{femlisp:private;start.lisp} is found it is loaded
+There is a directory @path{private/} where users can put private
+stuff.  If a file @path{private/start.lisp} is found it is loaded
 when Femlisp starts up.
 
-Dofs are CLOS classes now instead of structures in @arg{fe.lisp}.  Now
+Dofs are CLOS classes now instead of structures in @path{fe.lisp}.  Now
 Allegro compiles without warnings.  No obvious speed reduction for SBCL.
 
 Cosmetic changes for removing Allegro warnings.
@@ -261,7 +261,7 @@ Several enhancements for the linear algebra.  The file @path{tensor.lisp}
 was moved from @package{FL.ALGEBRA} to @package{FL.MATLISP}.
 
 Introduced a new package @package{FL.DOMAINS} in
-@path{femlisp;src;applications;domains;domains-defp.lisp} for domain
+@path{src/applications/domains/domains-defp.lisp} for domain
 definitions.
 
 Checked the demos for reasonable results.
@@ -282,7 +282,7 @@ Saving a Femlisp executable using the foreign code works along the lines
 pointed out by Eric Marsden in an article for cmucl-help at 18.9.2003.
 
 Interfaces to the sparse direct solvers SuperLU and UMFPACK are available
-as shared libraries generated in @path{femlisp;interface}.  Direct solving
+as shared libraries generated in @path{femlisp/interface}.  Direct solving
 is then also the default solving method for moderate number of unknowns.
 
 Preliminary support for solving time-dependent problems by the Rothe method
@@ -295,13 +295,13 @@ An interface to the 2D mesh generator @program{Triangle} by J. R. Shewchuk
 has been integrated.
 
 Routines for solving eigenvalue problems by a Wielandt iteration have been
-incorporated, see the files @file{problem;evp.lisp},
-@file{iteration;evpsolve.lisp}, @file{strategy;fe-evp.lisp}, and
-@file{application;cdr;evp-cdr.lisp}.
+incorporated, see the files @path{problem/evp.lisp},
+@path{iteration/evpsolve.lisp}, @path{strategy/fe-evp.lisp}, and
+@path{application/cdr/evp-cdr.lisp}.
 
 Changed the communication with the graphics programs @code{DX} and
-@code{Gnuplot}.  Data is written into files @file{output.dx} and
-@file{output.gnuplot}.  After these files have been read, they are moved to
+@code{Gnuplot}.  Data is written into files @path{output.dx} and
+@path{output.gnuplot}.  After these files have been read, they are moved to
 backup files from within the graphics program.  Femlisp waits until this
 has been done, before a new graphic is written out.
 
@@ -329,11 +329,11 @@ The functions ASSEMBLE-INTERIOR and FE-CELL-GEOMETRY handle now metric and
 volume form defined as properties on the domain patches.  This can be used,
 for example, to treat problems in cylinder coordinates.
 
-The formula for the area of higher-dimensional spans in matlisp;compat.lisp
+The formula for the area of higher-dimensional spans in @path{matlisp/compat.lisp}
 was simplified to sqrt(det(A^t A)).
 
 The possibility to build Femlisp with MK-DEFSYSTEM was reintroduced.  The
-files femlisp.asd and femlisp.system are identical.
+files @path{femlisp.asd} and @path{femlisp.system} are identical.
 
 The dependency on CL-PPCRE was removed.  CL-PPCRE is a nice package, but
 Femlisp does not need it at the moment.
@@ -342,8 +342,8 @@ Femlisp does not need it at the moment.
 
 A Newton iteration was introduced for solving nonlinear problems, see the
 file ITERATION:NLSOLVE.LISP.  Examples for solving nonlinear problems can
-be found in the files APPLICATIONS;CDR;BRATU.LISP and
-APPLICATIONS;NAVIER-STOKES;DRIVEN-CAVITY.LISP.
+be found in the files @path{applications/cdr/bratu.lisp} and
+@path{applications/navier-stokes/driven-cavity.lisp}.
 
 Levels for iteration output were introduced.  The keyword parameter OUTPUT
 can be a number telling up to which depth the nested iterations print out
@@ -376,9 +376,10 @@ refinement of wedges and computations on a wedge are now available.
 
 * From Femlisp-0.9.0 to Femlisp-0.9.1:
 
-The DX logfile is now written to #p"femlisp:images;"
+The DX logfile is now written to @path{images/}.
 
-Corrections in the files FAQ, CHANGES, INSTALL, README, and TODO.
+Corrections in the files @path{FAQ}, @path{CHANGES}, @path{INSTALL},
+@path{README}, and @path{TODO}.
 
 Some extensions of general problem solving.  This is work in progress.
 
@@ -391,9 +392,9 @@ approach using the global installation script "femlisp-install" is
 abandoned, because it does not make much sense for more sophisticated
 users.
 
-For convenience, I have included the ASDF and Infix libraries with Femlisp
-in the directory "femlisp/external/".  CL-PPCRE is put there as well by
-executing using "make cl-ppcre" in the Femlisp main directory.
+For convenience, I have included the ASDF and Infix libraries with
+Femlisp in the directory @path{external/}.  CL-PPCRE is put there as
+well by executing using "make cl-ppcre" in the Femlisp main directory.
 
 
 * From Femlisp-0.8.5 to Femlisp-0.9.0:
@@ -404,7 +405,7 @@ tries to find a solution strategy itself.
 
 Femlisp is almost completely ANSI-compliant now.  At least, it works on
 both SBCL and CMUCL.  The platform/implementation dependent parts are
-concentrated in femlisp:src;basic;port.lisp.
+concentrated in @path{src/basic/port.lisp}.
 
 DOUBLE-FLOAT is the standard read format now.  Uniform DOUBLE-FLOAT vectors
 can be written as #d(...).
@@ -431,7 +432,7 @@ small matrices.  FL.MATLISP matrices can be written with #m(...).
 
 The mesh module was improved.  Especially, cells are now CLOS classes
 instead of structures (as it was already described in my article on Femlisp
-in femlisp/doc).  The classes are automatically generated at runtime.
+in @path{doc/}).  The classes are automatically generated at runtime.
 
 A new package called FEMLISP.MATLISP was introduced which acts at the
 moment as an interface to MATLISP.  The next move will be to plug in my

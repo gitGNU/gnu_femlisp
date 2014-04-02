@@ -102,7 +102,7 @@ them when compiling a certain file."
       nil)))
 
 (defun test-femlisp (&key continue package
-		     (logfile #.(translate-logical-pathname #p"femlisp:fltest.log"))
+		     (logfile (fl.start:femlisp-pathname "fltest.log"))
 		     (demo t))
   "Runs the Femlisp test suite.  The result is printed to
 *standard-output*."

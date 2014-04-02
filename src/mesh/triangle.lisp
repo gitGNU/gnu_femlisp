@@ -47,7 +47,7 @@
   "Returns the pathname of the directory for @femlisp{} meshes."
   (or (fl.port::getenv "FEMLISP_MESHES")
       (aand fl.start::*meshes-directory* (pathname it))
-      (translate-logical-pathname #p"femlisp:meshes;")))
+      (fl.start:femlisp-pathname "meshes/")))
 
 (defvar *meshfile-basename*
   "mesh"
@@ -70,7 +70,7 @@
 (defvar *triangle-pathname*
   (or (aand fl.start::*triangle-path* (probe-file (pathname it)))
       (fl.port:find-executable "triangle")
-      (probe-file #p"femlisp:external;triangle;triangle"))
+      (probe-file (fl.start:femlisp-pathname "external/triangle/triangle")))
   "Pathname of the @program{triangle} binary.")
 
 (defun call-triangle (&key meshsize &allow-other-keys)

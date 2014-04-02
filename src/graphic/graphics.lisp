@@ -45,10 +45,10 @@
 
 (defun images-pathname ()
   "Pathname of the directory for @femlisp{} images."
-  (or (aand (or (fl.port::getenv "FEMLISP_IMAGES")
-		fl.start::*images-directory*)
+  (or (aand (or (fl.port:getenv "FEMLISP_IMAGES")
+		fl.start:*images-directory*)
 	    (pathname it))
-      (translate-logical-pathname #p"femlisp:images;")))
+      (femlisp-pathname "images/")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Public interface
