@@ -2,6 +2,12 @@
 
 * Current work:
 
+Some changes by Fare (Francois-Rene Rideau): Improved file
+@path{femlisp.asd}.  *read-default-float-format* is set dynamically to
+double-float during Femlisp compilation.  People using Femlisp in
+earnest should probably set it in their own init files to that value
+as well.  The logical host #p"femlisp:" was removed.
+
 Anisotropic refinement included.
 
 There is blending support now in the sense of "transfinite interpolation"

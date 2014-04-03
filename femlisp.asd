@@ -43,7 +43,7 @@
   :depends-on (#+(or clisp ccl) :cffi #+(or clisp ccl) :closer-mop
                #+sbcl (:require "sb-posix") #+sbcl (:require "sb-introspect")
                #+allegro (:require "osi"))
-  #+asdf3 :around-compile call-with-femlisp-environment
+  :around-compile call-with-femlisp-environment ;; Requires ASDF 2.018, which *everyone* has in 2014.
   :components
   ((:file "setup")
    (:module
@@ -68,7 +68,7 @@
 (defsystem :femlisp-matlisp
   :depends-on (:femlisp-basic)
   :pathname "src"
-  #+asdf3 :around-compile call-with-femlisp-environment
+  :around-compile call-with-femlisp-environment
   :components
   ((:module
     "alien"
@@ -108,7 +108,7 @@
 (defsystem :femlisp
   :depends-on ("femlisp-basic" "femlisp-matlisp" "infix")
   :pathname "src"
-  #+asdf3 :around-compile call-with-femlisp-environment
+  :around-compile call-with-femlisp-environment
   :components
   ((:module
     "function"
