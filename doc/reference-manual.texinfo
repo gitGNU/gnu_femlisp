@@ -2,35 +2,35 @@
 @chapter Reference manual
 
 @menu
-* Package FL.UTILITIES::        
-* Package FL.MACROS::           
-* Package FL.DEBUG::            
-* Package FL.DEMO::             
-* Package FL.TESTS::            
-* Package FL.PORT::             
-* Package FL.AMOP::             
-* Package FL.ALIEN::            
-* Package FL.MULTIPROCESSING::  
-* Package FL.MATLISP::          
-* Package FL.FUNCTION::         
-* Package FL.MESH::             
-* Package FL.PROBLEM::          
-* Package FL.CDR::              
-* Package FL.ELLSYS::           
-* Package FL.ELASTICITY::       
-* Package FL.NAVIER-STOKES::    
-* Package FL.DISCRETIZATION::   
-* Package FL.ELLSYS-FE::        
-* Package FL.ELASTICITY-FE::    
-* Package FL.NAVIER-STOKES-FE::  
-* Package FL.ITERATION::        
-* Package FL.MULTIGRID::        
-* Package FL.GEOMG::            
-* Package FL.STRATEGY::         
-* Package FL.GRAPHIC::          
-* Package FL.PLOT::             
-* Package FL.DOMAINS::          
-* Package FL.APPLICATION::      
+* Package FL.UTILITIES::
+* Package FL.MACROS::
+* Package FL.DEBUG::
+* Package FL.DEMO::
+* Package FL.TESTS::
+* Package FL.PORT::
+* Package FL.AMOP::
+* Package FL.ALIEN::
+* Package FL.PARALLEL::
+* Package FL.MATLISP::
+* Package FL.FUNCTION::
+* Package FL.MESH::
+* Package FL.PROBLEM::
+* Package FL.CDR::
+* Package FL.ELLSYS::
+* Package FL.ELASTICITY::
+* Package FL.NAVIER-STOKES::
+* Package FL.DISCRETIZATION::
+* Package FL.ELLSYS-FE::
+* Package FL.ELASTICITY-FE::
+* Package FL.NAVIER-STOKES-FE::
+* Package FL.ITERATION::
+* Package FL.MULTIGRID::
+* Package FL.GEOMG::
+* Package FL.STRATEGY::
+* Package FL.GRAPHIC::
+* Package FL.PLOT::
+* Package FL.DOMAINS::
+* Package FL.APPLICATION::
 @end menu
 
 @node Package FL.UTILITIES, Package FL.MACROS, Reference manual, Reference manual
@@ -95,10 +95,13 @@ Checks if all of the @arg{properties} are in the property list
 @end deffn
 
 @anchor{fun-fl.utilities-common-lisp-speed}
-@deffn Function COMMON-LISP-SPEED &KEY (@var{CACHE} 0.5) (@var{MEMORY} 0.5)
+@deffn Function COMMON-LISP-SPEED &KEY (@var{MEMORY-WEIGHT} 0.5)
 @findex COMMON-LISP-SPEED
 Returns the speed which should be characteristic for the setting
-determined by the keyword arguments.
+determined by @arg{memory-weight}.  If this argument is 0.0
+it means that all operations should be inside cache memory
+whereas 1.0 means that the operation are restricted by
+memory bandwidth available.
 @end deffn
 
 @anchor{fun-fl.utilities-compose}
@@ -201,6 +204,30 @@ Removes @arg{key} from @arg{dictionary}.
 Display @arg{hash-table} in the form key1 -> value1 ...
 @end deffn
 
+@anchor{fun-fl.utilities-dli-object}
+@deffn Function DLI-OBJECT @var{INSTANCE}
+@findex DLI-OBJECT
+Return whether debug-block represents elsewhere code.
+@end deffn
+
+@anchor{fun-fl.utilities-dli-pred}
+@deffn Function DLI-PRED @var{INSTANCE}
+@findex DLI-PRED
+Return whether debug-block represents elsewhere code.
+@end deffn
+
+@anchor{fun-fl.utilities-dli-succ}
+@deffn Function DLI-SUCC @var{INSTANCE}
+@findex DLI-SUCC
+Return whether debug-block represents elsewhere code.
+@end deffn
+
+@anchor{fun-fl.utilities-dll-first}
+@deffn Function DLL-FIRST @var{INSTANCE}
+@findex DLL-FIRST
+Return whether debug-block represents elsewhere code.
+@end deffn
+
 @anchor{fun-fl.utilities-dll-front-insert}
 @deffn Function DLL-FRONT-INSERT @var{OBJ} @var{DLL} &OPTIONAL @var{INSERT-ITEM-P}
 @findex DLL-FRONT-INSERT
@@ -208,11 +235,26 @@ Inserts @arg{obj} in @arg{dll}.  It returns the newly created
 @class{dll-item}.
 @end deffn
 
+@anchor{fun-fl.utilities-dll-last}
+@deffn Function DLL-LAST @var{INSTANCE}
+@findex DLL-LAST
+Return whether debug-block represents elsewhere code.
+@end deffn
+
 @anchor{fun-fl.utilities-dll-rear-insert}
 @deffn Function DLL-REAR-INSERT @var{OBJ} @var{DLL} &OPTIONAL @var{INSERT-ITEM-P}
 @findex DLL-REAR-INSERT
 Inserts @arg{obj} in @arg{dll}.  It returns the newly created
 @class{dll-item}.
+@end deffn
+
+@anchor{macro-fl.utilities-dodic}
+@deffn Macro DODIC (@var{LOOPING-VAR} @var{DIC}) &BODY @var{BODY}
+@findex DODIC
+Loops through @arg{dic}.  If @arg{looping-var} is an atom
+@emph{key}, loop through the keys; if it is a list of the form
+@emph{(value)} loop through the values; if it is a list of the form
+@emph{(key value)} loop through key and value.
 @end deffn
 
 @anchor{macro-fl.utilities-dohash}
@@ -271,6 +313,12 @@ describes the use of the respective file.
 The positive REMOVE - i.e. like REMOVE with :test instead of :test-not.
 @end deffn
 
+@anchor{fun-fl.utilities-filter-if}
+@deffn Function FILTER-IF &REST @var{ARGS}
+@findex FILTER-IF
+The positive version of REMOVE-IF-NOT.
+@end deffn
+
 @anchor{fun-fl.utilities-find-leaf}
 @deffn Function FIND-LEAF @var{ATOM} @var{TREE} &KEY (@var{KEY} (@var{FUNCTION} @var{IDENTITY})) (@var{TEST} (@var{FUNCTION} @var{EQL}))
 @findex FIND-LEAF
@@ -281,6 +329,18 @@ Finds atom in @arg{tree}.
 @deffn Function FIND-LEAF-IF @var{TEST} @var{TREE} &KEY (@var{KEY} (@var{FUNCTION} @var{IDENTITY}))
 @findex FIND-LEAF-IF
 Finds a leaf in @arg{tree} where @arg{test} returns true.
+@end deffn
+
+@anchor{fun-fl.utilities-find-subtree-if}
+@deffn Function FIND-SUBTREE-IF @var{TEST} @var{TREE} &KEY (@var{KEY} (@var{FUNCTION} @var{IDENTITY}))
+@findex FIND-SUBTREE-IF
+Finds a leaf in @arg{tree} where @arg{test} returns true.
+@end deffn
+
+@anchor{fun-fl.utilities-first-only}
+@deffn Function FIRST-ONLY @var{LIST}
+@findex FIRST-ONLY
+Checks if @arg{list} is a singleton and returns its first element.
 @end deffn
 
 @anchor{fun-fl.utilities-fixnum-vec}
@@ -315,12 +375,6 @@ Applies @arg{func} to each element of @arg{collection}.
 @findex FOR-EACH-TUPLE
 Calls @arg{func} on each tuple greater or equal to (0 ... 0) and below
 @arg{dims}.
-@end deffn
-
-@anchor{fun-fl.utilities-get-arbitrary-key-from-hash-table}
-@deffn Function GET-ARBITRARY-KEY-FROM-HASH-TABLE @var{HASH-TABLE}
-@findex GET-ARBITRARY-KEY-FROM-HASH-TABLE
-Get an arbitrary key from @arg{hash-table}.
 @end deffn
 
 @anchor{fun-fl.utilities-get-property}
@@ -501,7 +555,7 @@ Map @function{func} over @arg{lists} while appending the results.
 @findex MAPPER-COLLECT
 Collects the arguments with which a mapping construct calls a given function.  E.g.
 @lisp
-(mapper-collect #'mapc '(3 4 5)) @result{} (3 4 5)
+  (mapper-collect #'mapc '(3 4 5)) @result{} (3 4 5)
 @end lisp
 @end deffn
 
@@ -510,7 +564,7 @@ Collects the arguments with which a mapping construct calls a given function.  E
 @findex MAPPER-COUNT
 Counts the arguments with which a mapping construct calls a given function.  E.g.
 @lisp
-(mapper-sum #'mapc '(3 4 5)) @result{} 3
+  (mapper-sum #'mapc '(3 4 5)) @result{} 3
 @end lisp
 @end deffn
 
@@ -518,8 +572,9 @@ Counts the arguments with which a mapping construct calls a given function.  E.g
 @deffn Function MAPPER-EVERY @var{TEST} @var{MAPPER} &REST @var{REST-ARGS}
 @findex MAPPER-EVERY
 Tests if the test is fulfilled for every argument on which the mapper is
-called: @lisp
-(mapper-every #'plusp #'mapc '(3 4 5)) @result{} T
+called:
+@lisp
+  (mapper-every #'plusp #'mapc '(3 4 5)) @result{} T
 @end lisp
 @end deffn
 
@@ -528,7 +583,7 @@ called: @lisp
 @findex MAPPER-SELECT-FIRST
 Select the arguments with which a mapping construct calls a given function.  E.g.
 @lisp
-(mapper-select-first #'mapc '(3 4 5) '(7 8 9)) @result{} 3,7
+  (mapper-select-first #'mapc '(3 4 5) '(7 8 9)) @result{} 3,7
 @end lisp
 @end deffn
 
@@ -536,8 +591,9 @@ Select the arguments with which a mapping construct calls a given function.  E.g
 @deffn Function MAPPER-SOME @var{TEST} @var{MAPPER} &REST @var{REST-ARGS}
 @findex MAPPER-SOME
 Tests if the test is fulfilled for some argument on which the mapper is
-called: @lisp
-(mapper-some #'plusp #'mapc '(-3 4 5)) @result{} T
+called:
+@lisp
+  (mapper-some #'plusp #'mapc '(-3 4 5)) @result{} T
 @end lisp
 @end deffn
 
@@ -546,7 +602,7 @@ called: @lisp
 @findex MAPPER-SUM
 Sums the arguments with which a mapping construct calls a given function.  E.g.
 @lisp
-(mapper-sum #'mapc '(3 4 5)) @result{} 12
+ (mapper-sum #'mapc '(3 4 5)) @result{} 12
 @end lisp
 @end deffn
 
@@ -620,6 +676,12 @@ Returns a list of all nonempty subsets of @arg{set}.
 Executes @arg{func} on the leaves of @arg{tree}.
 @end deffn
 
+@anchor{fun-fl.utilities-on-subtrees}
+@deffn Function ON-SUBTREES @var{FUNC} @var{TREE}
+@findex ON-SUBTREES
+Calls @arg{func} on every subtree of @arg{tree}.
+@end deffn
+
 @anchor{fun-fl.utilities-partial-sums}
 @deffn Function PARTIAL-SUMS @var{SEQ}
 @findex PARTIAL-SUMS
@@ -690,25 +752,12 @@ Example:
 @anchor{class-fl.utilities-property-mixin}
 @deftp Class PROPERTY-MIXIN
 @tindex PROPERTY-MIXIN
-A mixin which adds a slot of properties to the class.
+A mixin adding a property slot to the class.
 
 Direct slots:
 @itemize
-@item PROPERTIES: A property list which is used to store unstructured information about
-this object.
-@end itemize
-@end deftp
-
-@anchor{class-fl.utilities-queue}
-@deftp Class QUEUE
-@tindex QUEUE
-Queue class accessed with @function{enqueue} and
-@function{dequeue}.
-
-Direct slots:
-@itemize
-@item HEAD: Self-explanatory.
-@item TAIL: Self-explanatory.
+@item PROPERTIES: A property list for storing
+unstructured information about this object.
 @end itemize
 @end deftp
 
@@ -757,9 +806,9 @@ Calling this function results in an error.  Such a call may be used as
 default form when an argument should be supplied.
 @end deffn
 
-@anchor{fun-fl.utilities-same-p}
-@deffn Function SAME-P @var{SEQUENCE} &KEY (@var{TEST} (@var{FUNCTION} @var{EQL})) (@var{KEY} (@var{FUNCTION} @var{IDENTITY}))
-@findex SAME-P
+@anchor{fun-fl.utilities-samep}
+@deffn Function SAMEP @var{SEQUENCE} &KEY (@var{TEST} (@var{FUNCTION} @var{EQL})) (@var{KEY} (@var{FUNCTION} @var{IDENTITY}))
+@findex SAMEP
 Returns t if @arg{sequence} consists of equal elements.
 @end deffn
 
@@ -769,6 +818,15 @@ Returns t if @arg{sequence} consists of equal elements.
 Removes the items marked by @arg{keys} from the property list
 @arg{plist}.  This function was posted at 2.12.2002 to the
 @emph{comp.lang.lisp} newsgroup by Erik Naggum.
+@end deffn
+
+@anchor{fun-fl.utilities-set-equal}
+@deffn Function SET-EQUAL @var{SET1} @var{SET2} &KEY (@var{TEST} (@var{FUNCTION} @var{EQL}))
+@findex SET-EQUAL
+Tests two sets for equality, e.g.
+@lisp
+  (set-equal '(a b) '(b a)) @result{} T
+@end lisp
 @end deffn
 
 @anchor{fun-fl.utilities-set-p}
@@ -959,25 +1017,12 @@ Anaphoric macro from @cite{(Graham 1993)}.
 Posted to cll by Kenny Tilton 22.4.2007.
 @end deffn
 
-@anchor{macro-fl.macros-chain}
-@deffn Macro CHAIN @var{ARG} &BODY @var{CLAUSES}
-@findex CHAIN
-Anaphoric macro on the symbol _ which allows to express a chain of
-operations.
-@end deffn
-
 @anchor{macro-fl.macros-definline}
 @deffn Macro DEFINLINE @var{NAME} &REST @var{REST}
 @findex DEFINLINE
 Short form for defining an inlined function.  It should probably be
 deprecated, because it won't be recognized by default by some IDEs.  Better
 use the inlining macro directly.
-@end deffn
-
-@anchor{macro-fl.macros-delay}
-@deffn Macro DELAY @var{FORM}
-@findex DELAY
-Delays the evaluation of @arg{form}.
 @end deffn
 
 @anchor{macro-fl.macros-deletef}
@@ -997,7 +1042,8 @@ Posted to cll at 17.10.2006 by Kenny Tilton.
 @findex ENSURE
 Ensures that some place is set.  It expands as follows:
 @lisp
-  (ensure place value) @expansion{} (or place (setf place value)) @end lisp
+  (ensure place value) @expansion{} (or place (setf place value))
+@end lisp
 It is not clear if the implementation used here works everywhere.  If not,
 the workaround below should be used.
 @end deffn
@@ -1006,12 +1052,6 @@ the workaround below should be used.
 @deffn Macro FLUID-LET @var{BINDINGS} &BODY @var{BODY}
 @findex FLUID-LET
 Sets temporary bindings.
-@end deffn
-
-@anchor{fun-fl.macros-force}
-@deffn Function FORCE @var{OBJ}
-@findex FORCE
-Force a delayed object.
 @end deffn
 
 @anchor{macro-fl.macros-gencase}
@@ -1038,13 +1078,24 @@ A @function{let}-construct which returns its last binding.
 A @function{let*}-construct which returns its last binding.
 @end deffn
 
+@anchor{macro-fl.macros-multi-dotimes}
+@deffn Macro MULTI-DOTIMES (@var{VAR} @var{STOP}) &BODY @var{BODY}
+@findex MULTI-DOTIMES
+Special case of @func{multi-for}.  Loops starting from a zero-vector to @arg{stop}.
+Examples:
+@lisp
+  (multi-dotimes (x #(3 3)) (princ x) (terpri))
+@end lisp
+@end deffn
+
 @anchor{macro-fl.macros-multi-for}
-@deffn Macro MULTI-FOR (@var{VAR} @var{START} @var{STOP}) &BODY @var{BODY}
+@deffn Macro MULTI-FOR (@var{VAR} @var{START} @var{STOP} &KEY @var{FROM-END}) &BODY @var{BODY}
 @findex MULTI-FOR
 Loops for @arg{var} being an integer vector starting from @arg{start}
-upto @arg{end}.  Example:
+upto @arg{stop}.  Examples:
 @lisp
   (multi-for (x #(1 1) #(3 3)) (princ x) (terpri))
+  (multi-for (x #(1 1) #(3 3) :from-end t) (princ x) (terpri))
 @end lisp
 @end deffn
 
@@ -1052,6 +1103,13 @@ upto @arg{end}.  Example:
 @deffn Macro NAMED-LET @var{NAME} @var{BINDINGS} &BODY @var{BODY}
 @findex NAMED-LET
 Implements the named-let construct from Scheme.
+@end deffn
+
+@anchor{macro-fl.macros-once-only}
+@deffn Macro ONCE-ONLY @var{VARIABLES} &REST @var{BODY}
+@findex ONCE-ONLY
+Slightly modified macro taken from
+   <http://groups.google.com/comp.lang.lisp/msg/2a92ad69a8185866>.
 @end deffn
 
 @anchor{macro-fl.macros-remove-this-method}
@@ -1262,7 +1320,7 @@ them when compiling a certain file.
 @end deffn
 
 @anchor{fun-fl.tests-test-femlisp}
-@deffn Function TEST-FEMLISP &KEY @var{CONTINUE} @var{PACKAGE} (@var{LOGFILE} @path{fltest}) (@var{DEMO} @var{T})
+@deffn Function TEST-FEMLISP &KEY @var{CONTINUE} @var{PACKAGE} (@var{LOGFILE} (@var{FEMLISP-PATHNAME} "fltest.log")) (@var{DEMO} @var{T})
 @findex TEST-FEMLISP
 Runs the Femlisp test suite.  The result is printed to
 *standard-output*.
@@ -1433,68 +1491,19 @@ Removes all methods dispatching on subclasses of the template
 arguments.
 @end deffn
 
-@node Package FL.ALIEN, Package FL.MULTIPROCESSING, Package FL.AMOP, Reference manual
+@node Package FL.ALIEN, Package FL.PARALLEL, Package FL.AMOP, Reference manual
 @section Package FL.ALIEN
 
 This package loads some foreign libraries and does set
 up a Lisp interface for it.
 
-@node Package FL.MULTIPROCESSING, Package FL.MATLISP, Package FL.ALIEN, Reference manual
-@section Package FL.MULTIPROCESSING
+@node Package FL.PARALLEL, Package FL.MATLISP, Package FL.ALIEN, Reference manual
+@section Package FL.PARALLEL
 
-This package provides an interface for allowing parallel execution in
-Femlisp.  It abstracts also from the underlying Lisp's threading features.
-Unfortunately, these features somewhat differ (e.g. the waitqueue concept
-in SBCL and gates in Allegro), although one can usually achieve the same
-effects.
+This package provides some Femlisp extensions for parallel execution
+building on the BORDEAUX-THREADS and LPARALLEL libraries
 
-@anchor{var-fl.multiprocessing-*number-of-threads*}
-@defvr Variable *NUMBER-OF-THREADS*
-@vindex *NUMBER-OF-THREADS*
-The number of threads in which Femlisp tries to split the work for some
-computationally intensive tasks.  If NIL, no threading is used.
-@end defvr
-
-@anchor{var-fl.multiprocessing-*thread-local-memoization-table*}
-@defvr Variable *THREAD-LOCAL-MEMOIZATION-TABLE*
-@vindex *THREAD-LOCAL-MEMOIZATION-TABLE*
-Dynamic variable specialized for each worker thread separately.  Should
-not be used globally.
-@end defvr
-
-@anchor{fun-fl.multiprocessing-condition-notify}
-@deffn Function CONDITION-NOTIFY @var{WAITQUEUE} &OPTIONAL (@var{N} 1)
-@findex CONDITION-NOTIFY
-Notifies on the waitqueue.
-@end deffn
-
-@anchor{fun-fl.multiprocessing-condition-wait}
-@deffn Function CONDITION-WAIT @var{WAITQUEUE} @var{MUTEX}
-@findex CONDITION-WAIT
-Registers on the waitqueue, releases mutex, and waits for a notification
-on the waitqueue.
-@end deffn
-
-@anchor{fun-fl.multiprocessing-list-all-threads}
-@deffn Function LIST-ALL-THREADS 
-@findex LIST-ALL-THREADS
-Returns a list of all threads
-@end deffn
-
-@anchor{fun-fl.multiprocessing-make-thread}
-@deffn Function MAKE-THREAD @var{FUNC} &KEY @var{NAME} @var{INITIAL-BINDINGS}
-@findex MAKE-THREAD
-Execute @arg{func} as a thread with name @arg{name} within dynamic
-bindings given by @arg{initial-bindings}.
-@end deffn
-
-@anchor{fun-fl.multiprocessing-make-waitqueue}
-@deffn Function MAKE-WAITQUEUE 
-@findex MAKE-WAITQUEUE
-Generates a waitqueue.
-@end deffn
-
-@anchor{class-fl.multiprocessing-mutex-mixin}
+@anchor{class-fl.parallel-mutex-mixin}
 @deftp Class MUTEX-MIXIN
 @tindex MUTEX-MIXIN
 A mixin which adds a mutex to every instance of the
@@ -1506,55 +1515,7 @@ Direct slots:
 @end itemize
 @end deftp
 
-@anchor{macro-fl.multiprocessing-named-parcell}
-@deffn Macro NAMED-PARCELL @var{NAME} @var{INPUTS} &BODY @var{BODY}
-@findex NAMED-PARCELL
-Generate a parcell depending on the given input parameters (which can be
-parcells again).
-@end deffn
-
-@anchor{fun-fl.multiprocessing-notify}
-@deffn Function NOTIFY @var{WAITQUEUE-OBJECT} &OPTIONAL @var{N}
-@findex NOTIFY
-Notifies @arg{waitqueue-object}.
-@end deffn
-
-@anchor{macro-fl.multiprocessing-parcell}
-@deffn Macro PARCELL @var{INPUTS} &BODY @var{BODY}
-@findex PARCELL
-Generate an unnamed parcell.
-@end deffn
-
-@anchor{class-fl.multiprocessing-parqueue}
-@deftp Class PARQUEUE
-@tindex PARQUEUE
-A thread-safe queue waiting for input.
-
-Superclasses: QUEUE WAITQUEUE-MIXIN
-
-Direct slots:
-@itemize
-@item FINISHED-P: Indicator for no-more-input-allowed.
-@item MAXIMAL-SIZE: Self-explanatory.
-@item CURRENT-SIZE: Self-explanatory.
-@end itemize
-@end deftp
-
-@anchor{fun-fl.multiprocessing-thread-name}
-@deffn Function THREAD-NAME @var{THREAD}
-@findex THREAD-NAME
-Returns the name of the current thread.
-@end deffn
-
-@anchor{fun-fl.multiprocessing-wait}
-@deffn Function WAIT @var{WAITQUEUE-OBJECT} &KEY @var{WHILE} @var{UNTIL} @var{PERFORM} &ALLOW-OTHER-KEYS
-@findex WAIT
-Waits on @arg{waitqueue-object} while @arg{while} is
-satisfied or until @arg{until} is satisfied.  After this, if it is given,
-the function @arg{perform} is called.
-@end deffn
-
-@anchor{class-fl.multiprocessing-waitqueue-mixin}
+@anchor{class-fl.parallel-waitqueue-mixin}
 @deftp Class WAITQUEUE-MIXIN
 @tindex WAITQUEUE-MIXIN
 Waitqueue mixin.
@@ -1567,14 +1528,14 @@ Direct slots:
 @end itemize
 @end deftp
 
-@anchor{macro-fl.multiprocessing-with-mutual-exclusion}
+@anchor{macro-fl.parallel-with-mutual-exclusion}
 @deffn Macro WITH-MUTUAL-EXCLUSION (@var{OBJ}) &BODY @var{BODY}
 @findex WITH-MUTUAL-EXCLUSION
 Execute @arg{body} on the waitqueue @arg{obj} without other threads
 interfering.
 @end deffn
 
-@anchor{macro-fl.multiprocessing-with-workers}
+@anchor{macro-fl.parallel-with-workers}
 @deffn Macro WITH-WORKERS (@var{WORK}) &BODY @var{BODY}
 @findex WITH-WORKERS
 This macro distributes work generated in body with calling the locally
@@ -1582,7 +1543,7 @@ bound function @function{work-on} on some arguments to several working
 threads which call @arg{func} on those arguments.
 @end deffn
 
-@node Package FL.MATLISP, Package FL.FUNCTION, Package FL.MULTIPROCESSING, Reference manual
+@node Package FL.MATLISP, Package FL.FUNCTION, Package FL.PARALLEL, Reference manual
 @section Package FL.MATLISP
 
 This package provides a Common Lisp version of full
@@ -1807,6 +1768,12 @@ This routine computes the determinant using a given LR decomposition.
 Returns a diagonal matrix with diagonal entries from vec.
 @end deffn
 
+@anchor{fun-fl.matlisp-diagonal}
+@deffn Function DIAGONAL @var{A}
+@findex DIAGONAL
+Extracts the diagonal from matrix @arg{A} as a vector.
+@end deffn
+
 @anchor{fun-fl.matlisp-diagonal-sparse-tensor}
 @deffn Function DIAGONAL-SPARSE-TENSOR @var{VALUES} &OPTIONAL @var{NCOMPS}
 @findex DIAGONAL-SPARSE-TENSOR
@@ -1825,7 +1792,7 @@ Formats the contents of @arg{matrix} in rectangular
 @anchor{macro-fl.matlisp-dorows}
 @deffn Macro DOROWS (@var{KEY} @var{MAT}) &BODY @var{BODY}
 @findex DOROWS
-Syntax: @slisp{(dorows (key mat) ...)}.
+Syntax: @slisp{(dorows (key mat) ...)}
 @end deffn
 
 @anchor{fun-fl.matlisp-dot}
@@ -2078,10 +2045,16 @@ General matrix-matrix multiplication:
 Rewriting for GESV in terms of GESV!.
 @end deffn
 
+@anchor{fun-fl.matlisp-gesv!}
+@deffn Function GESV! @var{A} @var{B}
+@findex GESV!
+Solves a linear system A X = B for X.
+@end deffn
+
 @anchor{fun-fl.matlisp-getrf}
 @deffn Function GETRF @var{X} &OPTIONAL @var{IPIV}
 @findex GETRF
-Rewriting for GETRF  in terms of GETRF!.
+Rewriting for GETRF in terms of GETRF!.
 @end deffn
 
 @anchor{fun-fl.matlisp-getrf!}
@@ -2273,6 +2246,12 @@ Returns the @arg{p}-norm of @arg{x}.
 Multiply X by Y.
 @end deffn
 
+@anchor{fun-fl.matlisp-m*-nt}
+@deffn Function M*-NT @var{X} @var{Y}
+@findex M*-NT
+Multiply X by Y^t.
+@end deffn
+
 @anchor{fun-fl.matlisp-m*-product-instance}
 @deffn Function M*-PRODUCT-INSTANCE @var{X} @var{Y}
 @findex M*-PRODUCT-INSTANCE
@@ -2344,11 +2323,7 @@ Returns a @class{double-vec} of length @arg{dim} and initial value
 @anchor{fun-fl.matlisp-make-real-matrix}
 @deffn Function MAKE-REAL-MATRIX &REST @var{ARGS}
 @findex MAKE-REAL-MATRIX
-Generates a real matrix as specified by its arguments.  If two arguments
-are provided, they should be numbers which are interpreted as rows and
-columns.  If only one argument is provided, it should be either a number
-meaning the rows and columns of a square matrix or a nested list or vector
-structure defining the contents matrix.
+Generates a real matrix as specified by its arguments.
 @end deffn
 
 @anchor{fun-fl.matlisp-make-real-tensor}
@@ -2518,6 +2493,12 @@ allocated.
 Checks if index range and index domain of some matrix are disjoint.
 @end deffn
 
+@anchor{fun-fl.matlisp-rank}
+@deffn Function RANK @var{TENSOR}
+@findex RANK
+Rank of a tensor.
+@end deffn
+
 @anchor{fun-fl.matlisp-remove-column}
 @deffn Function REMOVE-COLUMN @var{SMAT} @var{COL-KEY}
 @findex REMOVE-COLUMN
@@ -2570,6 +2551,12 @@ Can be used for obtainint a diagonal modification to get ILU_mod.
 @deffn Function SHOW @var{MATRIX} &KEY @var{KEYS} (@var{ZEROS} @var{T}) &ALLOW-OTHER-KEYS
 @findex SHOW
 Shows the contents of @arg{matrix} in a readable form.
+@end deffn
+
+@anchor{fun-fl.matlisp-slice}
+@deffn Function SLICE @var{TENSOR} @var{FIXED}
+@findex SLICE
+Slices @arg{tensor}.  @arg{fixed} determines which indices are fixed.
 @end deffn
 
 @anchor{fun-fl.matlisp-sparse-m*}
@@ -2647,6 +2634,13 @@ Direct slots:
 @item STORE: The vector entries.
 @end itemize
 @end deftp
+
+@anchor{fun-fl.matlisp-submatrix}
+@deffn Function SUBMATRIX @var{MAT} &KEY @var{ROW-INDICES} @var{COL-INDICES}
+@findex SUBMATRIX
+General extraction of submatrices specified
+by non-adjacent lists of row- and column indices.
+@end deffn
 
 @anchor{class-fl.matlisp-tensor}
 @deftp Class TENSOR
@@ -2930,7 +2924,7 @@ applied to complex arguments.
 @end deffn
 
 @anchor{fun-fl.function-numerical-gradient}
-@deffn Function NUMERICAL-GRADIENT @var{FUNC} &KEY (@var{SHIFT} 1.e-8)
+@deffn Function NUMERICAL-GRADIENT @var{FUNC} &KEY (@var{SHIFT} 1.e-6)
 @findex NUMERICAL-GRADIENT
 Computes the numerical gradient of func at pos.
 @end deffn
@@ -3035,7 +3029,7 @@ useful for the graphical output of the cell, the slot @slot{holes} contains
 a list of points lying inside holes.  This is intended as help for
 triangulation programs.
 
-Superclasses: <STANDARD-CELL>
+Superclasses: <CELL-WITH-BOUNDARY>
 
 Direct slots:
 @itemize
@@ -3183,6 +3177,12 @@ copying the unit cube and modifying the coordinates of the
 vertices of the copy.
 @end deffn
 
+@anchor{fun-fl.mesh-cartesian-product}
+@deffn Function CARTESIAN-PRODUCT @var{OBJ1} @var{OBJ2} &KEY @var{PROPERTY-COMBINER} &ALLOW-OTHER-KEYS
+@findex CARTESIAN-PRODUCT
+Computes the cartesian product of two skeletons.
+@end deffn
+
 @anchor{fun-fl.mesh-cell->cube}
 @deffn Function CELL->CUBE @var{CELL}
 @findex CELL->CUBE
@@ -3323,6 +3323,12 @@ yields T.
 Returns the factor-simplices.
 @end deffn
 
+@anchor{fun-fl.mesh-find-cell-from-position}
+@deffn Function FIND-CELL-FROM-POSITION @var{SKEL} @var{POS}
+@findex FIND-CELL-FROM-POSITION
+Finds a cell from @arg{skel} which contains the global position @arg{pos}.
+@end deffn
+
 @anchor{fun-fl.mesh-find-cells}
 @deffn Function FIND-CELLS @var{TEST} @var{SKEL} &KEY @var{DIMENSION} @var{WITH-PROPERTIES} @var{WHERE}
 @findex FIND-CELLS
@@ -3372,7 +3378,8 @@ distance to global-pos is returned.
 Mainly useful for finite element evaluation: from the
 local position, the value of a fe function can be obtained by
 interpolation.  This is done by a Newton iteration, which converges in one
-step for linear mappings.
+step for linear mappings.  The result is NIL, if no local point could be
+determined.
 @end deffn
 
 @anchor{fun-fl.mesh-hierarchically-ordered-cells}
@@ -3418,9 +3425,10 @@ Returns the children of refcell.
 @end deffn
 
 @anchor{fun-fl.mesh-insert-cell!}
-@deffn Function INSERT-CELL! @var{SKEL} @var{CELL}
+@deffn Function INSERT-CELL! @var{SKEL} @var{CELL} &OPTIONAL @var{PROPERTIES}
 @findex INSERT-CELL!
-Inserts a cell and its boundary into a skeleton.
+Inserts @arg{cell} and if necessary also its boundary into @arg{skel}.
+If properties are given those are used for @arg{cell}.
 @end deffn
 
 @anchor{fun-fl.mesh-insert-cell-from-corners}
@@ -3530,6 +3538,18 @@ Creates a cell of class CELL-CLASS having the given VERTICES.
 Returns a classifier for patches.
 @end deffn
 
+@anchor{fun-fl.mesh-make-domain}
+@deffn Function MAKE-DOMAIN @var{SKEL} &REST @var{ARGS}
+@findex MAKE-DOMAIN
+Changes a skeleton into a domain.
+@end deffn
+
+@anchor{fun-fl.mesh-make-hierarchical-mesh-from}
+@deffn Function MAKE-HIERARCHICAL-MESH-FROM &REST @var{ARGS}
+@findex MAKE-HIERARCHICAL-MESH-FROM
+Creates a hierarchical-mesh from the given arguments.  See @function{MAKE-MESH-FROM}.
+@end deffn
+
 @anchor{fun-fl.mesh-make-hierarchical-mesh-from-domain}
 @deffn Function MAKE-HIERARCHICAL-MESH-FROM-DOMAIN @var{DOMAIN} &KEY @var{PARAMETRIC} &ALLOW-OTHER-KEYS
 @findex MAKE-HIERARCHICAL-MESH-FROM-DOMAIN
@@ -3542,11 +3562,10 @@ Construct a hierarchical-mesh from a domain.
 Creates a line given its endpoints.
 @end deffn
 
-@anchor{fun-fl.mesh-make-mesh-from-domain}
-@deffn Function MAKE-MESH-FROM-DOMAIN @var{DOMAIN} &KEY @var{PARAMETRIC} &ALLOW-OTHER-KEYS
-@findex MAKE-MESH-FROM-DOMAIN
-Transforms a domain which is specified sufficiently well
-into a mesh.
+@anchor{fun-fl.mesh-make-mesh-from}
+@deffn Function MAKE-MESH-FROM @var{OBJECT} &KEY @var{PARAMETRIC} &ALLOW-OTHER-KEYS
+@findex MAKE-MESH-FROM
+Makes a mesh from or for the given object.
 @end deffn
 
 @anchor{fun-fl.mesh-make-simplex}
@@ -3744,7 +3763,7 @@ Generates a product-cell domain for the given factor dimensions.
 @end deffn
 
 @anchor{fun-fl.mesh-skel-add!}
-@deffn Function SKEL-ADD! @var{SKEL-1} @var{SKEL-2} &KEY (@var{OVERRIDE} @var{NIL}) @var{ACTIVE-SKEL-1}
+@deffn Function SKEL-ADD! @var{SKEL-1} @var{SKEL-2} &KEY (@var{OVERRIDE} @var{NIL}) @var{THRESHOLD} @var{ACTIVE-SKEL-1}
 @findex SKEL-ADD!
 Adds @arg{skel-2} to @arg{skel-1} destructively for @arg{skel-1}.
 Overlaying cells are identified.  @arg{override} is a list of properties
@@ -3846,7 +3865,7 @@ the list @arg{classification}.
 @end deffn
 
 @anchor{fun-fl.mesh-triangulate}
-@deffn Function TRIANGULATE @var{DOMAIN} &REST @var{ARGS} &KEY @var{PARAMETRIC} &ALLOW-OTHER-KEYS
+@deffn Function TRIANGULATE @var{DOMAIN} &REST @var{ARGS} &KEY @var{PARAMETRIC} (@var{CHECK-P} @var{T}) &ALLOW-OTHER-KEYS
 @findex TRIANGULATE
 Triangulate @arg{domain} by successively building a mesh on the domain
 skeleton starting from the 0-dimensional patches.
@@ -4401,7 +4420,7 @@ of convection-diffusion-reaction equations.  The system is given in the
 following form which is suited for a fixed-point iteration:
 
 @math{-div(a(x,u_old,nabla u_old) nabla u)
- - div(b(x,u_old,nabla u_old) u) +
+ + div(b(x,u_old,nabla u_old) u) +
  + c(x,u_old,nabla u_old) nabla u +
  + r(x,u_old,nabla u_old) u
 = f(x,u_old, nabla u_old) 
@@ -4720,6 +4739,12 @@ handling constraints are intricate, but usually of lower computational
 complexity.
 @end deffn
 
+@anchor{fun-fl.discretization-cell-integrate}
+@deffn Function CELL-INTEGRATE @var{CELL} @var{OBJECT} &KEY (@var{QUADRATURE-ORDER} @var{*QUADRATURE-ORDER*}) (@var{COMBINER} (@var{FUNCTION} @var{M+!})) @var{INITIAL-VALUE} @var{COEFF-FUNC} (@var{KEY} (@var{FUNCTION} @var{IDENTITY})) &ALLOW-OTHER-KEYS
+@findex CELL-INTEGRATE
+Integrates @arg{object} on @arg{cell}.
+@end deffn
+
 @anchor{fun-fl.discretization-cell-key}
 @deffn Function CELL-KEY @var{CELL} @var{MESH}
 @findex CELL-KEY
@@ -4837,7 +4862,7 @@ constraints are included in matrix and rhs.
 @end deffn
 
 @anchor{fun-fl.discretization-essential-boundary-constraints}
-@deffn Function ESSENTIAL-BOUNDARY-CONSTRAINTS @var{PROBLEM} @var{ANSATZ-SPACE} &KEY @var{LEVEL} @var{WHERE} @var{INTERFACE} @var{LEVEL} @var{WHERE} (@var{WHERE} @var{SURFACE}) &ALLOW-OTHER-KEYS
+@deffn Function ESSENTIAL-BOUNDARY-CONSTRAINTS @var{PROBLEM} @var{ANSATZ-SPACE} &KEY @var{LEVEL} @var{WHERE} @var{INTERFACE} (@var{WHERE} @var{SURFACE})
 @findex ESSENTIAL-BOUNDARY-CONSTRAINTS
 Computation of essential constraints.  Should probably
 be incorporated into the ansatz-space definition.
@@ -4912,6 +4937,12 @@ On each cell of the skeleton @arg{region} or on all cells of level
 @arg{level} of the mesh of @arg{ansatz-space}, a local interpolation matrix
 is collected into an interpolation matrix.  @arg{type} is the interpolation
 type having a default value @var{*interpolation-type*}.
+@end deffn
+
+@anchor{fun-fl.discretization-ip-coords}
+@deffn Function IP-COORDS @var{INSTANCE}
+@findex IP-COORDS
+Return whether debug-block represents elsewhere code.
 @end deffn
 
 @anchor{fun-fl.discretization-ip-gradients}
@@ -5321,6 +5352,11 @@ Direct slots:
 A linear iteration interface for the LU exact solver.
 
 Superclasses: <LINEAR-ITERATION>
+
+Direct slots:
+@itemize
+@item STORE-P: Store decomposition for multiple applications.
+@end itemize
 @end deftp
 
 @anchor{class-fl.iteration-<multi-iteration>}
@@ -5974,7 +6010,7 @@ Default graphics program.
 @end defvr
 
 @anchor{fun-fl.graphic-graphic-commands}
-@deffn Function GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY (@var{LINEWIDTH} 1) &ALLOW-OTHER-KEYS
+@deffn Function GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY @var{RANGE} @var{SHAPE} @var{DIMENSION} (@var{FOREGROUND} @var{WHITE}) @var{BACKGROUND} @var{GLYPH-SCALE} (@var{GLYPHS} @var{T}) @var{TUBES} (@var{LINEWIDTH} 1) &ALLOW-OTHER-KEYS
 @findex GRAPHIC-COMMANDS
 Returns commands for plotting to be sent to the graphics
 program.
@@ -5987,14 +6023,14 @@ Return a filename for the data of this plot.
 @end deffn
 
 @anchor{fun-fl.graphic-graphic-write-data}
-@deffn Function GRAPHIC-WRITE-DATA @var{STREAM} @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY @var{TRANSFORMATION} (@var{DEPTH} 0) @var{SHAPE} (@var{RANK} 0) @var{CELL->VALUES} @var{CELLS} @var{PART} @var{DIMENSION} &ALLOW-OTHER-KEYS
+@deffn Function GRAPHIC-WRITE-DATA @var{STREAM} @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY @var{TRANSFORMATION} (@var{DEPTH} 0) @var{SHAPE} (@var{RANK} 0) @var{CELL->VALUES} @var{CELLS} @var{DIMENSION} @var{PART} &ALLOW-OTHER-KEYS
 @findex GRAPHIC-WRITE-DATA
 Write the data file for @arg{program} to
 @arg{stream}.
 @end deffn
 
 @anchor{fun-fl.graphic-send-graphic-commands}
-@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY (@var{WINDOW} "femlisp-image") @var{FILENAME} @var{FORMAT} (@var{HEIGHT} 480) (@var{WIDTH} 480) (@var{RESOLUTION} 480) (@var{BACKGROUND} @var{BLACK}) @var{DIMENSION} (@var{OUTPUT} "gnuplot.ps") (@var{TERMINAL} "x11") (@var{TICS} @var{T}) (@var{BORDER} @var{T}) @var{BOTTOM} @var{TOP} @var{RIGHT} @var{LEFT} &ALLOW-OTHER-KEYS
+@deffn Function SEND-GRAPHIC-COMMANDS @var{OBJECT} @var{PROGRAM} &REST @var{REST} &KEY (@var{WINDOW} "femlisp-image") @var{FILENAME} @var{FORMAT} (@var{HEIGHT} 480) (@var{WIDTH} 480) (@var{RESOLUTION} 480) (@var{BACKGROUND} @var{BLACK}) @var{DIMENSION} @var{LEFT} @var{RIGHT} @var{TOP} @var{BOTTOM} (@var{BORDER} @var{T}) (@var{TICS} @var{T}) (@var{TERMINAL} "x11") (@var{OUTPUT} "gnuplot.ps") @var{MESSAGE} &ALLOW-OTHER-KEYS
 @findex SEND-GRAPHIC-COMMANDS
 Routine for sending commands to the graphics server.
 @end deffn
@@ -6008,7 +6044,7 @@ plot several types of objects, e.g. cells, meshes, finite element and
 coefficient functions.
 
 @anchor{fun-fl.plot-plot}
-@deffn Function PLOT @var{OBJECT} &KEY @var{TRANSFORMATION} @var{PART} @var{SHAPE} (@var{RANK} 0) @var{KEY} (@var{COMPONENT} 0) (@var{INDEX} 0) @var{DEPTH} @var{CELLS} @var{COEFFICIENT} (@var{REFINEMENTS} 0) @var{PARAMETRIC} @var{DOMAIN} @var{MESH} &ALLOW-OTHER-KEYS
+@deffn Function PLOT @var{OBJECT} &KEY @var{TRANSFORMATION} @var{PART} @var{SHAPE} (@var{RANK} 0) @var{KEY} (@var{COMPONENT} 0) (@var{INDEX} 0) @var{DEPTH} @var{CELLS} @var{COEFFICIENT} (@var{REFINEMENTS} 0) @var{PARAMETRIC} @var{DOMAIN} @var{MESH} (@var{PROGRAM} @var{*DEFAULT-GRAPHIC-PROGRAM*}) &ALLOW-OTHER-KEYS
 @findex PLOT
 Plot is a generic function which dispatches depending on
 the type of object it receives.  Its behaviour can additionally be modified

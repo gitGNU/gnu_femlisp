@@ -27,9 +27,9 @@ Common Lisp
 @alias func = code
 @alias mac = code
 @alias symbol = code
-@alias class = symbol
-@alias type = symbol
-@alias slot = symbol
+@alias class = code
+@alias type = code
+@alias slot = code
 @alias path = file
 @alias program = file
 
@@ -39,9 +39,9 @@ Common Lisp
 @end lisp
 @end macro
 
-@set EDITION 0.7
-@set VERSION 0.9.10
-@set UPDATED 10 March 2010
+@set EDITION 1.0
+@set VERSION 1.0.0
+@set UPDATED 03 March 2015
 
 @c for install-info
 @dircategory Math
@@ -54,13 +54,14 @@ Common Lisp
 @value{VERSION})
 
 Copyright @copyright{} 2006 Nicolas Neuss, University of Karlsruhe.
+Copyright @copyright{} 2011- Nicolas Neuss, University of Erlangen-Nuremberg.
 @end ifinfo
 
 @copying
 This is Version @value{EDITION} of the @femlisp{} manual, last updated
 @value{UPDATED}, for @femlisp{} @value{VERSION}.
 
-Copyright @copyright{} 2005-2010 Nicolas Neuss.
+Copyright @copyright{} 2005- Nicolas Neuss.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -118,28 +119,29 @@ Introduction, Installation, Top, Top
 
 Installation
 
-* Software needed::             
-* Quick installation ::         
-* Detailed installation::       
+* Software needed::
+* Installation instructions::
+* Additional software::
+* Using Femlisp as a standalone program::
 
-Quick installation
+Installation instructions
 
-* Debian GNU/Linux::            
-* Mac OS X::                    
-* Windows/Cygwin::              
+* Installation of a CL implementation::
+* Getting Quicklisp::
+* Graphics::
+* Obtaining Femlisp::
+* Using Femlisp::
 
-Detailed installation
+Additional software
 
-* Obtaining Femlisp::           
-* Installation of a CL implementation::  
-* Graphics::                    
-* Direct solvers::              
-* Triangle mesh generator::     
-* Installation of ASDF and Infix::  
-* Configuration of the startup script::  
-* Compiling Femlisp::           
-* Setup of an interactive environment::  
-* Emacs configuration::         
+* Direct solvers::
+* Triangle mesh generator::
+
+Using Femlisp as a standalone program
+
+* Configuration of the startup script::
+* Compiling Femlisp::
+* Saving a Femlisp core::
 
 First steps
 
@@ -184,35 +186,35 @@ FAQ
 
 Reference manual
 
-* Package FL.UTILITIES::        
-* Package FL.MACROS::           
-* Package FL.DEBUG::            
-* Package FL.DEMO::             
-* Package FL.TESTS::            
-* Package FL.PORT::             
-* Package FL.AMOP::             
-* Package FL.ALIEN::            
-* Package FL.MULTIPROCESSING::  
-* Package FL.MATLISP::          
-* Package FL.FUNCTION::         
-* Package FL.MESH::             
-* Package FL.PROBLEM::          
-* Package FL.CDR::              
-* Package FL.ELLSYS::           
-* Package FL.ELASTICITY::       
-* Package FL.NAVIER-STOKES::    
-* Package FL.DISCRETIZATION::   
-* Package FL.ELLSYS-FE::        
-* Package FL.ELASTICITY-FE::    
-* Package FL.NAVIER-STOKES-FE::  
-* Package FL.ITERATION::        
-* Package FL.MULTIGRID::        
-* Package FL.GEOMG::            
-* Package FL.STRATEGY::         
-* Package FL.GRAPHIC::          
-* Package FL.PLOT::             
-* Package FL.DOMAINS::          
-* Package FL.APPLICATION::      
+* Package FL.UTILITIES::
+* Package FL.MACROS::
+* Package FL.DEBUG::
+* Package FL.DEMO::
+* Package FL.TESTS::
+* Package FL.PORT::
+* Package FL.AMOP::
+* Package FL.ALIEN::
+* Package FL.PARALLEL::
+* Package FL.MATLISP::
+* Package FL.FUNCTION::
+* Package FL.MESH::
+* Package FL.PROBLEM::
+* Package FL.CDR::
+* Package FL.ELLSYS::
+* Package FL.ELASTICITY::
+* Package FL.NAVIER-STOKES::
+* Package FL.DISCRETIZATION::
+* Package FL.ELLSYS-FE::
+* Package FL.ELASTICITY-FE::
+* Package FL.NAVIER-STOKES-FE::
+* Package FL.ITERATION::
+* Package FL.MULTIGRID::
+* Package FL.GEOMG::
+* Package FL.STRATEGY::
+* Package FL.GRAPHIC::
+* Package FL.PLOT::
+* Package FL.DOMAINS::
+* Package FL.APPLICATION::
 
 @end detailmenu
 @end menu

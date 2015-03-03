@@ -2,12 +2,13 @@
 @chapter Installation
 
 @menu
-* Software needed::             
-* Quick installation ::         
-* Detailed installation::       
+* Software needed::
+* Installation instructions::
+* Additional software::
+* Using Femlisp as a standalone program::
 @end menu
 
-@node Software needed, Quick installation , Installation, Installation
+@node Software needed, Installation instructions, Installation, Installation
 @section Software needed
 
 @itemize
@@ -23,13 +24,10 @@ Common Lisp implementations as well (e.g. ABCL or GCL).
 @itemize
 @item ASDF from Daniel Barlow.
 @item The INFIX library from Mark Kantrowitz'.
+@item The BORDEAUX-THREADS library by Daniel Barlow
+@item The LPARALLEL library by James M. Lawrence
+@item The CL-PPCRE library by Edi Weitz
 @end itemize
-
-@item A Common Lisp environment.  
-I would recommend the combination Emacs/SLIME.  Emacs/Ilisp or
-CMUCL/Hemlock would be alternatives, however both of them seem to be not
-actively maintained anymore.  Allegro CL has its own Emacs interface and
-(on Windows) an own IDE with enhanced capabilities.
 
 @item Graphics software.
 If you want to have graphics available, you should have installed the
@@ -39,16 +37,18 @@ path.
 @item Data Explorer (OpenDX)
 @item Gnuplot
 @end itemize
+An alternative to OpenDX is some VTK viewer like Mayavi/Mayavi2.
+However, in contrast to OpenDX, these viewers are not started
+automatically from within Femlisp.
 
 @item Numerical software.  
-Although @femlisp{} works also without additional software, it is
-reasonable to have the following libraries available.
+@femlisp{} can make use of the following software (although it does not
+need them):
 @itemize
 @item UMFPACK and/or SuperLU
 @item Triangle by R. M. Shewchuk.
 You should install this, if you need a 2D triangle mesh generator.  This
-probably will not be necessary for academic rresearch and model
-problems.
+probably will not be necessary for academic research and model problems.
 @end itemize
 
 @item Documentation
@@ -61,249 +61,137 @@ freely available by Lispworks.
 
 @c ----------------------------------------------------------------
 
-@node Quick installation , Detailed installation, Software needed, Installation
-@section Quick installation
-
-Since Femlisp needs only a working ANSI Common Lisp installation with
-reasonable floating-point performance, it is easy to install given such
-an environment.  More precisely, let us assume that you have one of
-Allegro CL, CMUCL or SBCL installed, and that you have downloaded
-Femlisp using either
-@example
-cvs -z3 -d:pserver:anonymous@@cvs.savannah.nongnu.org:/sources/femlisp co femlisp
-@end example
-or
-@example
-wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
-@end example
-Then you should be able to start up Femlisp by simply loading the file
-@path{start.lisp} from the directory @path{femlisp}.  However, this is
-a rather spartanic version, if you do not have certain other
-applications for plotting, direct solving or mesh generation installed
-on your system.
-
-On some operating systems, the setup of a complete environment for
-Femlisp is easy, and it is described in the following.  For operating
-systems not mentioned here, you can find more information on
-installing a reasonable environment in Section @ref{Detailed
-installation}.
+@node Installation instructions, Additional software, Software needed, Installation
+@section Installation instructions
 
 @menu
-* Debian GNU/Linux::            
-* Mac OS X::                    
-* Windows/Cygwin::              
+* Installation of a CL implementation::
+* Getting Quicklisp::
+* Graphics::
+* Obtaining Femlisp::
+* Using Femlisp::
 @end menu
 
-@node Debian GNU/Linux, Mac OS X, Quick installation , Quick installation
-@subsection Debian GNU/Linux
-
-Something like the following approach should work if you are logged in
-as root on a Debian or Ubuntu system and your
-@path{/etc/apt/sources.list} file is set up in such a way that it finds
-also @emph{nonfree} and @emph{contrib} packages:
-
-@example
-# Necessary:
-apt-get install wget gnuplot dx
-apt-get install sbcl   # or other CL implementations
-apt-get install cl-infix cl-asdf
-
-# Recommended:
-apt-get install libsuperlu3 libsuperlu3-dev
-apt-get install libsuitesparse libsuitesparse-dev
-apt-get install slime
-
-# Documentation (recommended)
-apt-get install hyperspec
-apt-get install sbcl-doc sbcl-source  # alternatively: cmucl-doc cmucl-source
-
-# for generating Femlisp documentation
-apt-get install texlive-generic-recommended
-
-# get Femlisp by CVS or FTP, it is extracted into a directory 'femlisp'
-#cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
-wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
-
-cd femlisp          # change to the Femlisp directory
-
-# if you have installed SuperLU and/or UMFPACK above:
-make superlu        # compiles the SuperLU interface
-make umfpack        # compiles the UMFPACK interface
-
-# if you want automatic 2D triangulation:
-make triangle       # gets and compiles the Triangle mesh generator
-
-# compile Femlisp
-make configure      # interactive setup (choose sbcl or cmucl)
-make femlisp        # compiles Femlisp and creates an executable
-
-# we are done
-make documentation  # generate the Femlisp documentation
-@end example
-
-Now you can continue as described in @ref{Emacs configuration}.
-
-@node Mac OS X, Windows/Cygwin, Debian GNU/Linux, Quick installation
-@subsection Mac OS X
-
-The following approach should work if you are on Mac OS X, and have
-the Apple development tools, X11, and Fink installed.  Please make
-sure that you have also a recent version of Emacs.
-
-@example
-apt-get install wget gnuplot dx sbcl slime
-
-cd ABSOLUTE_PATH_TO_DIRECTORY_OF_YOUR_CHOICE
-
-# get Femlisp by CVS or FTP
-#cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
-wget -O - http://www.femlisp.org/femlisp-current.tar.gz | tar xzvf -
-
-cd femlisp          # change to the Femlisp directory
-make configure      # interactive setup (choose sbcl)
-make femlisp        # creates a Femlisp executable
-
-# we are done
-make documentation  # generate the Femlisp documentation
-@end example
-
-Now you can continue as described in @ref{Emacs configuration}.
-
-@node  Windows/Cygwin,  , Mac OS X, Quick installation
-@subsection Windows/Cygwin
-
-Femlisp works on Windows using Allegro CL.  Simply start up Allegro
-and load the file @path{femlisp/start.lisp} from the Femlisp
-directory.  For graphics output, you need Gnuplot which you can get
-via Cygwin, and OpenDX which you can download from
-@url{http://www.opendx.org}.
-
-A known bug (maybe within OpenDX or Cygwin/X, since also @code{dx
--script} in an xterm window did not work for me) is that the
-communication with OpenDX does not yet work.  A remedy is to use
-OpenDX as a separate application on the output file
-@path{femlisp/images/output.dx}.
-
-@c ----------------------------------------------------------------
-
-@node Detailed installation,  , Quick installation , Installation
-@section Detailed installation
-
-@menu
-* Obtaining Femlisp::           
-* Installation of a CL implementation::  
-* Graphics::                    
-* Direct solvers::              
-* Triangle mesh generator::     
-* Installation of ASDF and Infix::  
-* Configuration of the startup script::  
-* Compiling Femlisp::           
-* Setup of an interactive environment::  
-* Emacs configuration::         
-@end menu
-
-@node Obtaining Femlisp, Installation of a CL implementation, Detailed installation, Detailed installation
-@subsection Obtaining Femlisp
-
-@enumerate
-@item Alternative 1: Download the current @femlisp{} version as follows
-(if @command{wget} should not be available try @command{curl} instead)
-@example
-wget -O - http://www.femlisp.org/femlisp-current.tar.gz| tar xzvf -
-@end example
-
-You can check the correctness of the download against the binary GPG
-signature in @url{http://www.femlisp.org/femlisp-current.tar.gz.sig}.
-My public PGP key can be found at
-@url{http://www.iwr.uni-heidelberg.de/~Nicolas.Neuss/nicolas_neuss.pgp}.
-
-@item Alternative 2: Checkout a CVS version using the command
-@example
-cvs -z3 -d:ext:anoncvs@@savannah.nongnu.org:/cvsroot/femlisp co femlisp
-@end example
-@end enumerate
-
-@node Installation of a CL implementation, Graphics, Obtaining Femlisp, Detailed installation
+@node Installation of a CL implementation, Getting Quicklisp, Installation instructions, Installation instructions
 @subsection Installation of a CL implementation
 
 There are several free Common Lisp implementations with which @femlisp{}
 is known to work completely, namely CMUCL and SBCL.  It runs also on the
 commercial implementations Scieneer CL, Allegro CL, and Lispworks.
 Femlisp should also run with ECL and Clozure CL, however, it is not
-regularly tested with those implementations.  Similarly, using
-@femlisp{} with CLISP works, but does not make much sense, but is very
-slow since CLISP does not compile to native code.
+regularly tested with those implementations.
 
-@node Graphics, Direct solvers, Installation of a CL implementation, Detailed installation
+The most popular choice is probably SBCL (Steel Bank Common Lisp), see
+@url{http://www.sbcl.org}, which is available as a package in most Linux
+systems.
+
+@node Getting Quicklisp, Graphics, Installation of a CL implementation, Installation instructions
+@subsection Getting Quicklisp
+In recent years, Quicklisp (see @url{http://www.quicklisp.org/}) has
+become the de facto standard for getting Common Lisp libraries.  Make
+sure that it works for you.  Note that Quicklisp installation is VERY
+easy following the installation instructions on the Quicklisp homepage.
+
+@node Graphics, Obtaining Femlisp, Getting Quicklisp, Installation instructions
 @subsection Graphics
 
 @femlisp{} uses two graphics packages, namely Gnuplot and Data
 Explorer (OpenDX).  Make sure that they can be found in your path and
 that they work.
 
-@node Direct solvers, Triangle mesh generator, Graphics, Detailed installation
+On most Linux systems, this software is available as a package.
+
+@node Obtaining Femlisp, Using Femlisp, Graphics, Installation instructions
+@subsection Obtaining Femlisp
+
+Issue the command
+@example
+(ql:quickload "femlisp")
+@end example
+
+Alternatively, you may clone the Femlisp git repository directly using
+@example
+git clone git://git.savannah.nongnu.org/femlisp.git
+@end example
+(The ``nongnu'' in the server name refers to the fact, that Femlisp is
+covered by a BSD license instead of the more restrictive GNU license.)
+
+Then you have to make sure that the Common Lisp system utility asdf can
+find the file @path{femlisp/femlisp.asd}.  After that you can load
+Femlisp using
+@example
+(asdf:oos 'asdf:load-op :femlisp)
+@end example
+
+@node Using Femlisp,  , Obtaining Femlisp, Installation instructions
+@subsection Using Femlisp
+You should now be ready for using @femlisp{}.  For example, you can
+start a demo by
+@example
+(fl.demo:femlisp-demo)
+@end example
+
+@node Additional software, Using Femlisp as a standalone program, Installation instructions, Installation
+@section Additional software
+
+@femlisp{} can make use of further external software, which you may
+install if necessary.
+
+@menu
+* Direct solvers::
+* Triangle mesh generator::
+@end menu
+
+@node Direct solvers, Triangle mesh generator, Additional software, Additional software
 @subsection Direct solvers
 
 @femlisp{} can link to two sparse direct solvers, namely SuperLU or
-UMFPACK.  It is reasonable (but not strictly necessary) to install at
-least one of those as a shared library on your system.  After you have
-done that, you have to compile the glue programs superlu.c and/or
-umfpack.c in the directory @path{femlisp/interface}.  This can be done
-by issuing the commands
-
+UMFPACK.  When those are available on your system, you have to compile
+the glue programs superlu.c and/or umfpack.c in the directory
+@path{femlisp/interface}.  This can be done by issuing the commands
 @example
 make superlu
 @end example
-
 or
-
 @example
 make umfpack
 @end example
-
 from within the @path{femlisp} directory.  If these commands cannot
-figure out the path to the libraries, feel free to edit the Makefile
-in @path{femlisp/interfaces} according to your needs.
+figure out the path to the libraries, feel free to edit the Makefile in
+@path{femlisp/interfaces} according to your needs.
 
-@node Triangle mesh generator, Installation of ASDF and Infix, Direct solvers, Detailed installation
+@node Triangle mesh generator,  , Direct solvers, Additional software
 @subsection Triangle mesh generator
 
 Next, Femlisp can make use of the mesh generator Triangle by
-J. R. Shewchuk.  If you do have it on your system, you only have to
-make sure that it can be found in your path.  If not, you can download
-and install it in the directory @path{femlisp/external} by issuing the
-command
+J. R. Shewchuk, which is available as a package in most Linux
+implementations.  If you have it installed on your system, you only have
+to make sure that it can be found in your path, such that Femlisp can
+find it.
 
-@example
-make triangle
-@end example
+@node Using Femlisp as a standalone program,  , Additional software, Installation
+@section Using Femlisp as a standalone program
 
-from withing the @path{femlisp} directory.
+This section is only of relevance, if you want to use Femlisp as a
+standalone program without too much tweaking.
 
-@node Installation of ASDF and Infix, Configuration of the startup script, Triangle mesh generator, Detailed installation
-@subsection Installation of ASDF and Infix
+@menu
+* Configuration of the startup script::
+* Compiling Femlisp::
+* Saving a Femlisp core::
+@end menu
 
-First, you need a defsystem facility for loading Femlisp.  Recent
-versions of Femlisp use ASDF from Daniel Barlow.  It will often be
-bundled with your CL implementation.  For convenience, a copy is also
-included in the directory @path{femlisp/external}.
-
-Second, Femlisp needs the Infix library by Mark Kantrowitz.  For
-convenience, a version is contained in the Femlisp distribution in the
-directory @path{external}.  This version is used if the Infix library
-is not yet incorporated into your Lisp.
-
-@node Configuration of the startup script, Compiling Femlisp, Installation of ASDF and Infix, Detailed installation
+@node Configuration of the startup script, Compiling Femlisp, Using Femlisp as a standalone program, Using Femlisp as a standalone program
 @subsection Configuration of the startup script
 
-After these steps you should issue the command
+Issue the command
 @example
 make configure
 @end example
-and answer the questions being asked.
+in the @path{femlisp} directory and answer the questions being asked.
 
-@node Compiling Femlisp, Setup of an interactive environment, Configuration of the startup script, Detailed installation
-@subsection Compiling Femlisp
+@node Compiling Femlisp, Saving a Femlisp core, Configuration of the startup script, Using Femlisp as a standalone program
+@subsection Running Femlisp
 
 You should now be able to start @femlisp{} by executing the script
 @file{femlisp/bin/femlisp}.  The first time you use this script, your
@@ -314,6 +202,8 @@ invoke this newly created executable either from an Emacs shell buffer
 or wrapped inside the readline-wrap @command{rlwrap} (i.e. as
 @code{rlwrap femlisp}).
 
+@node Saving a Femlisp core,  , Compiling Femlisp, Using Femlisp as a standalone program
+@subsection Saving a Femlisp core
 You can also save a core which avoids reloading @femlisp{} during
 startup.  This is done by executing the command
 @example
@@ -322,36 +212,3 @@ make femlisp
 After that, @femlisp{} should always start up fast.  Note that after a
 change in @femlisp{} source code, this step has to be repeated.
 
-@node Setup of an interactive environment, Emacs configuration, Compiling Femlisp, Detailed installation
-@subsection Setup of an interactive environment
-
-@femlisp{} is best used from within a Lisp environment.  A freely
-available Lisp environment is Emacs where you can use the built-in
-inferior-lisp-mode, Ilisp, or SLIME.  Since inferior-lisp-mode is not
-very good and Ilisp does not seem to be actively developed anymore, I
-recommend installing SLIME.  Allegro CL works with SLIME, too, but has
-also an own Emacs environment called ELI.
-
-@node Emacs configuration,  , Setup of an interactive environment, Detailed installation
-@subsection Emacs configuration
-
-Finally, when you have installed SLIME, you may put the following
-lines in the file @file{.emacs} in your home directory:
-
-@lisp
-(setq *femlisp-root* "PLEASE_INSERT_CORRECT_PATH/femlisp/")
-(add-to-list 'load-path (concat *femlisp-root* "elisp"))
-(require 'femlisp)
-
-;;; for showing the SLIME buffer if it is hidden
-(defun show-repl-maybe-start-slime ()
-  (interactive)
-  (if (slime-connected-p)
-      (slime-display-output-buffer)
-      (slime)))
-(global-set-key [f9] 'show-repl-maybe-start-slime)
-@end lisp
-
-Now the Emacs command @kbd{M-x femlisp} should fire up SLIME and load
-@femlisp{}.  Whenever your SLIME buffer is hidden, you can bring it up
-again by pressing @kbd{F9}.
