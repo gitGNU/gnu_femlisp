@@ -120,7 +120,7 @@
      (:file "sparselu" :depends-on ("sparse-matrix"))))))
 
 (defsystem :femlisp
-  :depends-on ("femlisp-basic" "femlisp-matlisp" "infix")
+  :depends-on (:femlisp-basic :femlisp-parallel :femlisp-matlisp :infix :cl-ppcre)
   :pathname "src"
   :around-compile call-with-femlisp-environment
   :components
@@ -245,7 +245,9 @@
      (:file "graphics" :depends-on ("graphics-defp"))
      (:file "dx" :depends-on ("graphics"))
      (:file "vtk" :depends-on ("graphics"))
-     (:file "gnuplot" :depends-on ("graphics"))))
+     (:file "gnuplot" :depends-on ("graphics"))
+     (:file "picture" :depends-on ())
+     ))
    (:module
     "plot"
     :depends-on ("graphic" "mesh" "problem" "discretization")
