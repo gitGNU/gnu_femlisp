@@ -41,8 +41,9 @@
 
 (defsystem :femlisp-basic
   :depends-on (#+(or clisp ccl) :cffi #+(or clisp ccl) :closer-mop
-               #+sbcl (:require "sb-posix") #+sbcl (:require "sb-introspect")
-               #+allegro (:require "osi"))
+               #+sbcl :sb-posix #+sbcl :sb-introspect
+               #+allegro (:require "osi")
+               )
   :around-compile call-with-femlisp-environment ;; Requires ASDF 2.018, which *everyone* has in 2014.
   :components
   ((:file "setup")
@@ -60,13 +61,26 @@
      (:file "utilities-defp" :depends-on ("macros" "debug"))
      (:file "utilities" :depends-on ("utilities-defp" "macros" "tests"))
      (:file "mflop" :depends-on ("utilities"))
-     (:file "multiprocessing" :depends-on ("utilities" "mflop" "port" "debug"))
-     (:file "parcells" :depends-on ("multiprocessing"))
-     (:file "general" :depends-on ("amop" "utilities-defp" "multiprocessing"))
+     (:file "general" :depends-on ("amop" "utilities-defp"))
      (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))))))
 
+(defsystem :femlisp-parallel
+  :depends-on (:femlisp-basic :bordeaux-threads :lparallel :cl-ppcre)
+  :pathname "src"
+  :around-compile call-with-femlisp-environment
+  :components
+  ((:module
+    "parallel"
+    :components
+    ((:file "parallel-defp" :depends-on ())
+     (:file "parallel" :depends-on ("parallel-defp"))
+     (:file "multiprocessing" :depends-on ("parallel"))
+     (:file "parallel-adaptions" :depends-on ("multiprocessing"))
+     ;; (:file "parcells" :depends-on ("multiprocessing"))
+     ))))
+
 (defsystem :femlisp-matlisp
-  :depends-on (:femlisp-basic)
+  :depends-on (:femlisp-basic :femlisp-parallel)
   :pathname "src"
   :around-compile call-with-femlisp-environment
   :components

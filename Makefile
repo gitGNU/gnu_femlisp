@@ -33,7 +33,7 @@ help:
 	echo "Options: all, configure, clean, cleanall, documentation, femlisp,";\
 	echo "         help, triangle, tetgen, superlu, umfpack."
 
-all: configure superlu umfpack triangle femlisp documentation
+all: configure superlu umfpack femlisp documentation
 
 configure:
 	cd bin; ./femlisp-configure
@@ -41,27 +41,8 @@ configure:
 documentation:
 	cd doc; $(MAKE) all
 
-download_superlu:
-	echo "Downloading SuperLU in femlisp/external."
-	cd external; \
-	wget http://crd.lbl.gov/~xiaoye/SuperLU/superlu_3.0.tar.gz; \
-	tar xzf superlu_3.0.tar.gz; rm -f superlu_3.0.tar.gz;
-
 superlu:
 	cd interface; $(MAKE) superlu
-
-triangle:
-	echo "Installing Triangle in femlisp/external.  Note that Triangle comes with a separate license which you should read and accept before using it."
-	cd external; mkdir triangle; cd triangle;\
-	wget http://cm.bell-labs.com/netlib/voronoi/triangle.zip;\
-	unzip triangle.zip; rm triangle.zip; $(MAKE) triangle
-
-tetgen:
-	echo "Installing Tetgen in femlisp/external.  Note that Tetgen comes with a separate license which you should read and accept before using it."
-	cd external;\
-	wget http://tetgen.berlios.de/files/tetgen1.4.3.tar.gz;\
-	tar xf tetgen1.4.3.tar.gz; rm tetgen1.4.3.tar.gz;\
-	ln -s tetgen1.4.3 tetgen; cd tetgen; rm -f tetgen; $(MAKE)
 
 umfpack:
 	cd interface; $(MAKE) umfpack

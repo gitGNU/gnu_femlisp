@@ -2,6 +2,17 @@
 
 * Current work:
 
+* From Femlisp-0.9.10 to Femlisp-1.0.0
+
+Up to now, Femlisp has been almost completely autarchic.  This kind of
+development is not adequate in a time when there are a lot of good
+Common Lisp libraries easily reachable with the help of Quicklisp.
+Therefore, Femlisp now includes dependencies on some libraries like
+@library{bordeaux-threads}, @library{lparallel}, and
+@library{cl-ppcre}.  This trend will continue in the future.
+
+The Femlisp main repository switched from CVS to git.
+
 Some changes by Fare (Francois-Rene Rideau): Improved file
 @path{femlisp.asd}.  *read-default-float-format* is set dynamically to
 double-float during Femlisp compilation.  People using Femlisp in

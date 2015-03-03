@@ -50,7 +50,7 @@ during initialization of Femlisp."))
 
 (in-package :fl.start)
 
-(defparameter *femlisp-version* "0.9.10")
+(defparameter *femlisp-version* "1.0.0")
 (defparameter *process* nil
   "This variable should be set externally for identifying a certain process.")
 
@@ -58,17 +58,24 @@ during initialization of Femlisp."))
 ;;;; Setup the logical host "FEMLISP"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun femlisp-pathname (namestring)
+(defun femlisp-pathname (&optional (namestring ""))
   "Get pathname relative to the Femlisp directory."
   (asdf:system-relative-pathname :femlisp namestring))
 
 (defvar *femlisp-pathname*
-  (femlisp-pathname "")
+  (femlisp-pathname)
   "The pathname for the Femlisp main directory.  This should be the
 location of this file when it is loaded.")
   
 (defvar *femlisp-directory* (namestring *femlisp-pathname*)
   "The namestring for @var{*femlisp-pathname*}.")
+
+;;; earlier code might depend on the Femlisp logical host being defined
+(let ((directory (pathname-directory *femlisp-directory*)))
+  (setf (logical-pathname-translations "FEMLISP")
+        `((#-gcl "**;*.*.*" #+gcl "**;*.*" 
+                 ,(make-pathname :directory `(,@directory :wild-inferiors)
+                                 :name :wild :type :wild :version :wild)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Configuration
@@ -104,9 +111,9 @@ location of this file when it is loaded.")
   (format
    t "~&~%*** Femlisp-~A ***
 
-Copyright (C) 2003-2014
+Copyright (C) 2003-2015
 Nicolas Neuss
-University Heidelberg, KIT Karlsruhe, University Erlangen.
+University Heidelberg, KIT Karlsruhe, University Erlangen-Nuremberg.
 
 Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
 file LICENSE in the Femlisp main directory.  This is free
