@@ -73,9 +73,9 @@
     "parallel"
     :components
     ((:file "parallel-defp" :depends-on ())
-     (:file "parallel" :depends-on ("parallel-defp"))
+     (:file "parallel-adaptions" :depends-on ("parallel-defp"))
+     (:file "parallel" :depends-on ("parallel-adaptions"))
      (:file "multiprocessing" :depends-on ("parallel"))
-     (:file "parallel-adaptions" :depends-on ("multiprocessing"))
      ;; (:file "parcells" :depends-on ("multiprocessing"))
      ))))
 
@@ -120,7 +120,8 @@
      (:file "sparselu" :depends-on ("sparse-matrix"))))))
 
 (defsystem :femlisp
-  :depends-on (:femlisp-basic :femlisp-parallel :femlisp-matlisp :infix :cl-ppcre)
+  :depends-on (:femlisp-basic :femlisp-parallel :femlisp-matlisp
+                              :infix :cl-ppcre :cl-gd)
   :pathname "src"
   :around-compile call-with-femlisp-environment
   :components
@@ -246,7 +247,6 @@
      (:file "dx" :depends-on ("graphics"))
      (:file "vtk" :depends-on ("graphics"))
      (:file "gnuplot" :depends-on ("graphics"))
-     (:file "picture" :depends-on ())
      ))
    (:module
     "plot"
@@ -262,6 +262,7 @@
      (:file "asaplot" :depends-on ("plot-dx"))
      (:file "plot-gnuplot" :depends-on ("plot"))
      (:file "plot-vtk" :depends-on ("plot"))
+     (:file "picture" :depends-on ("plot"))
      ))
    ;;
    ;; Strategy
