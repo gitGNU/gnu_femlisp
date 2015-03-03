@@ -145,7 +145,8 @@ them when compiling a certain file."
 	       (loop for sym in *bugs* do (format stream "~A~%" sym))))))
       (write-string output-string)
       (when logfile
-	(with-open-file (stream logfile :direction :output :if-exists :append
+	(with-open-file (stream logfile :direction :output
+                                :if-does-not-exist :create :if-exists :append
                                 #+scl :external-format #+scl :iso-8859-1)
 	  (write-string output-string stream))))))
 

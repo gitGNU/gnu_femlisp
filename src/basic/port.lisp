@@ -556,7 +556,7 @@ that no GC changes array pointers obtained by @function{vector-sap}."
     (setq core-file-name
           (asdf:system-relative-pathname
            :femlisp
-           (format nil "bin/femlisp-~A.core" (asdf::implementation-type)))))
+           (format nil "bin/femlisp-~A.core" (string-downcase (asdf::implementation-type))))))
   (format t "Saving ~A~%" core-file-name)
   (setf *package* (find-package :fl.application))
   #+allegro

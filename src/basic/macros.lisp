@@ -42,9 +42,11 @@
    "NAMED-LET"
    "WITH-ARRAYS" "MULTI-FOR" "MULTI-DOTIMES" "INLINING" "DEFINLINE"
    "?1" "?2" "?3" "?4" "?5" "?6"
-   "DELAY" "FORCE"
    "FLUID-LET" "LRET" "LRET*"
-   "CHAIN" "_" "_1" "_2" "_3" "_4" "_5"
+   ;; the following three are very rarely needed - we try to do without them
+   ;; because they conflict with lparallel
+   ;; "DELAY" "FORCE" "CHAIN"
+   "_" "_1" "_2" "_3" "_4" "_5"
    "SHOW-CALL"
    "QUICKLY" "SLOWLY" "VERY-QUICKLY" "*USUALLY*" "USUALLY-QUICKLY"
    "QUICKLY-IF")
@@ -200,7 +202,8 @@ modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}."
 (define-modify-macro ensure (&rest args) or
    "Ensures that some place is set.  It expands as follows:
 @lisp
-  (ensure place value) @expansion{} (or place (setf place value)) @end lisp
+  (ensure place value) @expansion{} (or place (setf place value))
+@end lisp
 It is not clear if the implementation used here works everywhere.  If not,
 the workaround below should be used.")
 
@@ -333,6 +336,7 @@ restricted macro was posted by KMP at 8.5.2007 under the name 'array-access'."
        ,@body)))
 
 ;;; delay and force
+
 (defmacro delay (form)
   "Delays the evaluation of @arg{form}."
   (with-gensyms (value computed)

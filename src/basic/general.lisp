@@ -53,12 +53,11 @@ describes the use of the respective file."
 
 (defclass property-mixin ()
   ((properties :accessor properties :initform () :initarg :properties
-	       :type list :documentation
-    "A property list which is used to store unstructured information about
-this object."))
-  (:documentation "A mixin which adds a slot of properties to the class."))
+	       :type list :documentation "A property list for storing
+unstructured information about this object."))
+  (:documentation "A mixin adding a property slot to the class."))
 
-;;; old/new interface
+;;; old interface
 
 (defun get-property (object property)
   "Gets @arg{property} for @arg{object}.  Returns NIL also if
@@ -69,7 +68,7 @@ this object."))
   "Sets the property @arg{property} of @arg{problem} to @arg{value}."
   (setf (getf (slot-value object 'properties) property) value))
 
-;;; new interface using CLOS
+;;; new interface using CLOS (WITH-SLOTS/SLOT-VALUE work)
 (defmethod shared-initialize :after ((object property-mixin) slot-names
 				     &rest initargs &key &allow-other-keys)
   (declare (ignore slot-names))
@@ -362,9 +361,9 @@ this object."))
 (defmacro memoizing-let (bindings &body body)
   "The @arg{body} is memoized for the keys given as a list of
 @arg{bindings}."
-  (declare (ignore bindings body))
-  (error "This global macro should be used only within the context of
-@macro{with-memoization}."))
+  (warn "This global macro should be used only within the context of
+@macro{with-memoization}.")
+  `(let ,bindings ,@body))
 
 (defmacro memoizing (defun-expr)
   "As a global macro it memoizes the following function definition.  Inside a
@@ -380,64 +379,54 @@ this object."))
                      :size size :test test)
       (make-hash-table :test test)))
 
-(defmacro with-memoization ((&key (type :global) size id (debug t) (test ''equal)) &body body)
+(defmacro with-memoization ((&key type size id (debug t) (test ''equal)) &body body)
   "Sets up a memoization environment consisting of a table, and a captured
 symbol @symbol{memoizing-let} memoizing its body depending on the
 arguments.  Example of usage:
 @lisp
-  (with-memoization (:type :local :id 'test)
+  (with-memoization (:size 4 :id 'test)
     (defun test (n)
       (memoizing-let ((k (* 2 n)))
 	(sleep 1)
 	(* k k))))
 @end lisp
-If @arg{type} is :global, the table is thread-safe and the same for all
-threads, if @arg{type} is :local, it is special for each thread."
-  (when (eq type :local) (assert id))
-  (with-gensyms (mutex table key key-exprs value-body func foundp value)
-    `(let ((,mutex (fl.multiprocessing:make-mutex))
-	   (,table ,(when (eq type :global)
-                          `(memoization-table ,size ,test))))
-      (declare (ignorable ,mutex ,table))
-      (flet ((,table ()
-	       ,(ecase type
-		       (:global table)
-		       (:local
-			`(or (getf fl.multiprocessing:*thread-local-memoization-table* ,id)
-			  (setf (getf fl.multiprocessing:*thread-local-memoization-table* ,id)
-                                (memoization-table ,size ,test)))))))
-	;; the memoizing-let symbol is captured, 
-	(macrolet ((memoizing (,func)
-		     `(lambda (&rest ,',key)
-		       (fl.multiprocessing:with-mutex (,',mutex)
-			 (multiple-value-bind (,',value ,',foundp)
-			     (dic-ref ,'(,table) ,',key)
-			   (if ,',foundp
-			       ,',value
-			       (progn
-				 ,',(when debug `(dbg :memoize "Memoizing: id=~A, key=~A" ,id ,key))
-				 (setf (dic-ref ,'(,table) ,',key)
-				       (apply ,,func ,',key))))))))
-		   (memoizing-let (,key-exprs &body ,value-body)
-                     (let ((,key-exprs
-                            (mapcar (lambda (entry)
-                                      (if (symbolp entry)
-                                          (list entry entry)
-                                          entry))
-                                    ,key-exprs)))
-                       `(let ,,key-exprs
-                          ;; declares should be inserted here from value-body
-                          (fl.multiprocessing:with-mutex (,',mutex)
-                            (let ((,',key (list ,@(mapcar #'car ,key-exprs))))
-                              (multiple-value-bind (,',value ,',foundp)
-                                  (dic-ref ,'(,table) ,',key)
-                                (if ,',foundp
-                                    ,',value
-                                    (progn
-                                      ,',(when debug `(dbg :memoize "Memoizing: id=~A, key=~A" ,id ,key))
-                                      (setf (dic-ref ,'(,table) ,',key)
-                                            (progn ,@,value-body)))))))))))
-	  ,@body)))))
+
+Note that this definition is later -in the file
+@path{parallel-adaptions.lisp}- superseded by one
+handling also thread-local memoization."
+  (declare (ignore type))
+  (with-gensyms (table key key-exprs value-body func foundp value)
+    `(let ((,table (memoization-table ,size ,test)))
+       ;; the memoizing-let symbol is captured, 
+       (macrolet ((memoizing (,func)
+                    `(lambda (&rest ,',key)
+                       (multiple-value-bind (,',value ,',foundp)
+                           (dic-ref ,',table ,',key)
+                         (if ,',foundp
+                             ,',value
+                             (progn
+                               ,',(when debug `(dbg :memoize "Memoizing: id=~A, key=~A" ,id ,key))
+                               (setf (dic-ref ,',table ,',key)
+                                     (apply ,,func ,',key)))))))
+                  (memoizing-let (,key-exprs &body ,value-body)
+                    (let ((,key-exprs
+                           (mapcar (lambda (entry)
+                                     (if (symbolp entry)
+                                         (list entry entry)
+                                         entry))
+                                   ,key-exprs)))
+                      `(let ,,key-exprs
+                         ;; declares should be inserted here from value-body
+                         (let ((,',key (list ,@(mapcar #'car ,key-exprs))))
+                           (multiple-value-bind (,',value ,',foundp)
+                               (dic-ref ,',table ,',key)
+                             (if ,',foundp
+                                 ,',value
+                                 (progn
+                                   ,',(when debug `(dbg :memoize "Memoizing: id=~A, key=~A" ,id ,key))
+                                   (setf (dic-ref ,',table ,',key)
+                                         (progn ,@,value-body))))))))))
+         ,@body))))
 
 
 ;;;; Testing
@@ -523,19 +512,6 @@ threads, if @arg{type} is :local, it is special for each thread."
     (with-slots (x) x
       x))
   (dic-for-each-value #'print #(1 2 3))
-
-  (let* ((count 0)
-         (f (with-memoization (:type :global :id 'test)
-              (memoizing (lambda (k)
-                           (incf count)
-                           (* k k))))))
-    (loop repeat 100 do
-         (fl.mp:make-thread
-          (lambda ()
-            (sleep (random 1.0))
-            (funcall f (random 10)))))
-    (sleep 2.0)
-    count)
 
   )
 

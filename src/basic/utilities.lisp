@@ -1145,7 +1145,8 @@ Returns @arg{obj1}."
 
 (defun mapper-some (test mapper &rest rest-args)
   "Tests if the test is fulfilled for some argument on which the mapper is
-called: @lisp
+called:
+@lisp
   (mapper-some #'plusp #'mapc '(-3 4 5)) @result{} T
 @end lisp"
   (apply mapper (lambda (&rest args)
@@ -1156,7 +1157,8 @@ called: @lisp
 
 (defun mapper-every (test mapper &rest rest-args)
   "Tests if the test is fulfilled for every argument on which the mapper is
-called: @lisp
+called:
+@lisp
   (mapper-every #'plusp #'mapc '(3 4 5)) @result{} T
 @end lisp"
   (not (apply #'mapper-some (complement test) mapper rest-args)))
