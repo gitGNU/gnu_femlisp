@@ -44,6 +44,8 @@
    "MP-DBG"
    "WITH-WORKERS" "WORK-ON"
 
+   "PWORK"
+
 ;;   "WITH-PARALLEL-NETWORK" "PARCELL" "NAMED-PARCELL" "VALUE"
    )
   (:documentation
