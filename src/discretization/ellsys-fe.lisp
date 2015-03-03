@@ -72,137 +72,143 @@ it reduces the discretization to first order accuracy."
   "Local discretization for a pde system of the form described in the
 documentation of the package @package{ELLSYS}."
   (declare (optimize debug))
-  (assert (and (null local-u) (null local-v)))  ; NYI
+  (assert (and (null local-u) (null local-v)) () "NYI")
 
   (let ((cell (getf fe-geometry :cell))
-	(ip-values (ip-values vecfe qrule))
-	(ip-gradients (ip-gradients vecfe qrule)))
+        (ip-values (ip-values vecfe qrule))
+        (ip-gradients (ip-gradients vecfe qrule)))
     (dbg :disc "Number of quadrature points = ~A" (length ip-values))
 
     ;; loop over quadrature points
     (loop
-     for i from 0
-     and global across (getf fe-geometry :global-coords)
-     and Dphi across (getf fe-geometry :gradients)
-     and Dphi^-1 across (getf fe-geometry :gradient-inverses)
-     and weight across (getf fe-geometry :weights)
-     do
-     (let* ((shape-vals (aref ip-values i)) ; nr-comps x (n-basis x 1)
-	    (shape-grads (aref ip-gradients i)) ; nr-comps x (n-basis x dim)
-	    (gradients (and Dphi^-1 (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
-	    (coeff-input (construct-coeff-input
-			  cell global Dphi shape-vals gradients fe-parameters))
-	    (left-vals shape-vals)
-	    (right-vals (if residual-p
-                           (map 'vector #'m* shape-vals local-u)
-                           shape-vals))
-	    (right-gradients gradients)
-	    (left-gradients (if residual-p
-                                (map 'vector #'m* gradients local-u)
-                                gradients)))
-       (assert (vectorp left-vals))
-       (loop
-	  for coeff in coeffs
-	  for name = (coefficient-name coeff) do
-	  ;; matrix part
-	  (when matrix
-	    (case name
-	      (FL.ELLSYS::A		; diffusion
-	       (let ((diff-tensor (evaluate coeff coeff-input)))
-		 (dbg :disc "Discretizing diffusion")
-		 (for-each-entry-and-key
-		  #'(lambda (diffusion i j)
-		      (gemm! weight (m* (aref left-gradients j) diffusion) (aref right-gradients i)
-			     1.0 (mref matrix i j) :NT))
-		  diff-tensor)))
-	      (FL.ELLSYS::AI		; resistance
-	       (let ((resistance-tensor (evaluate coeff coeff-input)))
-		 (dbg :disc "Discretizing resistance")
-                 (for-each-entry-and-key
-                  #'(lambda (resistance i j)
-                      (let ((factor (m/ (m*-tn Dphi (m* resistance Dphi)))))
-                        (gemm! weight (m* (aref shape-grads j) factor) (aref shape-grads i)
-                               1.0 (mref matrix i j) :NT)))
-		  resistance-tensor)))
-	      (FL.ELLSYS::B
-	       (dbg :disc "Discretizing convection")
-	       (let ((velocity-tensor (evaluate coeff coeff-input)))
-		 (for-each-entry-and-key
-		  #'(lambda (velocity i j)
-                      (let ((convection-contribution
-                             (m*-nt (m* (aref left-gradients i) (scal -1.0 velocity))
-                                    (aref right-vals j))))
-                        (when *upwinding*
-                          (scal! 2.0 (ensure-m-matrix-property convection-contribution)))
-                        (axpy! weight convection-contribution
-                               (mref matrix i j))))
-		  velocity-tensor)))
-	      (FL.ELLSYS::C
-	       (dbg :disc "Discretizing non-conservative convection")
-	       (let ((velocity-tensor (evaluate coeff coeff-input)))
-		 (for-each-entry-and-key
-		  #'(lambda (velocity i j)
-                      (if *upwinding*
-                          (let ((contribution
-                                 (m* (aref left-vals i)
-                                     (transpose (m* (aref right-gradients j) velocity)))))
-                            (axpy! (* 1.0 ; enhancement factor for consistency
-                                      weight)
-                                   (ensure-m-matrix-property contribution)
-                                   (mref matrix i j)))
-                          (gemm! weight (aref left-vals i)
-                                 (m* (aref right-gradients j) velocity)
-                                 1.0 (mref matrix i j) :NT)))
-		  velocity-tensor)))
-	      (FL.ELLSYS::R
-	       (dbg :disc "Discretizing reaction")
-	       (let ((reaction-tensor (evaluate coeff coeff-input)))
-		 (for-each-entry-and-key
-		  #'(lambda (reaction i j)
-		      (unless (mzerop reaction)
-			(when (standard-matrix-p reaction)
-			  (assert (= 1 (nrows reaction) (ncols reaction)))
-			  (setq reaction (vref reaction 0)))
-			(gemm! (* weight reaction) (aref left-vals i) (aref right-vals j)
-			       1.0 (mref matrix i j) :NT)))
-		  reaction-tensor)))))
-	  (when rhs
-	    (case name
-	      (FL.ELLSYS::F
-	       (dbg :disc "Discretizing standard source")
-	       (let ((source-vector (evaluate coeff coeff-input)))
-		 (for-each-entry-and-key
-		  #'(lambda (source k)
-		      (gemm! weight (aref left-vals k) (ensure-matlisp source)
-			     1.0 (aref rhs k)))
-		  source-vector)))
-	      (FL.ELLSYS::G
-	       (dbg :disc "Discretizing g-source")
-	       (let ((g-source-vector (evaluate coeff coeff-input)))
-		 (for-each-entry-and-key
-		  #'(lambda (g-source k)
-		      (gemm! weight (aref left-gradients k) g-source
-			     1.0 (aref rhs k)))
-		  g-source-vector)))
-	      (FL.ELLSYS::H
-	       (dbg :disc "Discretizing h-source")
-	       (let ((diff-tensor (evaluate (get-coefficient coeffs 'FL.ELLSYS::A) coeff-input))
-		     (gamma (evaluate coeff coeff-input)))
-		 (for-each-entry-and-key
-		  #'(lambda (diffusion i j)
-		      (gemm! weight (m* (aref left-gradients j) diffusion) (aref gamma j)
-			     1.0 (aref rhs i)))
-		  diff-tensor)))))
-	  )
-       (when mass-matrix
-	 (dbg :disc "Discretizing mass matrix")
-	 (loop for i from 0 and vals across shape-vals do
-	      (gemm! weight vals vals 1.0 (mref mass-matrix i i) :NT)))
-	 ))
+       for i from 0
+       and global across (getf fe-geometry :global-coords)
+       and Dphi across (getf fe-geometry :gradients)
+       and Dphi^-1 across (getf fe-geometry :gradient-inverses)
+       and weight across (getf fe-geometry :weights)
+       do
+         (let* (
+                ;; nr-comps x (n-basis x 1)
+                (shape-vals (aref ip-values i))
+                ;; nr-comps x (n-basis x dim)
+                (shape-grads (aref ip-gradients i))
+                (gradients (and Dphi^-1 (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
+                (coeff-input (construct-coeff-input
+                              cell global Dphi shape-vals gradients fe-parameters))
+                (left-vals shape-vals)
+                (right-vals (if residual-p
+                                (map 'vector #'m* shape-vals local-u)
+                                shape-vals))
+                (right-gradients gradients)
+                (left-gradients (if residual-p
+                                    (map 'vector #'m* gradients local-u)
+                                    gradients)))
+           (assert (vectorp left-vals))
+           (loop
+              for coeff in coeffs
+              for name = (coefficient-name coeff) do
+              ;; matrix part
+                (when matrix
+                  (case name
+                    ;; diffusion
+                    (FL.ELLSYS::A
+                     (let ((diff-tensor (evaluate coeff coeff-input)))
+                       (dbg :disc "Discretizing diffusion")
+                       (for-each-entry-and-key
+                        #'(lambda (diffusion i j)
+                            (gemm! weight (m* (aref left-gradients j) diffusion) (aref right-gradients i)
+                                   1.0 (mref matrix i j) :NT))
+                        diff-tensor)))
+                    ;; resistance
+                    (FL.ELLSYS::AI
+                     (let ((resistance-tensor (evaluate coeff coeff-input)))
+                       (dbg :disc "Discretizing resistance")
+                       (for-each-entry-and-key
+                        #'(lambda (resistance i j)
+                            (let ((factor (m/ (m*-tn Dphi (m* resistance Dphi)))))
+                              (gemm! weight (m* (aref shape-grads j) factor) (aref shape-grads i)
+                                     1.0 (mref matrix i j) :NT)))
+                        resistance-tensor)))
+                    (FL.ELLSYS::B
+                     (dbg :disc "Discretizing convection")
+                     (let ((velocity-tensor (evaluate coeff coeff-input)))
+                       (for-each-entry-and-key
+                        #'(lambda (velocity i j)
+                            (let ((convection-contribution
+                                   (m*-nt (m* (aref left-gradients i) (scal -1.0 velocity))
+                                          (aref right-vals j))))
+                              (when *upwinding*
+                                (scal! 2.0 (ensure-m-matrix-property convection-contribution)))
+                              (axpy! weight convection-contribution
+                                     (mref matrix i j))))
+                        velocity-tensor)))
+                    (FL.ELLSYS::C
+                     (dbg :disc "Discretizing non-conservative convection")
+                     (let ((velocity-tensor (evaluate coeff coeff-input)))
+                       (for-each-entry-and-key
+                        #'(lambda (velocity i j)
+                            (if *upwinding*
+                                (let ((contribution
+                                       (m* (aref left-vals i)
+                                           (transpose (m* (aref right-gradients j) velocity)))))
+                                  ;; enhancement factor for consistency
+                                  (axpy! (* 1.0
+                                            weight)
+                                         (ensure-m-matrix-property contribution)
+                                         (mref matrix i j)))
+                                (gemm! weight (aref left-vals i)
+                                       (m* (aref right-gradients j) velocity)
+                                       1.0 (mref matrix i j) :NT)))
+                        velocity-tensor)))
+                    (FL.ELLSYS::R
+                     (dbg :disc "Discretizing reaction")
+                     (let ((reaction-tensor (evaluate coeff coeff-input)))
+                       (for-each-entry-and-key
+                        #'(lambda (reaction i j)
+                            (unless (mzerop reaction)
+                              (when (standard-matrix-p reaction)
+                                (assert (= 1 (nrows reaction) (ncols reaction)))
+                                (setq reaction (vref reaction 0)))
+                              (gemm! (* weight reaction) (aref left-vals i) (aref right-vals j)
+                                     1.0 (mref matrix i j) :NT)))
+                        reaction-tensor)))))
+                  (when rhs
+                    (case name
+                      (FL.ELLSYS::F
+                       (dbg :disc "Discretizing standard source")
+                       (let ((source-vector (evaluate coeff coeff-input)))
+                         (for-each-entry-and-key
+                          #'(lambda (source k)
+                              (gemm! weight (aref left-vals k) (ensure-matlisp source)
+                                     1.0 (aref rhs k)))
+                          source-vector)))
+                      (FL.ELLSYS::G
+                       (dbg :disc "Discretizing g-source")
+                       (let ((g-source-vector (evaluate coeff coeff-input)))
+                         (for-each-entry-and-key
+                          #'(lambda (g-source k)
+                              (gemm! weight (aref left-gradients k) g-source
+                                     1.0 (aref rhs k)))
+                          g-source-vector)))
+                      (FL.ELLSYS::H
+                       (dbg :disc "Discretizing h-source")
+                       (let ((diff-tensor (evaluate (get-coefficient coeffs 'FL.ELLSYS::A) coeff-input))
+                             (gamma (evaluate coeff coeff-input)))
+                         (for-each-entry-and-key
+                          #'(lambda (diffusion i j)
+                              (gemm! weight (m* (aref left-gradients j) diffusion) (aref gamma j)
+                                     1.0 (aref rhs i)))
+                          diff-tensor)))))
+                )
+           (when mass-matrix
+             (dbg :disc "Discretizing mass matrix")
+             (loop for i from 0 and vals across shape-vals do
+                  (gemm! weight vals vals 1.0 (mref mass-matrix i i) :NT)))
+                ))
     ;; nonstandard rhs (outside of ip loop)
     (whereas ((fe-rhs-function (and rhs (get-coefficient coeffs 'FL.ELLSYS::FE-RHS))))
-      (m+! (evaluate fe-rhs-function (list :cell cell :fe vecfe :geometry fe-geometry))
-	   rhs))
+             (m+! (evaluate fe-rhs-function (list :cell cell :fe vecfe :geometry fe-geometry))
+                  rhs))
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -264,6 +270,22 @@ documentation of the package @package{ELLSYS}."
       (time (discretize-elasticity 2 1 5))
     (fl.plot:plot (gesv matrix rhs) :component 0))
 
+  (let* ((dim 1) (levels 1) (order 1)
+         (problem (ellsys-model-problem
+                   dim '((u 1))
+                   :r (diagonal-sparse-tensor (vector #m(1.0)))
+                   :f (lambda (x)
+                        (vector (ensure-matlisp (float #I"sin(2*pi*x[0])" 1.0))))))
+         (h-mesh (uniformly-refined-hierarchical-mesh (domain problem) levels))
+         (fe-class (lagrange-fe order :nr-comps 1))
+         (ansatz-space (make-fe-ansatz-space fe-class problem h-mesh)))
+    (loop for i below 1000 do
+         (let ((rhs (make-ansatz-space-vector ansatz-space)))
+           (assemble-interior ansatz-space :level 1 :where :surface :rhs rhs)
+           (let ((val (fe-value rhs #d(0.5))))
+             (unless (mzerop val 1.0e-15)
+               (format t "~A ~A~%" (mzerop val 1.0e-15) val)
+               (error "Should not happen"))))))
   )
 
 ;;; (ellsys-fe-tests)

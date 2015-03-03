@@ -112,8 +112,6 @@ the amount of diffusion in each component."
   "Generates a rather general elliptic problem on the given domain."
   (when (numberp components)
     (setq components (list (list 'u components))))
-  (unless a
-    (warn "Note that the diffusion coefficient a is assumed to be zero."))
   (setq domain (ensure-domain domain))
   (unless dirichlet-p
     (setq dirichlet

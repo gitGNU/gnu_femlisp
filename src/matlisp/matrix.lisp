@@ -84,11 +84,11 @@
   (:documentation "Loop through row-keys and entries in col."))
 
 (defmacro dorows ((key mat) &body body)
-  "Syntax: @slisp{(dorows (key mat) ...)}."
+  "Syntax: @slisp{(dorows (key mat) ...)}"
   `(for-each-row-key (lambda (,key) ,@body) ,mat))
 
 (defmacro docols ((key mat) &body body)
-  "Syntax: @slisp{(docols (key mat) ...)}."
+  "Syntax: @slisp{(docols (key mat) ...)}"
   `(for-each-col-key (lambda (,key) ,@body) ,mat))
 
 (defmacro dorow ((loop-vars mat row) &body body)

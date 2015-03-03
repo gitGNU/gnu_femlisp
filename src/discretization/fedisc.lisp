@@ -106,7 +106,7 @@ on for implementing matrixless computations."))
               :local-mass-mat local-mass-mat)))))
 
 (defun assemble-interior (ansatz-space &key level (where :surface)
-			  matrix mass-matrix rhs)
+                                         matrix mass-matrix rhs)
   "Assemble the interior, i.e. ignore constraints arising from boundaries
 and hanging nodes.  Discretization is done using the ansatz space
 @arg{ansatz-space} on level @arg{level}.  The level argument will usually
@@ -121,8 +121,8 @@ taken into account within this routine.
 In general, this function does most of the assembly work.  Other steps like
 handling constraints are intricate, but usually of lower computational
 complexity."
-  (with-workers
-      ((lambda (cell)
+  (flet
+      ((work-on (cell)
          (destructuring-bind (&key local-mat local-rhs local-mass-mat)
              (assemble-cell cell ansatz-space :matrix matrix :rhs rhs
                             :mass-matrix mass-matrix)
@@ -142,7 +142,6 @@ complexity."
                 (:surface (not (refined-p cell h-mesh)))
                 (:all t))
           (work-on cell))))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Assembly of full problem

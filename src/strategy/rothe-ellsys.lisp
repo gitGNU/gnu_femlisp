@@ -97,48 +97,57 @@ method."
      (ellsys-time-step-coefficients
       rothe (coefficients-of-patch patch problem)))))
 
-(defvar *u_1/4-observe*
-  (list (format nil "~19@A" "u(midpoint)") "~19,10,2E"
+(defun point-observe (position &optional check)
+  (list (format nil "~19@A" (format nil "u(~f)" position))
+        "~19,10,2E"
 	#'(lambda (blackboard)
 	    (let* ((sol (getbb blackboard :solution))
 		   (dim (dimension (mesh (ansatz-space sol))))
-		   (val (fe-value sol (make-double-vec dim 0.25))))
-	      (vref (aref val 0) 0)))))
+		   (val (fe-value sol (make-double-vec dim position)))
+                   (stripped-val (vref (aref val 0) 0)))
+              (when check (assert (mzerop stripped-val 1.0e-14)))
+              stripped-val))))
+
+(defparameter *u_1/4-observe* (point-observe 0.25))
 
 (defun test-rothe-ellsys ()
+  
   ;; the same test as in rothe-cdr
-  (let* ((dim 1) (levels 1) (order 4) (end-time 0.1) (steps 64)
-	 (problem (ellsys-model-problem
-		   dim '((u 1))
-		   :initial (lambda (x)
-                              (vector (ensure-matlisp
-                                       (float #I(sin(2*pi*x[0])) 1.0))))
-		   :sigma (diagonal-sparse-tensor (vector (eye 1)))
-		   :a (isotropic-diffusion 1 1.0)
-		   :r (diagonal-sparse-tensor (vector #m(0.0)))
-		   :f (vector #m(0.0))
-		   :dirichlet (constraint-coefficient 1 1)))
-	 (rothe (make-instance
-		 '<rothe> :model-time 0.0 :time-step (/ end-time steps)
-		 :stationary-success-if `(> :nr-levels ,levels)
-		 :success-if `(>= :step ,steps)
-		 :output t :plot t
-		 :observe (append *rothe-observe* (list *u_1/4-observe*)))))
-    ;;(time-step-problem rothe problem)
-    (let ((result
-	   (iterate
-	    rothe
-	    (blackboard
-	     :problem problem :fe-class (lagrange-fe order :nr-comps 1)
-	     :plot-mesh nil :output :all
-	     ))))
-      ;; the correct value is #I(exp(-0.1*4*pi*pi))=0.019296302911016777
-      ;; but implicit Euler is extremely bad
-      (assert (< (abs (- 2.1669732216e-02  ; value computed by CMUCL
-			 (vref (aref (fe-value (getbb result :solution) #d(0.25))
-				     0) 0)))
-		 1.0e-12))
-      ))
+  (time
+   (loop for i below 20 do
+        (print i)
+        (let* ((dim 1) (levels 1) (order 4) (end-time 0.1) (steps 64)
+               (problem (ellsys-model-problem
+                         dim '((u 1))
+                         :initial (lambda (x)
+                                    (vector (ensure-matlisp
+                                             (float #I(sin(2*pi*x[0])) 1.0))))
+                         :sigma (diagonal-sparse-tensor (vector (eye 1)))
+                         :a (isotropic-diffusion 1 1.0)
+                         :r (diagonal-sparse-tensor (vector #m(0.0)))
+                         :f (vector #m(0.0))
+                         :dirichlet (constraint-coefficient 1 1)))
+               (rothe (make-instance
+                       '<rothe> :model-time 0.0 :time-step (/ end-time steps)
+                       :stationary-success-if `(> :nr-levels ,levels)
+                       :success-if `(>= :step ,steps)
+                       :output t :plot t
+                       :observe (append *rothe-observe* (list (point-observe 0.5 t))))))
+          ;;(time-step-problem rothe problem)
+          (let ((result
+                 (iterate
+                  rothe
+                  (blackboard
+                   :problem problem :fe-class (lagrange-fe order :nr-comps 1)
+                   :plot-mesh nil :output :all
+                   ))))
+            ;; the correct value is exp(-0.1*4*pi*pi)=0.019296302911016777
+            ;; but implicit Euler is extremely bad
+            (assert (< (abs (- 2.1669732216e-02  ; value computed by CMUCL for end-time=0.1 and 64 steps
+         		 (vref (aref (fe-value (getbb result :solution) #d(0.25))
+         			     0) 0)))
+         	 1.0e-12))
+      ))))
   )
 
 ;;; (test-rothe-ellsys)

@@ -424,6 +424,13 @@ masters."
 	 (x (make-ansatz-space-vector ansatz-space))
 	 (I (interpolation-matrix ansatz-space))
 	 (P (projection-matrix ansatz-space)))
+    (time
+     (with-workers ((lambda (k)
+                      (with-mutual-exclusion (x)
+                        (sleep 1.0)
+                        k)))
+       (work-on 1)
+       (work-on 2)))
     (doskel (cell mesh) (print (vref x cell)))
     (set-lagrange-ansatz-space-vector
      x #'(lambda (coord) #I"coord[0]*(1.0-coord[0])"))

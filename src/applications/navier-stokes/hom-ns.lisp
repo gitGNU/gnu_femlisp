@@ -200,6 +200,7 @@ Parameters: order=~D, max-levels=~D~%~%"
   (stokes-darcy-demo
    (ns-hole-cell-problem 2)
    :order 3 :levels 2 :store-p t :plot nil :delta 1 :output :all)
+  (plot (getbb *result* :solution))
   (let ((tensor (permeability-tensor *result*)))
     (assert (< (abs (- (mref tensor 0 0) 0.019)) 1e-3)))
   )

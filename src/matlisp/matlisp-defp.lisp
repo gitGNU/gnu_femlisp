@@ -33,7 +33,7 @@
 (in-package :cl-user)
 
 (defpackage "FL.MATLISP"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MULTIPROCESSING" "FL.DEBUG"
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.PARALLEL" "FL.DEBUG"
         "FL.LAPACK")
   (:export
    ;; Matlisp symbols

@@ -97,10 +97,9 @@
         (setf (mref D k k) D_kk)	; store D
         (remove-key U k k)		; clean U
         (let ((col-k (matrix-column U k))
-              (row-k (matrix-row U k))
-              (*number-of-threads* 2))
-          (with-workers
-              ((lambda (i)
+              (row-k (matrix-row U k)))
+          (flet
+              ((work-on (i)
                  (let ((factor (mref L i k))
                        (row-i (matrix-row U i)))
                    (when row-k
@@ -443,10 +442,11 @@ associated with each key."
     (display (diagonal (sparse-ldu A)))
     (display (upper-right (sparse-ldu A)))
     (ordering (sparse-ldu A))
-    (let ((rhs (make-instance '<ht-sparse-vector> :key->size (constantly 2))))
+    (let ((rhs (make-instance '<ht-sparse-vector>)))
       (setf (vref rhs 0) #m((1.0) (2.0)))
       (setf (vref rhs 1) #m((3.0) (4.0)))
       (show rhs)
+      (show (copy rhs))
       (mzerop (m- (m* A (getrs (sparse-ldu A) rhs)) rhs) 1.0e-15)
       (gesv! A rhs)
       (show rhs)
@@ -464,5 +464,4 @@ associated with each key."
       (unless (mequalp m1 m2)
 	(mat-diff m1 m2)
 	(error "Not equal"))))
-  
   )

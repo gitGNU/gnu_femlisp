@@ -551,7 +551,7 @@ isometrically to @math{S^1}."
 	 (df (sparse-real-derivative f)))
     (show (funcall f 1.0 1.0))
     (show (funcall df 1.0 1.0)))
-  (ensure-matlisp (m*-product-instance (eye 1) #d(0.0)) t)
+  (ensure-matlisp (m*-product-instance (eye 1) #d(0.0)))
 
   (let ((project (project-to-sphere #d(0.5 0.5) 0.5)))
     (evaluate project #d(2.0 0.5))

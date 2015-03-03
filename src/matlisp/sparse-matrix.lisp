@@ -83,7 +83,7 @@
                   :type function :documentation
 		  "Function determining the pattern of a block.")))
 
-;;; also fl.multiprocessing::locked-region-mixin can be included here
+;;; also fl.parallel:locked-region-mixin can be included here
 
 (defmethod make-analog ((smat <block-definition-mixin>))
   (copy-slots (call-next-method) smat
@@ -765,7 +765,7 @@ problem."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <ht-sparse-matrix>
-    (fl.multiprocessing:locked-region-mixin <sparse-dictionary-matrix>)
+    (locked-region-mixin <sparse-dictionary-matrix>)
   ((row-table :accessor row-table :initarg :row-table
 	      :initform (make-hash-table) :type hash-table
 	      :documentation "Table of rows.")
@@ -780,7 +780,7 @@ indexed by general keys."))
      &key (type '(<block-definition-mixin> <ht-sparse-matrix>))
      &allow-other-keys)
   (apply #'fl.amop::make-programmatic-instance type
-                        (sans args '(:type))))
+         (sans args '(:type))))
 
 (defmethod (setf matrix-block) (value (smat <ht-sparse-matrix>) row-key col-key)
   (with-mutual-exclusion (smat)

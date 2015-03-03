@@ -249,7 +249,7 @@ Parameters: order=~D, levels=~D~%~%"
      
 (defun test-homogenization-elasticity ()
   (time (elasticity-interior-effective-coeff-demo
-	 (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2)) :order 3 :levels 1))
+	 (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2)) :order 3 :levels 2))
   ;;(profile:report-time)
   ;;(profile:profile :methods 'fl.matlisp:sparse-matrix->matlisp)
   ;;(profile:unprofile)
@@ -268,7 +268,7 @@ Parameters: order=~D, levels=~D~%~%"
 
   (isotropic-elasticity-tensor :dim 2 :lambda 100 :mu 100)
 
-  (plot (getbb *result* :solution) :component 1 :index 0)
+  (plot (getbb *result* :solution) :component 0 :index 1)
   
   )
 

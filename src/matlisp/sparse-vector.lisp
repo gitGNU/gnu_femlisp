@@ -71,7 +71,7 @@ and solutions simultaneously."))
   (:documentation "A mixin which is not used up to now, because the same
   functionality is provided using information from the ansatz-space."))
 
-;;; also fl.multiprocessing::locked-region-mixin can be included here
+;;; also fl.parallel::locked-region-mixin can be included here
 
 (defgeneric vector-block (svec key)
   (:documentation "Low-level key lookup.  Returns NIL if there is no block at
@@ -296,11 +296,18 @@ and solutions simultaneously."))
   (destructuring-bind (key) indices
     (dic-remove key (blocks svec))))
 
+#+(or)  ; Wrong!  We want a deep copy!
+(defmethod copy ((svec <sparse-dictionary-vector>))
+  (lret ((result (make-analog svec)))
+    (for-each-entry-and-key (lambda (value key)
+                              (setf (vref result key) value))
+                            svec)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <ht-sparse-vector>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass <ht-sparse-vector> (<sparse-dictionary-vector>)
+(defclass <ht-sparse-vector> (locked-region-mixin <sparse-dictionary-vector>)
   ((blocks :reader blocks :initform (make-hash-table :test #'eq)
            :type hash-table
 	   :documentation "Table of blocks."))
@@ -324,6 +331,18 @@ and solutions simultaneously."))
 	   (z (make-sparse-vector :key->size #'constantly-1 :multiplicity 2)))
       (setf (vref x 1) #m((1.0)))
       (setf (vref y 1) #m((1.0)))
+      (vref x 2)
+      ;; a parallelization test
+      (time
+       (with-workers ((lambda (i)
+                        (with-region (x (list i))
+                          (loop repeat 10 do
+                               (scal! 2.0 (vref x i))
+                               (sleep 0.1)))))
+         (work-on 1)
+         (work-on 1)
+         (work-on 2)
+         ))
       (copy! y x)
       (assert (= (mref (vref x 1) 0 0) (mref (vref y 1) 0 0)))
       (x<-0 x)
@@ -336,7 +355,8 @@ and solutions simultaneously."))
       (mextract! y z nil 1)
       (show x)
       (show z)
-      (show (join :horizontal x z))))
+      (show (join :horizontal x z))
+      ))
   )
 
 ;;; (test-sparse-vector)
