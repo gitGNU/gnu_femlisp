@@ -1,0 +1,8 @@
+detachtty
+external
+femlisp-html
+images
+meshes
+*~
+*.fasl
+semantic.cache
