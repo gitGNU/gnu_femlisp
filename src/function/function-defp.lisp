@@ -33,7 +33,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.FUNCTION"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP")
+  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DICTIONARY" "FL.MATLISP")
   (:export
    ;; from function.lisp
    "<FUNCTION>" "DOMAIN-DIMENSION" "IMAGE-DIMENSION"

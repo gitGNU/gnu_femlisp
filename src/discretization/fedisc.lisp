@@ -105,9 +105,10 @@ on for implementing matrixless computations."))
         (list :local-mat local-mat :local-rhs local-rhs
               :local-mass-mat local-mass-mat)))))
 
-(defun assemble-interior (ansatz-space &key level (where :surface)
-                                         matrix mass-matrix rhs)
-  "Assemble the interior, i.e. ignore constraints arising from boundaries
+(defgeneric assemble-interior (ansatz-space where
+                               &key level matrix mass-matrix rhs parallel-clustering &allow-other-keys)
+  (:documentation
+   "Assemble the interior, i.e. ignore constraints arising from boundaries
 and hanging nodes.  Discretization is done using the ansatz space
 @arg{ansatz-space} on level @arg{level}.  The level argument will usually
 be @code{NIL} when performing a global assembly, and be equal to some
@@ -120,28 +121,51 @@ taken into account within this routine.
 
 In general, this function does most of the assembly work.  Other steps like
 handling constraints are intricate, but usually of lower computational
-complexity."
-  (flet
-      ((work-on (cell)
-         (destructuring-bind (&key local-mat local-rhs local-mass-mat)
-             (assemble-cell cell ansatz-space :matrix matrix :rhs rhs
-                            :mass-matrix mass-matrix)
-           ;; accumulate to global matrix and rhs (if not nil)
-           (when (and rhs local-rhs)
-             (increment-global-by-local-vec cell rhs local-rhs))
-           (when (and matrix local-mat)
-             (increment-global-by-local-mat matrix local-mat cell))
-           (when (and mass-matrix local-mass-mat)
-             (increment-global-by-local-mat mass-matrix local-mass-mat cell)))))
-    ;; fill pipeline for workers
-    (let* ((h-mesh (hierarchical-mesh ansatz-space))
-           (level-skel (if level (cells-on-level h-mesh level) h-mesh)))
-      (doskel (cell level-skel)
+complexity.")
+  (:method ((as <ansatz-space>) (where symbol) &rest args &key level parallel-clustering &allow-other-keys)
+      (when parallel-clustering (assert (eq where :all)))
+    ;; generate list of cells for assembly
+    (let* ((cells ())
+           (h-mesh (hierarchical-mesh as))
+           (skel (if level
+                     (cells-on-level h-mesh (if parallel-clustering
+                                                (- level parallel-clustering)
+                                                level))
+                     h-mesh)))
+      (doskel (cell skel)
         (when (ecase where
                 (:refined (refined-p cell h-mesh))
                 (:surface (not (refined-p cell h-mesh)))
                 (:all t))
-          (work-on cell))))))
+          (push cell cells)))
+      (apply #'assemble-interior as cells args)))
+  (:method ((as <ansatz-space>) (where list) &key matrix mass-matrix rhs parallel-clustering &allow-other-keys)
+      (declare (ignorable parallel-clustering))
+    (flet ((work-on-cell (cell)
+             (dbg :disc-loop "Working on: ~A" cell)
+             (destructuring-bind (&key local-mat local-rhs local-mass-mat)
+                 (assemble-cell cell as :matrix matrix :rhs rhs
+                                        :mass-matrix mass-matrix)
+               ;; accumulate to global matrix and rhs (if not nil)
+               (when (and rhs local-rhs)
+                 (increment-global-by-local-vec cell rhs local-rhs))
+               (when (and matrix local-mat)
+                 (increment-global-by-local-mat matrix local-mat cell))
+               (when (and mass-matrix local-mass-mat)
+                 (increment-global-by-local-mat mass-matrix local-mass-mat cell)))))
+      (with-workers (#'work-on-cell)
+        (dolist (cell where)
+          (work-on cell)))
+      #+(or)(process-in-parallel (assembly-heap where)
+          (cell)
+        (let ((mesh (mesh as)))
+          (labels ((assemble-recursively (cell depth)
+                     (cond
+                       ((zerop depth) (work-on-cell cell))
+                       (t (loop for child across (children cell mesh) do
+                         (assemble-recursively child (1- depth)))))))
+            (assemble-recursively cell (or parallel-clustering 0))
+            ))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Assembly of full problem
@@ -164,9 +188,9 @@ of a nonlinear problem."
 		      :key #'ansatz-space))
       ;; interior assembly
       (assert (null cells) () "TBI: assembly on cells")
-      (assemble-interior ansatz-space :where :surface
-			 :matrix interior-matrix :rhs interior-rhs
-			 :mass-matrix interior-mass-matrix)
+      (assemble-interior ansatz-space :surface
+                         :matrix interior-matrix :rhs interior-rhs
+                         :mass-matrix interior-mass-matrix)
       (dbg-when :disc
 	(format t "Interior matrix:~%")
 	(show interior-matrix)
@@ -262,6 +286,34 @@ finite elments given by @arg{fe-class}."
   (whereas ((mesh (getbb blackboard :mesh))) 
     (setf (getbb blackboard :ansatz-space)
 	  (make-fe-ansatz-space fedisc problem mesh))
-    (fe-discretize blackboard))
+    (return-from discretize (fe-discretize blackboard)))
   (error "You have to provide either an ansatz-space or a mesh in the
 blackboard."))
+
+(defun test-fedisc ()
+  (let* (;lparallel:*kernel*
+         (dim 2) (order 5) (level 6)
+         (fe (lagrange-fe order))
+         (domain (n-cube-domain dim))
+         (problem (cdr-model-problem domain :dirichlet nil))
+         (mesh (uniformly-refined-hierarchical-mesh domain level))
+         (as (make-fe-ansatz-space fe problem mesh))
+         (mat1 (make-ansatz-space-automorphism as))
+         (mat2 (make-ansatz-space-automorphism as)))
+    (time
+     (let (lparallel:*kernel*)
+       (assemble-interior as :all :level level :matrix mat1)))
+    ;; ensure matrix diagonal of mat2
+    (time
+     (doskel (cell (cells-on-level mesh level))
+       (let ((key (cell-key cell mesh)))
+         (when (entry-allowed-p mat2 key key)
+           (mref mat2 key key)))))
+    (time
+     (assemble-interior as :all :level level :matrix mat2 :parallel-clustering 3))
+    #+(or)
+    (let ((fl.matlisp:*mzerop-threshold* 1e-10))
+      (mat-diff mat1 mat2)))
+  ;;; (fl.parallel::new-kernel)
+  )
+

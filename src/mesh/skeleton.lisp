@@ -108,6 +108,23 @@ If properties are given those are used for @arg{cell}."
   (dolist (cell cells skel)
     (insert-cell! skel cell)))
 
+#+(or)
+(defgeneric remove-cells! (cell-container cells-to-remove)
+  (:documentation "Remove @arg{cells} from a cell container like <skeleton>,
+<mesh> or <hierarchical-mesh>.
+N.B.: Due to our choice of data structure, this is not a local operation with
+cost O(n) (n=number of cells to be removed) but O(N) (N=total number of cells).")
+  (:method (container (cells list))
+    (remove-cells! container (map-list-in-hash-table (constantly t) cells)))
+  (:method ((skel <skeleton>) (cells-to-remove hash-table))
+    (let ((modified-request-p nil))
+      (doskel (cell skel :direction :down)
+        (unless (gethash cell cells-to-remove)
+          (dovec (side (boundary cell))
+            (when (gethash side cells-to-remove)
+              (remhash side cells-to-remove)
+              (setf modified-request-p t))))))))
+
 ;;; further constructors
 (defun cells->skeleton (cells)
   (let ((skel (make-instance '<skeleton> :dimension
@@ -126,7 +143,7 @@ If properties are given those are used for @arg{cell}."
 
 ;;(defmethod dimension ((skel <skeleton>)) (1- (length (etables skel))))
 
-(defmethod skel-for-each (func (skel <skeleton>) &key direction dimension where with-properties)
+(defun skel-for-each (func skel &key direction dimension where with-properties)
   "Loops through a skeleton applying func.  When direction is :down then loops
 with dimension of the cells decreasing, otherwise increasing."
   (flet ((etable-for-each (etable)
@@ -369,24 +386,25 @@ have only one neighbor."
 boundaries of skeletons."
   (skel-empty-p (skeleton-boundary skel)))
 
-;;;; Testing:
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-skeleton ()
-  "Tests are done when initializing the classes."
-  (make-instance '<skeleton> :dimension -1)
-  (macroexpand-1 '(doskel (cell (skeleton *unit-interval*) :direction :down)
-		   (format t "~A~%" (corners cell))))
+(in-suite mesh-suite)
+
+(test skeleton
+  (is-true (make-instance '<skeleton> :dimension -1))
+  (is-true
+   (macroexpand-1 '(doskel (cell (skeleton *unit-interval*) :direction :down)
+                    (format t "~A~%" (corners cell)))))
   (let ((v1 (make-vertex #d(0.0)))
         (v2 (make-vertex #d(0.0 0.0)))
         (*check-well-defined-embedded-dimension* t))
     (let ((line (make-line v1 v2)))
-      (assert (= (embedded-dimension v1) 1))
-      (assert (null (embedded-dimension line))))
+      (is (= (embedded-dimension v1) 1))
+      (is (null (embedded-dimension line))))
     (let ((skel (make-instance '<skeleton> :dimension 0)))
       (insert-cells! skel (list v1 v2))
-      (assert (null (embedded-dimension skel)))))
+      (is (null (embedded-dimension skel)))))
   )
-
-;;; (test-skeleton)
-(fl.tests:adjoin-test 'test-skeleton)
 

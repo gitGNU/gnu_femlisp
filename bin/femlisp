@@ -1,8 +1,10 @@
 #!/bin/sh
 #PBS -l nodes=1:ppn=2,mem=2gb
 
+set -x
+
 if test -z "$FEMLISP_CL"; then
-    FEMLISP_CL=/usr/bin/sbcl
+    FEMLISP_CL=/usr/local/bin/sbcl
 fi
 
 if test -z "$FEMLISP_CL_TYPE"; then

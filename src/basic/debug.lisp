@@ -49,7 +49,8 @@ slightly modified version of the debugging suite proposed in @cite{(Norvig
 
 (defun dbg-p (id)
   "Returns T if @arg{id} is in the debug list, NIL otherwise."
-  (member id *dbg-ids*))
+  (or (member t *dbg-ids*)
+      (member id *dbg-ids*)))
 
 (defun dbg-on (&rest ids)
   "Register ids for dbg."
@@ -62,7 +63,7 @@ altogether."
 
 (defmacro dbg-when (id &body body)
   "Perform a check only if debugging @arg{id}."
-  `(when (member ,id *dbg-ids*)
+  `(when (dbg-p ,id)
     ,@body))
 
 (defgeneric dbg (id format-string &rest args)
@@ -97,3 +98,4 @@ by @arg{indent}.")
       (force-output *debug-io*))))
 
 ;;;; Testing
+

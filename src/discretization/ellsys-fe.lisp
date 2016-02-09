@@ -281,7 +281,7 @@ documentation of the package @package{ELLSYS}."
          (ansatz-space (make-fe-ansatz-space fe-class problem h-mesh)))
     (loop for i below 1000 do
          (let ((rhs (make-ansatz-space-vector ansatz-space)))
-           (assemble-interior ansatz-space :level 1 :where :surface :rhs rhs)
+           (assemble-interior ansatz-space :surface :level 1 :rhs rhs)
            (let ((val (fe-value rhs #d(0.5))))
              (unless (mzerop val 1.0e-15)
                (format t "~A ~A~%" (mzerop val 1.0e-15) val)

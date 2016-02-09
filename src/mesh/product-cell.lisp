@@ -333,7 +333,8 @@ boundary paths."
 	 (class (find-class class-name nil)))
     (cond (class (if mapped (mapped-cell-class class distorted) class))
 	  (t
-	   (let ((class (eval `(defclass ,class-name (<product-cell> <standard-cell>) ()))))
+	   (let ((class (eval `(defclass ,class-name (<product-cell> <standard-cell>)
+                                 (,+per-class-allocation-slot+)))))
 	      (let ((refcell (make-reference-product-cell factor-dims)))
 		(initialize-cell-class
 		 refcell (mapcar #'ensure-simplex factor-dims)))
@@ -399,34 +400,36 @@ factors."
 (defparameter *unit-prism-2-1* (ensure-simplex-product '(2 1)))
 
 
-;;;; Testing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-product-cell ()
-  (n-cube 4)
-  (ensure-simplex-product '(3 1))
-  (ensure-simplex-product '(2 2))
-  (ensure-simplex-product '(1 3))
-  (describe *unit-quadrangle*)
-  (= 0.5 (aref (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #d(0.5 0.5)) 0))
-  (describe (skeleton *unit-quadrangle*))
-  (describe (refcell-refinement-skeleton *unit-quadrangle* 1))
-  (refine-info *unit-cube*)
-  (refcell-refinement-skeleton *unit-cube* 1)
-  (describe (skeleton *unit-cube*))
-  ;;
-  (let ((child (aref (refine-info *unit-cube*) 8)))
-    (format t "{D=~A} ~A :  ~A ~%"
-	    (dimension (child-reference-cell child))
-	    (child-barycentric-corners child)
-	    (child-boundary-paths child)))
-  (skeleton *unit-quadrangle*)
-  (refine (skeleton *unit-cube*))
-  (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #d(0.5 0.5))
-  (describe (refine (skeleton *unit-cube*)))
-  (inside-cell? *unit-quadrangle* #d(0.0 0.0))
+(in-suite mesh-suite)
+
+(test product-cell
+  (is (= 0.5 (aref (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #d(0.5 0.5)) 0)))
+  (is-true (inside-cell? *unit-quadrangle* #d(0.0 0.0)))
   ;; should be exactly zero since no rounding errors should occur
-  (assert (zerop (- (sqrt 3.0) (diameter (n-cube 3)))))
+  (is-true (zerop (- (sqrt 3.0) (diameter (n-cube 3)))))
+  (finishes
+    (n-cube 4)
+    (ensure-simplex-product '(3 1))
+    (ensure-simplex-product '(2 2))
+    (ensure-simplex-product '(1 3))
+    (describe *unit-quadrangle*)
+    (describe (skeleton *unit-quadrangle*))
+    (describe (refcell-refinement-skeleton *unit-quadrangle* 1))
+    (refine-info *unit-cube*)
+    (refcell-refinement-skeleton *unit-cube* 1)
+    (describe (skeleton *unit-cube*))
+    ;;
+    (let ((child (aref (refine-info *unit-cube*) 8)))
+      (format t "{D=~A} ~A :  ~A ~%"
+              (dimension (child-reference-cell child))
+              (child-barycentric-corners child)
+              (child-boundary-paths child)))
+    (skeleton *unit-quadrangle*)
+    (refine (skeleton *unit-cube*))
+    (global->embedded-local (aref (boundary *unit-quadrangle*) 0) #d(0.5 0.5))
+    (describe (refine (skeleton *unit-cube*))))
   )
-
-;;; (test-product-cell)
-(fl.tests:adjoin-test 'test-product-cell)

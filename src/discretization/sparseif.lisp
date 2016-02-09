@@ -53,15 +53,37 @@
 
 (defun make-local-mat (as1 cell1 &optional (as2 as1) (cell2 cell1))
   "Generates a local matrix discretization for the given ansatz-space(s)."
-  (let* ((fe-1 (get-fe as1 cell1))
-	 (fe-2 (get-fe as2 cell2))
-	 (comps-1 (components fe-1))
-	 (comps-2 (components fe-2)))
-    (make-filled-array
-     (list (length comps-1) (length comps-2))
-     :initializer (lambda (i j)
-                    (make-real-matrix (nr-of-dofs (aref comps-1 i))
-                                      (nr-of-dofs (aref comps-2 j)))))))
+  (let ((fe-1 (get-fe as1 cell1))
+        (fe-2 (get-fe as2 cell2)))
+    (lret ((result
+            (let ((comps-1 (components fe-1))
+                  (comps-2 (components fe-2)))
+              (make-filled-array
+               (list (length comps-1) (length comps-2))
+               :initializer (lambda (i j)
+                              (make-real-matrix (nr-of-dofs (aref comps-1 i))
+                                                (nr-of-dofs (aref comps-2 j))))))))
+      (array-for-each #'x<-0 result))))
+
+#+(or)
+(let ((pool (fl.parallel::thread-local-memoization-pool)))
+  (defun make-local-mat (as1 cell1 &optional (as2 as1) (cell2 cell1))
+    "Generates a local matrix discretization for the given ansatz-space(s)."
+    (let ((fe-1 (get-fe as1 cell1))
+          (fe-2 (get-fe as2 cell2)))
+      (lret ((result
+              (fl.parallel::thread-local-memoize
+               pool
+               (lambda (fe-1 fe-2)
+                 (let ((comps-1 (components fe-1))
+                       (comps-2 (components fe-2)))
+                   (make-filled-array
+                    (list (length comps-1) (length comps-2))
+                    :initializer (lambda (i j)
+                                   (make-real-matrix (nr-of-dofs (aref comps-1 i))
+                                                     (nr-of-dofs (aref comps-2 j)))))))
+               (list fe-1 fe-2))))
+        (array-for-each (lambda (mat) (x<-0 mat)) result)))))
 
 ;;; transfer between local and global vector
 
@@ -125,27 +147,41 @@ form vblock/in-vblock-index and the access information to the local matrix
 in the form component-index/in-component-index is computed."
     (memoizing-let ((fe fe))
       (let* ((nr-dofs (reduce #'+ (components fe) :key #'nr-of-dofs))
-	     (nr-subcells (length (subcells (reference-cell fe)))) 
+	     (nr-subcells (length (subcells (reference-cell fe))))
+             (nr-components (nr-of-components fe))
 	     (component-index (make-array nr-dofs))
 	     (in-component-index (make-array nr-dofs))
 	     (vblock-index (make-array nr-dofs))
 	     (in-vblock-index (make-array nr-dofs))
 	     (in-vblock-pos (make-array nr-subcells :initial-element 0))
+	     (in-local-start (make-array (list nr-components (1+ nr-subcells)) :initial-element -1))
+	     (in-global-start (make-array (list nr-components nr-subcells) :initial-element -1))
 	     (k 0))
-	(loop+ ((scalar-fe (components fe)) comp) do
-	       (loop+ (in-comp (dof (fe-dofs scalar-fe))) do
-		      (let ((sci (dof-subcell-index dof)))
-			(setf (aref component-index k) comp
-			      (aref in-component-index k) in-comp
-			      (aref vblock-index k) sci
-			      (aref in-vblock-index k) (aref in-vblock-pos sci)
-			      k (1+ k))
-			(incf (aref in-vblock-pos sci))
-			)))
+	(loop+ ((scalar-fe (components fe))
+                comp)
+          do
+          (loop
+            for dof across (fe-dofs scalar-fe)
+            and in-comp from 0 do
+            (let ((sci (dof-subcell-index dof)))
+              (when (minusp (aref in-local-start comp sci))
+                (setf (aref in-local-start comp sci)
+                      in-comp)
+                (setf (aref in-global-start comp sci)
+                      (aref in-vblock-pos sci)))
+              (setf (aref component-index k) comp
+                    (aref in-component-index k) in-comp
+                    (aref vblock-index k) sci
+                    (aref in-vblock-index k) (aref in-vblock-pos sci)
+                    k (1+ k))
+              (incf (aref in-vblock-pos sci)))
+            finally (setf (aref in-local-start comp nr-subcells)
+                          (1+ in-comp))))
 	(assert (= k nr-dofs))  ; consistency check
 	(list :nr-of-components (nr-of-components fe) :nr-dofs nr-dofs
 	      :component-index component-index :in-component-index in-component-index
-	      :vblock-index vblock-index :in-vblock-index in-vblock-index)))))
+	      :vblock-index vblock-index :in-vblock-index in-vblock-index
+              :in-local-start in-local-start :in-global-start in-global-start)))))
 
 (with-memoization (:type :global :test 'equalp)
   (defun fe-extraction-information (fe indices)
@@ -174,8 +210,8 @@ in the form component-index/in-component-index is computed."
         (fe-secondary-information fe)
       (let* ((mesh (mesh svec))
              (keys (vector-map (rcurry #'cell-key mesh) (subcells cell))))
-        ;;(with-mutual-exclusion (svec)
-        (with-region (svec keys)
+        (with-mutual-exclusion (svec)
+        ;;(with-region (svec keys)
           (let ((vblocks (extract-value-blocks svec keys))
                 (multiplicity (multiplicity svec)))
             (dotimes (i nr-dofs)
@@ -250,57 +286,96 @@ value arrays corresponding to the finite element."
 
 (defmethod global-local-matrix-operation ((smat <ansatz-space-automorphism>) local-mat
                                           (image-cell <cell>) (domain-cell <cell>)
-                                          operation &key
-                                          (image-subcells t) (domain-subcells t))
+                                          operation
+                                          &key (image-subcells t) (domain-subcells t))
   (declare (optimize debug))
   (let ((domain-fe (get-fe (domain-ansatz-space smat) domain-cell))
 	(image-fe (get-fe (image-ansatz-space smat) image-cell)))
     (destructuring-bind
-	  (&key ((:nr-dofs nr-dofs-1))
-		((:component-index component-index-1)) ((:in-component-index in-component-index-1))
-		((:vblock-index vblock-index-1)) ((:in-vblock-index in-vblock-index-1))
-		&allow-other-keys)
+        (&key
+           ;; ((:nr-dofs nr-dofs-1))
+           ;; ((:component-index component-index-1)) ((:in-component-index in-component-index-1))
+           ;; ((:vblock-index vblock-index-1)) ((:in-vblock-index in-vblock-index-1))
+           ((:in-local-start in-local-start-1)) ((:in-global-start in-global-start-1))
+         &allow-other-keys)
 	(fe-secondary-information image-fe)
       (destructuring-bind
-	    (&key ((:nr-dofs nr-dofs-2))
-		  ((:component-index component-index-2)) ((:in-component-index in-component-index-2))
-		  ((:vblock-index vblock-index-2)) ((:in-vblock-index in-vblock-index-2))
-		  &allow-other-keys)
+          (&key
+             ;; ((:nr-dofs nr-dofs-2))
+             ;; ((:component-index component-index-2)) ((:in-component-index in-component-index-2))
+             ;; ((:vblock-index vblock-index-2)) ((:in-vblock-index in-vblock-index-2))
+             ((:in-local-start in-local-start-2)) ((:in-global-start in-global-start-2))
+           &allow-other-keys)
 	  (fe-secondary-information domain-fe)
 	(let* ((mesh (mesh smat))
 	       (row-keys
-                (if image-subcells
-                    (map 'list (rcurry #'cell-key mesh) (subcells image-cell))
-                    (list (cell-key image-cell mesh))))
+                 (if image-subcells
+                     (map 'list (rcurry #'cell-key mesh) (subcells image-cell))
+                     (list (cell-key image-cell mesh))))
                (col-keys
-                (if domain-subcells
-                    (map 'list (rcurry #'cell-key mesh) (subcells domain-cell))
-                    (list (cell-key domain-cell mesh)))))
-	  ;;(with-mutual-exclusion (smat)
-          (with-region (smat (map-product #'cons row-keys col-keys))
-	    (let ((mblocks (extract-value-blocks smat row-keys col-keys)))
-	      (dotimes (i nr-dofs-1)
-		(let ((comp-1 (aref component-index-1 i))
-		      (in-comp-1 (aref in-component-index-1 i))
-		      (vblock-index-1 (aref vblock-index-1 i))
-		      (in-vblock-index-1 (aref in-vblock-index-1 i)))
-                  (when (or image-subcells (zerop vblock-index-1))
-                    (dotimes (j nr-dofs-2)
-                      (let ((comp-2 (aref component-index-2 j))
-                            (in-comp-2 (aref in-component-index-2 j))
-                            (vblock-index-2 (aref vblock-index-2 j))
-                            (in-vblock-index-2 (aref in-vblock-index-2 j)))
-                        (when (or domain-subcells (zerop vblock-index-2))
-                          (symbol-macrolet
-                              ((local (mref (mref local-mat comp-1 comp-2)
-                                            in-comp-1 in-comp-2))
-                               (global (mref (aref mblocks vblock-index-1 vblock-index-2)
-                                             in-vblock-index-1 in-vblock-index-2)))
-                            (ecase operation
-                              (:local<-global (setq local global))
-                              (:global<-local (setq global local))
-                              (:global+=local (incf global local))
-                              (:global-=local (decf global local)))))))))))))))))
+                 (if domain-subcells
+                     (map 'list (rcurry #'cell-key mesh) (subcells domain-cell))
+                     (list (cell-key domain-cell mesh)))))
+          (let* ((mblocks (progn ; with-mutual-exclusion (smat)
+                            (extract-value-blocks smat row-keys col-keys)))
+                 #+(or)(keys
+                         (loop for rk in row-keys
+                               and i from 0 nconcing
+                                            (loop for ck in col-keys and j from 0
+                                                  when (aref mblocks i j)
+                                                    collect (cons rk ck)))))
+            ;;            (with-region (smat keys)
+
+            ;; alte Version
+            #+(or)
+            (dotimes (i nr-dofs-1)
+               (let ((comp-1 (aref component-index-1 i))
+                     (in-comp-1 (aref in-component-index-1 i))
+                     (vblock-index-1 (aref vblock-index-1 i))
+                     (in-vblock-index-1 (aref in-vblock-index-1 i)))
+                 (when (or image-subcells (zerop vblock-index-1))
+                   (dotimes (j nr-dofs-2)
+                     (let ((comp-2 (aref component-index-2 j))
+                           (in-comp-2 (aref in-component-index-2 j))
+                           (vblock-index-2 (aref vblock-index-2 j))
+                           (in-vblock-index-2 (aref in-vblock-index-2 j)))
+                       (when (or domain-subcells (zerop vblock-index-2))
+                         (symbol-macrolet
+                             ((local (mref (mref local-mat comp-1 comp-2)
+                                           in-comp-1 in-comp-2))
+                              (global (mref (aref mblocks vblock-index-1 vblock-index-2)
+                                            in-vblock-index-1 in-vblock-index-2)))
+                           (ecase operation
+                             (:local<-global (setq local global))
+                             (:global<-local (setq global local))
+                             (:global+=local (incf global local))
+                             (:global-=local (decf global local))))))))))
+            ;; neue Version
+            (let ((operation
+                    (ecase operation
+                      (:local<-global #'fl.matlisp::matop-x<-y!)
+                      (:global<-local #'fl.matlisp::matop-x->y!)
+                      (:global+=local #'fl.matlisp::matop-y+=x!)
+                      (:global-=local #'fl.matlisp::matop-y-=x!))))
+              (loop
+                for vblock-index-1 below (length row-keys) do
+                  (loop
+                    for vblock-index-2 below (length col-keys) do
+                      (whereas ((global-block (aref mblocks vblock-index-1 vblock-index-2)))
+                        (loop for comp1 below (nr-of-components image-fe) do
+                          (loop for comp2 below (nr-of-components domain-fe) do
+                            (whereas ((local-block (aref local-mat comp1 comp2)))
+                              (funcall
+                               operation
+                               local-block
+                               global-block
+                               (aref in-global-start-1 comp1 vblock-index-1)
+                               (aref in-global-start-2 comp2 vblock-index-2)
+                               (aref in-local-start-1 comp1 vblock-index-1)
+                               (aref in-local-start-2 comp2 vblock-index-2)
+                               (aref in-local-start-1 comp1 (1+ vblock-index-1))
+                               (aref in-local-start-2 comp2 (1+ vblock-index-2))))))))))
+            ))))))
 
 (defmethod fill-local-from-global-mat ((smat <sparse-matrix>) local-mat
                                        (cell <cell>) &optional (domain-cell cell))
@@ -326,6 +401,11 @@ value arrays corresponding to the finite element."
 
 ;;;; Testing
 (defun test-sparseif ()
+
+  (let* ((fe-class (lagrange-fe 5 :nr-comps 2))
+          (fe (get-fe fe-class (n-cube 2))))
+         ;;(nr-of-dofs (aref (components fe) 0))
+    (fe-secondary-information fe))
   )
 
 ;;; (test-sparseif)

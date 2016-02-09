@@ -33,7 +33,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.MESH"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
+  (:use "COMMON-LISP" "FIVEAM"
+        "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
+        "FL.DICTIONARY"
 	"FL.MATLISP" "FL.FUNCTION")
   (:export
    ;; cell.lisp
@@ -156,3 +158,11 @@ contrast to most other finite element software, in @femlisp{} the
 difference of refinement levels of adjacent cells may be arbitrarily large.
 Up to now, anisotropic refinement of product cells has not yet been
 implemented."))
+
+(in-package :fl.mesh)
+
+(def-suite mesh-suite
+  :description "Mesh test suite.")
+
+(in-suite mesh-suite)
+

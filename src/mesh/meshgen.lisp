@@ -216,29 +216,30 @@ midpoint."
                      (setf (skel-ref new-mesh new-cell) properties)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Testing:
+;;;; Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-meshgen ()
-  (uniform-mesh-on-box-domain (n-cube-domain 3) #(1 1 1))
-  (corners (n-cube 3))
-  (triangulize (make-mesh-from (n-cube-domain 2)))
-  (describe (uniformly-refined-mesh (n-simplex-domain 1) 1))
-  (describe (uniform-mesh-on-box-domain (n-cube-domain 2) #(2 2)))
-  (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-simplex-domain 1) 2)))
-    (refine h-mesh)
-    (loop repeat 1 do (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25))))
-    (describe (refinement-interface h-mesh)))
-  (check-identification (make-mesh-from (n-cell-domain 2)))
-  (describe (copy-skeleton (n-cell-domain 1)))
-  (describe (refine (make-mesh-from (n-cell-domain 1))))
-  (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-cell-domain 1) 1)))
-    (loop repeat 1 do (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25))))
-    (describe (refinement-interface h-mesh)))
-  (let* ((domain (n-ball-domain 2))
-	 (mesh (make-mesh-from domain)))
-    (describe mesh))
-  )
+(in-suite mesh-suite)
 
-;;; (test-meshgen)
-(fl.tests:adjoin-test 'test-meshgen)
+(test meshgen
+  (is (= 8 (length (corners (n-cube 3)))))
+  (finishes
+    (uniform-mesh-on-box-domain (n-cube-domain 3) #(1 1 1))
+    (triangulize (make-mesh-from (n-cube-domain 2)))
+    (describe (uniformly-refined-mesh (n-simplex-domain 1) 1))
+    (describe (uniform-mesh-on-box-domain (n-cube-domain 2) #(2 2)))
+    (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-simplex-domain 1) 2)))
+      (refine h-mesh)
+      (loop repeat 1 do (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25))))
+      (describe (refinement-interface h-mesh)))
+    (check-identification (make-mesh-from (n-cell-domain 2)))
+    (describe (copy-skeleton (n-cell-domain 1)))
+    (describe (refine (make-mesh-from (n-cell-domain 1))))
+    (let ((h-mesh (uniformly-refined-hierarchical-mesh (n-cell-domain 1) 1)))
+      (loop repeat 1 do (refine h-mesh :indicator (rcurry #'inside-cell? #d(0.25))))
+      (describe (refinement-interface h-mesh)))
+    (let* ((domain (n-ball-domain 2))
+           (mesh (make-mesh-from domain)))
+      (describe mesh))
+    )
+  )

@@ -66,6 +66,10 @@ test suite before a release."))
   "Adjoins a test to the Femlisp test suite."
   (pushnew fsym *tests*))
 
+(defun adjoin-test-suite (sym)
+  "Adjoins a fiveam test suite to the Femlisp test suite."
+  (pushnew (cons :fiveam sym) *tests* :test 'equal))
+
 (defmacro small-test (fsym &body body)
   "At the moment small tests are ignored.  One might think of collecting
 them when compiling a certain file."

@@ -171,9 +171,12 @@ future.  Cells are mapped to identified cells in the neighboring
 skeletons."))
 
 
-;;; Testing: (test-identify)
-(defun test-identify ()
-  ;; later 
-  )
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(fl.tests:adjoin-test 'test-identify)
+(in-suite mesh-suite)
+
+(test identify
+  ;;; nothing yet
+  )

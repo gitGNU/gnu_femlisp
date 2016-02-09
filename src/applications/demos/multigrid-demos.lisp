@@ -248,8 +248,8 @@ problem ~A.~%Parameters: dim=~D, order=~D, level=~D,~%"
   (smoother-performance-test :dim 1 :order 1 :smoother (geometric-psc))
   (smoother-performance-test :dim 1 :order 6 :smoother (geometric-ssc))
   (smoother-performance-test :dim 3 :order 4 :level 2 :simplex t :smoother (geometric-ssc))
-  (bpx-demo-computation (cdr-model-problem 2) 1 2 '<jacobi>)
-  (bpx-demo-computation (elasticity-model-problem 2) 1 4)
+  (bpx-demo-computation (cdr-model-problem 2) 1 5 '<jacobi>)
+  (time (bpx-demo-computation (elasticity-model-problem 3) 5 2))
   )
 
 ;;; (test-multigrid-demos)

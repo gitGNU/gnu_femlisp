@@ -111,9 +111,9 @@
                #+sb-cpu-affinity
                (let* ((proc (nth *worker-id* (get-processors)))
                       (id (pi-processor proc)))
-                 (with-cpu-affinity-mask (mask :save t)
-                   (clear-cpu-affinity-mask mask)
-                   (setf (cpu-affinity-p id mask) t)))
+                 (sb-cpu-affinity:with-cpu-affinity-mask (mask :save t)
+                   (sb-cpu-affinity:clear-cpu-affinity-mask mask)
+                   (setf (sb-cpu-affinity:cpu-affinity-p id mask) t)))
                ;; enter the worker loop; return when the worker shuts down
                (funcall worker-loop))))
       (end-kernel)
@@ -123,12 +123,15 @@
                                      (*thread-local-memoization-table* . nil))
                          :context #'my-worker-context)))))
 
+;;; start a pool of workers
+;;; (fl.parallel::new-kernel 2)
+
 (defun pwork (function &optional arguments)
   "Distribute a task to each lparallel worker and wait until all finish.
 Arguments may be a vector of size equal or smaller than (kernel-worker-count).
 All results are collected in a vector of the same size."
-  (let* ((*kernel* *kernel*)
-         (nr-workers (kernel-worker-count))
+  (ensure *kernel* (new-kernel))
+  (let* ((nr-workers (kernel-worker-count))
          (arguments (or arguments
                         (make-array nr-workers :initial-element nil)))
          ;; in case fewer arguments than threads have been provided
@@ -156,17 +159,81 @@ All results are collected in a vector of the same size."
        (setf (aref results id) result))
     results))
 
-;;; start new kernel
-(new-kernel)
-
 ;;; Avoids many debugger frames popping up, but eliminates
 ;;; debugging an error at the bottom level 
 (setq *debug-tasks-p* nil)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; parallel pools
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun thread-local-memoization-pool (&key (test 'equal))
+  (let ((n (if *kernel*
+               (kernel-worker-count)
+               1)))
+    (coerce (loop repeat n collect (make-hash-table :test test)) 'vector)))
+
+(defun thread-local-memoize (pool func args)
+  (let ((table (aref pool *worker-id*)))
+    (acond ((gethash args table)
+            (values it t))
+           (t (dbg :memoize "Memoizing for ~A" args)
+              (values (setf (gethash args table)
+                            (apply func args))
+                      nil)))))
+
 (defun test-femlisp-parallel ()
+  (get-cpuinfo)
+  (get-cachesize)
+  (get-processors-without-hyperthreading)
   (pwork (_ *worker-id*))
 
+  (time
+   (let* ((channel (make-channel))
+          (n 1000)
+          (result (make-array n))
+          (result-list ()))
+     (flet ((test (i)
+              (format t "Test: ~D~%" i)
+              (force-output t)
+              ;;(sleep 1.0)
+              (setf (aref result i)
+                    i)))
+       (flet ((test2 (&rest args)
+                (apply #'test args)))
+         (loop for i below n do
+           (submit-task channel #'test2 i))
+         (loop repeat n do
+           (push (receive-result channel) result-list))
+         (set-difference (coerce result 'list)
+                         result-list)
+         ))))
+
   (ignore-errors (pwork (lambda (x) (* x x)) #((1 2) (2))))
+  (flet ((f (x) (print (* x x))))
+    (let ((channel (make-channel)))
+      (loop for i below 10 do
+        (submit-task channel #'f i))))
+    
+  (pwork (lambda (x) (* x x)) #((1) (2)))
+  #+(or)
+  (let ((n 1000))
+    (let ((a1 (fl.matlisp:ones n))
+          (a2 (fl.matlisp:ones n))
+          (a3 (fl.matlisp:ones n))
+          (b1 (fl.matlisp:ones n))
+          (b2 (fl.matlisp:ones n))
+          (b3 (fl.matlisp:ones n)))
+      (time
+       (loop for (x y z) across
+             (vector (list a1 a2 a3) (list b1 b2 b3)) do
+          (fl.matlisp:gemm-tn! 1.0 x y 1.0 z)))
+      (time
+       (pwork
+        (lambda (x y z)
+          (fl.matlisp:gemm-tn! 1.0 x y 1.0 z))
+        (vector (list a1 a2 a3) (list b1 b2 b3))))))
+    
   (pwork (lambda (x) (* x x)) #((1) (2)))
   )
 

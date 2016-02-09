@@ -114,7 +114,7 @@ is internal information computed at tensor construction time."))
   "Construct a full tensor with entries of @arg{type}."
   (fl.amop:find-programmatic-class
    (list 'full-tensor (store-vector type))
-   (intern (format nil "~A" (list 'FULL-TENSOR type)) "FL.MATLISP")))
+   :class-name (intern (format nil "~A" (list 'FULL-TENSOR type)) "FL.MATLISP")))
 
 (defmethod initialize-instance ((tensor full-tensor) &key &allow-other-keys)
   (call-next-method)

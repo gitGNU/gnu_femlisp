@@ -36,6 +36,7 @@
 
 (defpackage "FL.PROBLEM"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
+        "FL.DICTIONARY"
 	"FL.MATLISP" "FL.FUNCTION" "FL.MESH")
   (:export				; problem.lisp
    "<PROBLEM>" "GET-PROPERTY" "LINEAR-P" "<NONLINEAR-PROBLEM>"

@@ -39,24 +39,19 @@
 ;;; where images or meshes are written to.
 
 (defparameter *dx-path*
-  (or nil ; default: search in path
-      #+os-unix "/usr/bin/dx")
+  nil ; default: search in system path
   "Path to the @program{DX} executable.")
 
 (defparameter *gnuplot-path*
-  (or nil ; default: search in path
-      #+os-unix "/usr/bin/gnuplot"
-      #+os-windows "C:\\cygwin\\bin\\gnuplot.exe")
+  nil ; default: search in system path
   "Path to the @program{Gnuplot} executable.")
 
 (defparameter *triangle-path*
-  (or nil ; default: search in path
-      #+os-unix (femlisp-pathname "external/triangle/triangle"))
+  nil ; default: search in system path
   "Path to the @program{triangle} executable.")
   
 (defparameter *tetgen-path*
-  (or nil ; default: search in path
-      #+os-unix (femlisp-pathname "external/tetgen/tetgen"))
+  nil ; default: search in system path
   "Path to the @program{tetgen} executable.")
   
 (defparameter *images-directory*
@@ -68,24 +63,24 @@
   "Directory where meshes are put by default.")
 
 (defparameter *blas-library*
-  (let ((path
-         #+darwin #p"/System/Library/Frameworks/vecLib.framework/Versions/Current/vecLib"
-         #-darwin #p"/usr/lib/libblas.so"))
-    (and (probe-file path) path))
+  ;; default: search in system libraries, e.g. #p"/usr/lib/libblas.so"
+  ;;(probe-file #p"/usr/lib/atlas-base/atlas/libblas.so.3")
+  (or (probe-file #p"/usr/lib/atlas-base/atlas/libblas.so")
+      (probe-file #p"femlisp:src;alien;link.so"))
   "BLAS library.")
 
 (defparameter *lapack-library*
-  (let ((path
-         #+darwin #p"/System/Library/Frameworks/vecLib.framework/Versions/Current/vecLib"
-         #-darwin #p"/usr/lib/liblapack.so"))
-    (and (probe-file path) path))
+  ;; default: search in system libraries, e.g. #p"/usr/lib/liblapack.so"
+  ;;(probe-file #p"~/ATLAS/my_atlas/lib/liblapack_atlas.so")
+  (or (probe-file #p"/usr/lib/atlas-base/atlas/liblapack.so.3")
+      (probe-file #p"femlisp:src;alien;link.so"))
   "LAPACK library.")
 
 (defparameter *superlu-library*
-  (probe-file (femlisp-pathname "interface/superlu.so"))
+  nil ; default: (femlisp-pathname "interface/superlu.so")
   "Wrapper for SuperLU, if available.")
 
 (defparameter *umfpack-library*
-  (probe-file (femlisp-pathname "interface/umfpack.so"))
+  nil ; default: (femlisp-pathname "interface/umfpack.so")
   "Wrapper for UMFPACK, if available.")
 

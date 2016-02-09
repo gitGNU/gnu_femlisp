@@ -137,7 +137,7 @@ returned: the rule and its position in the refinement-rule vector."
 positions should already be filled with the refinements of the cell's
 boundary.  Returns a vector of children."
   (declare (type simple-vector subcell-refinements refinfo))
-  (declare (optimize debug speed))  ; ((speed (safety 1)))
+  ;; (declare (optimize speed))  ; ((speed (safety 1)))
   (lret ((my-refinement (make-array (length refinfo) :initial-element nil)))
     (setf (aref subcell-refinements 0) my-refinement)
     (loop for (refchild . vec) across refinfo ; ! was child-refcell
@@ -485,10 +485,22 @@ identifies the children."
 	   (identify (mapcar #'(lambda (id-cell) (aref (children id-cell skel) i))
 			     identified-cells)
 		     refined-skel))))))
-  
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Skeleton refinement
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric do-refinement! (skel refined-skel task
+                            &key refined-region)
+  (:documentation "@arg{task} contains an association list of a cell/rule combination.
+Note that the task is assumed to be consistent, which means that this function should
+usually not be called directly by the user.  Its purpose is to allow for parallelization
+to kick in, which needs to ensure consistent refinement of interfaces.")
+  (:method ((skel <skeleton>) (refined-skel <skeleton>) (task list)
+            &key refined-region)
+    (loop for (cell . rule) in task do
+      (unless (refined-p cell skel)
+        (refine-cell! rule cell skel refined-skel refined-region)))))
 
 (defgeneric update-refinement! (skel refined-skel &key region indicator refined highest)
   (:documentation "Low-level interface to refinement.  @arg{region} is
@@ -503,6 +515,7 @@ or only the highest-dimensional cells."))
   (assert (or region  ; h-mesh refinement
 	      (not (eq skel refined-skel))))
   (ensure region skel)
+  ;; check that refinement rules fit
   (let ((override-table (make-hash-table :test 'eq)))
     (doskel (cell region :direction :down)
       (whereas ((rule (aand (or (gethash cell override-table)
@@ -522,14 +535,16 @@ or only the highest-dimensional cells."))
                    ;; that marks only top-level cells
                    (setf (gethash side override-table) side-rule))
                ))))
-    (doskel (cell region :direction :up :dimension (and highest :highest))
-      (unless (refined-p cell skel)
-        (whereas ((rule (or (gethash cell override-table)
-                            (funcall indicator cell))))
-          (let ((rule (get-refinement-rule cell rule)))
-            (if rule
-                (refine-cell! rule cell skel refined-skel refined)
-                (error "Refinement rule not found."))))))))
+    (let ((task ()))
+      (doskel (cell region :direction :down :dimension (and highest :highest))
+        (unless (refined-p cell skel)
+          (whereas ((rule (or (gethash cell override-table)
+                              (funcall indicator cell))))
+            (let ((rule (get-refinement-rule cell rule)))
+              (if rule
+                  (push (cons cell rule) task)
+                  (error "Refinement rule not found."))))))
+      (do-refinement! skel refined-skel task :refined-region refined))))
 
 
 (defgeneric refine (skel &key indicator &allow-other-keys)
@@ -552,12 +567,11 @@ Local refinements should be done with hierarchical-mesh structures."
     (values refined-skel refinement)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Testing
+;;;; Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-skeleton-refinement ()
-  (refinement-rules (n-cube 2))
-  )
+(in-suite mesh-suite)
 
-;;; (test-skeleton-refinement)
-(fl.tests:adjoin-test 'test-skeleton-refinement)
+(test refine
+  (is (= 4 (length (refinement-rules (n-cube 2)))))
+  )

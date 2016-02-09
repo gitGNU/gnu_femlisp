@@ -174,30 +174,32 @@ position."
   "The reference vertex.")
 
 
-;;;; Testing:
-(defun test-vertex ()
-  (assert (= 0 (embedded-dimension *reference-vertex*)))
-  (assert (reference-cell-p *reference-vertex*))
-  (describe (refcell-refinement-skeleton *reference-vertex* 2 0))
-  (get-refinement-rule *reference-vertex* t)
-  (refinement-rules *reference-vertex*)
-  (reference-cell-p *reference-vertex*)
-  (reference-cell *reference-vertex*)
-  (dimension (skeleton *reference-vertex*))
-  (describe (cells-of-dim (skeleton *reference-vertex*) 0))
-  (describe *reference-vertex*)
-  (skeleton-boundary (skeleton *reference-vertex*))
-  ;;
-  (refine-info *reference-vertex*)
-  (cell-class-information *reference-vertex*)
-  
-  (describe (skeleton *reference-vertex*))
-  (describe (refcell-refinement-skeleton *reference-vertex* 1))
-  (describe (refine (skeleton *reference-vertex*)))
-  (refcell-children *reference-vertex* :regular)
-  (refcell-refinement-skeleton *reference-vertex* 0 0)
-  )
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; (test-vertex)
-(fl.tests:adjoin-test 'test-vertex)
+(in-suite mesh-suite)
+
+(test vertex
+  (is (= 0 (embedded-dimension *reference-vertex*)))
+  (is-true (reference-cell-p *reference-vertex*))
+  (is (= 0 (dimension (skeleton *reference-vertex*))))
+  (is (= 1 (length (refcell-children *reference-vertex* :regular))))
+  (is (= 1 (length (cells-of-dim (skeleton *reference-vertex*) 0))))
+  (finishes
+    (refcell-refinement-skeleton *reference-vertex* 2 0)
+    (get-refinement-rule *reference-vertex* t)
+    (refinement-rules *reference-vertex*)
+    (reference-cell-p *reference-vertex*)
+    (reference-cell *reference-vertex*)
+    (describe *reference-vertex*)
+    (skeleton-boundary (skeleton *reference-vertex*))
+    (refine-info *reference-vertex*)
+    (cell-class-information *reference-vertex*)
+    (describe (skeleton *reference-vertex*))
+    (describe (refcell-refinement-skeleton *reference-vertex* 1))
+    (describe (refine (skeleton *reference-vertex*)))
+    (refcell-refinement-skeleton *reference-vertex* 0 0)
+  ))
+
 

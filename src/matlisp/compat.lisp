@@ -46,7 +46,7 @@
   (loop with prod of-type double-float = 1.0
 	for i below (nrows lr) do
 	(setq prod (* prod (mref lr i i)))
-	(unless (= (aref pivot i) i) (setq prod (- prod)))
+	(unless (= (aref pivot i) (1+ i)) (setq prod (- prod)))
 	finally (return prod)))
 
 (defun det (mat)
@@ -162,9 +162,7 @@ double-float array."
     (mapcar #'class-of
 	    (list (eye 2) (ensure-matlisp y) (ensure-matlisp x)))
     (gemm 1.0 (eye 2) (ensure-matlisp x) 1.0 (ensure-matlisp y)))
-  (let* ((b (vector 0.0 -1.0))
-         (x (getrs! (diag #d(1.0 -1.0)) b)))
-    (assert (= (vref x 1) 1.0)))
+  (assert (plusp (det #M((0.0 1.0 0.0) (0.0 0.0 1.0) (1.0 0.0 0.0)))))
   )
 
 ;;; (fl.matlisp::test-matlisp-vector-combination)

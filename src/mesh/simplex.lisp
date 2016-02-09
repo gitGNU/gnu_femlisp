@@ -277,7 +277,8 @@ the zero-vector.  The others are equal to (unit-vector dim 1-i)."
     (cond (class (if mapped (mapped-cell-class class distorted) class))
 	  (t
 	   (prog1
-	       (eval `(defclass ,class-name (<simplex> <standard-cell>) ()))
+	       (eval `(defclass ,class-name (<simplex> <standard-cell>)
+                        (,+per-class-allocation-slot+)))
 	     (let ((refcell (make-reference-simplex dim)))
 	       (initialize-cell-class refcell (list refcell))))))))
 
@@ -322,35 +323,36 @@ and INSERT-CELL-FROM-CORNERS."
   (make-simplex (vector to-vtx from-vtx) :check check :mapping mapping))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Testing
+;;;; Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-simplex ()
-  (refine-info *unit-triangle*)
-  (describe *unit-triangle*)
-  (loop for x across (boundary *unit-triangle*) do
-	(describe x))
-  (cell-class-information *unit-triangle*)
-  (assert (= (length (subcells *unit-triangle*)) 7))
-  (describe (skeleton *unit-triangle*))
-  (describe (refcell-refinement-skeleton *unit-triangle* 1))
-  (describe (refcell-refinement-skeleton *unit-triangle* 1))
-  (refcell-refinement-skeleton *unit-triangle* 2)
-  (mapcar #'corners
-	  (cells-of-highest-dim
-	   (refcell-refinement-skeleton *unit-triangle* 1)))
-  (l2g *unit-triangle* #(0.5 0.5))
-  (let ((bc (euclidean->barycentric #(0.5 0.5)))
-	(corners (corners *unit-triangle*)))
-    (mapc #'scal (coerce bc 'list) corners))
-  (local->global *unit-triangle* #(0.5 0.5))
-  (n-simplex 5)
-  (describe (refine (skeleton *unit-tetrahedron*)))
-  (refine-info *unit-interval*)
-  (assert (eq (reference-cell *unit-interval*)
-	      (reference-cell (n-simplex 1))))
+(in-suite mesh-suite)
 
+(test simplex
+  (is (= 3 (length (refine-info *unit-interval*))))
+  (is (= 7 (length (refine-info *unit-triangle*))))
+  (is (= 7 (length (subcells *unit-triangle*))))
+  (is-true (eq (reference-cell *unit-interval*)
+               (reference-cell (n-simplex 1))))
+  (is (equalp #(0.5 0.5) (l2g *unit-triangle* #(0.5 0.5))))
+  (is (equalp #(0.5 0.5) (local->global *unit-triangle* #(0.5 0.5))))
+  (is (= 3 (dimension *unit-tetrahedron*)))
+  (is (= 5 (dimension (n-simplex 5))))
+
+  (finishes
+    (describe *unit-triangle*)
+    (loop for x across (boundary *unit-triangle*) do
+      (describe x))
+    (cell-class-information *unit-triangle*)
+    (describe (skeleton *unit-triangle*))
+    (describe (refcell-refinement-skeleton *unit-triangle* 1))
+    (refcell-refinement-skeleton *unit-triangle* 2)
+    (mapcar #'corners
+            (cells-of-highest-dim
+             (refcell-refinement-skeleton *unit-triangle* 1)))
+    (let ((bc (euclidean->barycentric #(0.5 0.5)))
+          (corners (corners *unit-triangle*)))
+      (mapc #'scal (coerce bc 'list) corners))
+    (describe (refine (skeleton *unit-tetrahedron*)))
+    )
   )
-
-;;; (test-simplex)
-(fl.tests:adjoin-test 'test-simplex)

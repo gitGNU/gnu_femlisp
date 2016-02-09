@@ -43,7 +43,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar *tetgen-pathname*
-  (or (aand fl.start::*tetgen-path* (probe-file (pathname it)))
+  (or (aand fl.start:*tetgen-path* (probe-file (pathname it)))
       (fl.port:find-executable "tetgen")
       (fl.start:femlisp-pathname "external/tetgen/tetgen"))
   "Pathname of the @program{tetgen} binary.")
@@ -320,19 +320,18 @@ bends upwards in the x_0-direction."
          (when check-p (check mesh)))
     (change-class mesh '<hierarchical-mesh>)))
 
-;;;; Testing:
-(defun test-tetgen ()
-  (dbg-on :triangulate)
-  (dbg-on :tetgen)
-  (dbg-off)
-  (time (check (sample-mesh 0)))
-  (time (check (sample-mesh 1)))
-  #+(or)
-  (fl.application:storing
-    (fl.plot:plot (sample-mesh 0 nil)))
 
-  )
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; (test-tetgen)
+(in-suite mesh-suite)
 
-(fl.tests:adjoin-test 'test-triangle)
+(test tetgen
+  (finishes
+    (dbg-on :triangulate)
+    (dbg-on :tetgen)
+    (dbg-off)
+    (time (check (sample-mesh 0)))
+    (time (check (sample-mesh 1)))
+  ))

@@ -262,13 +262,14 @@ care of."
 	(change-class cell (mapped-cell-class (class-of cell))
 		      :mapping (funcall (parametric mesh) cell))))))
 
-;;; Testing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-triangulate ()
-  (check (triangulate (n-cube-domain 0)))
-  (check (triangulate (n-cube-domain 1)))
-  (check (triangulate (n-cell-domain 1)))
-  
+(in-suite mesh-suite)
+
+(test triangulate
+
   (let* ((vtx (make-vertex #d(1.0 0.0)))
 	 (circle (make-line vtx vtx :mapping (circle-function 1.0 #d(0.0 0.0) (* 2 pi))))
 	 (ball (make-instance '<boundary-cell>
@@ -278,18 +279,18 @@ care of."
 	 (domain (change-class (skeleton ball) '<domain>))
 	 (mesh (triangulate domain :meshsize 0.3)))
     #+(or)(fl.plot:plot mesh)
-    (check domain)
-    (check mesh)
-    (assert				; test if boundary mappings are there
+    (finishes (check domain))
+    (finishes (check mesh))
+    (is-true				; test if boundary mappings are there
      (every #'mapped-p
 	    (find-cells #'(lambda (cell)
 			    (and (= (dimension cell) 1)
 				 (not (eq (patch-of-cell cell mesh) ball))))
-			mesh)))
-     #+(or)
-     (fl.plot:plot (refine mesh)))
+			mesh))))
 
+  (finishes
+    (check (triangulate (n-cube-domain 0)))
+    (check (triangulate (n-cube-domain 1)))
+    (check (triangulate (n-cell-domain 1)))
+    )
   )
-
-;;; (test-triangulate)
-(fl.tests:adjoin-test 'test-triangulate)

@@ -78,15 +78,12 @@ this value."
   (time (test-v-cycle-convergence 2 4 3 :galerkin-p t :cr-max 0.25))
   (time (test-v-cycle-convergence
 	 2 4 3 :smoother (geometric-ssc) :cr-max 0.06))
-  ;; the following test yields varying results for Allegro, probably
-  ;; because the non-prescribed ordering for Gauss-Seidel smoothing depends
-  ;; on internal data due to our use of hash-tables
-  #-allegro
+  ;; the following may yield varying convergence rates depending on
+  ;; hash-table internals.  For Allegro CL, I observed this even
+  ;; in serial mode while for SBCL, variation occurs when using
+  ;; multiple threads
   (time (test-v-cycle-convergence
-	 2 1 3 :smoother *gauss-seidel* :cr-max 0.16))
-  #+allegro
-  (time (test-v-cycle-convergence
-	 2 1 3 :smoother (make-instance '<jacobi>) :cr-max 0.4))
+	 2 1 3 :smoother *gauss-seidel* :cr-max 0.18))
   )
 
 ;;; (mg-cdr-tests)

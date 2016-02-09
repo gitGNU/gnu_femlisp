@@ -46,6 +46,9 @@
 
    "PWORK"
 
+   ;; multiprocessing.lisp
+   "WITH-FEMLISP-WORKERS"
+   "PARQUEUE"
 ;;   "WITH-PARALLEL-NETWORK" "PARCELL" "NAMED-PARCELL" "VALUE"
    )
   (:documentation

@@ -51,10 +51,10 @@
 (defvar *fe-approximation-observe*
   (list (list "Step" "~4D"
 	      #'(lambda (blackboard) (getbb blackboard :step)))
-	(list " CELLS" "~6D"
+	(list " CELLS" "~6/FL.UTILITIES:KMGT/"
 	      #'(lambda (blackboard)
 		  (nr-of-surface-cells (getbb blackboard :mesh))))
-	(list "    DOFS" "~8D"
+	(list "    DOFS" "~8/FL.UTILITIES:KMGT/"
 	      #'(lambda (blackboard)
 		  (with-items (&key solution) blackboard
 		    (and solution (total-entries solution)))))

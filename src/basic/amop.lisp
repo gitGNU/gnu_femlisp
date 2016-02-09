@@ -33,7 +33,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.AMOP"
-  (:use "COMMON-LISP" "FL.DEBUG")
+  (:use "COMMON-LISP" "FL.DEBUG" "FL.UTILITIES")
   (:import-from
    #+closer-mop "CLOSER-MOP"
    #-closer-mop
@@ -57,7 +57,7 @@ non-ANSI and may represent a problem when porting Femlisp."))
 ;;;; Programmatic classes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun find-programmatic-class (superclasses &optional name)
+(defun find-programmatic-class (superclasses &key class-name additional-slots)
   "Finds and, if necessary, generates a class from the given superclasses."
   (setf superclasses (mapcar #'(lambda (class)
 				 (if (symbolp class)
@@ -76,18 +76,23 @@ non-ANSI and may represent a problem when porting Femlisp."))
 	     (let ((superclass-names (mapcar #'class-name superclasses)))
 	       (dbg :amop "Generating new class for superclasses ~A" superclass-names)
 	       (fl.port:compile-and-eval
-		`(defclass ,(or name (intern (format nil "~A" superclass-names)))
-		     ,superclass-names ()))))))))
+		`(defclass ,(or class-name (intern (format nil "~A" superclass-names) *package*))
+		     ,superclass-names
+                   ,additional-slots))))))))
 
-(defun make-programmatic-instance (superclass-es &rest initargs)
+(defun make-programmatic-instance (superclass-es &rest initargs
+                                   &key class-name additional-slots
+                                   &allow-other-keys)
   "Makes an instance of a class denoted by a list of the names of its
 superclasses.  This class is generated automatically, if necessary."
   (apply #'make-instance
 	 (cond ((symbolp superclass-es)
 		(find-class superclass-es))
 	       ((typep superclass-es 'standard-class) superclass-es)
-	       (t (find-programmatic-class superclass-es)))
-         initargs))
+	       (t (find-programmatic-class
+                   superclass-es
+                   :class-name class-name :additional-slots additional-slots)))
+         (sans initargs :class-name :additional-slots)))
 
 (defun remove-subclass-methods (gf template-args)
   "Removes all methods dispatching on subclasses of the template
@@ -103,10 +108,14 @@ arguments."
 	do (remove-method gf method)))
 
 (defun test-amop ()
-  (defclass a () ())
-  (defclass b () ())
+  (defclass a () ((slot-a :initform 'a)))
+  (defclass b () ((slot-b :initform 'b)))
   (typep #() (class-of (make-programmatic-instance
 			(list 'a 'b))))
+  (make-programmatic-instance
+   (list 'a 'b)
+   :class-name 'ab
+   :additional-slots '((slot-c :initform 'c :initarg :c)))
   (typep #() (make-instance 'standard-class
 		 :name 'X
 		 :direct-superclasses ()

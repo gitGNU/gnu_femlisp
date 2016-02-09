@@ -44,7 +44,8 @@
   (:export				; stationary.lisp
    "<STRATEGY>" "<FE-APPROXIMATION>"
    "<FE-INTERPOLATION>" "<STATIONARY-FE-STRATEGY>"
-   "*STATIONARY-FE-STRATEGY-OBSERVE*" "*ETA-OBSERVE*")
+   "*STATIONARY-FE-STRATEGY-OBSERVE*" "*ETA-OBSERVE*" "*MENTRIES-OBSERVE*"
+   "KMGT")
   (:export				; error-estimator.lisp
    "ESTIMATE" "<PROJECTION-ERROR-ESTIMATOR>" "<DUALITY-ERROR-ESTIMATOR>")
   (:export				; error-indicator.lisp

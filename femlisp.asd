@@ -43,10 +43,12 @@
   :depends-on (#+(or clisp ccl) :cffi #+(or clisp ccl) :closer-mop
                #+sbcl :sb-posix #+sbcl :sb-introspect
                #+allegro (:require "osi")
+               :closer-mop :fiveam
                )
   :around-compile call-with-femlisp-environment ;; Requires ASDF 2.018, which *everyone* has in 2014.
   :components
   ((:file "setup")
+   (:file "femlisp-config" :depends-on ("setup"))
    (:module
     "basic"
     :depends-on ("setup")
@@ -57,9 +59,9 @@
      (:file "patches" :depends-on ())
      (:file "macros" :depends-on ())
      (:file "port" :depends-on ("debug"))
-     (:file "amop" :depends-on ("debug" "port"))
      (:file "utilities-defp" :depends-on ("macros" "debug"))
      (:file "utilities" :depends-on ("utilities-defp" "macros" "tests"))
+     (:file "amop" :depends-on ("debug" "port" "utilities"))
      (:file "mflop" :depends-on ("utilities"))
      (:file "general" :depends-on ("amop" "utilities-defp"))
      (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))))))
@@ -79,8 +81,21 @@
      ;; (:file "parcells" :depends-on ("multiprocessing"))
      ))))
 
-(defsystem :femlisp-matlisp
+(defsystem :femlisp-dictionary
   :depends-on (:femlisp-basic :femlisp-parallel)
+  :pathname "src"
+  :around-compile call-with-femlisp-environment
+  :components
+  ((:module
+    "dictionary"
+    :components
+    ((:file "dictionary-defp" :depends-on ())
+     (:file "dictionary" :depends-on ("dictionary-defp"))
+     (:file "parallel-heap" :depends-on ("dictionary"))
+     ))))
+
+(defsystem :femlisp-matlisp
+  :depends-on (:femlisp-basic :femlisp-parallel :femlisp-dictionary)
   :pathname "src"
   :around-compile call-with-femlisp-environment
   :components
@@ -121,6 +136,7 @@
 
 (defsystem :femlisp
   :depends-on (:femlisp-basic :femlisp-parallel :femlisp-matlisp
+                              :femlisp-dictionary
                               :infix :cl-ppcre :cl-gd)
   :pathname "src"
   :around-compile call-with-femlisp-environment
@@ -218,7 +234,8 @@
      (:file "sparseif" :depends-on ("ansatz-space" "sparseas"))
      (:file "feeval" :depends-on ("ansatz-space" "sparseif"))
      (:file "constraints" :depends-on ("ansatz-space" "sparseif"))
-     (:file "fedisc" :depends-on ("constraints"))
+     (:file "assembly-heap" :depends-on ("discretization-defp"))
+     (:file "fedisc" :depends-on ("constraints" "assembly-heap"))
      ;;
      ;;(:file "cdr-fe" :depends-on ("fedisc"))
      (:file "system-fe" :depends-on ("fedisc"))

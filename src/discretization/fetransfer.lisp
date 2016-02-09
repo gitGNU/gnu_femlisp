@@ -140,13 +140,13 @@ functionals of the children on the parent shape functions."
 		    finally (setf (tensor-ref vecfe-imat i j) mblock))))
       vecfe-imat)))
 
-(with-memoization (:id 'local-imatrix)
+(with-memoization (:id 'local-imatrix :debug t)
   (defun local-imatrix (rule fe &optional (type :local))
     "Memoized call of compute-local-imatrix."
-    (assert (discretization fe))
-    (assert (eq (reference-cell rule) (reference-cell fe)))
-    (dbg :fe "Generating imatrix for rule ~A and fe ~A" rule fe)
     (memoizing-let ((rule rule) (disc (discretization fe)) (type type))
+      (assert (discretization fe))
+      (assert (eq (reference-cell rule) (reference-cell fe)))
+      (dbg :fe "Generating imatrix for rule ~A and fe ~A" rule fe)
       (compute-local-imatrix rule fe disc :type type))))
 
 (defvar *local-interpolation-matrix* nil

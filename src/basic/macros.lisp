@@ -89,7 +89,7 @@ is used in some macros."
 	 (symbol-package sym)
 	 *package*))))
 
-(defmacro whereas (clauses &rest body)
+(defmacro whereas (clauses &body body)
   "Own implementation of the macro @function{whereas} suggested by Erik
 Naggum (c.l.l., 4.12.2002)."
   (if (null clauses)
@@ -199,15 +199,15 @@ modifying form, e.g. @code{(_f + a b) @equiv{} (incf a b)}."
             (,(car var) (,op ,access ,@args)))
        ,set)))
 
+#+(or)
 (define-modify-macro ensure (&rest args) or
    "Ensures that some place is set.  It expands as follows:
 @lisp
   (ensure place value) @expansion{} (or place (setf place value))
 @end lisp
-It is not clear if the implementation used here works everywhere.  If not,
-the workaround below should be used.")
+Unfortunately, this simple implementation is not ANSI conforming.
+It broke in SBCL somewhere before 12.1.2016.")
 
-#+(or)
 (defmacro ensure (place newval &environment env)
   "Essentially (or place (setf place newval)).  Posted by Erling Alf to
 c.l.l. on 11.8.2004, implementing an idea of myself posted on c.l.l. on 30

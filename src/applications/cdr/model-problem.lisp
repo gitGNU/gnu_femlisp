@@ -122,7 +122,52 @@ after a step."))
   (dbg-on :graphic)
   (plot (getbb *result* :solution))
   (dbg-off)
-  
+
+  (time
+   (setq *result*
+         (solve
+          (make-instance
+           '<stationary-fe-strategy>
+           :fe-class (lagrange-fe 2)
+           :success-if `(>= :nr-levels 4)
+           :solver
+           (?2 (let* ((smoother (make-instance '<jacobi> :damp 1.0))
+                      (cs (geometric-cs
+                           :gamma 1 :smoother smoother :pre-steps 1 :post-steps 0
+                           :coarse-grid-iteration
+                           (make-instance '<multi-iteration> :base smoother :nr-steps 1)
+                           :combination :additive))
+                      (bpx (make-instance '<cg> :preconditioner cs)))
+                 (make-instance '<linear-solver>
+                                :iteration bpx
+                                :success-if `(and (> :step 2) (> :step-reduction 1.0) (< :defnorm 1.0e-11))
+                                :failure-if `(and (> :step 100) (> :step-reduction 1.0) (> :defnorm 1.0e-11))
+                                :output :all))
+               (make-instance
+                '<linear-solver>
+                :iteration (let ((smoother (?2 (make-instance '<parallel-sor>) *gauss-seidel*)))
+                             (geometric-cs
+                              :gamma 2 :fmg nil :coarse-grid-iteration
+                              (make-instance '<multi-iteration>
+                                             :base smoother
+                                             :nr-steps (if (typep smoother '<sor>) 10 3))
+                              :smoother smoother :pre-steps 2 :post-steps 2))
+                :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
+                :failure-if `(> :step 20)
+                :output :all))
+           :plot-mesh nil)
+          (blackboard
+           :problem (cdr-model-problem (n-cube-domain 3)
+                                       :dirichlet nil
+                                       :source (lambda (x) #I(sin(2*pi*x[0])*sin(2*pi*x[1]))))
+           :output :all
+           ))))
+  (dbg-off :iter)
+  (plot (getbb *result* :solution))
+  (let* ((mat (getbb *result* :matrix))
+         (mesh (mesh mat))
+         (cell (mapper-select-first #'for-each-key mat)))
+    (parent (parent (parent (parent cell mesh) mesh) mesh) mesh))
   ;;; Elementary testing
   (let* ((dim 2) (order 1) (level 2)
 	 (problem (cdr-model-problem dim))

@@ -264,14 +264,15 @@ positions."
     ;; and generate the telescope skeleton
     (skeleton (hash-table-values product-table))))
 
-;;; Testing:
-(defun test-skeleton-build ()
-  (describe
-   (let ((skel (copy-skeleton (skeleton *unit-quadrangle*))))
-     (skel-add! (shift-skeleton skel #d(0.0 1.0)) skel)))
-  (subskeleton (skeleton *unit-quadrangle*)
-	       #'(lambda (cell) (= (aref (midpoint cell) 0) 0.0)))
-)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; (test-skeleton-build)
-(fl.tests:adjoin-test 'test-skeleton-build)
+(in-suite mesh-suite)
+
+(test skeleton-build
+  (finishes
+    (let ((skel (copy-skeleton (skeleton *unit-quadrangle*))))
+      (skel-add! (shift-skeleton skel #d(0.0 1.0)) skel))
+  (subskeleton (skeleton *unit-quadrangle*)
+	       #'(lambda (cell) (= (aref (midpoint cell) 0) 0.0)))))

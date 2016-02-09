@@ -36,6 +36,7 @@
 
 (defpackage "FL.CDRSYS"
   (:use "COMMON-LISP" "FL.MATLISP" "FL.MACROS" "FL.UTILITIES"
+        "FL.DICTIONARY"
 	"FL.MESH" "FL.PROBLEM" "FL.ELLSYS")
   (:export "<CDRSYS-PROBLEM>" "CDRSYS-MODEL-PROBLEM")
   (:documentation "This package contains some definitions for systems of

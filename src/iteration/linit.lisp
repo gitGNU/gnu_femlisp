@@ -50,7 +50,8 @@ e.g. <gauss-seidel> or <multigrid>."))
 	   "The matrix on which the iterator is working.")
    (initialize :initarg :initialize :initform nil :documentation
 	       "NIL or an initialization function which is called with the
-matrix as argument.")
+solution, rhs, and residual as arguments.")
+   (initializedp :initform nil :documentation "Flag, if initialization has been done.")
    (iterate :initarg :iterate :type function :documentation "A function of
 the arguments solution, rhs, and residual which performs an update step.")
    (residual-before :initarg :residual-before :documentation "T if the
@@ -224,7 +225,19 @@ parameter, eta is the diagonal enhancement."))
      :iterate
      #'(lambda (x b r)
 	 (declare (ignore b))
-	 (for-each-row-key;; fl.matlisp::parallel-for-each-row-key
+         (fl.dictionary:dic-for-each-key
+          (lambda (row-key)
+            (let ((rblock (fl.parallel:with-mutual-exclusion (r)
+                            (vref r row-key))))
+              (gesv! (mref mat row-key row-key) rblock)
+              (let ((x-block (fl.parallel:with-mutual-exclusion (x)
+                               (vref x row-key))))
+		(axpy! damp rblock x-block)
+		#+(or)(x<-0 rblock)
+		)))
+          (row-table mat) :parallel t)
+         #+(or)
+	 (for-each-row-key
 	  #'(lambda (row-key)
 	      (let ((rblock (vref r row-key)))
 		(gesv! (mref mat row-key row-key) rblock)
@@ -258,16 +271,16 @@ the iteration.")))
        :residual-before nil
        :initialize nil
        :iterate
-       #'(lambda (x b r)
-	   (declare (ignore r))
-	   (dolist (i ordering)
-	     (let ((factor (/ omega (mref mat i i))))
-	       (dotimes (j (ncols b))
-		 (incf (mref x i j)
-		       (* factor
-			  (- (mref b i j)
-			     (loop for k from 0 below (ncols mat)
-				   summing (* (mref mat i k) (mref x k j))))))))))
+       (lambda (x b r)
+         (declare (ignore r))
+         (dolist (i ordering)
+           (let ((factor (/ omega (mref mat i i))))
+             (dotimes (j (ncols b))
+               (incf (mref x i j)
+                     (* factor
+                        (- (mref b i j)
+                           (loop for k from 0 below (ncols mat)
+                                 summing (* (mref mat i k) (mref x k j))))))))))
        :residual-after nil))))
 
 (defmethod make-iterator ((sor <sor>) (mat <sparse-matrix>))
@@ -290,10 +303,11 @@ the iteration.")))
        :initialize nil
        :iterate
        (lambda (x b r)
-         (declare (ignore r))
+         ;;(declare (ignore r))
          (dolist (row-key ordering)
            (dbg :iter "Handling rk=~A" row-key)
-           (let ((corr (copy (vref b row-key))))
+           (let ((corr (vref r row-key)))
+             (copy! (vref b row-key) corr)
              (for-each-key-and-entry-in-row
               #'(lambda (col-key mblock)
                   (gemm! -1.0 mblock (vref x col-key) 1.0 corr))
@@ -301,10 +315,63 @@ the iteration.")))
              (cond (diagonal-inverse
                     (gemm! omega (gethash row-key diagonal-inverse) corr
                            1.0 (vref x row-key)))
-                   (t (mref mat row-key row-key)
-                      +(or)(gesv! (mref mat row-key row-key) corr)
+                   (t (let ((entry (mref mat row-key row-key)))
+                        (gesv! entry corr))
                       (axpy! omega corr (vref x row-key)))))))
        :residual-after nil))))
+
+(defclass <parallel-sor> (<sor>)
+  ()
+  (:documentation "A parallel version of SOR."))
+
+(defmethod make-iterator ((sor <parallel-sor>) (mat <sparse-matrix>))
+  (declare (optimize debug))
+  (with-slots (omega compare store-p) sor
+    (let ((ordering (row-keys mat))
+          (diagonal-inverse (and store-p (make-hash-table))))
+      (when compare
+        (setq ordering
+              (safe-sort ordering (rcurry compare mat))))
+      (dbg :iter "Ordering: ~A" ordering)
+      (when diagonal-inverse
+        (dolist (row-key ordering)
+          (setf (gethash row-key diagonal-inverse)
+                (m/ (mref mat row-key row-key)))))
+      (let ((initialized-for-args nil))
+        (flet ((initialize (x b r)
+                 (dolist (rk ordering)
+                   (vref r rk)
+                   (vref b rk)
+                   (for-each-key-in-row (lambda (ck) (vref x ck))
+                                        mat rk))
+                 (setf initialized-for-args (list x b r))))
+          (make-instance
+           '<iterator>
+           :matrix mat
+           :residual-before nil
+           :initialize nil
+           :iterate
+           (lambda (x b r)
+             (unless (equalp initialized-for-args (list x b r))
+               (initialize x b r))
+             ;;(declare (ignore r))
+             (fl.dictionary::process-in-parallel
+                 (fl.dictionary::make-parallel-heap
+                  ordering (curry #'matrix-row mat))
+                 (row-key)
+               (let ((corr (vref r row-key)))
+                 (copy! (vref b row-key) corr)
+                 (for-each-key-and-entry-in-row
+                  (lambda (col-key mblock)
+                    (gemm! -1.0 mblock (vref x col-key) 1.0 corr))
+                  mat row-key)
+                 (cond (diagonal-inverse
+                        (gemm! omega (gethash row-key diagonal-inverse) corr
+                               1.0 (vref x row-key)))
+                       (t (let ((entry (mref mat row-key row-key)))
+                            (gesv! entry corr))
+                          (axpy! omega corr (vref x row-key)))))))
+           :residual-after nil))))))
 
 (defclass <gauss-seidel> (<sor>)
   ()

@@ -39,7 +39,7 @@
 strategy is derived from the class @class{<fe-approximation>}.")
 
 (defvar *mentries-observe*
-  (list " MENTRIES" "~9D"
+  (list " MENTRIES" "~9/FL.UTILITIES:KMGT/"
 	#'(lambda (blackboard)
 	    (acond
 	     ((getbb blackboard :discretized-problem)
@@ -63,13 +63,17 @@ solution strategies for continuous, stationary PDE problems."))
   (with-items (&key discretized-problem solver-blackboard solution residual)
       blackboard
     ;; assemble (better would be a local assembly)
-    (fe-discretize blackboard)
+    (measure-time-for-block
+        ((and (dbg-p :log-times) "~&Assembly realtime: ~F seconds~%") t)
+      (fe-discretize blackboard))
     ;; improve approximation by solving
     (setf solver-blackboard (blackboard :problem discretized-problem
 					:solution solution :residual residual))
     (ensure (slot-value fe-strategy 'solver)
 	    (select-solver discretized-problem solver-blackboard))
-    (solve (slot-value fe-strategy 'solver) solver-blackboard)
+    (measure-time-for-block
+        ((and (dbg-p :log-times) "~&Solver realtime: ~F seconds~%") t)
+      (solve (slot-value fe-strategy 'solver) solver-blackboard))
     (setf solution (getbb solver-blackboard :solution))))
 
 (defun test-fe-stationary ()

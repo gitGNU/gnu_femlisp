@@ -112,7 +112,7 @@ If content is a 2d array, the dimensions can be deduced."
     (memoizing-let ((type type))
       (fl.amop:find-programmatic-class
        (list 'standard-matrix (store-vector type))
-       (intern (format nil "~A" (list 'STANDARD-MATRIX type)) "FL.MATLISP")))))
+       :class-name (intern (format nil "~A" (list 'STANDARD-MATRIX type)) "FL.MATLISP")))))
 
 (inlining
  (defun standard-matrix-p (obj)

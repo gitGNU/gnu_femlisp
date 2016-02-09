@@ -45,13 +45,19 @@
 
 (defun meshes-pathname ()
   "Returns the pathname of the directory for @femlisp{} meshes."
-  (or (fl.port::getenv "FEMLISP_MESHES")
-      (aand fl.start::*meshes-directory* (pathname it))
+  (or (aand fl.start::*meshes-directory* (pathname it))
+      (fl.port::getenv "FEMLISP_MESHES")
       (fl.start:femlisp-pathname "meshes/")))
 
 (defvar *meshfile-basename*
   "mesh"
   "Basename for mesh decomposition.")
+
+(defvar *triangle-pathname*
+  (or fl.start::*triangle-path*
+      (fl.port:find-executable "triangle")
+      (probe-file (fl.start:femlisp-pathname "external/triangle/triangle")))
+  "Pathname of the @program{triangle} binary.")
 
 (defun mesh-file (kind)
   "Returns the pathname for the mesh component @arg{kind} which may be
@@ -66,12 +72,6 @@
                    (:edge "1.edge")
                    (:node "1.node")))
    :directory (pathname-directory (meshes-pathname))))
-
-(defvar *triangle-pathname*
-  (or (aand fl.start::*triangle-path* (probe-file (pathname it)))
-      (fl.port:find-executable "triangle")
-      (probe-file (fl.start:femlisp-pathname "external/triangle/triangle")))
-  "Pathname of the @program{triangle} binary.")
 
 (defun call-triangle (&key meshsize &allow-other-keys)
   "Calls Shewchuk's triangle program."
@@ -473,10 +473,13 @@ patches in the 2D-embedded-in-3D case."
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Testing
+;;;; Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-triangle ()
+(in-suite mesh-suite)
+
+(test triangle
+  (finishes
   (dbg-off)
   (dbg-on :triangulate)
   (check (triangulate (n-cube-domain 2)))
@@ -495,8 +498,4 @@ patches in the 2D-embedded-in-3D case."
 			      :midpoint #d(0.0 0.0)))
 	 (domain (change-class (skeleton ball) '<domain>)))
     (triangulate domain :meshsize 0.3))
-  )
-
-;;; (test-triangle)
-
-(fl.tests:adjoin-test 'test-triangle)
+  ))

@@ -118,7 +118,8 @@ The solution to this cell problem is a tensor field of rank 3
 with dim^3 components which are plotted one after the other."
   (let* ((domain (domain problem))
 	 (dim (dimension domain))
-	 (*output-depth* output))
+	 (*output-depth* output)
+         saved-effective-tensor)
     (storing
       (solve
        (blackboard
@@ -128,31 +129,49 @@ with dim^3 components which are plotted one after the other."
 	:indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
 	:success-if `(>= :max-level ,(1- levels))
 	:solver
-	(make-instance
-	 '<linear-solver> :iteration
-	 (let ((smoother (if (> dim 3)
-			     *gauss-seidel*
-			     (geometric-ssc))))
-	   (geometric-cs
-	    :coarse-grid-iteration
-	    (make-instance '<multi-iteration> :nr-steps 10 :base
-			   (make-instance '<custom-ssc>
-					  :block-setup #'inlay-block-decomposition))
-	    :smoother smoother :pre-steps 2 :post-steps 2
-	    :gamma 2 :fmg t))
-	 :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
-	 :failure-if `(and (> :step 2) (> :step-reduction 0.9) (> :defnorm 1.0e-9)))
+        (?1
+         (let* ((smoother (make-instance '<jacobi> :damp 1.0))
+                (cs (geometric-cs
+                     :gamma 1 :smoother smoother :pre-steps 1 :post-steps 0
+                     :coarse-grid-iteration
+                     (make-instance '<multi-iteration> :base smoother :nr-steps 1)
+                     :combination :additive))
+                (bpx (make-instance '<cg> :preconditioner cs :restart-cycle 30)))
+           (make-instance '<linear-solver>
+                          :iteration bpx
+                          :success-if `(and (> :step 2) (> :step-reduction 1.0) (< :defnorm 1.0e-8))
+                          :failure-if `(and (> :step 100) (> :step-reduction 1.0) (> :defnorm 1.0e-8))))
+         (make-instance
+          '<linear-solver> :iteration
+          (let ((smoother
+                  (?2 (make-instance '<cg> :preconditioner (make-instance '<jacobi>))
+                      (if (>= dim 3)
+                          *gauss-seidel*
+                          (geometric-ssc)))))
+            (geometric-cs
+             :coarse-grid-iteration
+             (make-instance '<multi-iteration> :nr-steps 10 :base
+                            (?1 *gauss-seidel*
+                                #+(or)
+                                (make-instance '<custom-ssc>
+                                               :block-setup #'inlay-block-decomposition)))
+             :smoother smoother :pre-steps 2 :post-steps 2
+             :gamma 2 :fmg t))
+          :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
+          :failure-if `(and (> :step 100) (> :step-reduction 0.9) (> :defnorm 1.0e-9))))
 	:plot-mesh plot
 	:observe
 	(append *stationary-fe-strategy-observe*
+                (list fl.strategy::*mentries-observe*)
 		(list
 		 (list (format nil "~19@A~19@A~19@A" "A^00_00" "A^00_11" "A^10_10") "~57A"
 		       #'(lambda (blackboard)
 			   (let ((tensor (effective-tensor blackboard)))
+                             (setq saved-effective-tensor tensor)
 			      (format nil "~19,10,2E~19,10,2E~19,10,2E"
 				      (and tensor (mref (mref tensor 0 0) 0 0))
-				     (and tensor (mref (mref tensor 0 0) 1 1))
-				     (and tensor (mref (mref tensor 1 0) 1 0)))))))))
+                                      (and tensor (mref (mref tensor 0 0) 1 1))
+                                      (and tensor (mref (mref tensor 1 0) 1 0)))))))))
 		   ))
     (when plot
       ;; plot components of cell solution tensor
@@ -161,12 +180,13 @@ with dim^3 components which are plotted one after the other."
 	  (plot (getbb *result* :solution) :index (+ (* j dim) k))
 	  (sleep 1.0))))
     ;; compute the homogenized coefficient
-    (format t "The effective elasticity tensor is:~%~A~%"
-	    (effective-tensor *result*))))
+    (awhen (or saved-effective-tensor (effective-tensor *result*))
+      (format t "The effective elasticity tensor is:~%~A~%" it)
+      it)))
 
 #+(or)
 (elasticity-interior-effective-coeff-demo
- (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2))
+ (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 3))
  :order 5 :levels 2 :plot nil :output 2)
 
 
@@ -249,7 +269,8 @@ Parameters: order=~D, levels=~D~%~%"
      
 (defun test-homogenization-elasticity ()
   (time (elasticity-interior-effective-coeff-demo
-	 (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2)) :order 3 :levels 2))
+	 (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2)) :order 3 :levels 2
+         :output :all))
   ;;(profile:report-time)
   ;;(profile:profile :methods 'fl.matlisp:sparse-matrix->matlisp)
   ;;(profile:unprofile)
@@ -269,7 +290,44 @@ Parameters: order=~D, levels=~D~%~%"
   (isotropic-elasticity-tensor :dim 2 :lambda 100 :mu 100)
 
   (plot (getbb *result* :solution) :component 0 :index 1)
+
+  #+(or)
+  (sb-sprof:with-profiling
+      (:max-samples 10000)
+    (time
+     (with-items (&key rhs matrix) *result*
+       (linsolve matrix rhs
+                 :output t
+                 :threshold 1e-10
+                 :iteration
+                 (make-instance '<multi-iteration> :nr-steps 5 :base
+                                (make-instance '<cg> :preconditioner (make-instance '<jacobi>)))))))
   
+  ;; Testing for bug
+  #+(or)
+  (progn
+    (sb-ext:gc :full t)
+    (sb-sprof:reset)
+    (sb-sprof:start-profiling)
+    (list sb-sprof:*sample-interval* sb-sprof:*alloc-interval* sb-sprof:*max-samples*)
+    (lret ((fl.matlisp::*blas3-operation-count* 0))
+      (time
+       (elasticity-interior-effective-coeff-demo
+        (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
+        :order 5 :levels 2 :plot nil :output 2)))
+    (sb-sprof:stop-profiling))
+  #+(or)
+  (sb-sprof:report :type :flat :sort-by :cumulative-samples :max 200)
+
+  ;; testing for bug
+  (loop repeat 3
+        for old = nil then tensor
+        and tensor = (elasticity-interior-effective-coeff-demo
+                      (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
+                      :order 5 :levels 1 :plot nil :output 2)
+        do
+           (when old (assert (mequalp old tensor))))
+
   )
 
 ;;; (test-homogenization-elasticity)

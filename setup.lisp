@@ -43,6 +43,7 @@
 (defpackage "FL.START"
   (:use "COMMON-LISP")
   (:export "*FEMLISP-VERSION*" "FEMLISP-HERALD" "FEMLISP-BANNER" "FEMLISP-PATHNAME"
+           "*DX-PATH*" "*GNUPLOT-PATH*"
            "*TETGEN-PATH*" "*IMAGES-DIRECTORY*" "*MESHES-DIRECTORY*"
            "*BLAS-LIBRARY*" "*LAPACK-LIBRARY*" "*SUPERLU-LIBRARY*" "*UMFPACK-LIBRARY*")
   (:documentation "This package contains some routines called

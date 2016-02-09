@@ -106,25 +106,28 @@ the given direction."
     (values extension replacement)))
 
 
-;;;; Testing
 
-(defun test-extend ()
-  (let* ((dim 1) (direction 0)
-	 (direction (min direction (1- dim)))
-	 (domain (n-cube-domain dim))
-	 (domain-cube (car (cells-of-highest-dim domain)))
-	 (domain-ext (aref (boundary domain-cube) (* 2 direction)))
-	 (extension (cube-extender domain-cube direction)))
-    ;; make domain extensible
-    (setf (get-cell-property domain-ext domain 'EXTENSION) extension)
-    (ensure-secondary-information domain)
-    ;; make mesh
-    (let ((mesh (make-hierarchical-mesh-from-domain domain)))
-      (refine mesh)
-      (extend mesh)
-      #+(or)(plot:plot mesh)))
-  )
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; (test-extend)
-(fl.tests:adjoin-test 'test-extend)
+(in-suite mesh-suite)
+
+(test extend
+  (finishes
+    (let* ((dim 1) (direction 0)
+           (direction (min direction (1- dim)))
+           (domain (n-cube-domain dim))
+           (domain-cube (car (cells-of-highest-dim domain)))
+           (domain-ext (aref (boundary domain-cube) (* 2 direction)))
+           (extension (cube-extender domain-cube direction)))
+      ;; make domain extensible
+      (setf (get-cell-property domain-ext domain 'EXTENSION) extension)
+      (ensure-secondary-information domain)
+      ;; make mesh
+      (let ((mesh (make-hierarchical-mesh-from-domain domain)))
+        (refine mesh)
+        (extend mesh)
+        #+(or)(plot:plot mesh)))
+    ))
   

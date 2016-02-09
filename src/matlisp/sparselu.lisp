@@ -148,7 +148,7 @@ to their distance from @arg{key}."
 (defun last-key (sorted-ht)
   "Returns the last key in a sorted hash table.
 This function should be in the interface of the sorted hash table."
-  (car (dll-peek-last (slot-value sorted-ht 'fl.utilities::store))))
+  (car (dll-peek-last (slot-value sorted-ht 'fl.dictionary::store))))
 
 (defun find-ordering (mat keys)
   "Finds a nested disection ordering of @arg{keys}

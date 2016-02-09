@@ -376,12 +376,22 @@ for this index."
          job
          ((:nn :nt)
           `(ecase (access-type A :suggest :row)
-             (:row (dorows (rk A)
-                     (let ((x-values (vref x rk)))
-                       (scal! beta x-values)
-                       (dorow ((ck mblock) A rk)
-                         (let ((y-values (vref y ck)))
-                           (,gemm-job alpha mblock y-values 1.0 x-values))))))
+             (:row
+              ;; ensure that every necessary key is present in the vectors
+              ;; before starting the parallel operation
+              (dolist (rk (row-keys A))
+                (vref x rk))
+              (dolist (ck (col-keys A))
+                (vref y ck))
+              (dic-for-each
+               (lambda (rk row)
+                 (let ((x-values (vref x rk)))
+                   (scal! beta x-values)
+                   (dic-for-each (lambda (ck mblock)
+                                   (let ((y-values (vref y ck)))
+                                     (,gemm-job alpha mblock y-values 1.0 x-values)))
+                                 row)))
+                 (row-table A) :parallel t))
              (:column
               (scal! beta x)
               (docols (ck A)
@@ -533,9 +543,13 @@ hash-tables of keys (or NIL, which means to allow every key)."
 ;;; transformation to matlisp matrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defgeneric sparse-matrix->matlisp (mat &key &allow-other-keys)
+  (:documentation
+   "Converts sparse matrices into matlisp format."))
+
 (defmethod sparse-matrix->matlisp ((A <sparse-matrix>)
 				   &key keys row-keys col-keys
-				   ranges row-ranges col-ranges)
+                                     ranges row-ranges col-ranges)
   (setq row-keys (coerce (or row-keys keys (row-keys A)) 'vector))
   (setq col-keys (coerce (or col-keys keys (col-keys A)) 'vector))
   (setq row-ranges (aand (or row-ranges ranges) (coerce it 'vector)))
@@ -562,12 +576,11 @@ hash-tables of keys (or NIL, which means to allow every key)."
 					       (cdr (aref col-ranges l))
 					       (funcall (col-key->size A) col-key))
 		and mblock = (matrix-block A row-key col-key) do
-		(loop for i of-type fixnum from row-a below row-b do
-		      (loop for j of-type fixnum from col-a below col-b do
-			    (setf (mref mm (+ row-offset i) (+ col-offset j))
-				  (if mblock
-				      (mref mblock i j)
-				      0.0))))))
+                  (when mblock
+                    (extended-minject! mblock mm row-offset col-offset row-a col-a row-b col-b)
+                    ;; mclear should not be necessary, because mm is zero from the beginning
+                    ;;(extended-mclear! mm row-offset col-offset ...)
+                    )))
     mm))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -734,8 +747,7 @@ problem."
   (dic-for-each-key fn (row-table smat)))
 
 (defmethod parallel-for-each-row-key (fn (smat <sparse-dictionary-matrix>))
-  (with-workers (fn)
-    (dic-for-each-key #'work-on (row-table smat))))
+  (dic-for-each-key fn (row-table smat) :parallel t))
 
 (defmethod for-each-col-key (fn (smat <sparse-dictionary-matrix>))
   "Loop through column keys."
@@ -779,7 +791,8 @@ indexed by general keys."))
     (&rest args
      &key (type '(<block-definition-mixin> <ht-sparse-matrix>))
      &allow-other-keys)
-  (apply #'fl.amop::make-programmatic-instance type
+  (apply #'fl.amop::make-programmatic-instance
+         type
          (sans args '(:type))))
 
 (defmethod (setf matrix-block) (value (smat <ht-sparse-matrix>) row-key col-key)

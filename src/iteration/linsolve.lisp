@@ -61,13 +61,17 @@ alternative iteration.  Usually this will be a direct decomposition."))
       blackboard
     (unless iterator ; initialize the inner iteration if necessary
       (dbg :iter "Linear solving: making iterator")
-      (setq iterator (make-iterator (iteration itsolve) (matrix problem)))
-      (awhen (slot-value iterator 'initialize)
-	(funcall it solution (rhs problem) residual)))
-    (funcall (slot-value iterator 'iterate)
-	     solution (rhs problem) residual)
-    (setq residual-p (slot-value iterator 'residual-after))))
-
+      (setq iterator (make-iterator (iteration itsolve) (matrix problem))))
+    (with-slots (initializedp initialize iterate residual-after) iterator
+      (unless initializedp
+        (awhen initialize
+          (funcall it solution (rhs problem) residual))
+        (setf initializedp t))
+      (let ((flags (funcall iterate solution (rhs problem) residual)))
+        (setq residual-p
+              (and residual-after
+                   (getf flags :residual-after)))))))
+  
 (defmethod terminate-p ((iter <safe-linear-solver>) blackboard)
   "If failure occurs we continue iterating with a direct decomposition.
 Note that no other parameters on the blackboard are changed.  Thus, success
@@ -131,14 +135,15 @@ a function, you may use this base class."))
   "Old and deprecated interface for solving linear problems."
   (let ((result
 	 (solve (make-instance
-		 '<linear-solver> :iteration iteration :output output
-		 :residual-norm residual-norm :success-if
-		 (or success-if
-		     (cons 'or
-			   (remove nil
-				   (list 
-				    (and threshold `(< :defnorm ,threshold))
-				    (and reduction `(< :reduction ,reduction))))))
+		 '<linear-solver>
+                 :iteration iteration :output output
+                 :residual-norm residual-norm
+                 :success-if (or success-if
+                                 (cons 'or
+                                       (remove nil
+                                               (list 
+                                                (and threshold `(< :defnorm ,threshold))
+                                                (and reduction `(< :reduction ,reduction))))))
 		 :failure-if (or failure-if (and maxsteps `(> :step ,maxsteps))))
 		(blackboard :problem (lse :matrix mat :rhs rhs)
 			    :solution sol :residual res :output output))))

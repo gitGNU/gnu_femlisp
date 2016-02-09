@@ -89,14 +89,13 @@
        "image = tubes;")
    ))
 
-
 (defun compute-cell-vertices (cells)
   (lret ((count -1)
          (table (make-hash-table)))
     (loop for cell in cells do
          (loop for vtx in (vertices cell) do
-              (ensure (gethash vtx table)
-                      (incf count))))))
+              (or (gethash vtx table)
+                  (setf (gethash vtx table) (incf count)))))))
 
 (defun meshplot-position-array (vertex-indices transformation)
   (lret ((positions (make-array (hash-table-count vertex-indices))))

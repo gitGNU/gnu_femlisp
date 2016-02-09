@@ -55,7 +55,7 @@
   #+lispworks (declare (optimize (float 0)))
   (very-quickly
    (loop for i of-type fixnum from 0 below n do
-	(incf (aref y i) (* a (aref x i))))))
+     (incf (aref y i) (* a (aref x i))))))
 
 (defun ddot (x y n)
   (declare (type fixnum n)
@@ -66,8 +66,8 @@
        summing (* (aref x i) (aref y i)) of-type double-float)))
 
 (defun measure-time (fn &optional (count 1) real-p)
-  "Measures the time in secondswhich @arg{count}-time execution of @arg{fn}
-needs."
+  "Measures the time in seconds needed by @arg{count}-times
+executing @arg{fn}."
   (declare (type function fn) (type fixnum count))
   (flet ((time-stamp ()
 	   (if real-p
@@ -88,6 +88,10 @@ Returns the time in seconds together with the repetition count."
 	for secs = (measure-time fn count) 
 	until (> secs delta)
 	finally (return (values secs count))))
+
+(defmacro measure-time-for-block ((message &optional real-p) &body block)
+  `(lret ((time (measure-time (lambda () ,@block) 1 ,real-p)))
+     (awhen ,message (format t it time))))
 
 (defun daxpy-speed (n)
   "Returns the number of daxpy-ops for vectors of size @arg{n}."
@@ -113,6 +117,9 @@ memory bandwidth available."
   (time (daxpy-speed (expt 2 26)))
   (daxpy-speed +N-long+)
   (common-lisp-speed)
+
+  (measure-time-for-block ("~&Test took ~F secs~%")
+    (loop repeat 1000000))
   )
 
 ;;; (test-mflop)

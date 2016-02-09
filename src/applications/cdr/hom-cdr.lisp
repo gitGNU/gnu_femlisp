@@ -146,34 +146,34 @@ in a nested iteration fashion.  The solution to the cell problem is a
 vector field whose components are plotted one after the other.  The setting
 has cubic symmetry, from which one can easily see that the effective tensor
 must be a scalar multiple of the identity."
-  (lret ((*output-depth* output)
-	 (result
-	  (solve
-	   (make-instance
-	    '<stationary-fe-strategy> :fe-class (lagrange-fe order)
-	    :estimator (make-instance '<projection-error-estimator>)
-	    :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
-	    :success-if `(>= :nr-levels ,levels)
-	    :solver
-	    (make-instance
-	     '<linear-solver> :iteration
-	     (let ((smoother
-		    (if (>= (domain-dimension problem) 3)
-			*gauss-seidel*
-			(geometric-ssc :store-p nil))))
-	       (geometric-cs
-		:gamma 2 :fmg nil :coarse-grid-iteration
-		(make-instance '<multi-iteration> :base smoother
-			       :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
-		:smoother smoother :pre-steps 2 :post-steps 2))
-	     :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
-	     :failure-if `(> :step 20))
-	    :observe
-	    (append *stationary-fe-strategy-observe*
-		    (list (list (format nil "~19@A" "Ahom") "~19,10,2E"
-				#'(lambda (blackboard)
-				    (mref (effective-tensor blackboard) 0 0))))))
-	   (blackboard :problem problem))))
+  (lret* ((*output-depth* output)
+          (result
+           (solve
+            (make-instance
+             '<stationary-fe-strategy> :fe-class (lagrange-fe order)
+             :estimator (make-instance '<projection-error-estimator>)
+             :indicator (make-instance '<largest-eta-indicator> :fraction 1.0)
+             :success-if `(>= :nr-levels ,levels)
+             :solver
+             (make-instance
+              '<linear-solver> :iteration
+              (let ((smoother
+                      (if (>= (domain-dimension problem) 3)
+                          *gauss-seidel*
+                          (geometric-ssc :store-p nil))))
+                (geometric-cs
+                 :gamma 2 :fmg nil :coarse-grid-iteration
+                 (make-instance '<multi-iteration> :base smoother
+                                                   :nr-steps (if (eq smoother *gauss-seidel*) 10 3))
+                 :smoother smoother :pre-steps 2 :post-steps 2))
+              :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-10))
+              :failure-if `(> :step 20))
+             :observe
+             (append *stationary-fe-strategy-observe*
+                     (list (list (format nil "~19@A" "Ahom") "~19,10,2E"
+                                 #'(lambda (blackboard)
+                                     (mref (effective-tensor blackboard) 0 0))))))
+            (blackboard :problem problem))))
     ;; plot cell solutions and compute the homogenized coefficient
     (when plot
       (let ((solution (getbb result :solution)))
@@ -213,8 +213,8 @@ must be a scalar multiple of the identity."
 				     (porous-cell-problem dim) order levels :plot t)))))
     (adjoin-demo demo *effective-diffusion-demo*)))
 
-(make-effective-diffusion-porous-domain-demo 2 5 2)
-(make-effective-diffusion-porous-domain-demo 3 4 1)
+(make-effective-diffusion-porous-domain-demo 2 5 3)
+(make-effective-diffusion-porous-domain-demo 3 4 2)
 
 ;;; 3D Ordnung 4 und 5
 ;;;    6      1287     73393      30.8   8.3975311514d-01
@@ -232,7 +232,7 @@ must be a scalar multiple of the identity."
     (adjoin-demo demo *effective-diffusion-demo*)))
 
 (make-effective-diffusion-inlay-domain-demo 2 4 3)
-(make-effective-diffusion-inlay-domain-demo 3 1 1)
+(make-effective-diffusion-inlay-domain-demo 3 3 2)
 
 #+(or)(demo *effective-diffusion-demo*)
      

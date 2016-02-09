@@ -39,7 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar *gnuplot-pathname*
-  (or (aand fl.start::*gnuplot-path* (probe-file (pathname it)))
+  (or fl.start:*gnuplot-path*
       (fl.port:find-executable "gnuplot"))
   "Pathname of the @program{Gnuplot} binary.")
 

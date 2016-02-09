@@ -119,7 +119,7 @@ splitting into monomials and computing
 ;;; roots of separating family
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun zeros-of-separating-family (family n accuracy)
+(defun zeros-of-separating-family (family n accuracy &optional (float-p t))
   "This function works on the assumption that p_0=const and the zeros of
 p_n-1 together with the interval boundaries separate the zeros of p_n.
 Then an interval method is performed.  Of course, accuracy problems may
@@ -127,8 +127,10 @@ occur for the inexact arithmetic."
   (cond
     ((minusp n) (error "unknown family"))
     ((zerop n) '())
-    (t (loop for seps = (append '(-1.0) (zeros-of-separating-family
-					 family (1- n) accuracy) '(1.0))
+    (t (loop for seps = (append (list (if float-p -1.0 -1))
+                                (zeros-of-separating-family
+                                 family (1- n) accuracy float-p)
+                                (list (if float-p 1.0 1)))
 	     then (cdr seps)
 	     until (single? seps)
 	     collect (interval-method
@@ -139,9 +141,9 @@ occur for the inexact arithmetic."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; s-point Gauss-formula for the weight (1+y)^beta
-(defun gauss-points-for-weight (beta s)
+(defun gauss-points-for-weight (beta s &optional (float-p t))
   (zeros-of-separating-family
-   #'(lambda (n) (jacobi-polynomial 0 beta n)) s 1.0e-16))
+   #'(lambda (n) (jacobi-polynomial 0 beta n)) s 1.0e-16 float-p))
 
 (defun weights-for-gauss-points (beta zeros)
   (let ((int-weight (poly-expt (make-polynomial '(1 1)) beta)))
@@ -156,6 +158,7 @@ occur for the inexact arithmetic."
 		      (lag-int (integrate-simple-polynomial (poly* lagrange int-weight))))
 		 (- (evaluate lag-int 1) (evaluate lag-int -1)))))
       (mapcar #'weight-for-zero zeros))))
+
 
 ;;; qr for \int_0^1 (1-y)^n f(y) dy
 (defun gauss-rule-for-weight (n s)
@@ -207,6 +210,7 @@ occur for the inexact arithmetic."
 	 :points (map 'vector #'ip-coords ips)
 	 :weights (map 'vector #'ip-weight ips))))))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Gauss-Lobatto quadrature
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -230,11 +234,15 @@ occur for the inexact arithmetic."
   (time (let () (gauss-rule-for-weight 2 10) nil)) ; 0.5-0.8 on toba
   (gauss-points-for-weight 2 6)
   
-  ;;; Maxima:
   (gauss-rule-for-simplex 2 3)
   (gauss-lobatto-points 2)
   (gauss-lobatto-points-on-unit-interval 2)
+  (gauss-lobatto-points-on-unit-interval 10)
   (length (integration-points (gauss-rule '(1 2) 20)))
+  (let* ((n 8)
+         (a (time (mapcar (_ (float _ 1.0)) (gauss-points-for-weight 0 n nil))))
+         (b (time (gauss-points-for-weight 0 n t))))
+    (mapcar #'- a b))
   )
 
 (fl.tests:adjoin-test 'test-quadrature)

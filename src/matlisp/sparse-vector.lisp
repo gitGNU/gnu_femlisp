@@ -125,11 +125,11 @@ and solutions simultaneously."))
 @arg{keys} and maybe the ranges in 'ranges' to a matlisp matrix."
   (setq keys (coerce (or keys (keys svec)) 'vector))
   (setq ranges (and ranges (coerce ranges 'vector)))
-  (let* ((n (if ranges
-		(reduce #'+ ranges :key #'(lambda (x) (- (cdr x) (car x))))
-		(reduce #'+ keys :key (key->size svec))))
-	 (multiplicity (multiplicity svec))
-	 (mm (make-real-matrix n multiplicity)))
+  (lret* ((n (if ranges
+                 (reduce #'+ ranges :key #'(lambda (x) (- (cdr x) (car x))))
+                 (reduce #'+ keys :key (key->size svec))))
+          (multiplicity (multiplicity svec))
+          (mm (make-real-matrix n multiplicity)))
     (loop for key across keys and k from 0
 	  and offset of-type fixnum = 0 then (+ offset (- end-comp start-comp))
 	  for start-comp of-type fixnum = (if ranges (car (aref ranges k)) 0)
@@ -137,11 +137,8 @@ and solutions simultaneously."))
 					    (cdr (aref ranges k))
 					    (funcall (key->size svec) key))
 	  for entry = (vref svec key) do
-	  (loop for i of-type fixnum from start-comp below end-comp do
-		(dotimes (j multiplicity)
-		  (setf (mref mm (+ offset i) j)
-			(if entry (mref entry i j) 0.0)))))
-    mm))
+            (when entry
+              (extended-minject! entry mm offset 0 start-comp 0 end-comp multiplicity)))))
 
 (defgeneric extract-value-blocks (sobj keys &optional col-keys)
   (:documentation "Extract a vector or array of value blocks from @arg{sobj}."))

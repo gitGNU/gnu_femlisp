@@ -124,9 +124,18 @@
   (assert (eq (get-refinement-rule cell :anisotropic-ft)
               (anisotropic-refinement-rule cell '(nil t)))))
 
+(defun projection-matrix (flags)
+  (lret* ((n (length flags))
+          (result (eye n)))
+    (loop for flag in flags and k from 0
+          unless flag do
+            (setf (mref result k k) 0.0))))
+
 (defun anisotropic-refinement-indicator (filter-matrix)
   "@arg{filter-matrix} projects orthogonally on the dimensions with
 refinement."
+  (when (listp filter-matrix)
+    (setf filter-matrix (projection-matrix filter-matrix)))
   (lambda (cell)
     (let ((Dphi (local->Dglobal
                  cell (local-coordinates-of-midpoint cell))))
@@ -137,51 +146,53 @@ refinement."
           (not (mzerop (m* filter-matrix
                            (matrix-slice Dphi :from-col from :ncols dim)))))))))
 
-;;;; Testing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun test-anisotropic ()
+(in-suite mesh-suite)
 
-  (map 'list #'names (refinement-rules (n-cube 2)))
-  (anisotropic-refinement-skeleton '(1 2) '(t nil))
-  (anisotropic-refinement-info (n-cube 2) '(nil t))
-  (refinement-rules (n-cube 2))
-  (anisotropic-refinement-rule (n-simplex 2) '(t))
+(test anisotropic
+  (finishes
+    (map 'list #'names (refinement-rules (n-cube 2)))
+    (anisotropic-refinement-skeleton '(1 2) '(t nil))
+    (anisotropic-refinement-info (n-cube 2) '(nil t))
+    (refinement-rules (n-cube 2))
+    (anisotropic-refinement-rule (n-simplex 2) '(t))
+    
+    (get-refinement-rule (n-cube 1) :copy)
+    #+(or)
+    (fl.plot:plot
+     (refcell-refinement-skeleton
+      (n-cube 2) 1 (anisotropic-name '(t nil))))
+    (map 'list #'names (anisotropic-boundary-refinement-rules (n-cube 2) '(t nil)))
+    (map 'vector 'midpoint (boundary (n-cube 2)))
+    
+    (let* ((types '(nil t))
+           (indicator (anisotropic-refinement-indicator types)))
+      (loop repeat 4
+            for mesh = (skeleton (n-cube 2)) then (refine mesh :indicator indicator)
+            finally (return mesh)))
 
-  (get-refinement-rule (n-cube 1) :copy)
-  #+(or)
-  (fl.plot:plot
-   (refcell-refinement-skeleton
-    (n-cube 2) 1 (anisotropic-name '(t nil))))
-  (map 'list #'names (anisotropic-boundary-refinement-rules (n-cube 2) '(t nil)))
-  (map 'vector 'midpoint (boundary (n-cube 2)))
-
-  (let* ((types '(nil t))
-         (indicator (anisotropic-refinement-indicator types)))
-    (loop repeat 4
-       for mesh = (skeleton (n-cube 2)) then (refine mesh :indicator indicator)
-       finally (return mesh)))
-
-  #+(or)
-  (let* ((mesh (uniform-mesh-on-box-domain (n-cube-domain 2) #(2 1)))
-         (ind (anisotropic-refinement-indicator '(nil t))))
-    (refine mesh :indicator ind))
-
-  (let ((mesh (cartesian-product (refine (skeleton (n-cube 1))) (skeleton (n-cube 1)))))
-    (refine mesh :indicator (anisotropic-refinement-indicator '(t nil))))
-
-  (vector-map #'names (refinement-rules *unit-prism-1-2*))
-
-  #+(or)
-  (let* ((refcell *unit-prism-1-2*)
-         (rule (anisotropic-refinement-rule refcell '(nil t))))
-    (anisotropic-boundary-refinement-rules refcell '(nil t))
-    (fl.plot:plot (refcell-refinement-skeleton refcell 1 rule)))
-
-  #+(or)
-  (let* ((cell *unit-prism-1-2*)
-         (mesh (skeleton cell))
-         (ind (anisotropic-refinement-indicator
-               (diag #d(0.0 1.0 1.0)))))
-    (fl.plot:plot (refine mesh :indicator ind)))
-
+    (let* ((mesh (uniform-mesh-on-box-domain (n-cube-domain 2) #(2 1)))
+           (ind (anisotropic-refinement-indicator (projection-matrix '(nil t)))))
+      (refine mesh :indicator ind))
+    
+    (let ((mesh (cartesian-product (refine (skeleton (n-cube 1))) (skeleton (n-cube 1)))))
+      (refine mesh :indicator (anisotropic-refinement-indicator '(t nil))))
+    
+    (vector-map #'names (refinement-rules *unit-prism-1-2*))
+    
+    (let* ((refcell *unit-prism-1-2*)
+           (rule (anisotropic-refinement-rule refcell '(nil t))))
+      (anisotropic-boundary-refinement-rules refcell '(nil t))
+      (refcell-refinement-skeleton refcell 1 rule))
+    
+    (let* ((cell *unit-prism-1-2*)
+           (mesh (skeleton cell))
+           (ind (anisotropic-refinement-indicator
+                 (diag #d(0.0 1.0 1.0)))))
+      (refine mesh :indicator ind))
+    
+    )
   )

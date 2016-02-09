@@ -477,6 +477,10 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 
 (defgeneric emptyp (queue)
   (:documentation "Tests if @arg{queue} is empty.")
+  (:method ((list list))
+    (null list))
+  (:method ((ht hash-table))
+    (zerop (hash-table-count ht)))
   (:method ((queue queue))
     (not (head queue))))
 
@@ -516,9 +520,12 @@ value T if the queue was empty.")
   (succ nil)
   (pred nil))
 
-(defstruct dll
-  (first nil)
-  (last nil))
+(defclass dll ()
+  ((first :accessor dll-first :initform nil)
+   (last :accessor dll-last :initform nil)))
+
+(defun make-dll ()
+  (make-instance 'dll))
 
 (defun dll-front-insert (obj dll &optional insert-item-p)
   "Inserts @arg{obj} in @arg{dll}.  It returns the newly created
@@ -567,9 +574,14 @@ value T if the queue was empty.")
 	(setf (dll-last dll) predecessor)
 	(setf (dli-pred successor) predecessor))))
 
-(defun dll-for-each (func dll)
-  (loop for item = (dll-first dll) then (dli-succ item) until (null item)
-       do (funcall func (dli-object item))))
+(defun dll-for-each (func dll &optional (direction :forward))
+  (ecase direction
+    (:forward
+     (loop for item = (dll-first dll) then (dli-succ item) until (null item)
+           do (funcall func (dli-object item))))
+    (:backward
+     (loop for item = (dll-last dll) then (dli-pred item) until (null item)
+           do (funcall func (dli-object item))))))
 
 (defun dll-find (key dll)
   (loop for item = (dll-first dll) then (dli-succ item) until (null item)
@@ -911,8 +923,8 @@ parameter.  Example:
     (destructuring-bind (from to)
 	(if (consp item) item (list item item))
       (if ensure
-	  (ensure (getbb to-bb to)) (getbb from-bb from))
-	  (setf (getbb to-bb to) (getbb from-bb from)))))
+          (ensure (getbb to-bb to) (getbb from-bb from))
+          (setf (getbb to-bb to) (getbb from-bb from))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Sets
@@ -1179,7 +1191,17 @@ called:
   (lret ((result 0))
     (apply mapper (_ (incf result)) rest-args)))
 
-
+;;; A format directive
+(defun KMGT (stream number colon-p at-p &optional w d)
+  (declare (ignore colon-p at-p))
+  (if (< (abs number) 1000)
+      (format stream "~vD" w number)
+      (loop for unit in '(" " "K" "M" "G" "T")
+            and r = number then (/ r 1000)
+            while (> (abs r) 1000)
+            finally
+               (format stream "~v,vF~A" (1- w) d r unit)
+            )))
 
 ;;; Testing
 (defun test-utilities ()

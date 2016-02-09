@@ -360,16 +360,19 @@ but it is not a standard situation.")
 	  ;; check patches
 	  )))
 
-;;;; Testing
-(defun test-mesh ()
-  "More tests can be found in meshgen.lisp."
-  (let ((*print-skeleton-values* t))
-    (describe
-     (make-instance '<mesh> :domain (n-simplex-domain 1))))
-  (assert (= 16641 (length
-                    (hierarchically-ordered-cells
-                     (uniformly-refined-hierarchical-mesh (n-cube-domain 2) 6)))))
-  )
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(fl.tests:adjoin-test 'test-mesh)
+(in-suite mesh-suite)
+
+(test mesh
+  (is (= 16641 (length
+                (hierarchically-ordered-cells
+                 (uniformly-refined-hierarchical-mesh (n-cube-domain 2) 6)))))
+  (finishes
+    (let ((*print-skeleton-values* t))
+      (describe
+       (make-instance '<mesh> :domain (n-simplex-domain 1)))))
+  )
 

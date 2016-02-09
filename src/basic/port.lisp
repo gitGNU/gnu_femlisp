@@ -37,7 +37,8 @@
   (:export
    "PORTABILITY-WARNING"
    ;; UNIX environment
-   "FIND-EXECUTABLE" "HOSTNAME" "GETENV" "UNIX-CHDIR" "SYSTEM-NAMESTRING"
+   "FIND-EXECUTABLE" "FIND-SHARED-LIBRARY"
+   "HOSTNAME" "GETENV" "UNIX-CHDIR" "SYSTEM-NAMESTRING"
    
    ;; runtime compilation
    "COMPILE-SILENTLY" "RUNTIME-COMPILE" "COMPILE-AND-EVAL"
@@ -127,11 +128,23 @@ compatible way of ensuring method compilation."
 (defun find-executable (name)
   "Finds an executable in the current path."
   #-(or allegro cmu scl)
-  (declare (ignore name))
+  (declare (ignorable name))
+  #+os-unix (probe-file (concatenate 'string "/usr/bin/" name))
   #+allegro (excl.osi:find-in-path name)
   #+cmu (probe-file (pathname (concatenate 'string "path:" name)))
   #+scl (probe-file (concatenate 'string "file://path/" name))
   )
+
+(defun find-shared-library (name)
+  "Finds a shared library."
+  #-(or allegro cmu scl)
+  (declare (ignorable name))
+  #+os-unix (probe-file (concatenate 'string "/usr/lib/" name ".so"))
+  #+allegro (excl.osi:find-in-path name)
+  #+cmu (probe-file (pathname (concatenate 'string "path:" name)))
+  #+scl (probe-file (concatenate 'string "file://path/" name))
+  )
+(find-shared-library "liblapack")
 
 (defun getenv (var)
   "Return the value of the environment variable."

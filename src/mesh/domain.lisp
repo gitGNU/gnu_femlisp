@@ -422,35 +422,39 @@ the unit cube."
 	       (refine (skeleton (n-cube dim))))))))
 
 
-;;;; Testing
-(defun test-domain ()
-  (doskel (cell *rotated-square-domain* :direction :down)
-    (print cell))
-  (describe (n-cube-domain 2))
-  (corners (n-simplex 2))
-  (let ((*print-skeleton-values* t))
-    (describe (triangle-domain #d(0.0 0.0) #d(1.0 0.0) #d(0.0 1.0))))
-  (check (n-cube-domain 2))
-  (assert (= -1 (dimension (skeleton-boundary (n-cell-domain 2)))))
-  (let ((domain (n-cube-domain 1)))
-    (doskel (patch domain)
-      (format t "~A : ~S~%" patch (patch-classification patch domain))))
-  (let ((domain (n-cube-domain 3)))
-    (doskel (cell domain)
-      (print (patch-classification cell domain))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(in-suite mesh-suite)
+
+(test domain
+  (is (= -1 (dimension (skeleton-boundary (n-cell-domain 2)))))
   (let* ((domain (n-cube-domain 3))
 	 (cell (find-cell (lambda (c) (mequalp (midpoint c) #d(0.5 0.5 0.0))) domain)))
-    (assert (member :bottom (patch-classification cell domain))))
-  (assert (not (test-condition
-                '(and (or :left :right) :d-1-dimensional)
-                '(:top :d-1-dimensional :bottom))))
-  (assert (not (test-condition '(and :d-dimensional (not :inlay))
-			       '(:d-dimensional :inlay))))
-  (let ((domain (n-cube-domain 1)))
-    (doskel (patch domain)
-      (print (funcall (standard-classifier domain) patch ()))))
+    (is-true (member :bottom (patch-classification cell domain))))
+  (is-false (test-condition
+             '(and (or :left :right) :d-1-dimensional)
+             '(:top :d-1-dimensional :bottom)))
+  (is-false (test-condition '(and :d-dimensional (not :inlay))
+                            '(:d-dimensional :inlay)))
+  (finishes
+    (doskel (cell *rotated-square-domain* :direction :down)
+      (print cell))
+    (describe (n-cube-domain 2))
+    (corners (n-simplex 2))
+    (let ((*print-skeleton-values* t))
+      (describe (triangle-domain #d(0.0 0.0) #d(1.0 0.0) #d(0.0 1.0))))
+    (check (n-cube-domain 2))
+    (let ((domain (n-cube-domain 1)))
+      (doskel (patch domain)
+        (format t "~A : ~S~%" patch (patch-classification patch domain))))
+    (let ((domain (n-cube-domain 3)))
+      (doskel (cell domain)
+        (print (patch-classification cell domain))))
+    (let ((domain (n-cube-domain 1)))
+      (doskel (patch domain)
+        (print (funcall (standard-classifier domain) patch ()))))
+    )
   )
-
-;;; (test-domain)
-(fl.tests:adjoin-test 'test-domain)
 

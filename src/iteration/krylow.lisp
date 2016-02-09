@@ -65,7 +65,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <cg> (<linear-iteration>)
-  ((preconditioner :initform nil :initarg :preconditioner))
+  ((preconditioner :initform nil :initarg :preconditioner)
+   (restart-cycle :reader restart-cycle :initform nil :initarg :restart-cycle))
   (:documentation "Preconditioned conjugate gradient iteration"))
 
 (defmethod make-iterator ((cg <cg>) mat)
@@ -80,44 +81,56 @@ here wants to keep residual and rhs intact."))
 	  (a (make-image-vector-for mat))
 	  (w (make-image-vector-for mat))
 	  (q (and precond (make-domain-vector-for mat)))
-	  (alpha 0.0))
+	  (alpha 0.0)
+          (count 0))
       (assert (and p a w))
       (with-slots (initialize iterate) precond
-	(make-instance
-	 '<iterator>
-	 :matrix mat
-	 :residual-before t
-	 :initialize
-	 #'(lambda (x b r)
-	     (declare (ignore x b))
-	     (cond
-	       (precond
-		(copy! r w)
-		(when initialize
-		  (funcall initialize p w w))
-		(funcall iterate p w w))
-	       (t (copy! r p)))
-	     (setq alpha (dot p r)))
-	 :iterate
-	 #'(lambda (x b r)
-	     (declare (ignore b))
-	     (unless (zerop alpha)
-	       (gemm! 1.0 mat p 0.0 a)
-	       (let* ((beta (dot a p))
-		      (lam (/ alpha beta)))
-		 (axpy! lam p x)
-		 (axpy! (- lam) a r)
-		 (let ((q (cond (precond
-				 (copy! r w) (x<-0 q)
-				 (funcall iterate q w w)
-				 q)
-				(t (copy r)))))
-		   (let ((new-alpha (dot q r)))
-		     (scal! (/ new-alpha alpha) p)
-		     (m+! q p)
-		     (setq alpha new-alpha))
-		   ))))
-	 :residual-after t)))))
+        (flet ((restart (r)
+                 (cond
+                   (precond
+                    (copy! r w)
+                    (when initialize
+                      (funcall initialize p w w))
+                    (funcall iterate p w w))
+                   (t (copy! r p)))
+                 (setq alpha (dot p r))))
+          (make-instance
+           '<iterator>
+           :matrix mat
+           :residual-before t
+           :initialize
+           #'(lambda (x b r)
+               (declare (ignore x b))
+               (restart r))
+           :iterate
+           #'(lambda (x b r)
+               (declare (ignore b))
+               (when (aand (plusp count)
+                           (restart-cycle cg)
+                           (zerop (mod count it)))
+                 (restart r))
+               (let ((fl.matlisp::*parallel-algebra* t))
+                 (unless (zerop alpha)
+                   (gemm! 1.0 mat p 0.0 a)
+                   (let* ((beta (dot a p))
+                          (lam (/ alpha beta)))
+                     (axpy! lam p x)
+                     (axpy! (- lam) a r)
+                     (let ((q (cond (precond
+                                     (copy! r w) (x<-0 q)
+                                     (funcall iterate q w w)
+                                     q)
+                                    (t (copy r)))))
+                       (let ((new-alpha (dot q r)))
+                         (scal! (/ new-alpha alpha) p)
+                         (m+! q p)
+                         (setq alpha new-alpha))
+                       ))))
+               ;; restart procedure
+               (unless (aand (restart-cycle cg)
+                             (zerop (mod (incf count) it)))
+                 (list :residual-after t)))
+           :residual-after t))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; BiCGStab
@@ -168,7 +181,8 @@ here wants to keep residual and rhs intact."))
 	       (copy! s r)
 	       (axpy! (- omega) tee r)
 	       ;; convergence check dropped (is done outside)
-	       )))
+	       )
+             (list :residual-after t)))
        :residual-after t
        ))))
 

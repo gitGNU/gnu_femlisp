@@ -2,6 +2,19 @@
 
 * Current work:
 
+* From Femlisp-1.0.0 to Femlisp-1.1.0
+
+A change in SBCL before 12.1.2016 broke the rather elegant but
+non-ANSI-compliant implementation of the macro ENSURE in the
+FL.UTILITIES package.  I replaced it by a conforming implementation
+which was already there but commented out.  I should not do this
+again.  Discovered then a usage bug, because the new macro was less
+permissive than the old one.
+
+OS thread parallelization of discretization and also the Jacobi
+scheme.
+
+
 * From Femlisp-0.9.10 to Femlisp-1.0.0
 
 Up to now, Femlisp has been almost completely autarchic.  This kind of

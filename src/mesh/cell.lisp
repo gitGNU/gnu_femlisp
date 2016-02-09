@@ -45,6 +45,33 @@
 (defun cellp (cell)
   (typep cell '<cell>))
 
+(defgeneric cell-class-information (object)
+  (:documentation "Is implemented as an accessor for a per-class slot
+of the subclasses of class <cell>.")
+  (:method ((class standard-class))
+    (cell-class-information (sb-mop:class-prototype class)))
+  (:method ((class-name symbol))
+    (cell-class-information (find-class class-name))))
+
+(defgeneric (setf cell-class-information) (value object)
+  (:documentation "Is implemented as an accessor for a per-class slot
+of the subclasses of class <cell>.")
+  (:method (value (class standard-class))
+    (setf (cell-class-information (sb-mop:class-prototype class)) value))
+  (:method (value (class-name symbol))
+    (setf (cell-class-information (find-class class-name)) value)))
+
+(defconstant +per-class-allocation-slot+
+  (if (boundp '+per-class-allocation-slot+)
+      (symbol-value '+per-class-allocation-slot+)
+      '(cell-class-information
+        :allocation :class
+        :accessor cell-class-information
+        :initform nil))
+  "Per class slot where class means the immediate cell class, i.e. some simplex or product-cell.
+Ideally, this should be a mixin with :per-subclass initialization.
+Alas, this does not exist in CLOS:-(")
+     
 (deftype cell-vec () '(simple-array <cell> (*)))
 
 (defclass <cell-with-boundary> (<cell>)
@@ -85,7 +112,8 @@ distortion of the multilinear mapping."))
 	    (let ((new-class (eval `(defclass ,mapped-class
 				     (,@(when distorted '(fl.mesh::<distorted-cell>))
 					fl.mesh::<mapped-cell>
-					,unmapped-class) ()))))
+                                      ,unmapped-class) ()))))
+              (closer-mop:ensure-finalized new-class)
 	      (setf (cell-class-information new-class)
 		    (cell-class-information class))
 	      new-class)))))
@@ -110,7 +138,8 @@ distortion of the multilinear mapping."))
 ;;; the vertex class without initializing its class information
 ;;; immediately.
 (defclass <vertex> (<cell>)
-  ((position :reader vertex-position :initarg :position :type double-vec))
+  (#.+per-class-allocation-slot+
+   (position :reader vertex-position :initarg :position :type double-vec))
   (:documentation "The vertex class."))
 
 (declaim (inline vertex? vertex-p))
@@ -335,7 +364,7 @@ gradients."
 (defstruct (cell-class-information (:conc-name ci-))
   "Structure containing information necessary for cell handling."
   (dimension -1 :type fixnum)
-  (reference-cell nil)
+  (reference-cell (error "Reference cell has to be provided") :type <cell>)
   (factor-simplices ())
   (nr-of-sides -1 :type fixnum)
   (nr-of-vertices -1 :type fixnum)
@@ -349,24 +378,6 @@ gradients."
 		 cell-dimension reference-cell factor-simplices
 		 nr-of-sides nr-of-vertices nr-of-subcells
 		 boundary-indices-of-subcells refine-info))
-
-(defun cell-class-information (obj)
-  "Returns the cell information for the class which is stored as a property
-of the class symbol."
-  (get (etypecase obj
-	 (symbol obj)
-	 (<cell> (class-name (class-of obj)))
-	 (standard-class (class-name obj)))
-       'cell-class-information))
-
-(defun (setf cell-class-information) (value obj)
-  "This function should only be used during class initialization."
-  (setf (get (etypecase obj
-	       (symbol obj)
-	       (<cell> (class-name (class-of obj)))
-	       (standard-class (class-name obj)))
-	     'cell-class-information)
-	value))
 
 (defmacro with-ci-slots (slots ci &body body)
   "Multiple and write access to cell-information slots."
@@ -725,8 +736,8 @@ cells."))
 (defun initialize-cell-class (refcell factors)
   "Initializes the per-class information for the given reference cell."
   (let ((cell-class-information
-	 (or (cell-class-information (class-of refcell))
-	     (setf (cell-class-information (class-of refcell))
+	 (or (cell-class-information refcell)
+	     (setf (cell-class-information refcell)
 		   (make-cell-class-information
 		    :reference-cell refcell :factor-simplices factors)))))
     (with-ci-slots (dimension reference-cell factor-simplices
@@ -755,11 +766,13 @@ cells."))
       nil
       )))
 
-;;; Testing: in mesh-tests.lisp
 
-(defun test-cell ()
-  (flet ((simple-linear-f (x) (+ 1.0 (* 0.5 x))))
-    (simple-newton #'simple-linear-f 1.0 :approximate-gradient (constantly 0.5)))
+;;;; Testing
+
+(in-suite mesh-suite)
+
+(test cell
+  (is (= -2.0
+         (flet ((simple-linear-f (x) (+ 1.0 (* 0.5 x))))
+           (simple-newton #'simple-linear-f 1.0 :approximate-gradient (constantly 0.5)))))
   )
-
-(fl.tests:adjoin-test 'test-cell)

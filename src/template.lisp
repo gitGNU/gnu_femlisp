@@ -4,7 +4,10 @@
 ;;; __FILENAME__.lisp - Sample header for a Femlisp source file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2010 Nicolas Neuss, Karlsruhe Institute of Technology
+;;; Copyright (C) 2003-2006 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2006-2011 Nicolas Neuss, KIT Karlsruhe.
+;;; Copyright (C) 2011-
+;;; Nicolas Neuss, Friedrich-Alexander-Universitaet Erlangen-Nuernberg
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without

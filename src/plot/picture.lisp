@@ -50,7 +50,7 @@ picture is implemented as a full-tensor of rank 2 or 3."))
   "Construct a picture with entries of @arg{type}."
   (fl.amop:find-programmatic-class
    (list (find-class 'picture) (find-class 'full-tensor) (store-vector type))
-   (intern (format nil "~A" (list 'PICTURE type)))))
+   :class-name (intern (format nil "~A" (list 'PICTURE type)))))
 
 (defun picture-width (pic) (aref (dimensions pic) 0))
 (defun picture-height (pic) (aref (dimensions pic) 1))

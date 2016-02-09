@@ -133,10 +133,11 @@ name being the symbol @arg{name}.")
                 ,@rest-args)
              (declare (type ,element-type ,@number-args))
              #+lispworks (declare (optimize (float 0)))
-             (very-quickly
-               ,(subst element-type 'element-type
-                       `(macrolet ,blas-macros
-                          ,@body)))))))))
+             (symbol-macrolet ((element-type ,element-type))
+               (very-quickly
+                 ,(subst element-type 'element-type
+                         `(macrolet ,blas-macros
+                            ,@body))))))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
 

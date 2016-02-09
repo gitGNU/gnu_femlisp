@@ -59,18 +59,27 @@ interfering."
   ((waitqueue :reader waitqueue :initform (make-condition-variable)))
   (:documentation "Waitqueue mixin."))
 
-(defgeneric wait (waitqueue-object &key while until perform)
+(defgeneric wait (waitqueue-object &key while until finish perform)
   (:documentation "Waits on @arg{waitqueue-object} while @arg{while} is
-satisfied or until @arg{until} is satisfied.  After this, if it is given,
-the function @arg{perform} is called.")
+satisfied or until @arg{until} is satisfied.  After a successful waiting,
+the function given in @arg{perform} is called.")
   (:method (obj &key &allow-other-keys)
-    "The default method for objects does not wait at all.")
-  (:method ((wq waitqueue-mixin) &key while until perform)
+    "The default method for objects does not wait at all."
+    nil)
+  (:method ((wq waitqueue-mixin) &key while until perform finish)
     (with-mutual-exclusion (wq)
       (loop while (or (aand while (funcall it wq))
 		      (aand until (not (funcall it wq))))
-	    do (condition-wait (waitqueue wq) (mutex wq)))
-      (awhen perform (funcall it wq)))))
+	    do
+               (when (aand finish (funcall it))
+                 (mp-dbg "Finishing wait...")
+                 (notify wq)
+                 (return nil))
+               (mp-dbg "Waiting...")
+               (condition-wait (waitqueue wq) (mutex wq))
+            finally
+               (mp-dbg "Performing after waiting...")
+               (return (awhen perform (funcall it wq)))))))
 
 (defgeneric notify (waitqueue-object)
   (:documentation "Notifies @arg{waitqueue-object}.")
@@ -236,10 +245,10 @@ function @function{call-next}.  Every job is run in a separate thread."
      (let ((*input-queue* from)
            (*output-queue* to))
        (mp-dbg "starting...")
-       (let ((*thread-local-memoization-table* ()))
-         (declare (special *thread-local-memoization-table*))
-         (if (null from)
-             (funcall job)  ; distributor
+       ;; (let ((*thread-local-memoization-table* ()))
+       ;;   (declare (special *thread-local-memoization-table*))
+       (if (null from)
+           (funcall job)  ; distributor
              (loop
                 (multiple-value-bind (args emptyp)
                     (dequeue from)
@@ -250,9 +259,9 @@ function @function{call-next}.  Every job is run in a separate thread."
                   (mp-dbg "finished working on ~A" args)
                   (thread-yield)))
                 )
-         (mp-dbg "...done")
-         (awhen to (finish it))
-         #+(or)(remove-worker group (current-thread)))))
+       (mp-dbg "...done")
+       (awhen to (finish it))
+       #+(or)(remove-worker group (current-thread))))
    :name "pipeline-worker"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -266,26 +275,22 @@ function @function{call-next}.  Every job is run in a separate thread."
   (:documentation "A class representing a group of threads working on a
 queue."))
 
-(defparameter *thread-local-memoization-table* nil
-  "Dynamic variable specialized for each worker thread separately.  Should
-not be used globally.")
-
 (defun add-worker (group)
   (with-mutual-exclusion (group)
     (push (make-thread
 	   (lambda ()
 	     (mp-dbg "starting...")
-	     (let ((*thread-local-memoization-table* ()))
-	       (loop
-		(multiple-value-bind (args emptyp)
-		    (dequeue (tasks group))
-		  (when emptyp (return))
-		  (mp-dbg "working on ~A" args)
-		  (apply (work group) (mklist args))
-		  (mp-dbg "finished working on ~A." args)
-		  (thread-yield)))
-	       (mp-dbg "...done")
-	       (remove-worker group (current-thread))))
+	     ;; (let ((*thread-local-memoization-table* ()))
+             (loop
+               (multiple-value-bind (args emptyp)
+                   (dequeue (tasks group))
+                 (when emptyp (return))
+                 (mp-dbg "working on ~A" args)
+                 (apply (work group) (mklist args))
+                 (mp-dbg "finished working on ~A." args)
+                 (thread-yield)))
+             (mp-dbg "...done")
+             (remove-worker group (current-thread)))
 	   :name "femlisp-worker")
 	  (threads group))))
 
@@ -343,8 +348,7 @@ which generates the argument-lists by calling the function
   (dolist (thread (femlisp-workers))
     (destroy-thread thread)))
 
-#+(or)
-(defmacro with-workers ((work) &body body)
+(defmacro with-femlisp-workers ((work) &body body)
   "This macro distributes work generated in body with calling the locally
 bound function @function{work-on} on some arguments to several working
 threads which call @arg{func} on those arguments."
@@ -363,6 +367,7 @@ threads which call @arg{func} on those arguments."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun optimal-thread-number ()
+  "Old code.  The optimal thread number depends on the kind of application and cannot really be determined in this simple way.  Probably better is to use the introspection in @file{parallel.lisp}."
   (let ((count
 	 (nth-value 1 (fl.utilities::measure-time-repeated
 		       (lambda () (loop repeat 10000 sum 1))
@@ -437,7 +442,6 @@ threads which call @arg{func} on those arguments."
 (defun femlisp-multiprocessing-tests ()
 
   (dbg-on :mp)
-  
   (let ((lock (make-recursive-lock))
 	(result ())
 	(pq (make-instance 'parqueue)))
@@ -445,7 +449,7 @@ threads which call @arg{func} on those arguments."
 	     (loop for obj = (dequeue pq) while obj
 		   do (with-recursive-lock-held (lock)
 			(push obj result)))
-	     (mp-dbg t "~A done.~%" (current-thread))))
+	     (mp-dbg "Done.~%")))
       (make-thread #'worker :name "femlisp-worker")
       (make-thread #'worker :name "femlisp-worker")
       (make-thread #'worker :name "femlisp-worker")
@@ -461,7 +465,16 @@ threads which call @arg{func} on those arguments."
   ;; (terminate-workers)
   
   (time
-   (let ((n 100000)
+   (flet ((test (i)
+            (+ i (* i i))))
+     (let ((test2 (lambda (&rest args)
+                    (apply #'test args))))
+       (with-femlisp-workers (test2)
+         (let ((n 100))
+           (loop for i below n do
+             (work-on i)))))))
+  (time
+   (let ((n 10)
 	 (q (make-instance 'parqueue)))
      (let ((*number-of-threads* 4))
        (with-workers ((lambda (k)
@@ -552,22 +565,7 @@ threads which call @arg{func} on those arguments."
 
   (dbg-off :mp)
 
-  (let* ((count 0)
-         (f (with-memoization (:type :global :id 'test)
-              (memoizing (lambda (k)
-                           (incf count)
-                           (* k k))))))
-    (loop repeat 100 do
-         (make-thread
-          (lambda ()
-            (sleep (random 1.0))
-            (funcall f (random 10)))))
-    (sleep 2.0)
-    count)
-
-
   )
-
 
 ;;; (femlisp-multiprocessing-tests)
 

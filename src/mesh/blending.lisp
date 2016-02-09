@@ -149,32 +149,19 @@ boundary."
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Testing
+;;;; Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(in-suite mesh-suite)
 
 (defun test-f (cell f)
   "Returns a mapping for cell transformed with f"
   (lambda (x)
     (evaluate f (l2g cell x))))
 
-(defun test-blending ()
+(test blending
 
-  ;; (dbg-on :blending)
-  ;; (dbg-off :blending)
-
-  (euclidean->barycentric #d(0.4))
-
-  (loop for (dim pos) in 
-     '((1 (0.6 0.4)) (2 (0.3 0.4 0.3)) (3 (0.2 0.2 0.3 0.3)))
-       do
-        (let* ((boundary
-               (map 'list
-                    (lambda (side)
-                      (_ (evaluate (cell-mapping side)
-                                   (barycentric->euclidean (coerce _ 'double-vec)))))
-                    (boundary (n-simplex dim)))))
-         (loop repeat 10 do (ip boundary pos))))
-
+  (is (equalp #d(0.6 0.4) (euclidean->barycentric #d(0.4))))
   (let* ((dim 2)
          (cell (n-simplex dim))
          (A #m((2.0 -1.0) (-0.5 3.0)))
@@ -183,75 +170,24 @@ boundary."
                              (boundary cell)))
          (ip (interpolate bdry-f))
          (x #d(0.4 0.5)))
-    (assert (mzerop (m- (m* A x) (funcall ip x)) 1.0e-15)))
+    (is-true (mzerop (m- (m* A x) (funcall ip x)) 1.0e-15)))
   
-  (let* ((domain (curved-triangle-domain))
-         (mesh (uniformly-refined-mesh domain 4 :parametric :from-domain)))
-    ;; (fl.plot:plot mesh)
-    (check mesh))
+  (finishes
+    ;; (dbg-on :blending)
+    ;; (dbg-off :blending)
+    (loop for (dim pos) in 
+          '((1 (0.6 0.4)) (2 (0.3 0.4 0.3)) (3 (0.2 0.2 0.3 0.3)))
+          do
+             (let* ((boundary
+                      (map 'list
+                           (lambda (side)
+                             (_ (evaluate (cell-mapping side)
+                                          (barycentric->euclidean (coerce _ 'double-vec)))))
+                           (boundary (n-simplex dim)))))
+               (loop repeat 10 do (ip boundary pos))))
+    (let* ((domain (curved-triangle-domain))
+           (mesh (uniformly-refined-mesh domain 4 :parametric :from-domain)))
+      ;; (fl.plot:plot mesh)
+      (check mesh)))
 
   )
-
-#|
-
-;;; The following version is an old and bad approach because it does not
-;;; recover linear functions and is not necessarily differentiable even if
-;;; the function on the boundary is a restriction of a smooth function.
-;;; It should probably be deleted quite soon.
-
-(defun L-building-block (k s)
-  "This is a building block of L which is 0 for parameter @arg{s} lying on
-all sides but side @arg{k}."
-  (if k
-      (reduce #'* (without-component s k))
-      (reduce #'* s)))
-
-(defun L-sum (s)
-  "This computes the sum of all functions L_k at position @arg{s}."
-  ;; could be accelerated for positive s_i
-  (loop for k below (length s)
-     sum (L-building-block k s)))
-
-(defun L (k s)
-  "These are functions which are 1 on side @arg{k} and 0 on every other side.
-Obviously, L_k must be discontinuous at the boundary of side @arg{k}."
-  (let ((sum (L-sum s)))
-    (if (zerop sum)
-        (if (zerop (aref s k))
-            (/ 1.0 (count-if #'plusp s))
-            0.0)
-        (/ (L-building-block k s)
-           sum))))
-
-(defun boundary-projection (s k)
-  "Computes the projection of s to the boundary k."
-  (let ((sk (aref s k))
-        (rest (without-component s k)))
-    (cond
-      ((zerop sk) rest)
-      ((>= 1.0 sk)
-       (vector-map (constantly (/ 1.0 (length rest))) rest))
-      (t (scal (/ (- 1.0 sk)) rest)))))
-
-(defun interpolate (f)
-  "Interpolates a vector of functions f of length n+1 on the reference
-n-simplex.  The functions are understood as providing functional values for
-the n+1 n-1-dimensional boundary simplices."
-  (let* ((dim+1 (length f))
-         (dim (1- dim+1)))
-    (lambda (x)
-      (lret ((s (euclidean->barycentric x))
-             result)
-        (assert (= (length s) dim+1))
-        (loop for k from 0 upto dim
-           for sk = (aref s k)
-           for fk = (aref f k)
-           for summand = (scal (L k s)
-                               (funcall fk (barycentric->euclidean
-                                            (boundary-projection s k))))
-           do (if result
-                  (m+! summand result)
-                  (setf result summand)))))))
-
-|#
-

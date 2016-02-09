@@ -36,6 +36,7 @@
 
 (defpackage "FL.ELASTICITY"
   (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+        "FL.DICTIONARY"
 	"FL.FUNCTION" "FL.MESH"
 	"FL.PROBLEM" "FL.ELLSYS")
   (:export

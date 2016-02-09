@@ -153,7 +153,7 @@ name together with the name of the inner iteration."
 
 (defmethod initially :before ((iter <iteration>) blackboard)
   "Reset data on the blackboard."
-  (setf (slot-value iter 'start-time) (get-internal-run-time)
+  (setf (slot-value iter 'start-time) (get-internal-real-time)
 	(getbb blackboard :time) 0.0
 	(getbb blackboard :step) 0)) ;!!!
 
@@ -176,7 +176,7 @@ name together with the name of the inner iteration."
   "Default method.  Prints observed quantities."
   (with-slots (start-time observe) iter
     (setf (getbb blackboard :time)
-	  (float (/ (- (get-internal-run-time) start-time)
+	  (float (/ (- (get-internal-real-time) start-time)
 		    internal-time-units-per-second)
 		 1.0))
     (when (output-p iter blackboard)

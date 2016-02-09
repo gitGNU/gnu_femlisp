@@ -73,58 +73,66 @@
 		     (decf (b-ref b-off-2)
 			   (* (b-ref b-off-1) (lr-ref lr-off-2))))))))))
 
-
-(define-blas-template getrf! ((mat standard-matrix) &optional ipiv)
-  "Computes the PLR decomposition with column pivoting of the matrix MAT."
+(define-blas-template getrf! ((mat standard-matrix)
+                              &optional ipiv)
+  "Computes the PLR decomposition with column pivoting of the matrix MAT.
+Note that the indexing in @arg{ipiv} is 0-based or 1-based depending
+on the use of LAPACK."
   (let* ((m (slot-value mat 'nrows))
 	 (n (slot-value mat 'ncols))
 	 (k (min m n))
 	 (ipiv (cond ((null ipiv)
-		      (make-array k :element-type 'fixnum :initial-element -1))
+                      (make-array k :element-type '(signed-byte 32) :initial-element -1))
 		     ((eq ipiv :none) nil)
 		     (t ipiv))))
     (declare (type fixnum m n k)
-	     (type (or null (simple-array fixnum (*))) ipiv))
+	     (type (or null (simple-array (signed-byte 32) (*))) ipiv))
+    (when *blas3-operation-count*
+      (incf *blas3-operation-count* (floor (* m n k) 3)))
     (with-blas-data (mat)
-      (loop
+      (conditional-compile
+       (cl->lapack-type 'element-type nil)
+       (call-lapack (load-time-value (lapack "getrf" 'element-type))
+                    m n mat-store m ipiv 0)
+       (loop
 	 for j of-type fixnum from 0 below k
 	 for offset-jj of-type fixnum = (indexing j j m n) do
-	 ;; column pivoting
-	 (when ipiv
-	   (let ((pivot-index j)
-		 (pivot-value (abs (aref mat-store offset-jj))))
-	     (declare (type fixnum pivot-index))
-	     ;; find pivot
-	     (loop for i from (1+ j) below m
-		for off = (indexing i j m n)
-		for value of-type element-type = (abs (aref mat-store off))
-		do (when (> value pivot-value)
-		     (setq pivot-index i
-			   pivot-value value)))
-	     (setf (aref ipiv j) pivot-index)
-	     (unless (= pivot-index j)
-	       (swap-rows j pivot-index mat-store m n))))
-	 ;;
-	 (when (zerop (aref mat-store offset-jj))
-	   (return-from getrf! (values mat ipiv j)))
+           ;; column pivoting
+           (when ipiv
+             (let ((pivot-index j)
+                   (pivot-value (abs (aref mat-store offset-jj))))
+               (declare (type fixnum pivot-index))
+               ;; find pivot
+               (loop for i from (1+ j) below m
+                     for off = (indexing i j m n)
+                     for value of-type element-type = (abs (aref mat-store off))
+                     do (when (> value pivot-value)
+                          (setq pivot-index i
+                                pivot-value value)))
+               (setf (aref ipiv j) pivot-index)
+               (unless (= pivot-index j)
+                 (swap-rows j pivot-index mat-store m n))))
+           ;;
+           (when (zerop (aref mat-store offset-jj))
+             (return-from getrf! (values mat ipiv j)))
 	   
-	 ;; compute elements of column J of L
-	 (loop with factor = (/ (aref mat-store offset-jj))
-	    for off of-type fixnum
-	    from (1+ offset-jj) below (indexing n j m n) do
-	    (setf (aref mat-store off) (* (aref mat-store off) factor)))
+           ;; compute elements of column J of L
+           (loop with factor = (/ (aref mat-store offset-jj))
+                 for off of-type fixnum
+                 from (1+ offset-jj) below (indexing n j m n) do
+                   (setf (aref mat-store off) (* (aref mat-store off) factor)))
 	   
-	 ;; update trailing submatrix of R
-	 (loop
-	    for off of-type fixnum
-	    from (indexing j (1+ j) m n) below (indexing j n m n) by m
-	    for factor of-type element-type = (aref mat-store off)
-	    unless (zerop factor) do
-	    (loop for pos1 of-type fixnum
-	       from (1+ off) below (+ off (- n j))
-	       and pos2 of-type fixnum from (1+ offset-jj) do
-	       (decf (aref mat-store pos1)
-		     (* factor (aref mat-store pos2)))))))
+           ;; update trailing submatrix of R
+           (loop
+             for off of-type fixnum
+             from (indexing j (1+ j) m n) below (indexing j n m n) by m
+             for factor of-type element-type = (aref mat-store off)
+             unless (zerop factor) do
+               (loop for pos1 of-type fixnum
+                     from (1+ off) below (+ off (- n j))
+                     and pos2 of-type fixnum from (1+ offset-jj) do
+                       (decf (aref mat-store pos1)
+                             (* factor (aref mat-store pos2))))))))
     (values mat ipiv t)))
 
 (define-blas-template getrs! ((LR standard-matrix) (b standard-matrix) &optional ipiv)
@@ -133,21 +141,31 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
   (with-blas-data (LR b)
     (unless (= b-nrows LR-nrows LR-ncols)
       (error "Matrix LR is not quadratic or does not fit to right-hand side."))
-    (when ipiv    ; swap rhs according to ipiv
-      (locally
-	  (declare (type (simple-array fixnum (*)) ipiv))
-	(unless (= b-nrows (length ipiv))
-	  (error "Matrix and pivot vector do not fit."))
-	(dotimes (i b-nrows)
-	  (declare (type fixnum i))
-	  (let ((k (aref ipiv i)))
-	    (unless (= i k)
-	      (swap-rows i k b-store b-nrows b-ncols))))))
-    
-    ;; solve Lx'=b
-    (trsm LR-store b-store b-nrows b-ncols :side :lower :unit-diagonal t)
-    ;; solve Rx=x'
-    (trsm LR-store b-store b-nrows b-ncols :side :upper :unit-diagonal nil))
+    (when *blas3-operation-count*
+      (incf *blas3-operation-count* (* LR-nrows LR-ncols b-ncols)))
+    (conditional-compile
+     (cl->lapack-type 'element-type nil)
+     (progn
+       (assert (and ipiv (typep ipiv '(simple-array (signed-byte 32) (*)))))
+       (call-lapack (load-time-value (lapack "getrs" 'element-type))
+                    "N" LR-nrows b-ncols LR-store LR-nrows ipiv b b-nrows 0))
+     (progn
+       (when ipiv    ; swap rhs according to ipiv
+         (locally
+             (declare (type (simple-array (signed-byte 32) (*)) ipiv))
+           (check-type ipiv (simple-array (signed-byte 32) (*)))
+           (unless (= b-nrows (length ipiv))
+             (error "Matrix and pivot vector do not fit."))
+           (dotimes (i b-nrows)
+             (declare (type fixnum i))
+             (let ((k (aref ipiv i)))
+               (unless (= i k)
+                 (swap-rows i k b-store b-nrows b-ncols))))))
+       
+       ;; solve Lx'=b
+       (trsm LR-store b-store b-nrows b-ncols :side :lower :unit-diagonal t)
+       ;; solve Rx=x'
+       (trsm LR-store b-store b-nrows b-ncols :side :upper :unit-diagonal nil))))
   b)
 
 #+(or)
@@ -221,8 +239,8 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
 
 (defun test-standard-matrix-lr ()
   (multiple-value-bind (lr pivot)
-      (getrf! (scal! 0.5 (eye 1)))
-    (getrs! lr #m((1.0 2.0)) pivot))
+      (getrf! (scal! 0.5 (eye 2)))
+    (getrs! lr #m((1.0) (2.0)) pivot))
 
   (multiple-value-bind (lr pivot)
       (getrf! #m((0.0 -1.0) (1.0 0.0)))
@@ -246,6 +264,16 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
 	   (matlisp::copy! mat mat2)
 	 (matlisp::getrf! mat2))))
   
+  (loop for k from 4 upto 11
+        collect
+        ;; measure/calculate performance as GFLOPs
+        (let* ((n (expt 2 k))
+               (repetitions (floor (/ 1d10 (expt n 3))))
+               (A (ones n)))
+          (let ((time (fl.utilities::measure-time
+                       (lambda () (getrf! A))
+                       repetitions)))
+            (/ (* repetitions 2/3 (expt n 3)) time 1e9))))
   ;; we can handle also general matrices, however we comment this out at
   ;; the moment, due to an optimization warning of CMUCL/SBCL which we do
   ;; not want to see when testing -- allowed again 11.12.2008

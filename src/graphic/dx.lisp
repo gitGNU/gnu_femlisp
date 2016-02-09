@@ -39,8 +39,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defvar *dx-pathname*
-  (or (aand fl.start::*dx-path* (probe-file (pathname it)))
-      (fl.port:find-executable "dx") #+mswindows (fl.port:find-executable "dx.exe"))
+  (or fl.start:*dx-path*
+      (fl.port:find-executable "dx"))
   "Pathname of the @program{DX} binary.")
 
 (defvar *dx-process* nil

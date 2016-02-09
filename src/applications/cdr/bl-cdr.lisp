@@ -104,7 +104,7 @@ oscillating domain."
 (time
  (storing
    (cdr-bl-computation
-    2 4 3 :plot t :plot-mesh t :amplitude 0.15 :shift 1.0 :extensible nil
+    2 4 5 :plot t :plot-mesh t :amplitude 0.15 :shift 1.0 :extensible nil
     :solver (lu-solver) :output :all)))
 
 ;; (plot (getbb *result* :solution) :depth 2)
@@ -186,7 +186,7 @@ functional."))
       (adjoin-demo demo *boundary-coeffs-demo*))))
 
 ;;; 2D and 3D demo
-(make-cdr-bl-demo 2 4 3)
+(make-cdr-bl-demo 2 4 5)
 (make-cdr-bl-demo 3 3 2)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
