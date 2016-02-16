@@ -42,6 +42,10 @@
 
 (in-package :fl.matlisp)
 
+(defvar *parallel-algebra* nil
+  "Preliminary switch for allowing parallel linear algebra.  Will hopefully
+  become unnecessary in the long run.")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <sparse-vector>
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -244,6 +248,13 @@ and solutions simultaneously."))
     (dovec ((xc i) x)
       (setf (vref result i) (m* xc y)))))
 
+(defmethod dot ((x <sparse-vector>) (y <sparse-vector>))
+  (with-accumulators (sum 0 #'+)
+    (let ((*parallel-algebra* t))
+      (for-each-entry-and-key
+       (lambda (xc i) (incf sum (dot xc (vref y i))))
+       x))))
+
 (defmethod print-object :after ((svec <sparse-vector>) stream)
   (format stream "{nrows=~A, mult=~A}"
           (nr-of-entries svec) (multiplicity svec)))
@@ -265,29 +276,15 @@ and solutions simultaneously."))
 (defmethod (setf vector-block) (value (svec <sparse-dictionary-vector>) key)
   (setf (dic-ref (slot-value svec 'blocks) key) value))
 
-(defvar *parallel-algebra* nil
-  "Preliminary switch for allowing parallel linear algebra.  Will hopefully
-  become unnecessary in the long run.")
-
 (defmethod for-each-key (fn (svec <sparse-dictionary-vector>))
-  (if *parallel-algebra*
-      (with-workers (fn)
-        (dic-for-each-key #'work-on (blocks svec)))
-      (dic-for-each-key fn (blocks svec))))
+  (dic-for-each-key fn (blocks svec) :parallel *parallel-algebra*))
 
 (defmethod for-each-entry-and-key (fn (svec <sparse-dictionary-vector>))
-  (if *parallel-algebra*
-      (with-workers (fn)
-	(dic-for-each (lambda (key value) (work-on value key)) ; change order!!
-                      (blocks svec)))
-      (dic-for-each (lambda (key value) (funcall fn value key))
-                    (blocks svec))))
+  (dic-for-each (lambda (key value) (funcall fn value key))
+                (blocks svec) :parallel *parallel-algebra*))
 
 (defmethod for-each-entry (fn (svec <sparse-dictionary-vector>))
-  (if *parallel-algebra*
-      (with-workers (fn)
-	(dic-for-each-value #'work-on (blocks svec)))
-      (dic-for-each-value fn (blocks svec))))
+  (dic-for-each-value fn (blocks svec) :parallel *parallel-algebra*))
 
 (defmethod remove-key ((svec <sparse-dictionary-vector>) &rest indices)
   (destructuring-bind (key) indices

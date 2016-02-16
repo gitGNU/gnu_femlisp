@@ -193,9 +193,6 @@ macro."
     (setf (aref y i)
 	  (axpy! alpha (aref x i) (aref y i)))))
 
-(defmethod dot ((x list) (y list))
-  (loop for xc in x and yc in y summing (* xc yc)))
-
 (defmacro m-incf (result increment)
   "Adds increment to result which should be a symbol.  If its value is nil
 then result is set to increment."

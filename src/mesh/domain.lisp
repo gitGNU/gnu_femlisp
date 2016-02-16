@@ -336,7 +336,8 @@ cube with its opposite sides identified."
 				   ((plusp id) (make-vertex (unit-vector dim (1- id))))
 				   (t (make-vertex (scal -1.0 (unit-vector dim (- -1 id))))))))
 			  (t (make-simplex
-			      (map 'cell-vec #'(lambda (side-ids) (gethash side-ids cell-list))
+			      (map 'cell-vec #'(lambda (side-ids)
+                                                 (the <cell> (gethash side-ids cell-list)))
 				   (mapcar #'(lambda (corner) (remove corner corners)) corners)))))))
 	       (unless (vertex? cell)
 		 (change-class

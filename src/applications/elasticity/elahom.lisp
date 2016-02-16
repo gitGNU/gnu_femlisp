@@ -105,7 +105,8 @@ against the size of the coefficient jump."
 ;;;; Demos
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun elasticity-interior-effective-coeff-demo (problem &key order levels plot (output 1))
+(defun elasticity-interior-effective-coeff-demo
+    (problem &key order levels plot (output 1) effective-tensor-p)
   "Computes the effective elasticity for a certain periodic
 medium.  The approximation is done with finite elements and
 blending.  Uniform refinement is used, the linear solver is a
@@ -180,14 +181,15 @@ with dim^3 components which are plotted one after the other."
 	  (plot (getbb *result* :solution) :index (+ (* j dim) k))
 	  (sleep 1.0))))
     ;; compute the homogenized coefficient
-    (awhen (or saved-effective-tensor (effective-tensor *result*))
+    (awhen (and effective-tensor-p
+                (or saved-effective-tensor (effective-tensor *result*)))
       (format t "The effective elasticity tensor is:~%~A~%" it)
       it)))
 
 #+(or)
-(elasticity-interior-effective-coeff-demo
- (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 3))
- :order 5 :levels 2 :plot nil :output 2)
+(time (elasticity-interior-effective-coeff-demo
+       (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 3))
+       :order 5 :levels 2 :plot nil :output 1))
 
 
 #|
@@ -328,6 +330,23 @@ Parameters: order=~D, levels=~D~%~%"
         do
            (when old (assert (mequalp old tensor))))
 
+  (time
+   (flet ((computation ()
+            (elasticity-interior-effective-coeff-demo
+             (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
+             :order 5 :levels 1 :plot nil :output 1)))
+     (with-workers (#'computation)
+       (work-on)
+       (work-on))))
+  #|
+  Seriell:
+  >       0   3.40515e-01     UNDEFINED     
+>       1   4.68740e-01      1.37656e+00  
+>       2   3.52337e-01      7.51667e-01  
+>       3   3.48071e-01      9.87893e-01
+>      85   1.56164e-09      1.00209e+00  
+  
+|#
   )
 
 ;;; (test-homogenization-elasticity)

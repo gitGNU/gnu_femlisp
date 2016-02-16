@@ -125,11 +125,13 @@
 
 ;;; start a pool of workers
 ;;; (fl.parallel::new-kernel 2)
+;;; (end-kernel)
 
 (defun pwork (function &optional arguments)
   "Distribute a task to each lparallel worker and wait until all finish.
 Arguments may be a vector of size equal or smaller than (kernel-worker-count).
 All results are collected in a vector of the same size."
+  (assert (not *worker-id*))
   (ensure *kernel* (new-kernel))
   (let* ((nr-workers (kernel-worker-count))
          (arguments (or arguments
@@ -155,8 +157,8 @@ All results are collected in a vector of the same size."
     (loop repeat n do (push-queue t to-workers))
     ;; and collect the results
     (loop repeat n
-       for (id . result) = (receive-result channel) do
-       (setf (aref results id) result))
+          for (id . result) = (receive-result channel) do
+            (setf (aref results id) result))
     results))
 
 ;;; Avoids many debugger frames popping up, but eliminates

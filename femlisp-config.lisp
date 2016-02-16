@@ -66,14 +66,14 @@
   ;; default: search in system libraries, e.g. #p"/usr/lib/libblas.so"
   ;;(probe-file #p"/usr/lib/atlas-base/atlas/libblas.so.3")
   (or (probe-file #p"/usr/lib/atlas-base/atlas/libblas.so")
-      (probe-file #p"femlisp:src;alien;link.so"))
+      (probe-file #p"femlisp:interface;mkl.so"))
   "BLAS library.")
 
 (defparameter *lapack-library*
   ;; default: search in system libraries, e.g. #p"/usr/lib/liblapack.so"
   ;;(probe-file #p"~/ATLAS/my_atlas/lib/liblapack_atlas.so")
   (or (probe-file #p"/usr/lib/atlas-base/atlas/liblapack.so.3")
-      (probe-file #p"femlisp:src;alien;link.so"))
+      (probe-file #p"femlisp:interface;mkl.so"))
   "LAPACK library.")
 
 (defparameter *superlu-library*

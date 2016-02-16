@@ -188,18 +188,16 @@ a list of indices."
   (:method :around (matrix &key &allow-other-keys)
            (call-next-method)
            matrix)
-  (:method (matrix &rest args)
+  (:method (matrix &key (stream t) &allow-other-keys)
     "The default method describes its argument."
-    (declare (ignore args))
-    (describe matrix)))
+    (describe matrix stream)))
 
-(defgeneric display (matrix &rest args)
+(defgeneric display (matrix &key &allow-other-keys)
   (:documentation "Formats the contents of @arg{matrix} in rectangular
   form.")
-  (:method (matrix &rest args)
+  (:method (matrix &key (stream t) &allow-other-keys)
     "The default method describes its argument."
-    (declare (ignore args))
-    (describe matrix)))
+    (describe matrix stream)))
   
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

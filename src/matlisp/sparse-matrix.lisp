@@ -747,7 +747,7 @@ problem."
   (dic-for-each-key fn (row-table smat)))
 
 (defmethod parallel-for-each-row-key (fn (smat <sparse-dictionary-matrix>))
-  (dic-for-each-key fn (row-table smat) :parallel t))
+  (dic-for-each-key fn (row-table smat) :parallel nil))
 
 (defmethod for-each-col-key (fn (smat <sparse-dictionary-matrix>))
   "Loop through column keys."

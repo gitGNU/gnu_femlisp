@@ -153,7 +153,7 @@ complexity.")
                  (increment-global-by-local-mat matrix local-mat cell))
                (when (and mass-matrix local-mass-mat)
                  (increment-global-by-local-mat mass-matrix local-mass-mat cell)))))
-      (with-workers (#'work-on-cell)
+      (with-workers (#'work-on-cell :parallel nil)
         (dolist (cell where)
           (work-on cell)))
       #+(or)(process-in-parallel (assembly-heap where)
@@ -192,7 +192,7 @@ of a nonlinear problem."
                          :matrix interior-matrix :rhs interior-rhs
                          :mass-matrix interior-mass-matrix)
       (dbg-when :disc
-	(format t "Interior matrix:~%")
+	(dbg :disc "Interior matrix:~%")
 	(show interior-matrix)
 	(format t "Interior mass matrix:~%")
 	(show interior-mass-matrix)

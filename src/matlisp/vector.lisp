@@ -121,7 +121,13 @@ than @arg{threshold}."))
   (:documentation "Prints a list of differences between X and Y."))
 
 (defgeneric dot (x y)
-  (:documentation "Returns the dot product of X and Y."))
+  (:documentation "Returns the dot product of X and Y.")
+  (:method ((x list) (y list))
+      (loop for xc in x and yc in y summing (dot xc yc)))
+  (:method ((x array) (y array))
+      (loop for xc across x
+            and yc across y summing (dot xc yc))))
+
 (defgeneric dot-abs (x y)
   (:documentation "Returns the dot product between |X| and |Y|."))
 
@@ -324,13 +330,14 @@ single-indexed objects, i.e. rather general vectors."
     (let ((norm-x (linf-norm x)))
       (when (> norm-x max) (setq max norm-x)))))
 
-(defmethod dot (x y &aux (sum 0))
-  (dovec ((xc i) x sum)
-    (incf sum (dot xc (vref y i)))))
+(defmethod dot (x y)
+  (lret ((sum 0))
+    (dovec ((xc i) x)
+      (incf sum (dot xc (vref y i))))))
 
 (defmethod dot-abs (x y)
-  (let ((sum 0))
-    (dovec ((xc i) x sum)
+  (lret ((sum 0))
+    (dovec ((xc i) x)
       (incf sum (dot-abs xc (vref y i))))))
 
 (defmethod mequalp (x y)
@@ -347,6 +354,7 @@ single-indexed objects, i.e. rather general vectors."
   (assert (mequalp (m+! (vector (vector 3.0)) (vector (vector 4.0))) #(#(7.0))))
   (dovec ((entry key) #(A B C))
     (format t "~A ~A~%" entry key))
+
   )
 
 ;;; (test-vector)

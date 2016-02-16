@@ -562,6 +562,9 @@ threads which call @arg{func} on those arguments."
   (dolist (thread (all-threads))
     (when (string= (thread-name thread) "worker-1")
       (destroy-thread thread)))
+  (dolist (thread (all-threads))
+    (when (string= (thread-name thread) "lparallel")
+      (destroy-thread thread)))
 
   (dbg-off :mp)
 

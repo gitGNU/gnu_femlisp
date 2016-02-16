@@ -75,9 +75,9 @@
     "parallel"
     :components
     ((:file "parallel-defp" :depends-on ())
-     (:file "parallel-adaptions" :depends-on ("parallel-defp"))
-     (:file "parallel" :depends-on ("parallel-adaptions"))
-     (:file "multiprocessing" :depends-on ("parallel"))
+     (:file "parallel" :depends-on ("parallel-defp"))
+     (:file "parallel-adaptions" :depends-on ("parallel"))
+     (:file "multiprocessing" :depends-on ("parallel-adaptions"))
      ;; (:file "parcells" :depends-on ("multiprocessing"))
      ))))
 
