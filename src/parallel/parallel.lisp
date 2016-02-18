@@ -108,9 +108,9 @@
     (flet ((my-worker-context (worker-loop)
              (let ((*worker-id* (incf count)))
                ;; set cpu affinity if possible
-               #+sb-cpu-affinity
                (let* ((proc (nth *worker-id* (get-processors)))
                       (id (pi-processor proc)))
+                 #+sb-cpu-affinity
                  (sb-cpu-affinity:with-cpu-affinity-mask (mask :save t)
                    (sb-cpu-affinity:clear-cpu-affinity-mask mask)
                    (setf (sb-cpu-affinity:cpu-affinity-p id mask) t)))
@@ -123,6 +123,12 @@
                                      (*thread-local-memoization-table* . nil))
                          :context #'my-worker-context)))))
 
+;;;(pwork (_ (sb-cpu-affinity:get-cpu-affinity-mask)))
+
+#+(or)
+(let* ((proc (nth 3 (get-processors)))
+       (id (pi-processor proc)))
+  id)
 ;;; start a pool of workers
 ;;; (fl.parallel::new-kernel 2)
 ;;; (end-kernel)

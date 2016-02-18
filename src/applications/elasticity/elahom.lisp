@@ -334,7 +334,7 @@ Parameters: order=~D, levels=~D~%~%"
    (flet ((computation ()
             (elasticity-interior-effective-coeff-demo
              (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
-             :order 5 :levels 1 :plot nil :output 1)))
+             :order 5 :levels 2 :plot nil :output 1)))
      (with-workers (#'computation)
        (work-on)
        (work-on))))
