@@ -33,9 +33,11 @@
 (in-package :cl-user)
 
 (defpackage "FL.MATLISP"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.UTILITIES"  "FL.DEBUG"
+  (:use "COMMON-LISP"
+        "FL.MACROS" "FL.UTILITIES"  "FL.DEBUG"
         "FL.PARALLEL" "FL.DICTIONARY"
         "FL.LAPACK")
+  (:shadowing-import-from "FL.PATCHES" "MAKE-HASH-TABLE")
   (:export
    ;; Matlisp symbols
    "VLENGTH" "NROWS" "NCOLS"

@@ -435,7 +435,7 @@ mesh with Dirichlet boundary conditions."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmethod fl.lapack::lapack-convert ((mat standard-matrix))
-  (fl.port::vector-sap (store mat)))
+  (fl.lapack::lapack-convert (store mat)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Iteration

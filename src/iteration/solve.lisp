@@ -51,9 +51,11 @@ least the fields :solution and :status.  :status is one of the values
 
 SOLVE can also be called as (SOLVE blackboard) and will then try to figure
 out a suitable solver itself.")
+  #+(or)
   (:method :around (solver &optional blackboard)
-    (measure-time-for-block ("~&Solver time: ~5,2F~%" t)
-      (call-next-method))))
+    (measure-time-for-block ("~&Solver time: ~5,2F~%")
+      (call-next-method)))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Iterative solvers

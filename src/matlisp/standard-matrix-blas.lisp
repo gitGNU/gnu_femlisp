@@ -229,7 +229,8 @@ nrows and ncols of the given matrices."
                       (= ,y-length-2 z-ncols))
 	   (error "Size of arguments does not fit for matrix-matrix multiplication."))
          (when *blas3-operation-count*
-           (incf *blas3-operation-count* (* z-nrows z-ncols ,y-length-1)))
+           (locally (declare (optimize))
+             (incf *blas3-operation-count* (* z-nrows z-ncols ,y-length-1))))
          (when (and (plusp z-nrows) (plusp z-ncols))
            (conditional-compile
             (cl->lapack-type 'element-type nil)

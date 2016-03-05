@@ -63,18 +63,25 @@
   "Directory where meshes are put by default.")
 
 (defparameter *blas-library*
-  ;; default: search in system libraries, e.g. #p"/usr/lib/libblas.so"
-  ;;(probe-file #p"/usr/lib/atlas-base/atlas/libblas.so.3")
-  (or (probe-file #p"/usr/lib/atlas-base/atlas/libblas.so")
-      (probe-file #p"femlisp:interface;mkl.so"))
-  "BLAS library.")
+  (or
+   ;;:none
+   (probe-file #p"/usr/lib/atlas-base/atlas/libblas.so.3")
+   (probe-file #p"/usr/lib/atlas-base/atlas/libblas.so")
+   (probe-file #p"femlisp:interface;mkl.so"))
+  "BLAS library path.
+If the value is NIL, the BLAS library is searched for in standard library paths.
+If the value is :none, no external BLAS routines are used.")
 
 (defparameter *lapack-library*
   ;; default: search in system libraries, e.g. #p"/usr/lib/liblapack.so"
   ;;(probe-file #p"~/ATLAS/my_atlas/lib/liblapack_atlas.so")
-  (or (probe-file #p"/usr/lib/atlas-base/atlas/liblapack.so.3")
-      (probe-file #p"femlisp:interface;mkl.so"))
-  "LAPACK library.")
+  (or
+   ;;:none
+   (probe-file #p"/usr/lib/atlas-base/atlas/liblapack.so.3")
+   (probe-file #p"femlisp:interface;mkl.so"))
+  "LAPACK library path.
+If the value is NIL, the LAPACK library is searched for in standard library paths.
+If the value is :none, no external LAPACK routines are used.")
 
 (defparameter *superlu-library*
   nil ; default: (femlisp-pathname "interface/superlu.so")

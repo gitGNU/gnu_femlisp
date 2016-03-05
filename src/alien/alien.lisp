@@ -91,8 +91,9 @@ around a CMUCL enum bug."
 ;;; BLAS
 
 (defun load-blas-library ()
-  (awhen (or fl.start:*blas-library*
-             (find-shared-library "libblas"))
+  (awhen (and (not (eq fl.start:*blas-library* :none))
+              (or fl.start:*blas-library*
+                  (find-shared-library "libblas")))
     (load-foreign-library it)))
 
 (when (load-blas-library)
@@ -103,8 +104,9 @@ around a CMUCL enum bug."
 ;;; LAPACK
 
 (defun load-lapack-library ()
-  (awhen (or fl.start::*lapack-library*
-             (find-shared-library "liblapack"))
+  (awhen (and (not (eq  fl.start::*lapack-library* :none))
+              (or fl.start::*lapack-library*
+                  (find-shared-library "liblapack")))
     (load-foreign-library it)))
 
 (when (load-lapack-library)

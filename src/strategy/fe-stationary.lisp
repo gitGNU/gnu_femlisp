@@ -63,16 +63,14 @@ solution strategies for continuous, stationary PDE problems."))
   (with-items (&key discretized-problem solver-blackboard solution residual)
       blackboard
     ;; assemble (better would be a local assembly)
-    (measure-time-for-block
-        ((and (dbg-p :log-times) "~&Assembly realtime: ~F seconds~%") t)
+    (measure-time-for-block ("~&Assembly realtime: ~F seconds~%")
       (fe-discretize blackboard))
     ;; improve approximation by solving
     (setf solver-blackboard (blackboard :problem discretized-problem
 					:solution solution :residual residual))
     (ensure (slot-value fe-strategy 'solver)
 	    (select-solver discretized-problem solver-blackboard))
-    (measure-time-for-block
-        ((and (dbg-p :log-times) "~&Solver realtime: ~F seconds~%") t)
+    (measure-time-for-block ("~&Solver realtime: ~F seconds~%")
       (solve (slot-value fe-strategy 'solver) solver-blackboard))
     (setf solution (getbb solver-blackboard :solution))))
 

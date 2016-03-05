@@ -84,16 +84,21 @@ on the use of LAPACK."
 	 (ipiv (cond ((null ipiv)
                       (make-array k :element-type '(signed-byte 32) :initial-element -1))
 		     ((eq ipiv :none) nil)
-		     (t ipiv))))
+		     (t (assert (= (length ipiv) k))
+                        ipiv))))
     (declare (type fixnum m n k)
 	     (type (or null (simple-array (signed-byte 32) (*))) ipiv))
     (when *blas3-operation-count*
       (incf *blas3-operation-count* (floor (* m n k) 3)))
+    (assert (= m n k))  ; should be the only comnination we use at the moment
     (with-blas-data (mat)
       (conditional-compile
-       (cl->lapack-type 'element-type nil)
-       (call-lapack (load-time-value (lapack "getrf" 'element-type))
-                    m n mat-store m ipiv 0)
+       (?1 (cl->lapack-type 'element-type nil) nil)
+       (progn
+         (assert ipiv)
+         (call-lapack-with-error-test
+          (load-time-value (lapack "getrf" 'element-type))
+          m n mat-store m ipiv 0))
        (loop
 	 for j of-type fixnum from 0 below k
 	 for offset-jj of-type fixnum = (indexing j j m n) do
@@ -144,11 +149,14 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
     (when *blas3-operation-count*
       (incf *blas3-operation-count* (* LR-nrows LR-ncols b-ncols)))
     (conditional-compile
-     (cl->lapack-type 'element-type nil)
+     (?1 (cl->lapack-type 'element-type nil) nil)
      (progn
-       (assert (and ipiv (typep ipiv '(simple-array (signed-byte 32) (*)))))
-       (call-lapack (load-time-value (lapack "getrs" 'element-type))
-                    "N" LR-nrows b-ncols LR-store LR-nrows ipiv b b-nrows 0))
+       (assert (and ipiv
+                    (typep ipiv '(simple-array (signed-byte 32) (*)))
+                    (= (length ipiv) LR-nrows)))
+       (call-lapack-with-error-test
+        (load-time-value (lapack "getrs" 'element-type))
+        "N" LR-nrows b-ncols LR-store LR-nrows ipiv b-store b-nrows 0))
      (progn
        (when ipiv    ; swap rhs according to ipiv
          (locally

@@ -370,19 +370,19 @@ for this index."
   (let ((gemm-job (symconc "GEMM-" (symbol-name job) "!")))
     (eval
      `(defmethod ,gemm-job
-       (alpha (A <sparse-matrix>) (y <sparse-vector>) beta (x <sparse-vector>))
-       (declare (optimize (speed 3) (space 2) (safety 1)))
+          (alpha (A <sparse-matrix>) (y <sparse-vector>) beta (x <sparse-vector>))
+        (declare (optimize (speed 3) (space 2) (safety 1)))
+        ;; ensure that every necessary key is present in the vectors
+        ;; before starting the parallel operation
+        (dolist (rk (row-keys A))
+          (vref ,(ecase job ((:nn :nt) 'x) ((:tn :tt) 'y)) rk))
+        (dolist (ck (col-keys A))
+          (vref ,(ecase job ((:nn :nt) 'y) ((:tn :tt) 'x)) ck))
        ,(ecase
          job
          ((:nn :nt)
           `(ecase (access-type A :suggest :row)
              (:row
-              ;; ensure that every necessary key is present in the vectors
-              ;; before starting the parallel operation
-              (dolist (rk (row-keys A))
-                (vref x rk))
-              (dolist (ck (col-keys A))
-                (vref y ck))
               (dic-for-each
                (lambda (rk row)
                  (let ((x-values (vref x rk)))
@@ -401,6 +401,16 @@ for this index."
          ((:tn :tt)
           `(ecase (access-type A :suggest :column)
              (:column
+              (dic-for-each
+               (lambda (ck column)
+                 (let ((x-values (vref x ck)))
+                   (scal! beta x-values)
+                   (dic-for-each (lambda (rk mblock)
+                                   (let ((y-values (vref y rk)))
+                                     (,gemm-job alpha mblock y-values 1.0 x-values)))
+                                 column)))
+               (column-table A) :parallel t)
+              #+(or)
               (docols (ck A)
                 (let ((x-values (vref x ck)))
                   (scal! beta x-values)
@@ -408,11 +418,11 @@ for this index."
                     (let ((y-values (vref y rk)))
                       (,gemm-job alpha mblock y-values 1.0 x-values))))))
              (:row
-                 (scal! beta x)
-               (dorows (rk A)
-                 (let ((y-values (vref y rk)))
-                   (dorow ((ck mblock) A rk)
-                     (,gemm-job alpha mblock y-values 1.0 (vref x ck))))))
+              (scal! beta x)
+              (dorows (rk A)
+                (let ((y-values (vref y rk)))
+                  (dorow ((ck mblock) A rk)
+                    (,gemm-job alpha mblock y-values 1.0 (vref x ck))))))
              )))
        ;; the routine returns x!
        x
@@ -747,12 +757,15 @@ problem."
   (dic-for-each-key fn (row-table smat)))
 
 (defmethod parallel-for-each-row-key (fn (smat <sparse-dictionary-matrix>))
-  (dic-for-each-key fn (row-table smat) :parallel nil))
+  (dic-for-each-key fn (row-table smat) :parallel t))
 
 (defmethod for-each-col-key (fn (smat <sparse-dictionary-matrix>))
   "Loop through column keys."
   (assert (access-type smat :require :column))
   (dic-for-each-key fn (column-table smat)))
+
+(defmethod parallel-for-each-col-key (fn (smat <sparse-dictionary-matrix>))
+  (dic-for-each-key fn (column-table smat) :parallel t))
 
 (defmethod remove-key ((smat <sparse-dictionary-matrix>) &rest indices)
   (ecase (length indices)

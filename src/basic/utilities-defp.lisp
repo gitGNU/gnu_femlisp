@@ -35,6 +35,7 @@
 
 (defpackage "FL.UTILITIES"
   (:use "COMMON-LISP" "FL.MACROS" "FL.DEBUG")
+  (:shadowing-import-from "FL.PATCHES" "MAKE-HASH-TABLE")
   (:export  ; utilities.lisp
    "REQUIRED-ARGUMENT" "XOR" "FACTORIAL" "SQUARE"
    "EVALUATE" "COMPOSE" "COMPOSE-2" "CURRY" "RCURRY" "SANS"

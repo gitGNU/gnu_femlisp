@@ -34,10 +34,14 @@
 
 (defpackage "FL.PATCHES"
   (:use "COMMON-LISP")
-  (:export))
+  (:shadow "MAKE-HASH-TABLE")
+  (:export "MAKE-HASH-TABLE"))
 
 (in-package :fl.patches)
 
-;;; no patches at the moment for any implementations
+(defun make-hash-table (&rest args)
+  (apply #'common-lisp:make-hash-table
+         ;; #+sbcl :synchronized #+sbcl t
+         args))
 
 

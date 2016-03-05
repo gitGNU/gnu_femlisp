@@ -144,7 +144,6 @@ compatible way of ensuring method compilation."
   #+cmu (probe-file (pathname (concatenate 'string "path:" name)))
   #+scl (probe-file (concatenate 'string "file://path/" name))
   )
-(find-shared-library "liblapack")
 
 (defun getenv (var)
   "Return the value of the environment variable."
@@ -492,9 +491,9 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   (system:without-gcing
     (apply function args))
   #+(or sbcl scl)
-  (execute-with-pinned-objects
-   (lambda () (apply function args))
-   args)
+  (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects
+   (args)
+   (apply function args))
   #-(or allegro ccl lispworks cmu scl sbcl ecl)
   (portability-warning 'foreign-call-wrapper)
   )

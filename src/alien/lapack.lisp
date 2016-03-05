@@ -225,19 +225,22 @@ be done after replacing types for the implementation?"
 
 (defgeneric lapack-convert (arg)
   (:documentation "Convert argument for use in a LAPACK routine.")
-  (:method (x) x)
+  (:method (x) (error "Don't know to convert arg"))
+  (:method ((x number)) x)
   (:method ((x vector)) (fl.port:vector-sap x)))
 
 (defun call-lapack (routine &rest args)
   "Call the LAPACK routine @arg{routine} with the arguments @arg{args}.
 NIL-arguments are discarded, arrays and standard-matrices are converted to
-the necessary alien representation.  Furthermore, the routine is called
-with the IEEE FP modes appropriately set for Fortran, and GC is disallowed
-such that it does not interfere by moving the Lisp arrays after their
-address has been calculated."
+the necessary alien representation."
+  ;; Furthermore, the routine is called
+  ;; with the IEEE FP modes appropriately set for Fortran, and GC is disallowed
+  ;; such that it does not interfere by moving the Lisp arrays after their
+  ;; address has been calculated.
   (dbg :lapack "Calling with:~%~{~A~%~}~%" (remove nil args))
   (apply #'foreign-call routine
-	 (loop for arg in args when arg collect (lapack-convert arg))))
+	 (loop for arg in args
+               when arg collect (lapack-convert arg))))
 
 (defun call-lapack-with-error-test (&rest args)
   "Wrapper for @function{call-lapack} which tests if the routine worked

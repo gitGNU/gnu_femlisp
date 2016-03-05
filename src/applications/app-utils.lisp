@@ -58,37 +58,46 @@
                (accessing-exclusively ,rest ,@body)))))
       `(locally ,@body)))
 
+(defun m+-nil-reducer (&rest args)
+  (and args
+       (let ((this (car args))
+             (those (apply #'m+-nil-reducer (rest args))))
+         (if (and this those)
+             (m+ this those)
+             (or this those)))))
+
 (defmethod average-coefficient (ansatz-space &key coefficient)
   (let* ((problem (problem ansatz-space))
 	 (mesh (mesh ansatz-space))
 	 (order (discretization-order (fe-class ansatz-space)))
-	 (result (mutex-wrap nil)))
-    (with-workers
-        ((lambda (cell)
-           (let* ((coeffs (coefficients-of-cell cell mesh problem))
-                  (coeff-function (get-coefficient coeffs coefficient))
-                  (factor-dims (mapcar #'dimension (factor-simplices cell)))
-                  (qrule (gauss-rule factor-dims (1+ order))))
-             (loop for lcoords across (integration-points qrule)
-                   and weight across (integration-weights qrule) do
-                     (let* ((global (local->global cell lcoords))
-                            (Dphi (local->Dglobal cell lcoords))
-                            (factor (* weight (abs (det Dphi))))
-                            (coeff-ip (evaluate coeff-function (list :global global))))
-                       (accessing-exclusively ((tensor result))
-                         (if tensor
-                             (axpy! factor coeff-ip tensor)
-                             (setq tensor (scal factor coeff-ip))))
-                       )))))
-      (doskel (cell mesh :dimension :highest :where :surface)
-        (work-on cell)))
-    (mutex-unwrap result)))
+         fl.parallel::*kernel*)
+    (with-accumulators (result nil #'m+-nil-reducer)
+      (with-workers
+          ((lambda (cell)
+             (let* ((coeffs (coefficients-of-cell cell mesh problem))
+                    (coeff-function (get-coefficient coeffs coefficient))
+                    (factor-dims (mapcar #'dimension (factor-simplices cell)))
+                    (qrule (gauss-rule factor-dims (1+ order))))
+               (loop for lcoords across (integration-points qrule)
+                     and weight across (integration-weights qrule) do
+                       (let* ((global (local->global cell lcoords))
+                              (Dphi (local->Dglobal cell lcoords))
+                              (factor (* weight (abs (det Dphi))))
+                              (coeff-ip (evaluate coeff-function (list :global global))))
+                         (if result
+                             (axpy! factor coeff-ip result)
+                             (setq result (scal factor coeff-ip))))))))
+        (doskel (cell mesh :dimension :highest :where :surface)
+          (work-on cell))))))
 
 (defmethod correction-tensor ((solution <ansatz-space-vector>) (rhs <ansatz-space-vector>))
-  (let ((result (make-real-matrix (multiplicity solution) (multiplicity rhs))))
-    (dovec ((entry key) solution)
-      (gemm! 1.0 entry (vref rhs key) 1.0 result :tn))
-    result))
+  (with-accumulators (result nil #'m+-nil-reducer)
+    (for-each-entry-and-key
+     (lambda (entry key)
+       (if result
+           (gemm! 1.0 entry (vref rhs key) 1.0 result :tn)
+           (setf result (m*-tn entry (vref rhs key)))))
+     solution)))
 
 (defun convert-elasticity-correction (mat)
   "Converts the (dim^2)x(dim^2) matrix returned as result of correction

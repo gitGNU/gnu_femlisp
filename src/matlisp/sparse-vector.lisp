@@ -42,7 +42,7 @@
 
 (in-package :fl.matlisp)
 
-(defvar *parallel-algebra* nil
+(defvar *parallel-algebra* t
   "Preliminary switch for allowing parallel linear algebra.  Will hopefully
   become unnecessary in the long run.")
 
@@ -243,6 +243,13 @@ and solutions simultaneously."))
     (gemm-tn! alpha xc (vref y i) 1.0 z))
   z)
 
+(defmethod copy! ((x <sparse-vector>) (y <sparse-vector>))
+  ;; because the entries of x might not yet exist in y,
+  ;; they have to be generated in parallel.  This is problematic
+  ;; for all containers we use at the moment.
+  (let ((*parallel-algebra* nil))
+    (call-next-method)))
+
 (defmethod m* ((x <sparse-vector>) (y standard-matrix))
   (lret ((result (make-analog-with-multiplicity x (ncols y))))
     (dovec ((xc i) x)
@@ -250,10 +257,24 @@ and solutions simultaneously."))
 
 (defmethod dot ((x <sparse-vector>) (y <sparse-vector>))
   (with-accumulators (sum 0 #'+)
-    (let ((*parallel-algebra* t))
-      (for-each-entry-and-key
-       (lambda (xc i) (incf sum (dot xc (vref y i))))
-       x))))
+    (for-each-entry-and-key
+     (lambda (xc i) (incf sum (dot xc (vref y i))))
+     x)))
+
+(defmethod norm ((x <sparse-vector>) &optional (p 2))
+  (if (eq p :inf)
+      (with-accumulators (sum 0 #'max)
+        (for-each-entry
+         (lambda (xc)
+           (setf sum (max sum (norm xc :inf))))
+         x))
+      (expt (with-accumulators (sum 0 #'+)
+              (for-each-entry
+               (lambda (xc)
+                 (incf sum (expt (norm xc p) p)))
+               x))
+            (/ p))))
+
 
 (defmethod print-object :after ((svec <sparse-vector>) stream)
   (format stream "{nrows=~A, mult=~A}"

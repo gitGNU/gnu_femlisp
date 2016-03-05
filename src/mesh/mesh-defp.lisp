@@ -37,6 +37,7 @@
         "FL.MACROS" "FL.UTILITIES" "FL.DEBUG"
         "FL.DICTIONARY"
 	"FL.MATLISP" "FL.FUNCTION")
+  (:shadowing-import-from "FL.PATCHES" "MAKE-HASH-TABLE")
   (:export
    ;; cell.lisp
    "<CELL>" "CELLP" "BOUNDARY"

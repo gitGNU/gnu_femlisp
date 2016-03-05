@@ -18,7 +18,7 @@
   "This macro distributes work generated in body with calling the locally
 bound function @function{work-on} on some arguments to several working
 threads which call @arg{func} on those arguments."
-  (with-gensyms (worker)
+  (with-gensyms (worker args)
     `(call-with-workers
       ,work
       (lambda (,worker)
@@ -36,7 +36,7 @@ the result array is reduced using @arg{reduce-op}."
   (with-gensyms (accumulators)
   `(if (and *kernel* (not *worker-id*))
        (let ((,accumulators (make-array (kernel-worker-count) :initial-element ,initial-element)))
-         (symbol-macrolet ((,name (aref ,accumulators *worker-id*)))
+         (symbol-macrolet ((,name (aref ,accumulators (or *worker-id* 0))))
            ,@body)
          (reduce ,reduce-op ,accumulators))
        (lret ((,name ,initial-element)) ,@body))))

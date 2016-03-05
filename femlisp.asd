@@ -59,10 +59,10 @@
      (:file "patches" :depends-on ())
      (:file "macros" :depends-on ())
      (:file "port" :depends-on ("debug"))
-     (:file "utilities-defp" :depends-on ("macros" "debug"))
+     (:file "utilities-defp" :depends-on ("patches" "macros" "debug"))
      (:file "utilities" :depends-on ("utilities-defp" "macros" "tests"))
      (:file "amop" :depends-on ("debug" "port" "utilities"))
-     (:file "mflop" :depends-on ("utilities"))
+     (:file "mflop" :depends-on ("debug" "utilities"))
      (:file "general" :depends-on ("amop" "utilities-defp"))
      (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))))))
 

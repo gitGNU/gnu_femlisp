@@ -36,7 +36,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defpackage "FL.DICTIONARY"
-  (:use "COMMON-LISP" "FL.MACROS" "FL.DEBUG" "FL.UTILITIES" "FL.PARALLEL")
+  (:use "COMMON-LISP"
+        "FL.MACROS" "FL.DEBUG" "FL.UTILITIES" "FL.PARALLEL")
+  (:shadowing-import-from "FL.PATCHES" "MAKE-HASH-TABLE")
   (:export  ; dictionary.lisp
    "MAKE-ANALOG"
    "DIC-REF" "DIC-FOR-EACH" "DIC-FOR-EACH-KEY" "DIC-FOR-EACH-VALUE"
