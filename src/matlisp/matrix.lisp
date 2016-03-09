@@ -169,10 +169,12 @@ a list of indices."
   (:method (mat)
     (= (nrows mat) (ncols mat))))
 
-(defgeneric msymmetric-p (mat)
-  (:documentation "Returns T, if @arg{mat} is symmetric.")
-  (:method (mat)
-    (mequalp mat (transpose mat))))
+(defgeneric msymmetric-p (mat &key threshold output)
+  (:documentation "Returns T, if @arg{mat} is symmetric up to a accuracy in THRESHOLD.
+If output is T, the differences to symmetry are reported.")
+  (:method (mat &key (threshold 0.0) output)
+      (declare (ignore output))
+    (mzerop (m- mat (transpose mat)) threshold)))
 
 (defgeneric midentity-p (number &optional threshold)
   (:documentation "Returns T, if @arg{mat} is the identity, i.e. if the
@@ -259,6 +261,15 @@ indicating that the decomposition succeeded."))
 (defgeneric minject! (x y row-offset col-offset)
   (:documentation "Inject matrix X in matrix Y at the position given by
 ROW-OFFSET and COL-OFFSET."))
+
+(defgeneric extended-minject! (x y
+                               y-row-off y-col-off
+                               x-row-off x-col-off x-row-end x-col-end)
+  (:documentation "Inject a part of the matrix X specified by the last four parameters
+in matrix Y at the position given by Y-ROW-OFFSET and Y-COL-OFFSET."))
+
+(defgeneric extended-mclear! (x x-row-off x-col-off x-row-end x-col-end)
+  (:documentation "Clear the specified part of X."))
 
 (defgeneric mextract! (x y row-offset col-offset)
   (:documentation "Extract matrix X out of matrix Y from the position given

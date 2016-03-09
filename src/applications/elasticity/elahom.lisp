@@ -342,23 +342,18 @@ Parameters: order=~D, levels=~D~%~%"
     (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
     :order 5 :levels 2 :plot nil :output 1))
   
-  (loop for i below 100 do
+  (loop for i below 10 do
     (format t "~&~%*** Rechnung ~D~%~%" i)
     (elasticity-interior-effective-coeff-demo
      (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
      :order 5 :levels 1 :plot nil :output 2)
-        collect
-        (let ((defnorm (getbb (getbb *result* :solver-blackboard) :defnorm)))
-          (format t "~G~%" defnorm)
-          defnorm))
+        do
+           (let ((defnorm (getbb (getbb *result* :solver-blackboard) :defnorm)))
+             (assert (< (abs (- defnorm 1.56164e-09)) 1e-5))
+             (format t "~G~%" defnorm)
+             defnorm))
   
-  (time (with-workers ((lambda (k) (make-array k)))
-          (loop repeat 1000 do (work-on (random 100)))))
-  (time
-   (loop repeat 10 do
-     (with-workers ((lambda (k) (make-array k)))
-       (loop repeat 100000 do (work-on (random 100))))))
-  ;; >       0   3.40515e-01     UNDEFINED     
+;; >       0   3.40515e-01     UNDEFINED     
 ;; >       1   4.68740e-01      1.37656e+00  
 ;; >       2   3.52337e-01      7.51667e-01  
 ;; >       3   3.48071e-01      9.87893e-01  

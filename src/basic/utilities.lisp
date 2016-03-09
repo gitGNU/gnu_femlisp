@@ -64,7 +64,7 @@ dubious feature on which one should probably not rely."
 (defun compose (&rest functions)
   "Returns the composition of @arg{functions}."
   (cond ((null functions) #'identity)
-	((single? functions) (car functions))
+	((null (cdr functions)) (car functions))
 	(t (compose-2 (car functions) (apply #'compose (cdr functions))))))
 
 (inlining

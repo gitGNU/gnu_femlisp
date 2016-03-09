@@ -316,66 +316,67 @@ value arrays corresponding to the finite element."
                  (if domain-subcells
                      (map 'list (rcurry #'cell-key mesh) (subcells domain-cell))
                      (list (cell-key domain-cell mesh)))))
-          (let* ((mblocks (progn ; with-mutual-exclusion (smat)
-                            (extract-value-blocks smat row-keys col-keys)))
-                 #+(or)(keys
-                         (loop for rk in row-keys
-                               and i from 0 nconcing
-                                            (loop for ck in col-keys and j from 0
-                                                  when (aref mblocks i j)
-                                                    collect (cons rk ck)))))
-            ;;            (with-region (smat keys)
+          (with-mutual-exclusion (smat)
+            (let* ((mblocks (extract-value-blocks smat row-keys col-keys))
+                   #+(or)
+                   (keys
+                     (loop for rk in row-keys
+                           and i from 0 nconcing
+                                        (loop for ck in col-keys and j from 0
+                                              when (aref mblocks i j)
+                                                collect (cons rk ck)))))
+              ;;            (with-region (smat keys)
 
-            ;; alte Version
-            #+(or)
-            (dotimes (i nr-dofs-1)
-               (let ((comp-1 (aref component-index-1 i))
-                     (in-comp-1 (aref in-component-index-1 i))
-                     (vblock-index-1 (aref vblock-index-1 i))
-                     (in-vblock-index-1 (aref in-vblock-index-1 i)))
-                 (when (or image-subcells (zerop vblock-index-1))
-                   (dotimes (j nr-dofs-2)
-                     (let ((comp-2 (aref component-index-2 j))
-                           (in-comp-2 (aref in-component-index-2 j))
-                           (vblock-index-2 (aref vblock-index-2 j))
-                           (in-vblock-index-2 (aref in-vblock-index-2 j)))
-                       (when (or domain-subcells (zerop vblock-index-2))
-                         (symbol-macrolet
-                             ((local (mref (mref local-mat comp-1 comp-2)
-                                           in-comp-1 in-comp-2))
-                              (global (mref (aref mblocks vblock-index-1 vblock-index-2)
-                                            in-vblock-index-1 in-vblock-index-2)))
-                           (ecase operation
-                             (:local<-global (setq local global))
-                             (:global<-local (setq global local))
-                             (:global+=local (incf global local))
-                             (:global-=local (decf global local))))))))))
-            ;; neue Version
-            (let ((operation
-                    (ecase operation
-                      (:local<-global #'fl.matlisp::matop-x<-y!)
-                      (:global<-local #'fl.matlisp::matop-x->y!)
-                      (:global+=local #'fl.matlisp::matop-y+=x!)
-                      (:global-=local #'fl.matlisp::matop-y-=x!))))
-              (loop
-                for vblock-index-1 below (length row-keys) do
-                  (loop
-                    for vblock-index-2 below (length col-keys) do
-                      (whereas ((global-block (aref mblocks vblock-index-1 vblock-index-2)))
-                        (loop for comp1 below (nr-of-components image-fe) do
-                          (loop for comp2 below (nr-of-components domain-fe) do
-                            (whereas ((local-block (aref local-mat comp1 comp2)))
-                              (funcall
-                               operation
-                               local-block
-                               global-block
-                               (aref in-global-start-1 comp1 vblock-index-1)
-                               (aref in-global-start-2 comp2 vblock-index-2)
-                               (aref in-local-start-1 comp1 vblock-index-1)
-                               (aref in-local-start-2 comp2 vblock-index-2)
-                               (aref in-local-start-1 comp1 (1+ vblock-index-1))
-                               (aref in-local-start-2 comp2 (1+ vblock-index-2))))))))))
-            ))))))
+              ;; alte Version
+              #+(or)
+              (dotimes (i nr-dofs-1)
+                (let ((comp-1 (aref component-index-1 i))
+                      (in-comp-1 (aref in-component-index-1 i))
+                      (vblock-index-1 (aref vblock-index-1 i))
+                      (in-vblock-index-1 (aref in-vblock-index-1 i)))
+                  (when (or image-subcells (zerop vblock-index-1))
+                    (dotimes (j nr-dofs-2)
+                      (let ((comp-2 (aref component-index-2 j))
+                            (in-comp-2 (aref in-component-index-2 j))
+                            (vblock-index-2 (aref vblock-index-2 j))
+                            (in-vblock-index-2 (aref in-vblock-index-2 j)))
+                        (when (or domain-subcells (zerop vblock-index-2))
+                          (symbol-macrolet
+                              ((local (mref (mref local-mat comp-1 comp-2)
+                                            in-comp-1 in-comp-2))
+                               (global (mref (aref mblocks vblock-index-1 vblock-index-2)
+                                             in-vblock-index-1 in-vblock-index-2)))
+                            (ecase operation
+                              (:local<-global (setq local global))
+                              (:global<-local (setq global local))
+                              (:global+=local (incf global local))
+                              (:global-=local (decf global local))))))))))
+              ;; neue Version
+              (let ((operation
+                      (ecase operation
+                        (:local<-global #'fl.matlisp::matop-x<-y!)
+                        (:global<-local #'fl.matlisp::matop-x->y!)
+                        (:global+=local #'fl.matlisp::matop-y+=x!)
+                        (:global-=local #'fl.matlisp::matop-y-=x!))))
+                (loop
+                  for vblock-index-1 below (length row-keys) do
+                    (loop
+                      for vblock-index-2 below (length col-keys) do
+                        (whereas ((global-block (aref mblocks vblock-index-1 vblock-index-2)))
+                          (loop for comp1 below (nr-of-components image-fe) do
+                            (loop for comp2 below (nr-of-components domain-fe) do
+                              (whereas ((local-block (aref local-mat comp1 comp2)))
+                                (funcall
+                                 operation
+                                 local-block
+                                 global-block
+                                 (aref in-global-start-1 comp1 vblock-index-1)
+                                 (aref in-global-start-2 comp2 vblock-index-2)
+                                 (aref in-local-start-1 comp1 vblock-index-1)
+                                 (aref in-local-start-2 comp2 vblock-index-2)
+                                 (aref in-local-start-1 comp1 (1+ vblock-index-1))
+                                 (aref in-local-start-2 comp2 (1+ vblock-index-2))))))))))
+              )))))))
 
 (defmethod fill-local-from-global-mat ((smat <sparse-matrix>) local-mat
                                        (cell <cell>) &optional (domain-cell cell))

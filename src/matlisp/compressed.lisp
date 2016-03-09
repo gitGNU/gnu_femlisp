@@ -92,7 +92,7 @@ non-identified value.  Other symbols can be used to identify entries."
   ;; ensure that all slots are of the correct type
   (with-slots (sizes starts indices offsets) pattern
     (assert (= (length starts) (1+ (aref sizes 0))))
-    (assert (= (length indices) (number-nonzero-entries pattern)))
+    (assert (= (length indices) (number-of-nonzero-entries pattern)))
     (setq starts (coerce starts 'int-vec))
     (setq indices (coerce indices 'int-vec))
     (setq sizes (coerce sizes 'fixnum-vec))
@@ -100,18 +100,22 @@ non-identified value.  Other symbols can be used to identify entries."
       (assert (= (length indices) (length offsets)))
       (setq offsets (coerce offsets 'int-vec)))))
 
-(defmethod transposed-pattern ((pattern compressed-pattern))
-  (with-slots (sizes starts indices orientation) pattern
-    (assert (= 2 (length sizes)))
-    (make-instance 'compressed-pattern :sizes sizes
-		   :starts starts :indices indices
-		   :orientation (ecase orientation
-				  (:row :column)
-				  (:column :row)))))
+(defgeneric transposed-pattern (pattern)
+  (:documentation "Transpose a sparse matrix pattern.")
+  (:method ((pattern compressed-pattern))
+      (with-slots (sizes starts indices orientation) pattern
+        (assert (= 2 (length sizes)))
+        (make-instance 'compressed-pattern :sizes sizes
+                                           :starts starts :indices indices
+                                           :orientation (ecase orientation
+                                                          (:row :column)
+                                                          (:column :row))))))
 
-(defmethod number-nonzero-entries ((pattern compressed-pattern))
-  (with-slots (starts) pattern
-    (elt starts (1- (length starts)))))
+(defgeneric number-of-nonzero-entries (pattern)
+  (:documentation "Number of nonzero entries of a sparse matrix pattern.")
+  (:method ((pattern compressed-pattern))
+      (with-slots (starts) pattern
+        (elt starts (1- (length starts))))))
 
 (with-memoization (:id 'full-compressed-pattern)
   (defun full-compressed-pattern (nrows ncols &optional (orientation :column))
@@ -157,8 +161,8 @@ entries."))
   (with-slots (store pattern) cm
     (if (slot-boundp cm 'store)
 	(assert (= (length (store cm))
-		   (number-nonzero-entries (pattern cm))))
-	(setf store (zero-vector (number-nonzero-entries pattern) (element-type cm))))))
+		   (number-of-nonzero-entries (pattern cm))))
+	(setf store (zero-vector (number-of-nonzero-entries pattern) (element-type cm))))))
 
 (inlining
  (defun find-compressed-offset (cm i j)
@@ -237,12 +241,14 @@ pattern."
 		 (funcall fn (aref store l) i j)
 		 (funcall fn (aref store l) j i)))))))
 
-(defmethod compressed->matlisp ((cm compressed-matrix))
-  (lret ((result (zeros (nrows cm) (ncols cm) (element-type cm))))
-    (for-each-entry-and-key
-     (lambda (value i j)
-       (setf (mref result i j) value))
-     cm)))
+(defgeneric compressed->matlisp (cm)
+  (:documentation "Converts a compressed matrix into matlisp format.")
+  (:method ((cm compressed-matrix))
+      (lret ((result (zeros (nrows cm) (ncols cm) (element-type cm))))
+        (for-each-entry-and-key
+         (lambda (value i j)
+           (setf (mref result i j) value))
+         cm))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; GEMM!
@@ -320,7 +326,7 @@ SuperLU.")
 	  (assert (= nrows (nrows vec)))
 	  (unless (zerop
                    (funcall *default-cm-solver*
-                            nrows ncols (number-nonzero-entries (pattern mat))
+                            nrows ncols (number-of-nonzero-entries (pattern mat))
                             starts indices (store mat)
                             (ncols vec) (store vec) (store vec)
                             (ecase orientation (:column 0) (:row 1))))

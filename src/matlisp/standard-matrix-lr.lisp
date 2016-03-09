@@ -38,15 +38,16 @@
 (defun swap-rows (j k mat-store m n)
   "Swaps rows j and k in an m x n-matrix."
   (loop for pos1 of-type fixnum
-	from (indexing j 0 m n) below (indexing j n m n) by m
+	from (standard-matrix-indexing j 0 m n)
+          below (standard-matrix-indexing j n m n) by m
 	and pos2 of-type fixnum
-	from (indexing k 0 m n) by m do
+	from (standard-matrix-indexing k 0 m n) by m do
 	(rotatef (aref mat-store pos1) (aref mat-store pos2))))
 
 (declaim (inline trsm))
 (defun trsm (lr-store b-store m n &key side unit-diagonal)
-  (macrolet ((b-index (i j) `(indexing ,i ,j m n))
-	     (lr-index (i j) `(indexing ,i ,j m m))
+  (macrolet ((b-index (i j) `(standard-matrix-indexing ,i ,j m n))
+	     (lr-index (i j) `(standard-matrix-indexing ,i ,j m m))
 	     (b-ref (i) `(aref b-store ,i))
 	     (lr-ref (i) `(aref lr-store ,i)))
     (dotimes (j n)
@@ -81,27 +82,30 @@ on the use of LAPACK."
   (let* ((m (slot-value mat 'nrows))
 	 (n (slot-value mat 'ncols))
 	 (k (min m n))
-	 (ipiv (cond ((null ipiv)
-                      (make-array k :element-type '(signed-byte 32) :initial-element -1))
-		     ((eq ipiv :none) nil)
-		     (t (assert (= (length ipiv) k))
-                        ipiv))))
+	 (ipiv
+           (locally (declare (optimize (speed 0)))
+             (cond ((null ipiv)
+                    (make-array k :element-type '(signed-byte 32) :initial-element -1))
+                   ((eq ipiv :none) nil)
+                   (t (assert (= (length ipiv) k))
+                      ipiv)))))
     (declare (type fixnum m n k)
 	     (type (or null (simple-array (signed-byte 32) (*))) ipiv))
     (when *blas3-operation-count*
-      (incf *blas3-operation-count* (floor (* m n k) 3)))
+      (locally (declare (optimize (speed 0)))
+        (incf *blas3-operation-count* (floor (* m n k) 3))))
     (assert (= m n k))  ; should be the only comnination we use at the moment
     (with-blas-data (mat)
       (conditional-compile
-       (?1 (cl->lapack-type 'element-type nil) nil)
+       (cl->lapack-type 'element-type nil)
        (progn
          (assert ipiv)
-         (call-lapack-with-error-test
+         (call-lapack-with-error-test-macro
           (load-time-value (lapack "getrf" 'element-type))
           m n mat-store m ipiv 0))
        (loop
 	 for j of-type fixnum from 0 below k
-	 for offset-jj of-type fixnum = (indexing j j m n) do
+	 for offset-jj of-type fixnum = (standard-matrix-indexing j j m n) do
            ;; column pivoting
            (when ipiv
              (let ((pivot-index j)
@@ -109,7 +113,7 @@ on the use of LAPACK."
                (declare (type fixnum pivot-index))
                ;; find pivot
                (loop for i from (1+ j) below m
-                     for off = (indexing i j m n)
+                     for off = (standard-matrix-indexing i j m n)
                      for value of-type element-type = (abs (aref mat-store off))
                      do (when (> value pivot-value)
                           (setq pivot-index i
@@ -124,13 +128,14 @@ on the use of LAPACK."
            ;; compute elements of column J of L
            (loop with factor = (/ (aref mat-store offset-jj))
                  for off of-type fixnum
-                 from (1+ offset-jj) below (indexing n j m n) do
+                 from (1+ offset-jj) below (standard-matrix-indexing n j m n) do
                    (setf (aref mat-store off) (* (aref mat-store off) factor)))
 	   
            ;; update trailing submatrix of R
            (loop
              for off of-type fixnum
-             from (indexing j (1+ j) m n) below (indexing j n m n) by m
+             from (standard-matrix-indexing j (1+ j) m n)
+               below (standard-matrix-indexing j n m n) by m
              for factor of-type element-type = (aref mat-store off)
              unless (zerop factor) do
                (loop for pos1 of-type fixnum
@@ -140,28 +145,30 @@ on the use of LAPACK."
                              (* factor (aref mat-store pos2))))))))
     (values mat ipiv t)))
 
+#+(or)
+(getrf! #m((1.0 1.0) (1.0 0.0)))
+
 (define-blas-template getrs! ((LR standard-matrix) (b standard-matrix) &optional ipiv)
   "Uses the LR decomposition computed by getrf! to solve a linear system
 with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
+  (declare (type (or null (simple-array (signed-byte 32) (*))) ipiv))
   (with-blas-data (LR b)
     (unless (= b-nrows LR-nrows LR-ncols)
       (error "Matrix LR is not quadratic or does not fit to right-hand side."))
     (when *blas3-operation-count*
-      (incf *blas3-operation-count* (* LR-nrows LR-ncols b-ncols)))
+      (locally (declare (optimize (speed 0)))
+        (incf *blas3-operation-count* (* LR-nrows LR-ncols b-ncols))))
     (conditional-compile
-     (?1 (cl->lapack-type 'element-type nil) nil)
-     (progn
-       (assert (and ipiv
-                    (typep ipiv '(simple-array (signed-byte 32) (*)))
-                    (= (length ipiv) LR-nrows)))
-       (call-lapack-with-error-test
+     (cl->lapack-type 'element-type nil)
+     (locally
+       (check-type ipiv (simple-array (signed-byte 32) (*)))
+       (assert (= (length ipiv) LR-nrows))
+       (call-lapack-with-error-test-macro
         (load-time-value (lapack "getrs" 'element-type))
         "N" LR-nrows b-ncols LR-store LR-nrows ipiv b-store b-nrows 0))
      (progn
        (when ipiv    ; swap rhs according to ipiv
          (locally
-             (declare (type (simple-array (signed-byte 32) (*)) ipiv))
-           (check-type ipiv (simple-array (signed-byte 32) (*)))
            (unless (= b-nrows (length ipiv))
              (error "Matrix and pivot vector do not fit."))
            (dotimes (i b-nrows)
@@ -277,7 +284,7 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
         ;; measure/calculate performance as GFLOPs
         (let* ((n (expt 2 k))
                (repetitions (floor (/ 1d10 (expt n 3))))
-               (A (ones n)))
+               (A (eye n)))
           (let ((time (fl.utilities::measure-time
                        (lambda () (getrf! A))
                        repetitions)))

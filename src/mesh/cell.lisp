@@ -219,12 +219,16 @@ positions of the cell's vertices.")
   (:documentation "local->global checks if a mapping is given for the cell.
 If yes, then this mapping is evaluated.  If no, then the function l2g is called
 which should do a multilinear interpolation from the cell's corners."))
+(defgeneric multiple-local->global (cell local-pos)
+  (:documentation "Applies LOCAL->GLOBAL for several positions at once."))
 
 (defgeneric local->Dglobal (cell local-pos)
   (:documentation "local->Dglobal checks if a mapping is given for the cell.
 If yes, then the gradient of this mapping is evaluated (if available).  If no,
 then the function l2Dg is called which gives the gradient for a multilinear
 interpolation from the cell's corners."))
+(defgeneric multiple-local->Dglobal (cell local-pos)
+  (:documentation "Applies LOCAL->DGLOBAL for several positions at once."))
 
 ;;; Only these functions (specialized to multilinear mappings) are
 ;;; different for each cell class.
@@ -420,17 +424,18 @@ gradients."
 
 ;;; because of their nice names, the following are implemented as generic
 ;;; functions
-(defmethod dimension ((cell <cell>))
-  "Returns the dimension of the cell."
-  (with-cell-information (dimension) cell dimension))
+(defgeneric dimension (cell)
+  (:documentation "Returns the dimension of the cell.")
+  (:method ((cell <cell>))
+    (with-cell-information (dimension) cell dimension)))
 
-(defmethod reference-cell ((cell <cell>))
-  "Returns the cell's or cell-classes reference-cell."
-  (with-cell-information (reference-cell) cell reference-cell))
-
-(defmethod reference-cell ((class standard-class))
-  "Returns the cell information also when called for a cell class."
-  (with-cell-class-information (reference-cell) class reference-cell))
+(defgeneric reference-cell (cell-or-class)
+  (:documentation "Returns the cell's or cell-classes reference-cell.")
+  (:method ((cell <cell>))
+    (with-cell-information (reference-cell) cell reference-cell))
+  (:method ((class standard-class))
+      "Returns the cell information also when called for a cell class."
+    (with-cell-class-information (reference-cell) class reference-cell)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Derived functionality
@@ -500,9 +505,11 @@ cell boundary is copied."))
                             cell (midpoint child1) subcell (midpoint child2) x)))))))
     ))
 
-(defmethod describe-all ((cell <cell>))
-  (describe cell)
-  (mapc #'describe-all (boundary cell)))
+(defgeneric describe-all (object)
+  (:documentation "Describe object and all sub-objects (e.g. a cell and all subcells).")
+  (:method ((cell <cell>))
+      (describe cell)
+    (mapc #'describe-all (boundary cell))))
 
 ;;; Ordered access (i.e. the ordering depends only on the cell's class) to
 ;;; sub-cells
@@ -562,7 +569,10 @@ when the cell class is initialized."
   (assert (reference-cell-p refcell))
   (fl.port:compile-and-eval (generate-subcells-method-source refcell)))
 
-(defmethod cell-mapping ((cell <cell>))
+(defgeneric cell-mapping (cell)
+  (:documentation "Return the mapping for mapped cells.")
+  (:method (cell) "The default result is NIL, i.e. no mapping" nil)
+  (:method ((cell <cell>))
   "For non-mapped cells, this method returns a <special-function> which can
 be called instead of @function{l2g} and @function{l2Dg}."
   ;; is the mapping linear?
@@ -578,10 +588,9 @@ be called instead of @function{l2g} and @function{l2Dg}."
 	 '<special-function>
 	 :domain-dimension (dimension cell) :image-dimension (embedded-dimension cell)
 	 :evaluator (curry #'l2g cell) :gradient (curry #'l2Dg cell)))))
-
-(defmethod cell-mapping ((cell <mapped-cell>))
-  "Return the mapping of the mapped @arg{cell}."
-  (slot-value cell 'mapping))
+  (:method ((cell <mapped-cell>))
+      "Return the mapping of the mapped @arg{cell}."
+    (slot-value cell 'mapping)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; local->global for isoparametric cells (as an after method)

@@ -128,14 +128,15 @@
 
 (defmethod entry-allowed-p ((smat <sparse-matrix>) &rest indices)
   (destructuring-bind (row-key col-key) indices
-    (plusp (number-nonzero-entries (funcall (keys->pattern smat)
-					    row-key col-key)))))
+    (plusp (number-of-nonzero-entries
+            (funcall (keys->pattern smat)
+                     row-key col-key)))))
 
 (defun make-matrix-block (smat row-key col-key)
   (declare (type <sparse-matrix> smat))
   (let* ((pattern (funcall (keys->pattern smat) row-key col-key))
          (sizes (slot-value pattern 'sizes))
-         (store-size (number-nonzero-entries pattern)))
+         (store-size (number-of-nonzero-entries pattern)))
     (cond
       ((some #'zerop sizes)
        (error "Request for an empty matrix."))
@@ -175,13 +176,15 @@ for this index."
     (loop for rk in (keys-of-column smat col-key)
        do (remove-key smat rk col-key))))
 
-(defmethod row<-id ((A <sparse-matrix>) key)
-  (remove-row A key)
-  (unless (and (row-key->size A) (col-key->size A))
-    "Cannot determine size of diagonal block.")
-  (setf (mref A key key)
-	(eye (funcall (row-key->size A) key)
-	     (funcall (col-key->size A) key))))
+(defgeneric row<-id (A key)
+  (:documentation "Set the row of matrix A defined by KEY to identity")
+  (:method ((A <sparse-matrix>) key)
+      (remove-row A key)
+    (unless (and (row-key->size A) (col-key->size A))
+      "Cannot determine size of diagonal block.")
+    (setf (mref A key key)
+          (eye (funcall (row-key->size A) key)
+               (funcall (col-key->size A) key)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; derived methods
@@ -213,7 +216,7 @@ for this index."
                                     mat row-key)))))
        mat))))
 
-(defmethod symmetric-p ((smat <sparse-matrix>) &key (threshold 0.0) output)
+(defmethod msymmetric-p ((smat <sparse-matrix>) &key (threshold 0.0) output)
   (and (automorphism-p smat)
        (let ((flag t))
          (dovec ((entry rk ck) smat)
@@ -391,7 +394,7 @@ for this index."
                                    (let ((y-values (vref y ck)))
                                      (,gemm-job alpha mblock y-values 1.0 x-values)))
                                  row)))
-                 (row-table A) :parallel t))
+                 (row-table A) :parallel t))  ; !!!
              (:column
               (scal! beta x)
               (docols (ck A)
@@ -409,7 +412,7 @@ for this index."
                                    (let ((y-values (vref y rk)))
                                      (,gemm-job alpha mblock y-values 1.0 x-values)))
                                  column)))
-               (column-table A) :parallel t)
+               (column-table A) :parallel t)  ; !!!
               #+(or)
               (docols (ck A)
                 (let ((x-values (vref x ck)))
@@ -523,6 +526,13 @@ sparse, the complexity of this routine is much lower."))
                                   A j))
                      B k))
         B)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Sparse matrix decompositions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric sparse-ldu (A &key &allow-other-keys)
+  (:documentation "Sparse LDU decomposition"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; submatrices / extraction
@@ -668,15 +678,15 @@ discretized with the 3-point stencil on a structured mesh."
 (defvar *maxrows-for-direct-solving* 5000
   "Maximum number of rows for which direct solving is applied.")
 
-(defmethod select-linear-solver :around ((asa <matrix>) blackboard)
-  "Select a suitable solver depending on size of the matrix and the pde
-problem."
-  (declare (ignore blackboard))
-  (if (<= (nrows asa) *maxrows-for-direct-solving*)
-      (make-instance '<linear-solver> :success-if `(>= :step 1)
-		     :iteration (make-instance '<lu> :store-p nil))
-      (call-next-method)))
-
+(defgeneric select-linear-solver (matrix blackboard)
+  (:documentation "Select a suitable solver depending on size of the matrix
+and the information on the blackoard.")
+  (:method :around ((asa <matrix>) blackboard)
+    (declare (ignore blackboard))
+    (if (<= (nrows asa) *maxrows-for-direct-solving*)
+        (make-instance '<linear-solver> :success-if `(>= :step 1)
+                                        :iteration (make-instance '<lu> :store-p nil))
+        (call-next-method))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <sparse-dictionary-matrix>
@@ -756,16 +766,17 @@ problem."
   (assert (access-type smat :require :row))
   (dic-for-each-key fn (row-table smat)))
 
-(defmethod parallel-for-each-row-key (fn (smat <sparse-dictionary-matrix>))
-  (dic-for-each-key fn (row-table smat) :parallel t))
-
 (defmethod for-each-col-key (fn (smat <sparse-dictionary-matrix>))
   "Loop through column keys."
   (assert (access-type smat :require :column))
   (dic-for-each-key fn (column-table smat)))
 
-(defmethod parallel-for-each-col-key (fn (smat <sparse-dictionary-matrix>))
+#+(or)
+(defun parallel-for-each-col-key (fn smat)
   (dic-for-each-key fn (column-table smat) :parallel t))
+#+(or)
+(defun parallel-for-each-row-key (fn smat)
+  (dic-for-each-key fn (row-table smat) :parallel t))
 
 (defmethod remove-key ((smat <sparse-dictionary-matrix>) &rest indices)
   (ecase (length indices)

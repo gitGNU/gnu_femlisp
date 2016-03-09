@@ -112,26 +112,27 @@
   "Local ID set for each worker thread when it is created.")
 
 (defun new-kernel (&optional nr-threads)
-  (ensure nr-threads (length (get-processors-without-hyperthreading)))
-  (end-kernel)
-  (when (plusp nr-threads)
-    (let ((count -1))
-      (flet ((my-worker-context (worker-loop)
-               (let ((*worker-id* (incf count)))
-                 ;; set cpu affinity if possible
-                 (let* ((proc (nth *worker-id* (get-processors)))
-                        (id (pi-processor proc)))
+  (let ((available-procs (get-processors-without-hyperthreading)))
+    (ensure nr-threads (length available-procs))
+    (end-kernel)
+    (when (plusp nr-threads)
+      (let ((count -1))
+        (flet ((my-worker-context (worker-loop)
+                 (let ((*worker-id* (incf count)))
+                   ;; set cpu affinity if possible
                    #+sb-cpu-affinity
-                   (sb-cpu-affinity:with-cpu-affinity-mask (mask :save t)
-                     (sb-cpu-affinity:clear-cpu-affinity-mask mask)
-                     (setf (sb-cpu-affinity:cpu-affinity-p id mask) t)))
-                 ;; enter the worker loop; return when the worker shuts down
-                 (funcall worker-loop))))
-        (setf *kernel*
-              (make-kernel nr-threads
-                           :bindings '((*worker-id* . nil)
-                                       (*thread-local-memoization-table* . nil))
-                           :context #'my-worker-context))))))
+                   (let* ((proc (nth *worker-id* available-procs))
+                          (id (pi-processor proc)))
+                     (sb-cpu-affinity:with-cpu-affinity-mask (mask :save t)
+                       (sb-cpu-affinity:clear-cpu-affinity-mask mask)
+                       (setf (sb-cpu-affinity:cpu-affinity-p id mask) t)))
+                   ;; enter the worker loop; return when the worker shuts down
+                   (funcall worker-loop))))
+          (setf *kernel*
+                (make-kernel nr-threads
+                             :bindings '((*worker-id* . nil)
+                                         (*thread-local-memoization-table* . nil))
+                             :context #'my-worker-context)))))))
 
 ;;;(pwork (_ (sb-cpu-affinity:get-cpu-affinity-mask)))
 
@@ -254,4 +255,3 @@ All results are collected in a vector of the same size."
     
   (pwork (lambda (x) (* x x)) #((1) (2)))
   )
-

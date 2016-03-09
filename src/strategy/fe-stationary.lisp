@@ -64,6 +64,7 @@ solution strategies for continuous, stationary PDE problems."))
       blackboard
     ;; assemble (better would be a local assembly)
     (measure-time-for-block ("~&Assembly realtime: ~F seconds~%")
+      ;;(let ((fl.parallel::*kernel* nil))  ;; !!!
       (fe-discretize blackboard))
     ;; improve approximation by solving
     (setf solver-blackboard (blackboard :problem discretized-problem
@@ -71,6 +72,7 @@ solution strategies for continuous, stationary PDE problems."))
     (ensure (slot-value fe-strategy 'solver)
 	    (select-solver discretized-problem solver-blackboard))
     (measure-time-for-block ("~&Solver realtime: ~F seconds~%")
+      ;;(let ((fl.parallel::*kernel* nil))  ;; !!!
       (solve (slot-value fe-strategy 'solver) solver-blackboard))
     (setf solution (getbb solver-blackboard :solution))))
 

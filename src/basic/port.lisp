@@ -467,10 +467,15 @@ compatible way of ensuring method compilation."
 		    (complex (aref vec (* 2 i)) (aref vec (1+ (* 2 i))))))))))
       (t (fli:replace-foreign-array arg vec)))))
 
+(defun foreign-convert (x)
+  (typecase x
+    (number x)
+    (vector (fl.port:vector-sap x))))
+
 #+(or sbcl scl)
 (defun execute-with-pinned-objects (func objects)
   (loop while (and objects (not (arrayp (car objects))))
-       do (setf objects (cdr objects)))
+        do (setf objects (cdr objects)))
   (if (null objects)
       (funcall func)
       (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects
@@ -491,13 +496,13 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   (system:without-gcing
     (apply function args))
   #+(or sbcl scl)
-  (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects
-   (args)
-   (apply function args))
+  (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects (args)
+         (apply function (mapcar #'foreign-convert args)))
+  ;;(execute-with-pinned-objects (lambda () (apply function args)) args)
+  ;;(apply function args)
   #-(or allegro ccl lispworks cmu scl sbcl ecl)
   (portability-warning 'foreign-call-wrapper)
   )
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Weak pointers

@@ -347,7 +347,7 @@ masters."
 	 (interface (refinement-interface mesh))
 	 (prol (make-ansatz-space-morphism domain-as image-as)))
     (assert (eq mesh (mesh image-as)))
-    ;;(assert (symmetric-p mat :threshold 1.0e-7 :output t))  ;;!!
+    ;;(assert (msymmetric-p mat :threshold 1.0e-7 :output t))  ;;!!
     ;; first pass: interpolate on each surface cell
     (doskel (cell mesh)
       (when (or (not (refined-p cell mesh))

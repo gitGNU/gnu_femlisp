@@ -22,8 +22,8 @@ threads which call @arg{func} on those arguments."
     `(call-with-workers
       ,work
       (lambda (,worker)
-        (flet ((work-on (&rest args)
-                 (apply ,worker args)))
+        (flet ((work-on (&rest ,args)
+                 (apply ,worker ,args)))
           ,@body))
       ,@keyword-args)))
 

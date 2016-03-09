@@ -155,7 +155,7 @@ name together with the name of the inner iteration."
   "Reset data on the blackboard."
   (setf (slot-value iter 'start-time) (get-internal-real-time)
 	(getbb blackboard :time) 0.0
-	(getbb blackboard :step) 0)) ;!!!
+	(getbb blackboard :step) 0))
 
 (defmethod initially ((iter <iteration>) blackboard)
   "Default method.  Prints the header line for observed quantities."

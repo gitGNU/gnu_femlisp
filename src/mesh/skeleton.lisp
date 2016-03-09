@@ -60,8 +60,10 @@ constructor by giving a cell-list."
   (make-instance '<skeleton> :dimension (dimension skel)))
 
 ;;; an extended access
-(defmethod etable ((skel <skeleton>) dim)
-  (aref (etables skel) dim))
+(defgeneric etable (skel dim)
+  (:documentation "A table for cells of dimension @arg{dim} in @arg{skel}.")
+  (:method ((skel <skeleton>) dim)
+      (aref (etables skel) dim)))
 
 (inlining
  (defun etable-of-highest-dim (skel)
@@ -142,6 +144,8 @@ cost O(n) (n=number of cells to be removed) but O(N) (N=total number of cells)."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;(defmethod dimension ((skel <skeleton>)) (1- (length (etables skel))))
+
+(declaim (ftype (function (<cell> <skeleton>) t) refined-p))
 
 (defun skel-for-each (func skel &key direction dimension where with-properties)
   "Loops through a skeleton applying func.  When direction is :down then loops
@@ -348,7 +352,7 @@ Warning: Up to now a quadratic algorithm is used."
            (format t "~A~30T~A~%" cell1 cell2)))
     multiples))
 
-(defmethod skeleton-substance ((skel <skeleton>))
+(defun skeleton-substance (skel)
   "The substance of a skeleton are those cells which are not boundary of a
 cell in @arg{cell}.  This function returns those cells in the form of a
 hash-table."
@@ -359,7 +363,7 @@ hash-table."
       (loop for side across (boundary cell) do
            (remhash side non-bdry-cells)))))
 
-(defmethod skeleton-boundary ((skel <skeleton>))
+(defun skeleton-boundary (skel)
   "Returns a skeleton consisting of cells of skel of dimension n-1 which
 have only one neighbor."
   (when (zerop (dimension skel))
@@ -381,8 +385,8 @@ have only one neighbor."
         when (> nr-neighbors 2) do
         (error "Hyperface ~A shared by more than two cells:~%~A" face neighbors)))))
 
-(defmethod closed? ((skel <skeleton>))
-  "Checks if the boundary of skel is empty.  This should be the case for
+(defun closed? (skel)
+  "Checks if the boundary of @arg{skel} is empty.  This should be the case for
 boundaries of skeletons."
   (skel-empty-p (skeleton-boundary skel)))
 

@@ -50,12 +50,10 @@
 (defmethod total-entries ((mat standard-matrix))
    (* (nrows mat) (ncols mat)))
 
-(declaim (inline indexing))
-(defun indexing (i j nrows ncols)
-  "Computes column-major indexing for compatibility with Matlisp/Fortran."
+(definline standard-matrix-indexing (i j nrows &optional ncols)
   (declare (ignore ncols))
-  (declare (type positive-fixnum i j nrows ncols))
-  (the fixnum (+ i (the fixnum (* nrows j)))))
+  (declare (type (and fixnum (integer 0)) i j))
+  (the fixnum (+ i (the fixnum (* j nrows)))))
 
 (defmethod initialize-instance ((matrix standard-matrix) &key content &allow-other-keys)
   "Handles the content parameter and sets the store to a suitable vector.
@@ -98,12 +96,14 @@ If content is a 2d array, the dimensions can be deduced."
 	  (sequence
 	   (loop for i from 0 and row in content do
 		 (loop for j from 0 and entry in row do
-		       (setf (aref store (indexing i j nrows ncols)) entry))))
+                   (setf (aref store (standard-matrix-indexing i j nrows ncols))
+                         entry))))
 	  (array
 	   (assert (equal (array-dimensions content) (list nrows ncols)))
 	   (dotimes (i nrows)
 	     (dotimes (j ncols)
-	       (setf (aref store (indexing i j nrows ncols)) (aref content i j))))))))))
+	       (setf (aref store (standard-matrix-indexing i j nrows ncols))
+                     (aref content i j))))))))))
 
 (with-memoization (:type :global :size 4 :id 'standard-matrix)
   (defun standard-matrix (type)
@@ -202,11 +202,6 @@ structure defining the contents matrix."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Access to the entries
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(declaim (inline standard-matrix-indexing))
-(defun standard-matrix-indexing (i j nrows)
-  (declare (type (and fixnum (integer 0)) i j))
-  (the fixnum (+ i (the fixnum (* j nrows)))))
 
 (defmethod mref ((matrix standard-matrix) i j)
   "We choose Fortran-like column-major indexing to make the use of Matlisp

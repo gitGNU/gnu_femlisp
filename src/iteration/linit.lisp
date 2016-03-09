@@ -235,7 +235,7 @@ parameter, eta is the diagonal enhancement."))
 		(axpy! damp rblock x-block)
 		#+(or)(x<-0 rblock)
 		)))
-          (row-table mat) :parallel t)
+          (row-table mat) :parallel t)  ;; !!!
          #+(or)
 	 (for-each-row-key
 	  #'(lambda (row-key)

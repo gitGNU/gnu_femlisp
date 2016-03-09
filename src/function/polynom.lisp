@@ -35,14 +35,6 @@
 (in-package :fl.function)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; abstract ring class, perhaps we'll need it later separately
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; zero and unit for numbers
-(defmethod zero? ((x number)) (zerop x))
-(defmethod unit? ((x number)) (= x 1))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; class of multivariate polynomials (over arbitrary rings)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -55,6 +47,42 @@ represented as nested lists."))
   "Constructor which simplifies the coefficient list."
   (make-instance 'polynomial :coeffs (simplify coeffs)))
 
+;;; generates a list that has the same nestedness as lst and contains cell
+;;; as single cell
+(defun make-inner (lst cell)
+  (if (consp lst)
+      (list (make-inner (car lst) cell))
+      cell))
+
+(defgeneric zero (f)
+  (:documentation "Generates a zero of the same kind as @arg{F}.")
+  (:method ((f list)) '())
+  (:method ((f polynomial))
+      (make-polynomial
+       (make-inner (cdr (coefficients f)) '()))))
+
+(defgeneric unit (f)
+  (:documentation "Generates a unit of the same kind as @arg{F}.")
+  (:method ((f list)) '(1))
+  (:method ((f polynomial))
+      (make-polynomial
+       (make-inner f '(1)))))
+
+;;; checks
+(defgeneric zero? (x)
+  (:method ((x number)) (zerop x))
+  (:method ((lst list)) (null lst))
+  (:method ((poly polynomial))
+      (zero? (coefficients poly))))
+
+(defgeneric unit? (x)
+  (:method ((x number)) (= x 1))
+  (:method ((lst list)) (and (single? lst) (unit? (car lst))))
+  (:method ((poly polynomial))
+      (unit? (coefficients poly))))
+
+;;; other functions
+
 (defun shift-polynomial (poly dim)
   "Shifts a polynomial in dimension, e.g. x_1 becomes x_2."
   (labels ((nest (lst k)
@@ -63,47 +91,53 @@ represented as nested lists."))
 		 (list (nest lst (1- k))))))
     (make-polynomial (nest (coefficients poly) dim))))
 
-(defmethod degree ((poly polynomial))
-  (- (length (coefficients poly)) 1))
+(defgeneric degree (poly)
+  (:documentation "Degree of a polynomial")
+  (:method ((poly polynomial))
+      (- (length (coefficients poly)) 1)))
 
-(defmethod total-degree ((poly polynomial))
-  (labels ((tensorial-degree (coeff-lst)
-	     (apply #'max
-		    (mapcar #'(lambda (coeff deg)
-				(if (listp coeff)
-				    (+ deg (tensorial-degree coeff))
-				    deg))
-			    coeff-lst
-			    (loop for k below (length coeff-lst) collect k)))))
-    (tensorial-degree (coefficients poly))))
+(defgeneric total-degree (poly)
+  (:documentation "Degree of a multivariate polynomial")
+  (:method ((poly polynomial))
+      (labels ((tensorial-degree (coeff-lst)
+                 (apply #'max
+                        (mapcar #'(lambda (coeff deg)
+                                    (if (listp coeff)
+                                        (+ deg (tensorial-degree coeff))
+                                        deg))
+                                coeff-lst
+                                (loop for k below (length coeff-lst) collect k)))))
+        (tensorial-degree (coefficients poly)))))
 
-(defmethod partial-degree ((lst list) (index integer))
-  (if (zerop index)
-      (- (length lst) 1)
-      (apply #'max -1
-	     (mapcar #'(lambda (term)
-		    (partial-degree term (- index 1)))
-		  lst))))
-
-(defmethod partial-degree ((poly polynomial) (index integer))
-  (partial-degree (coefficients poly) index))
+(defgeneric partial-degree (poly index)
+  (:documentation "Partial degree in variable INDEX of a multivariate polynomial.")
+  (:method ((lst list) (index integer))
+      (if (zerop index)
+          (- (length lst) 1)
+          (apply #'max -1
+                 (mapcar #'(lambda (term)
+                             (partial-degree term (- index 1)))
+                         lst))))
+  (:method ((poly polynomial) (index integer))
+      (partial-degree (coefficients poly) index)))
 
 ;;; Returns number of variables on which the polynomial depends.  Does
 ;;; the name variance fit?
-(defmethod variance ((poly polynomial))
-  (labels ((rec (index coeffs)
-	     (cond
-	       ((null coeffs) (+ index 1))
-	       ((listp coeffs) (rec (+ index 1) (car coeffs)))
-	       (t index))))
-    (rec 0 (coefficients poly))))
+(defgeneric variance (poly)
+  (:method ((poly polynomial))
+    (labels ((rec (index coeffs)
+               (cond
+                 ((null coeffs) (+ index 1))
+                 ((listp coeffs) (rec (+ index 1) (car coeffs)))
+                 (t index))))
+      (rec 0 (coefficients poly)))))
 
 
-;;; returns the maximal partial degree of a polynomial
-(defmethod maximal-partial-degree ((poly polynomial))
-  (loop for k from 0 below (variance poly)
-	maximize (partial-degree poly k)))
-
+(defgeneric maximal-partial-degree (poly)
+  (:documentation "Maximal partial degree of a polynomial.")
+  (:method ((poly polynomial))
+      (loop for k from 0 below (variance poly)
+            maximize (partial-degree poly k))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; polynomial constructor (from coefficient list)
@@ -111,6 +145,7 @@ represented as nested lists."))
 
 ;;; important, since redundancy may be introduced during arithmetic
 ;;; operations we have to strip trailing zeros from a coefficient list
+
 (defun simplify (lst)
   (labels ((empty? (lst)
 	     (or (null lst)
@@ -134,17 +169,6 @@ represented as nested lists."))
   (make-polynomial
    (subst-if 0.0 #'(lambda (x) (and (numberp x) (< (abs x) threshold)))
 	     (coefficients poly))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; checks
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmethod zero? ((lst list)) (null lst))
-(defmethod zero? ((poly polynomial))
-  (zero? (coefficients poly)))
-(defmethod unit? ((lst list)) (and (single? lst) (unit? (car lst))))
-(defmethod unit? ((poly polynomial))
-  (unit? (coefficients poly)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; write method
@@ -229,46 +253,25 @@ represented as nested lists."))
   (poly-eval (coefficients poly) (list x)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; neutral cells for ring operations
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;;; generates a list that has the same nestedness as lst and contains cell
-;;; as single cell
-(defun make-inner (lst cell)
-  (if (consp lst)
-      (list (make-inner (car lst) cell))
-      cell))
-
-(defmethod zero ((f list)) '())
-(defmethod unit ((f list)) '(1))
-(defmethod zero ((f polynomial))
-  (make-polynomial
-   (make-inner (cdr (coefficients f)) '())))
-
-(defmethod unit ((f polynomial))
-  (make-polynomial
-   (make-inner f '(1))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Polynomial arithmetic
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod poly+ ((x number) (y number)) (+ x y))
-
-(defmethod poly+ ((x list) (y list))
-  (labels ((rec (x y)
-	     (cond ((null x) y)
-		   ((null y) x)
-		   (t (cons (poly+ (car x) (car y))
-			    (rec (cdr x) (cdr y)))))))
-    (rec x y)))
-
-(defmethod poly+ ((x polynomial) (y polynomial))
-  (make-polynomial (poly+ (coefficients x) (coefficients y))))
-(defmethod poly+ ((x polynomial) (y number))
-  (make-polynomial (poly+ (coefficients x) (list y))))
-(defmethod poly+ ((x number) (y polynomial))
-  (make-polynomial (poly+ (list x) (coefficients y))))
+(defgeneric poly+ (p1 p2)
+  (:documentation "Add two polynomials P1 and P2.")
+  (:method ((x number) (y number)) (+ x y))
+  (:method ((x list) (y list))
+      (labels ((rec (x y)
+                 (cond ((null x) y)
+                       ((null y) x)
+                       (t (cons (poly+ (car x) (car y))
+                                (rec (cdr x) (cdr y)))))))
+        (rec x y)))
+  (:method ((x polynomial) (y polynomial))
+      (make-polynomial (poly+ (coefficients x) (coefficients y))))
+  (:method ((x polynomial) (y number))
+      (make-polynomial (poly+ (coefficients x) (list y))))
+  (:method ((x number) (y polynomial))
+      (make-polynomial (poly+ (list x) (coefficients y)))))
 
 ;;; These methods are quite special for our use in polynomial
 ;;; multiplication.  This is a hint that things should be done in a
@@ -278,31 +281,34 @@ represented as nested lists."))
 (defmethod poly+ ((y list) (x number))
   (if (null y) x (cons (poly+ (car y) x) (cdr y))))
 
-(defmethod poly* ((f number) (g number)) (* f g))
-(defmethod poly* ((f number) (g list)) (scal f g))
-(defmethod poly* ((g list) (f number)) (scal f g))
-(defmethod poly* ((f list) (g list))
-  (if (null g)
-      '()
-      (poly+ (mapcar #'(lambda (x) (poly* (car g) x)) f)
-	    (cons 0
-		  (poly* f (cdr g))))))
-
-(defmethod poly* ((f polynomial) (g polynomial))
-  (make-polynomial (poly* (coefficients f) (coefficients g))))
-(defmethod poly* ((f number) (g polynomial)) (scal f g))
-(defmethod poly* ((g polynomial) (f number)) (scal f g))
+(defgeneric poly* (p1 p2)
+  (:documentation "Multiplies two polynomials P1 and P2.")
+  (:method ((f number) (g number)) (* f g))
+  (:method ((f number) (g list)) (scal f g))
+  (:method ((g list) (f number)) (scal f g))
+  (:method ((f list) (g list))
+      (if (null g)
+          '()
+          (poly+ (mapcar #'(lambda (x) (poly* (car g) x)) f)
+                 (cons 0
+                       (poly* f (cdr g))))))
+  (:method ((f polynomial) (g polynomial))
+      (make-polynomial (poly* (coefficients f) (coefficients g))))
+  (:method ((f number) (g polynomial)) (scal f g))
+  (:method ((g polynomial) (f number)) (scal f g)))
 
 ;;; exponentiation
-(defmethod poly-expt ((lst list) (n integer))
-  (cond ((< n 0) (error "not implemented"))
-	((= n 0) (list 1))
-	((= n 1) lst)
-	((evenp n) (poly-expt (poly* lst lst) (/ n 2)))
-	(t (poly* lst (poly-expt lst (1- n))))))
 
-(defmethod poly-expt ((poly polynomial) (n integer))
-  (make-polynomial (poly-expt (coefficients poly) n)))
+(defgeneric poly-expt (p n)
+  (:documentation "Raises the polynomial P to power N.")
+  (:method ((lst list) (n integer))
+      (cond ((< n 0) (error "not implemented"))
+            ((= n 0) (list 1))
+            ((= n 1) lst)
+            ((evenp n) (poly-expt (poly* lst lst) (/ n 2)))
+            (t (poly* lst (poly-expt lst (1- n))))))
+  (:method ((poly polynomial) (n integer))
+      (make-polynomial (poly-expt (coefficients poly) n))))
 
 ;;; matlisp methods
 
@@ -332,24 +338,22 @@ represented as nested lists."))
 ;;; differentiation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; differentiates an n-variate polynomial wrt the variable given by
-;;; index=0,1,...
-(defmethod differentiate ((lst list) index)
-  (cond ((null lst) ())
-	((zerop index)
-	 (loop for coeff in (cdr lst)
-	       and deg from 1
-	       collect (scal deg coeff)))
-	(t (mapcar #'(lambda (coeff)
-		       (differentiate coeff (- index 1)))
-		   lst))))
-
-(defmethod differentiate ((poly number) index)
-  (declare (ignore index))
-  0)
-
-(defmethod differentiate ((poly polynomial) index)
-  (make-polynomial (differentiate (coefficients poly) index)))
+(defgeneric differentiate (poly index)
+ (:documentation "Differentiate a multivariate polynomial wrt the variable given by INDEX.")
+  (:method ((lst list) index)
+    (cond ((null lst) ())
+          ((zerop index)
+           (loop for coeff in (cdr lst)
+                 and deg from 1
+                 collect (scal deg coeff)))
+          (t (mapcar #'(lambda (coeff)
+                         (differentiate coeff (- index 1)))
+                     lst))))
+  (:method ((poly number) index)
+      (declare (ignore index))
+    0)
+  (:method ((poly polynomial) index)
+      (make-polynomial (differentiate (coefficients poly) index))))
 
 ;;; warning: does not work for multidimensional polynomials (e.g. p(x1,x2)=x1)
 (defmethod gradient ((poly polynomial))

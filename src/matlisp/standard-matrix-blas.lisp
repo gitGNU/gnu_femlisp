@@ -229,11 +229,19 @@ nrows and ncols of the given matrices."
                       (= ,y-length-2 z-ncols))
 	   (error "Size of arguments does not fit for matrix-matrix multiplication."))
          (when *blas3-operation-count*
-           (locally (declare (optimize))
+           (locally (declare (optimize (speed 0)))
              (incf *blas3-operation-count* (* z-nrows z-ncols ,y-length-1))))
          (when (and (plusp z-nrows) (plusp z-ncols))
            (conditional-compile
             (cl->lapack-type 'element-type nil)
+            (call-lapack-macro
+             (load-time-value (lapack "gemm" 'element-type))
+             ,(ecase job ((:nn :nt) "N") ((:tn :tt) "T"))
+             ,(ecase job ((:nn :tn) "N") ((:nt :tt) "T"))
+             z-nrows z-ncols ,x-length-2
+             alpha x-store x-nrows y-store y-nrows
+             beta z-store z-nrows)
+            #+(or)
             (call-lapack (load-time-value (lapack "gemm" 'element-type))
                          ,(ecase job ((:nn :nt) "N") ((:tn :tt) "T"))
                          ,(ecase job ((:nn :tn) "N") ((:nt :tt) "T"))
@@ -250,8 +258,13 @@ nrows and ncols of the given matrices."
                                                                   (element-m* beta (ref z))))))))))
        z))))
 
+;;(dbg-off :lapack)
+
+;; (generate-standard-matrix-gemm!-template :nn)
 ;; (gemm-nn! 1.0 (ones 2) (ones 2) 1.0 (zeros 2))
 ;;; activate all of the GEMM-XX! routines
+(multiple-defgen (gemm-nn! gemm-nt! gemm-tn! gemm-tt!)
+                 (alpha x y beta z))
 (mapc #'generate-standard-matrix-gemm!-template '(:nn :nt :tn :tt))
 
 (define-blas-template transpose! ((x standard-matrix) (y standard-matrix))
@@ -303,6 +316,11 @@ nrows and ncols of the given matrices."
        y)))
 
 (define-matrix-matrix-operation extended-minject! (setf (ref y) (ref x)))
+
+
+(multiple-defgen (matop-x->y! matop-x<-y! matop-y+=x! matop-y-=x!)
+                 (x y y-row-off y-col-off x-row-off x-col-off x-row-end x-col-end))
+
 (define-matrix-matrix-operation matop-x->y! (setf (ref y) (ref x)))
 (define-matrix-matrix-operation matop-x<-y! (setf (ref x) (ref y)))
 (define-matrix-matrix-operation matop-y+=x! (incf (ref y) (ref x)))

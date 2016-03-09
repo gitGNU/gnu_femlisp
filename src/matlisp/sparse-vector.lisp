@@ -42,7 +42,7 @@
 
 (in-package :fl.matlisp)
 
-(defvar *parallel-algebra* t
+(defvar *parallel-algebra* nil
   "Preliminary switch for allowing parallel linear algebra.  Will hopefully
   become unnecessary in the long run.")
 
@@ -174,13 +174,15 @@ and solutions simultaneously."))
 		      (:add (incf (mref entry i j) local-entry))
 		      (:set (setf (mref entry i j) local-entry)))))))))
   
-(defmethod set-svec-to-local-block ((svec <sparse-vector>) local-vec &optional keys ranges)
-  "Copies a local block in matlisp format into a <sparse-vector>."
-  (combine-svec-block svec local-vec keys ranges :set))
+(defgeneric set-svec-to-local-block (svec local-vec &optional keys ranges)
+  (:documentation "Copies a local block in matlisp format into a <sparse-vector>.")
+  (:method ((svec <sparse-vector>) local-vec &optional keys ranges)
+      (combine-svec-block svec local-vec keys ranges :set)))
 
-(defmethod add-svec-to-local-block ((svec <sparse-vector>) local-vec &optional keys ranges)
-  "Copies a local block in matlisp format into a <ht-sparse-vector>."
-  (combine-svec-block svec local-vec keys ranges :add))
+(defgeneric add-svec-to-local-block (svec local-vec &optional keys ranges)
+  (:documentation "Copies a local block in matlisp format into a <ht-sparse-vector>.")
+  (:method ((svec <sparse-vector>) local-vec &optional keys ranges)
+      (combine-svec-block svec local-vec keys ranges :add)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; matlisp operations for the <sparse-vector> class

@@ -147,11 +147,22 @@
 ;;; Dictionaries and memoization
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defclass dictionary ()
+  ()
+  (:documentation "A superclass for user-defined dictionaries."))
+
+(defclass sorted-dictionary (dictionary)
+  ()
+  (:documentation "A superclass for sorted dictionaries."))
+
+(defgeneric dic-pop (sorted-dic)
+  (:documentation "A pop routine for sorted dictionaries or heaps."))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; small-cache-dictionary
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass small-cache-dictionary ()
+(defclass small-cache-dictionary (dictionary)
   ((size :reader size :initform 1 :initarg :size)
    (test :initform 'eql :initarg :test)
    (store :reader store :initform ()))
@@ -203,7 +214,7 @@
 ;;;; sorted-hash-table
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass sorted-hash-table ()
+(defclass sorted-hash-table (sorted-dictionary)
   ((test :initform #'eql :initarg :test)
    (store :initform (make-dll))
    (insertion-order :initform :FIFO :initarg :insertion-order)
