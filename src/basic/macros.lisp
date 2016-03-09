@@ -40,7 +40,7 @@
    "AAND" "ACOND" "SYMBOL-MACROLETF" "DELETEF" "_F" "IT" "ENSURE" "ECHO"
    "REMOVE-THIS-METHOD"
    "NAMED-LET"
-   "WITH-ARRAYS" "MULTI-FOR" "MULTI-DOTIMES" "INLINING" "DEFINLINE"
+   "WITH-ARRAYS" "MULTI-FOR" "MULTI-DOTIMES" "INLINING" "DEFINLINE" "MULTIPLE-DEFGEN"
    "?1" "?2" "?3" "?4" "?5" "?6"
    "FLUID-LET" "LRET" "LRET*"
    ;; the following three are very rarely needed - we try to do without them
@@ -378,6 +378,14 @@ restricted macro was posted by KMP at 8.5.2007 under the name 'array-access'."
   "Short form for defining an inlined function.  It should probably be
 deprecated, because it won't be recognized by default by some IDEs.  Better
 use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
+
+(defmacro multiple-defgen (names args)
+  "Defines multiple generic functions at once.
+Usually, this will only be used for helper functions."
+  `(progn
+     ,@(mapcar #'(lambda (name)
+                   `(defgeneric ,name ,args))
+               names)))
 
 ;;; some macros for choosing between possibilities
 (defmacro ?1 (&rest args)
