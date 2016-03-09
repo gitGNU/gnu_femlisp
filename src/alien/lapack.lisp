@@ -36,7 +36,10 @@
 
 (defpackage :fl.lapack
   (:use :common-lisp :fl.utilities :fl.port :fl.debug :fl.macros)
-  (:export "CL->LAPACK-TYPE" "CALL-LAPACK" "CALL-LAPACK-WITH-ERROR-TEST" "LAPACK"))
+  (:export "CL->LAPACK-TYPE"
+           "CALL-LAPACK" "CALL-LAPACK-MACRO"
+           "CALL-LAPACK-WITH-ERROR-TEST" "CALL-LAPACK-WITH-ERROR-TEST-MACRO"
+           "LAPACK"))
 
 (in-package :fl.lapack)
 
@@ -233,7 +236,7 @@ be done after replacing types for the implementation?"
   "Call the LAPACK routine @arg{routine} with the arguments @arg{args}.
 NIL-arguments are discarded, arrays and standard-matrices are converted to
 the necessary alien representation."
-  ;; Furthermore, the routine is called
+  ;; This function should further ensure that the routine is called
   ;; with the IEEE FP modes appropriately set for Fortran, and GC is disallowed
   ;; such that it does not interfere by moving the Lisp arrays after their
   ;; address has been calculated.
@@ -242,12 +245,34 @@ the necessary alien representation."
 	 (loop for arg in args
                when arg collect (lapack-convert arg))))
 
+(defmacro call-lapack-macro (routine &rest args)
+  "Call the LAPACK routine @arg{routine} with the arguments @arg{args}.
+NIL-arguments are discarded, arrays and standard-matrices are converted to
+the necessary alien representation."
+  ;; This macro should further ensure that the routine is called
+  ;; with the IEEE FP modes appropriately set for Fortran, and GC is disallowed
+  ;; such that it does not interfere by moving the Lisp arrays after their
+  ;; address has been calculated.
+  (let ((pinned-objects (remove-duplicates args)))
+    `(progn
+       (dbg :lapack "Calling ~A with~%args=~A~%and pinned objects=~A~%"
+            ,routine ',args ',pinned-objects)
+       (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects
+        ,pinned-objects
+        (funcall ,routine ,@(loop for arg in args
+                                  collect `(lapack-convert ,arg)))))))
+  
 (defun call-lapack-with-error-test (&rest args)
   "Wrapper for @function{call-lapack} which tests if the routine worked
 satisfactorily."
   (let ((info (nth-value 1 (apply #'call-lapack args))))
     (assert (zerop info))))
 
+(defmacro call-lapack-with-error-test-macro (&rest args)
+  "Wrapper for @function{call-lapack} which tests if the routine worked
+satisfactorily."
+  `(let ((info (nth-value 1 (call-lapack-macro ,@args))))
+     (assert (zerop info))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Template definitions
