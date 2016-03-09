@@ -64,7 +64,7 @@
 
 (defparameter *blas-library*
   (or
-   ;;:none
+   :none
    (probe-file #p"/usr/lib/atlas-base/atlas/libblas.so.3")
    (probe-file #p"/usr/lib/atlas-base/atlas/libblas.so")
    (probe-file #p"femlisp:interface;mkl.so"))
@@ -76,7 +76,7 @@ If the value is :none, no external BLAS routines are used.")
   ;; default: search in system libraries, e.g. #p"/usr/lib/liblapack.so"
   ;;(probe-file #p"~/ATLAS/my_atlas/lib/liblapack_atlas.so")
   (or
-   ;;:none
+   :none
    (probe-file #p"/usr/lib/atlas-base/atlas/liblapack.so.3")
    (probe-file #p"femlisp:interface;mkl.so"))
   "LAPACK library path.
