@@ -141,32 +141,45 @@ complexity.")
       (apply #'assemble-interior as cells args)))
   (:method ((as <ansatz-space>) (where list) &key matrix mass-matrix rhs parallel-clustering &allow-other-keys)
       (declare (ignorable parallel-clustering))
-    (flet ((work-on-cell (cell)
-             (dbg :disc-loop "Working on: ~A" cell)
-             (destructuring-bind (&key local-mat local-rhs local-mass-mat)
-                 (assemble-cell cell as :matrix matrix :rhs rhs
-                                        :mass-matrix mass-matrix)
-               ;; accumulate to global matrix and rhs (if not nil)
-               (when (and rhs local-rhs)
-                 (increment-global-by-local-vec cell rhs local-rhs))
-               (when (and matrix local-mat)
-                 (increment-global-by-local-mat matrix local-mat cell))
-               (when (and mass-matrix local-mass-mat)
-                 (increment-global-by-local-mat mass-matrix local-mass-mat cell)))))
-      (with-workers (#'work-on-cell :parallel t)
-        (dolist (cell where)
-          (work-on cell)))
-      #+(or)(process-in-parallel (assembly-heap where)
-                (cell)
-              (let ((mesh (mesh as)))
-                (labels ((assemble-recursively (cell depth)
-                           (cond
-                             ((zerop depth) (work-on-cell cell))
-                             (t (loop for child across (children cell mesh) do
-                               (assemble-recursively child (1- depth)))))))
-                  (assemble-recursively cell (or parallel-clustering 0))
-                  )))
-    )))
+    ;; The matrix-transfer-queue contains work accessing the matrix.
+    ;; This queue has to be empty, before a new chunk of parallel matrix transfer
+    ;; operations can be pushed onto it!
+    (let ((mtq (make-instance 'parqueue)))
+      (labels ((try-matrix-transfer ()
+                 "Work on matrix transfer queue, if necessary."
+                 (loop for work = (with-mutual-exclusion (mtq)
+                                    (unless (emptyp mtq)
+                                      (dequeue mtq)))
+                       while work do (fl.macros::force work)))
+               (push-and-do-matrix-transfer (ops)
+                 "Try to push operations on the matrix transfer queue."
+                 (loop while ops do
+                   (with-mutual-exclusion (mtq)
+                     (when (emptyp mtq)
+                       (loop for op in ops do (enqueue op mtq))
+                       (setf ops ())))
+                   (try-matrix-transfer)))
+               (work-on-cell (cell)
+                 (try-matrix-transfer)  ; try to help other workers with matrix transfer
+                 (dbg :disc-loop "Working on: ~A" cell)
+                 (destructuring-bind (&key local-mat local-rhs local-mass-mat)
+                     (assemble-cell cell as :matrix matrix :rhs rhs
+                                            :mass-matrix mass-matrix)
+                   ;; accumulate to global matrix and rhs (if not nil)
+                   (when (and rhs local-rhs)
+                     (increment-global-by-local-vec cell rhs local-rhs))
+                   (when (and matrix local-mat)
+                     (push-and-do-matrix-transfer
+                      (global-local-matrix-operation
+                       matrix local-mat cell cell :global+=local :delay-p t)))
+                   (when (and mass-matrix local-mass-mat)
+                     (push-and-do-matrix-transfer
+                      (global-local-matrix-operation
+                       mass-matrix local-mass-mat cell cell :global+=local :delay-p t))))))
+        (with-workers (#'work-on-cell :parallel t)
+          (dolist (cell where)
+            (work-on cell)))
+        ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Assembly of full problem
