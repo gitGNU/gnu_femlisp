@@ -7,8 +7,6 @@ This is a list of known bugs:
   that eigenvalue problems are not handled correctly in these
   implementations).
 
-* Parallel solving still does not work reliably.
-
 * Geometric multigrid with local refinement is not working yet.  Algebraic
   multigrid of Ruge-Stueben type works for equations also in the case of
   local refinement.
