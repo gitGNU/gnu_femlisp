@@ -41,14 +41,6 @@ the result array is reduced using @arg{reduce-op}."
          (reduce ,reduce-op ,accumulators))
        (lret ((,name ,initial-element)) ,@body))))
 
-;;; replace
-(let ((lock (bordeaux-threads:make-recursive-lock)))
-  (defmethod dbg (id format-string &rest args)
-    (dbg-when id
-      (bordeaux-threads:with-recursive-lock-held (lock)
-        (format *debug-io* "~&~?~%" format-string args)
-        (force-output *debug-io*)))))
-
 (defun test-parallel-adaptions ()
   (time
    (with-workers ((lambda (k) (print (* k k))))
