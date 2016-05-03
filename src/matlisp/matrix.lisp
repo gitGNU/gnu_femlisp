@@ -188,7 +188,7 @@ If output is T, the differences to symmetry are reported.")
 (defgeneric show (matrix &key &allow-other-keys)
   (:documentation "Shows the contents of @arg{matrix} in a readable form.")
   (:method :around (matrix &key &allow-other-keys)
-    (fl.parallel::with-recursive-lock-held (fl.parallel::*print-lock*)
+    (fl.parallel:with-atomic-output
       (call-next-method)
       matrix))
   (:method (matrix &key (stream t) &allow-other-keys)
