@@ -59,32 +59,6 @@
      (get-fe ansatz-space (representative key)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; ansatz-space objects
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <ansatz-space-object> (property-mixin)
-  ((ansatz-space :reader ansatz-space :initarg :ansatz-space :type <ansatz-space>))
-  (:documentation "Mixin for objects to which an ansatz-space is associated."))
-
-(defmethod mesh ((aso <ansatz-space-object>))
-  (mesh (ansatz-space aso)))
-
-(defmethod hierarchical-mesh ((aso <ansatz-space-object>))
-  (hierarchical-mesh (ansatz-space aso)))
-
-(defmethod fe-class ((aso <ansatz-space-object>))
-  (fe-class (ansatz-space aso)))
-
-(defmethod problem ((aso <ansatz-space-object>))
-  (problem (ansatz-space aso)))
-
-(defmethod surface-cells ((aso <ansatz-space-object>))
-  (surface-cells-of-highest-dim (mesh aso)))
-
-(defmethod make-analog ((aso <ansatz-space-object>))
-  (make-instance (class-of aso) :ansatz-space (ansatz-space aso)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ansatz-space vectors and matrices
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -100,21 +74,23 @@ for a specific fe-class on a given mesh."))
                                        &key multiplicity &allow-other-keys)
   (unless multiplicity
     (setf (slot-value asv 'multiplicity)
-          (multiplicity (ansatz-space asv)))))
+          (multiplicity (ansatz-space asv))))
+  (call-hooks 'initialize-ansatz-space-vector asv))
 
 (defmethod key->size ((asv <ansatz-space-vector>))
   (key->size (ansatz-space asv)))
 
-(defun make-ansatz-space-vector (as)
-  "Deprecated."
-  (make-instance '<ansatz-space-vector> :ansatz-space as))
+(defun make-ansatz-space-vector (as &optional multiplicity)
+  (make-instance '<ansatz-space-vector>
+                 :ansatz-space as
+                 :multiplicity multiplicity))
 
 (defun special-ansatz-space-vector (ansatz-space &optional (type :random) (value 1.0))
   "Returns a ansatz space vector for @arg{ansatz-space} filled with
 constant or random entries.  Essential constraints are satisfied."
   (with-slots (mesh)
     ansatz-space
-    (lret ((asv (make-instance '<ansatz-space-vector> :ansatz-space ansatz-space)))
+    (lret ((asv (make-ansatz-space-vector ansatz-space)))
       (doskel (cell mesh :where :surface)
 	(let ((key (cell-key cell mesh)))
 	  (when (entry-allowed-p asv key)
@@ -169,6 +145,10 @@ entries.  Essential constraints are satisfied."
    (image-ansatz-space :reader image-ansatz-space
 		       :initarg :image-ansatz-space :type <ansatz-space>)))
 
+(defmethod initialize-instance :after ((asm <ansatz-space-morphism>)
+                                       &key &allow-other-keys)
+  (call-hooks 'initialize-ansatz-space-morphism asm))
+
 (defun make-ansatz-space-morphism (domain-as image-as)
   (fl.amop::make-programmatic-instance
    '(<ansatz-space-morphism> <domain-image-mixin> fl.matlisp::<ht-sparse-matrix>)
@@ -198,6 +178,11 @@ entries.  Essential constraints are satisfied."
 (defmethod image-ansatz-space ((asa <ansatz-space-automorphism>))
   (ansatz-space asa))
 
+(defmethod initialize-instance :after ((asa <ansatz-space-automorphism>)
+                                       &key &allow-other-keys)
+  (call-hooks 'initialize-ansatz-space-automorphism
+              asa))
+
 (defun make-ansatz-space-automorphism (as)
   (fl.amop::make-programmatic-instance
    '(<ansatz-space-automorphism> fl.matlisp::<ht-sparse-matrix>)
@@ -210,6 +195,9 @@ entries.  Essential constraints are satisfied."
 ;;; It might be that the following extraction is too costly to be
 ;;; performed often.  In that case one could consider incorporating it
 ;;; in a class derived from <ansatz-space-vector>.
+
+(defgeneric extended-extract (mat keys &key row? col?)
+  (:documentation "Extract a sub-matrix from a sparse matrix for the given keys."))
 
 (defmethod extended-extract ((asa <ansatz-space-automorphism>) (skel <skeleton>)
 			     &key (row? t) (col? t))
@@ -226,13 +214,11 @@ accelerated by taking member-checks out of the loop."
 
 (defmethod make-domain-vector-for ((A <ansatz-space-morphism>) &optional multiplicity)
   (let ((as (domain-ansatz-space A)))
-    (make-instance '<ansatz-space-vector> :ansatz-space as
-                   :multiplicity (or multiplicity (multiplicity as)))))
+    (make-ansatz-space-vector as multiplicity)))
 
 (defmethod make-image-vector-for ((A <ansatz-space-morphism>) &optional multiplicity)
   (let ((as (image-ansatz-space A)))
-    (make-instance '<ansatz-space-vector> :ansatz-space as
-                   :multiplicity (or multiplicity (multiplicity as)))))
+    (make-ansatz-space-vector as multiplicity)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Interpolation
