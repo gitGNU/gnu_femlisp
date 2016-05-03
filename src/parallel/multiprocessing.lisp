@@ -32,7 +32,7 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package "FL.PARALLEL")
+(in-package :fl.parallel)
 
 ;;; Some CLOS mixins for mutex and waitqueues 
 
@@ -136,6 +136,18 @@ the function given in @arg{perform} is called.")
 (defmacro with-region ((object keys) &body body)
   `(perform-with-locked-region ,object ,keys
 		   (lambda () ,@body)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Multithreaded printing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar *print-lock* (make-recursive-lock "PRINT-LOCK"))
+
+(defmacro with-atomic-output (&body body)
+  "If output of a process is desired to be atomic
+wrap it in @arg{with-atomic-output}."
+  `(with-recursive-lock-held (*print-lock*)
+     ,@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Multithreaded debugging
