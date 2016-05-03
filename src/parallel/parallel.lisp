@@ -84,13 +84,14 @@
     (reverse processors)))
 
 (defun allowed-processors ()
-  #+sb-cpu-affinity
-  (sb-cpu-affinity:with-cpu-affinity-mask (mask)
-    (loop for proc in (get-processors)
-          when (sb-cpu-affinity:cpu-affinity-p (pi-processor proc) mask)
-            collect proc))
-  #-sb-cpu-affinity
-  (get-processors))
+  (if (member :sb-cpu-affinity *features*)
+      (progn
+        #+sb-cpu-affinity
+        (sb-cpu-affinity:with-cpu-affinity-mask (mask)
+          (loop for proc in (get-processors)
+                when (sb-cpu-affinity:cpu-affinity-p (pi-processor proc) mask)
+                  collect proc)))
+      (get-processors)))
 
 (defun get-processors-without-hyperthreading ()
   (let ((procs ()))
@@ -120,12 +121,13 @@
         (flet ((my-worker-context (worker-loop)
                  (let ((*worker-id* (incf count)))
                    ;; set cpu affinity if possible
-                   #+sb-cpu-affinity
-                   (let* ((proc (nth *worker-id* available-procs))
-                          (id (pi-processor proc)))
-                     (sb-cpu-affinity:with-cpu-affinity-mask (mask :save t)
-                       (sb-cpu-affinity:clear-cpu-affinity-mask mask)
-                       (setf (sb-cpu-affinity:cpu-affinity-p id mask) t)))
+                   (when (member :sb-cpu-affinity *features*)
+                     #+sb-cpu-affinity
+                     (let* ((proc (nth *worker-id* available-procs))
+                            (id (pi-processor proc)))
+                       (sb-cpu-affinity:with-cpu-affinity-mask (mask :save t)
+                         (sb-cpu-affinity:clear-cpu-affinity-mask mask)
+                         (setf (sb-cpu-affinity:cpu-affinity-p id mask) t))))
                    ;; enter the worker loop; return when the worker shuts down
                    (funcall worker-loop))))
           (setf *kernel*
