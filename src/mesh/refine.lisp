@@ -148,11 +148,10 @@ boundary.  Returns a vector of children."
             (setf new-child (make-vertex (local->global cell vec))))
            (t (setf new-child (make-instance (class-of refchild)))
               (setf (slot-value new-child 'boundary)
-                    (map 'cell-vec
-                         #'(lambda (k&j)
-                             (aref (the simple-vector
-                                     (aref subcell-refinements (car k&j))) (cdr k&j)))
-                         vec))
+                    (map-cell-vec #'(lambda (k&j)
+                                      (aref (the simple-vector
+                                                 (aref subcell-refinements (car k&j))) (cdr k&j)))
+                                  vec))
               (when (mapped-p refchild)
                 (setf (slot-value new-child 'mapping)
                       (compose-2 (cell-mapping cell) (cell-mapping refchild))))))))))
