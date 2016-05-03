@@ -4,6 +4,28 @@
 
 * From Femlisp-1.0.0 to Femlisp-1.1.0
 
+Faster and better calculation of multi-dimensional Lagrange shape
+functions by introducing a new function POLY-EXTERIOR-PRODUCT.
+
+Many missing DEFGENERICS were added for making SBCL completely silent
+during compilation of Femlisp.
+
+Introduced a new concept for modification of functions/methods by
+hooks later on.  This allows features which in some circumstances
+could also be achieved by CLOS around methods.  However, in contrast
+to around methods, this mechanism does not require the introduction of
+new CLOS classes.  At the moment, we use it mainly for transforming
+thread-parallel Femlisp into an MPI-distributed version as follows: In
+the property list of certain containers a flag (DISTRIBUTED-P)
+indicates that the container contains distributed objects, and using
+the hook mechanism, some methods are modified such that MPI related
+operations (like, e.g., synchronization) are performed.
+
+OS thread parallelization of several code parts, especially mesh
+refinement, discretization, several linear algebra routines working
+with sparse matrices, especially such that the BPX solver (defect
+calculation, Jacobi smoothing, CG) works.
+
 A change in SBCL before 12.1.2016 broke the rather elegant but
 non-ANSI-compliant implementation of the macro ENSURE in the
 FL.UTILITIES package.  I replaced it by a conforming implementation
