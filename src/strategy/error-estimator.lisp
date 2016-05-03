@@ -67,6 +67,14 @@ distribution.  Note that for tetrahedra, no cell contributions are shown."
 	  (setf (vref result key) (make-real-matrix `((,value)))))))
     result))
 
+;;; the basic error estimation algorithm consists of these three steps
+(defgeneric compute-error-approximant (errest blackboard)
+  (:documentation "Calculates an approximation to the error."))
+(defgeneric compute-weight-function (errest blackboard)
+  (:documentation "Computes a weight function used for weighting the error according in a desired way."))
+(defgeneric compute-local-estimate (errest blackboard)
+  (:documentation "Computes an estimate for the local contributions to the global error."))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; standard-error-estimator
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

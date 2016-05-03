@@ -66,7 +66,7 @@
              (m+ this those)
              (or this those)))))
 
-(defmethod average-coefficient (ansatz-space &key coefficient)
+(defun average-coefficient (ansatz-space &key coefficient)
   (let* ((problem (problem ansatz-space))
 	 (mesh (mesh ansatz-space))
 	 (order (discretization-order (fe-class ansatz-space)))
@@ -90,7 +90,8 @@
         (doskel (cell mesh :dimension :highest :where :surface)
           (work-on cell))))))
 
-(defmethod correction-tensor ((solution <ansatz-space-vector>) (rhs <ansatz-space-vector>))
+(defun correction-tensor (solution rhs)
+  (declare (type <ansatz-space-vector> solution rhs))
   (with-accumulators (result nil #'m+-nil-reducer)
     (for-each-entry-and-key
      (lambda (entry key)

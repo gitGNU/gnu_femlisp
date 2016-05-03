@@ -116,6 +116,14 @@ separate files.")
       (incf (model-time rothe) (time-step rothe))
       )))
 
+(defgeneric initial-value-interpolation-problem (rothe problem)
+  (:documentation "Extract a stationary PDE problem for interpolating the initial values
+out of the given time-dependent PDE problem @arg{problem}."))
+
+(defgeneric time-step-problem (rothe problem)
+  (:documentation "Extract a stationary PDE problem for performing one step of the given Rothe method
+out of the given time-dependent PDE problem @arg{problem}."))
+
 
 (defun test-rothe ()
   ;; more test in the problem-adapted files

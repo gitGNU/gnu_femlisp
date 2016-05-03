@@ -70,12 +70,14 @@ and a matrix."))
 ;;; residual computation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod compute-residual (A x b r)
-  "Default method for residual computation.  Should work for everything for
+(defgeneric compute-residual (A x b r)
+  (:documentation "Compute the residual r=b-Ax.")
+  (:method (A x b r)
+      "Default method for residual computation.  Should work for everything for
 which the blas operations copy! and gemm! are defined."
-  (copy! b r)
-  (gemm! -1.0 A x 1.0 r)
-  r)
+    (copy! b r)
+    (gemm! -1.0 A x 1.0 r)
+    r))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <multi-iteration>

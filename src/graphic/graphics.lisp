@@ -86,15 +86,17 @@ program."))
 ;;;; General graphics output
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod graphic-output (object program &rest rest)
-  "Calls the generic graphic interface in appropriate order."
-  (let* ((pathname (apply #'graphic-file-name object program rest)))
-    ;; write output to a standard file
-    (with-open-file (stream pathname :direction :output :if-exists :supersede)
-      (apply #'graphic-write-data stream object program rest))
-    ;; wait until the file is there
-    (loop until (probe-file pathname) do (sleep 0.01))
-    ;; send script commands to plot program
-    (apply #'send-graphic-commands object program rest)
-    ))
+(defgeneric graphic-output (object program &key &allow-other-keys)
+  (:documentation "Writes the graphic commands for @arg{object}
+as needed by the graphic program @arg{program}.")
+  (:method (object program &rest rest)
+      "Calls the generic graphic interface in appropriate order."
+    (let* ((pathname (apply #'graphic-file-name object program rest)))
+      ;; write output to a standard file
+      (with-open-file (stream pathname :direction :output :if-exists :supersede)
+        (apply #'graphic-write-data stream object program rest))
+      ;; wait until the file is there
+      (loop until (probe-file pathname) do (sleep 0.01))
+      ;; send script commands to plot program
+      (apply #'send-graphic-commands object program rest))))
 

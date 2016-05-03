@@ -56,10 +56,11 @@ picture is implemented as a full-tensor of rank 2 or 3."))
 (defun picture-height (pic) (aref (dimensions pic) 1))
 (defun picture-length (pic) (the fixnum (* (picture-width pic) (picture-height pic))))
 
-(defmethod pic-ref ((pic picture) i j)
+(declaim (inline pic-ref (setf pic-ref)))
+(defun pic-ref (pic i j)
   (aref (store pic) (+ i (* j (picture-width pic)))))
 
-(defmethod (setf pic-ref) (value (pic picture) i j)
+(defun (setf pic-ref) (value pic i j)
   (setf (aref (store pic) (+ i (* j (picture-width pic))))
 	value))
 

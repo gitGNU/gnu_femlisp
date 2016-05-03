@@ -131,23 +131,24 @@ Internally, table is an adjustable vector with fill-pointer being either 0 or
 larger than 0, if there is an entry in the doubly-linked list at the
 corresponding index."))
 
-(defmethod pt-insert ((pt priority-table) obj index)
-  "Puts an object in the priority-table."
-  (let ((table (pt-table pt))
-	(dictionary (pt-dictionary pt)))
-    (assert (not (gethash obj dictionary)))
-    (loop until (< index (fill-pointer table)) do
+(defgeneric pt-insert (table obj index)
+  (:documentation "Insert @arg{obj} in a priority-table.")
+  (:method ((pt priority-table) obj index)
+      (let ((table (pt-table pt))
+            (dictionary (pt-dictionary pt)))
+        (assert (not (gethash obj dictionary)))
+        (loop until (< index (fill-pointer table)) do
 	  (if (< index (array-dimension table 0))
 	      (setf (fill-pointer table) (1+ index))
 	      (setq table (adjust-array table (* 2 (array-dimension table 0))
 					:initial-element ()))))
-    (unless (aref table index)
-      (setf (aref table index) (make-dll)))
-    ;; we insert obj in the suitable slot of the table, the dll-item returned is
-    ;; put in the translation table together with the index
-    (setf (gethash obj dictionary)
-	  (cons index
-		(dll-front-insert obj (aref table index))))))
+        (unless (aref table index)
+          (setf (aref table index) (make-dll)))
+        ;; we insert obj in the suitable slot of the table, the dll-item returned is
+        ;; put in the translation table together with the index
+        (setf (gethash obj dictionary)
+              (cons index
+                    (dll-front-insert obj (aref table index)))))))
 
 (defun adapt-fill-pointer (table)
   (loop
@@ -156,36 +157,41 @@ corresponding index."))
 		(or (null dll) (dll-empty-p dll))))
    do (decf (fill-pointer table))))
 
-(defmethod pt-remove ((pt priority-table) obj)
-  "Removes a node from the priority table."
-  (let ((table (pt-table pt))
-	(dictionary (pt-dictionary pt)))
-    (destructuring-bind (index . item)
-      (gethash obj dictionary)
-    (dll-remove-item item (aref table index))
-    (remhash obj dictionary)
-    (when (= (fill-pointer table) (1+ index))
-      (adapt-fill-pointer table)))))
+(defgeneric pt-in-table-p (pt obj)
+  (:documentation "Checks if @arg{obj} is in the priority table @arg{pt}.")
+  (:method ((pt priority-table) obj)
+      (gethash obj (pt-dictionary pt))))
 
-(defmethod pt-shift-priority ((pt priority-table) obj shift)
-  "Changes the priority of some node."
-  (let ((index (car (gethash obj (pt-dictionary pt)))))
-    (unless (zerop shift)
-      (pt-remove pt obj)
-      (pt-insert pt obj (+ index shift)))))
+(defgeneric pt-remove (pt obj)
+  (:documentation "Removes @arg{obj} from the priority table.")
+  (:method ((pt priority-table) obj)
+    (let ((table (pt-table pt))
+          (dictionary (pt-dictionary pt)))
+      (destructuring-bind (index . item)
+          (gethash obj dictionary)
+        (dll-remove-item item (aref table index))
+        (remhash obj dictionary)
+        (when (= (fill-pointer table) (1+ index))
+          (adapt-fill-pointer table))))))
 
-(defmethod pt-pop ((pt priority-table))
-  "Gets the node with the highest priority from the priority table."
-  (let ((table (pt-table pt))
-	(dictionary (pt-dictionary pt)))
-    (and (plusp (fill-pointer table))
-	 (let ((obj (dll-pop-first (aref table (1- (fill-pointer table))))))
-	   (remhash obj dictionary)
-	   (adapt-fill-pointer table)
-	   obj))))
+(defgeneric pt-shift-priority (pt obj shift)
+  (:documentation "Changes the priority of @arg{obj}.")
+  (:method ((pt priority-table) obj shift)
+      (let ((index (car (gethash obj (pt-dictionary pt)))))
+        (unless (zerop shift)
+          (pt-remove pt obj)
+          (pt-insert pt obj (+ index shift))))))
 
-(defmethod pt-in-table-p ((pt priority-table) obj)
-  (gethash obj (pt-dictionary pt)))
+(defgeneric pt-pop (pt)
+  (:documentation "Gets the node with the highest priority from the priority table.")
+  (:method ((pt priority-table))
+      (let ((table (pt-table pt))
+            (dictionary (pt-dictionary pt)))
+        (and (plusp (fill-pointer table))
+             (let ((obj (dll-pop-first (aref table (1- (fill-pointer table))))))
+               (remhash obj dictionary)
+               (adapt-fill-pointer table)
+               obj)))))
 
 ;;; Coarse-grid construction
 
