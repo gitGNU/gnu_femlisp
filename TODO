@@ -5,25 +5,26 @@ Femlisp needs the following more or less urgently:
 
 * Remove the Femlisp-related bugs from the file BUGS
 
-* Graphics: Interface to VTK
-
-* Mesh
- - interface to 3D mesh generator tetgen
-
 * Discretization
  - submesh fe and associated quadrature rules
  - sparse interpolation/projection matrices
+ - more FE methods, e.g. Discontinuous Galerkin
 
 * Linear algebra
+ - sparse LR for sparse-matrix
  - switch from sparse-matrix to CCS (?)
  - more Krylov-type methods
- - (maybe): interface to PETSC
 
 * Problem solving
  - more time-stepping schemes
 
 * Parallelization
- - far from complete on SMP machines (now: only assembly, no large speedup)
- - not yet started on clusters
+ - automatic use of parallel resources
+ - seamless cooperation with an MPI slave cluster
 
+Smaller improvements
+--------------------
+
+* Discretization
+ - implement zero-variate polynomials (i.e. scalars)
 
