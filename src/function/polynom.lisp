@@ -59,14 +59,14 @@ represented as nested lists."))
   (:method ((f list)) '())
   (:method ((f polynomial))
       (make-polynomial
-       (make-inner (cdr (coefficients f)) '()))))
+       (make-inner (coefficients f) '()))))
 
 (defgeneric unit (f)
   (:documentation "Generates a unit of the same kind as @arg{F}.")
   (:method ((f list)) '(1))
   (:method ((f polynomial))
       (make-polynomial
-       (make-inner f '(1)))))
+       (make-inner (coefficients f) 1))))
 
 ;;; checks
 (defgeneric zero? (x)
@@ -224,13 +224,16 @@ represented as nested lists."))
 	      (princ " + " stream))
 	  (write-monomial coeff&mono stream))))
 
+(defvar *print-polynomial-variance* nil
+  "If T, the polynomial variance is shown when printing a polynomial.")
+  
 (defmethod print-object ((poly polynomial) stream)
   (let ((*print-circle* nil))
     (print-unreadable-object
      (poly stream :type t :identity t)
      (format stream "{")
      (print-polynomial poly stream)
-     (format stream " }"))))
+     (format stream " }~@[[~D]~]" (and *print-polynomial-variance* (variance poly))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; <function> methods
@@ -296,6 +299,16 @@ represented as nested lists."))
       (make-polynomial (poly* (coefficients f) (coefficients g))))
   (:method ((f number) (g polynomial)) (scal f g))
   (:method ((g polynomial) (f number)) (scal f g)))
+
+(defun poly-exterior-product (poly1 poly2)
+  (let ((zero2 (zero poly2))
+        (coeffs2 (coefficients poly2)))
+    (make-polynomial
+     (map-tree (lambda (x)
+                 (if (null x)
+                     zero2
+                     (scal x coeffs2)))
+               (coefficients poly1)))))
 
 ;;; exponentiation
 
@@ -459,7 +472,7 @@ Examples:
   (integrate-simple-polynomial (make-polynomial '(0 1)))
   (coefficients (make-polynomial ()))
   (shift-polynomial (make-polynomial '(0 1)) 1)
-  (let ((p (make-polynomial '((1 2) (1 2))))
+  (let ((p (make-polynomial '((1 2) (3 4))))
 	(p-x1 (make-polynomial '(0 1)))
 	(p-x2 (make-polynomial '((0 1))))
 	(p-1-x3 (make-polynomial '(((1 -1))))))
@@ -471,6 +484,14 @@ Examples:
     (make-polynomial '(4))
     ;;(k-jet p 2 2)
     ;;(evaluate-k-jet (make-polynomial '(1 2 ((1 2 3)))) 2 #(0.0 0.0))
+
+    (poly* '((() (0 1)))
+           '(1 -1))
+    
+    (assert
+     (= 3 (variance
+           (poly* (shift-polynomial (make-polynomial '(() (0 1))) 1)
+                  (make-polynomial '(1 -1))))))
     ))
 
 ;;; (test-polynom)

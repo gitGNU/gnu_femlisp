@@ -42,32 +42,33 @@
   (ecase type
     (:uniform
      (coerce (loop for i upto order
-		collect (float (/ i order) 1.0)) 'vector))
+                   collect (float (/ i order) 1.0)) 'vector))
     ;; The following choice of nodal points does not work for simplices with
     ;; dim>=3 and order>=3 because nodal points on the sides do not fit.  But
     ;; it is much better suited for interpolation in the case of product-cell
     ;; elements.
     (:gauss-lobatto
      (coerce (gauss-lobatto-points-on-unit-interval (1- order)) 'vector))))
-  
-(defmethod lagrange-inner-coords ((vtx <vertex>) order type)
-  (declare (ignore order type))
-  (list (double-vec)))
 
-(defmethod lagrange-inner-coords ((simplex <simplex>) order type)
-  (let ((coords-1d (lagrange-coords-1d order type))
-	(dim (dimension simplex))
-	(result ()))
-    (multi-for (x (make-fixnum-vec dim 1) (make-fixnum-vec dim (1- order)))
-      (when (< (reduce #'+ x) order)
-	(push (map 'double-vec #'(lambda (i) (aref coords-1d i)) x)
-	      result)))
-    (reverse result)))
-
-(defmethod lagrange-inner-coords ((cell <product-cell>) order type)
-  (apply #'map-product #'(lambda (&rest args) (apply #'concatenate 'double-vec args))
-	 (mapcar #'(lambda (simplex) (lagrange-inner-coords simplex order type))
-		 (factor-simplices cell))))
+(defgeneric lagrange-inner-coords (cell order type)
+  (:documentation "Returns a list of Lagrange coordinates on the cell @arg{cell}
+for Lagrange finite elements of order @arg{order} and type @arg{type}.")
+  (:method ((vtx <vertex>) order type)
+      (declare (ignore order type))
+    (list (double-vec)))
+  (:method ((simplex <simplex>) order type)
+      (let ((coords-1d (lagrange-coords-1d order type))
+            (dim (dimension simplex))
+            (result ()))
+        (multi-for (x (make-fixnum-vec dim 1) (make-fixnum-vec dim (1- order)))
+          (when (< (reduce #'+ x) order)
+            (push (map 'double-vec #'(lambda (i) (aref coords-1d i)) x)
+                  result)))
+        (reverse result)))
+  (:method ((cell <product-cell>) order type)
+      (apply #'map-product #'(lambda (&rest args) (apply #'concatenate 'double-vec args))
+       (mapcar #'(lambda (simplex) (lagrange-inner-coords simplex order type))
+               (factor-simplices cell)))))
 
 (with-memoization ()
   (defun lagrange-dofs (cell order type)
@@ -77,21 +78,21 @@
 	 (loop with dof-index = -1
 	       for subcell across (subcells cell)
 	       and i from 0 nconcing
-	       (loop with subcell-coords = (lagrange-inner-coords subcell order type)
-		     for local in subcell-coords
-		     and j from 0 collect
-		     ;; we need below that the coords are eql to the lobatto
-		     ;; coords without any rounding error
-		     (let ((g (map 'double-vec
-				   #'(lambda (coord)
-				       (find-if #'(lambda (coord2) (< (abs (- coord coord2)) 1.0e-10))
-						lagrange-coords))
-				   (l2g subcell local))))
-		       (make-instance 'dof :index (incf dof-index)
-				      :subcell subcell :subcell-index i
-				      :in-vblock-index j
-				      :coord local :gcoord g
-				      :functional #'(lambda (func) (evaluate func g))))))
+                            (loop with subcell-coords = (lagrange-inner-coords subcell order type)
+                                  for local in subcell-coords
+                                  and j from 0 collect
+                                  ;; we need below that the coords are eql to the lobatto
+                                  ;; coords without any rounding error
+                                               (let ((g (map 'double-vec
+                                                             #'(lambda (coord)
+                                                                 (find-if #'(lambda (coord2) (< (abs (- coord coord2)) 1.0e-10))
+                                                                          lagrange-coords))
+                                                             (l2g subcell local))))
+                                                 (make-instance 'dof :index (incf dof-index)
+                                                                     :subcell subcell :subcell-index i
+                                                                     :in-vblock-index j
+                                                                     :coord local :gcoord g
+                                                                     :functional #'(lambda (func) (evaluate func g))))))
 	 'vector)))))
 
 (defun lagrange-basis-simplex (cell order type)
@@ -106,37 +107,49 @@ product which is faster."
 (defun shapes-and-dof-coords (factor-simplices order type)
   "Computes simulataneously shapes and dof-coords for a product-cell as a
 tensor product."
-  (if (null factor-simplices)
-      (values (list (double-vec)) (list (make-polynomial '(1.0))))
-      (multiple-value-bind (coords shapes)
-	  (shapes-and-dof-coords (cdr factor-simplices) order type)
-	(let* ((factor (car factor-simplices))
-	       (f-dim (dimension factor))
-	       (f-shapes (lagrange-basis-simplex factor order type))
-	       (f-dofs (lagrange-dofs factor order type))
-	       (product
-		(loop+ ((coord coords) (shape shapes))
-		  nconcing
-		  (loop+ ((f-dof f-dofs) (f-shape f-shapes))
-		    collecting
-		    (let ((f-coord (dof-gcoord f-dof)))
-		      (cons (concatenate 'double-vec f-coord coord)
-			    (poly* (shift-polynomial shape f-dim) f-shape)))))))
-	  (values (map 'vector #'car product) (map 'vector #'cdr product))))))
+  (cond
+    ((null factor-simplices)
+     ;; unfortunately, this is not completely clean,
+     ;; because the shape is a univariate polynomial.
+     ;; Instead, it should be a zero-variate polynomial,
+     ;; i.e. a scalar which ideally should be handled in
+     ;; polynom.lisp
+     (values (vector (double-vec)) (vector (make-polynomial '(1.0)))))
+    ((single? factor-simplices)
+     (let ((factor (first factor-simplices)))
+       (values (map 'vector #'dof-gcoord (lagrange-dofs factor order type))
+               (coerce (lagrange-basis-simplex factor order type) 'vector))))
+    (t (multiple-value-bind (coords shapes)
+           (shapes-and-dof-coords (cdr factor-simplices) order type)
+         (let* ((factor (first factor-simplices))
+                (f-dim (dimension factor))
+                (f-shapes (lagrange-basis-simplex factor order type))
+                (f-dofs (lagrange-dofs factor order type))
+                (product
+                  (loop+ ((coord coords) (shape shapes))
+                    nconcing
+                    (loop+ ((f-dof f-dofs) (f-shape f-shapes))
+                      collecting
+                      (let* ((f-coord (dof-gcoord f-dof))
+                             (new-shape (poly-exterior-product f-shape shape)))
+                        (assert (= (variance new-shape) (+ (variance shape) f-dim)))
+                        (cons (concatenate 'double-vec f-coord coord)
+                              new-shape))))))
+           (values (map 'vector #'car product) (map 'vector #'cdr product)))))))
 
 (with-memoization ()
   (defun lagrange-basis (cell order type)
-  "Computes the Lagrange basis for a product-cell accelerated.  The idea is to
+    "Computes the Lagrange basis for a product-cell accelerated.  The idea is to
 construct the shapes with their associated dof-coordinates as a product of
 lower-dimensional shapes and coordinates."
-  (memoizing-let ((cell cell) (order order) (type type))
-    (multiple-value-bind (coords shapes)
-	(shapes-and-dof-coords (factor-simplices cell) order type)
-      (let ((table (make-hash-table :test #'equalp)))
-	(loop+ ((coord coords) (shape shapes))
-	  do (setf (gethash coord table) shape))
-	(map 'vector (lambda (dof) (gethash (dof-gcoord dof) table))
-	     (lagrange-dofs cell order type)))))))
+    (memoizing-let ((cell cell) (order order) (type type))
+      (multiple-value-bind (coords shapes)
+          (shapes-and-dof-coords (factor-simplices cell) order type)
+        (let ((table (make-hash-table :test #'equalp)))
+          (loop+ ((coord coords) (shape shapes))
+            do (setf (gethash coord table) shape))
+          (map 'vector (lambda (dof) (gethash (dof-gcoord dof) table))
+               (lagrange-dofs cell order type)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; fe-class definitions
@@ -283,7 +296,10 @@ by interpolating the boundary map via Lagrange interpolation."
     (check-fe (lagrange-fe 3 :nr-comps 2) *unit-cube*))
   (lagrange-basis *reference-vertex* 1 :uniform)
   (lagrange-basis *unit-interval* 1 :uniform)
-  (lagrange-basis *unit-quadrangle* 1 :uniform)
+  (lagrange-basis *unit-quadrangle* 5 :uniform)
+  (lagrange-dofs *unit-cube* 5 :uniform)
+  (vector-map #'dof-gcoord (lagrange-dofs *unit-cube* 1 :uniform))
+  (vector-map #'variance (lagrange-basis *unit-cube* 1 :uniform))
   (assert (= (length (lagrange-dofs *unit-interval* 1 :uniform)) 2))
   (lagrange-dofs *unit-interval* 2 :uniform)
   (lagrange-basis *unit-triangle* 2 :uniform)
@@ -292,6 +308,17 @@ by interpolating the boundary map via Lagrange interpolation."
   (lagrange-dofs *unit-tetrahedron* 3 :uniform)
   (lagrange-basis *unit-triangle* 1 :uniform)
   (lagrange-dofs *unit-cube* 2 :uniform)
+  (vector-map #'dof-gcoord (lagrange-dofs *unit-quadrangle* 1 :uniform))
+  (vector-map #'variance (lagrange-basis *unit-quadrangle* 1 :uniform))
+  (vector-map #'dof-gcoord (lagrange-dofs *unit-cube* 1 :uniform))
+  (vector-map #'variance (lagrange-basis *unit-cube* 1 :uniform))
+  (lagrange-basis-simplex (n-simplex 1) 1 :uniform)
+  (shapes-and-dof-coords (list (n-simplex 1) (n-simplex 1) (n-simplex 1)) 1 :uniform)
+  (shapes-and-dof-coords (list (n-simplex 1)) 1 :uniform)
+  (lagrange-basis (n-simplex 1) 1 :uniform)
+  (lagrange-basis *unit-interval* 1 :uniform)
+
+  (shapes-and-dof-coords (list (n-simplex 1)) 1 :uniform)
   ;; the following works for order 15 with CMUCL, SBCL, Allegro.
   ;; however, it breaks for gcl (control stack overflow).
   (time (let ()

@@ -238,6 +238,7 @@ occur for the inexact arithmetic."
   (gauss-lobatto-points 2)
   (gauss-lobatto-points-on-unit-interval 2)
   (gauss-lobatto-points-on-unit-interval 10)
+
   (length (integration-points (gauss-rule '(1 2) 20)))
   (let* ((n 8)
          (a (time (mapcar (_ (float _ 1.0)) (gauss-points-for-weight 0 n nil))))
@@ -246,5 +247,3 @@ occur for the inexact arithmetic."
   )
 
 (fl.tests:adjoin-test 'test-quadrature)
-
-
