@@ -154,7 +154,12 @@ skeletons containing the cells for different levels."))
 (defun cells-on-level (mm level) (aref (levels mm) level))
 (defun nr-of-levels (mm) (length (levels mm)))
 (defun bottom-level-cells (mm) (cells-on-level mm 0))
-(defun top-level (mm) (1- (nr-of-levels mm)))
+
+(defgeneric top-level (mh)
+  (:documentation "Top-level of a mesh hierarchy.")
+  (:method ((mm <hierarchical-mesh>))
+      (1- (nr-of-levels mm))))
+
 (defun top-level-cells (mm) (vector-last (levels mm)))
 (defun hierarchical-mesh-p (obj) (typep obj '<hierarchical-mesh>))
 (defun flat-mesh-p (obj) (and (typep obj '<mesh>) (not (typep obj '<hierarchical-mesh>))))
@@ -172,11 +177,11 @@ mesh.  This method definition fills the level slot appropriately."
   (declare (ignore initargs))
   (setf (slot-value h-mesh 'levels)
 	(make-array 1 :element-type '<mesh>
-		    :initial-element (skel-map #'(lambda (cell value)
-						   (declare (ignore cell))
-						   value)
-					       mesh)
-		    :adjustable t)))
+                      :initial-element (skel-map #'(lambda (cell value)
+                                                     (declare (ignore cell))
+                                                     value)
+                                                 mesh)
+                      :adjustable t)))
 
 (defmethod refine ((h-mesh <hierarchical-mesh>) &key (indicator (constantly t)))
   "Refine a hierarchical-mesh.  When the argument 'test' is supplied, all
@@ -279,8 +284,7 @@ locally refined hierarchical-mesh structure."
 (defun nr-of-surface-cells (h-mesh)
   (mapper-count #'skel-for-each h-mesh :dimension :highest :where :surface))
 
-(defmethod hierarchical-search ((h-mesh <hierarchical-mesh>) (test function)
-                                &key level)
+(defun hierarchical-search (h-mesh test &key level)
   "Hierarchical search for a subtree of cells in @arg{h-mesh} satisfying
 @arg{test}.  A leaf cell is returned, if successful, otherwise NIL."
   (labels ((h-mesh-search (cell current-level)
