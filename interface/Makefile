@@ -48,7 +48,7 @@ umfpack: $(UMFPACK_INCLUDE)/umfpack.h
 	ld -shared $(UMFPACK_LIB) $(AMD_LIB) -lumfpack -lamd -lblas -llapack umfpack.o -o umfpack.so
 
 mkl: mkl.c
-	icpc -mkl -fPIC -shared -o mkl.so mkl.c
+	icpc -mkl -fp-model precise -fp-model source -fimf-arch-consistency=true -fPIC -shared -o mkl.so mkl.c
 
 clean:
 	rm -f superlu superlu.o superlu.so superlu.lgs superlu.solution
