@@ -239,8 +239,8 @@ nrows and ncols of the given matrices."
              ,(ecase job ((:nn :nt) "N") ((:tn :tt) "T"))
              ,(ecase job ((:nn :tn) "N") ((:nt :tt) "T"))
              z-nrows z-ncols ,x-length-2
-             alpha x-store x-nrows y-store y-nrows
-             beta z-store z-nrows)
+             alpha (:pinned x-store) x-nrows (:pinned y-store) y-nrows
+             beta (:pinned z-store) z-nrows)
             #+(or)
             (call-lapack (load-time-value (lapack "gemm" 'element-type))
                          ,(ecase job ((:nn :nt) "N") ((:tn :tt) "T"))
@@ -263,8 +263,6 @@ nrows and ncols of the given matrices."
 ;; (generate-standard-matrix-gemm!-template :nn)
 ;; (gemm-nn! 1.0 (ones 2) (ones 2) 1.0 (zeros 2))
 ;;; activate all of the GEMM-XX! routines
-(multiple-defgen (gemm-nn! gemm-nt! gemm-tn! gemm-tt!)
-                 (alpha x y beta z))
 (mapc #'generate-standard-matrix-gemm!-template '(:nn :nt :tn :tt))
 
 (define-blas-template transpose! ((x standard-matrix) (y standard-matrix))
@@ -419,7 +417,7 @@ nrows and ncols of the given matrices."
     (m.* x y)
     (m* x y)
     (m+ x y)
-1    (axpy -0.5 x y)
+    (axpy -0.5 x y)
     (gemm 1.0 x y 0.0 z)
     (transpose x))
   (transpose #m((1.0 2.0 3.0) (4.0 5.0 6.0)))
