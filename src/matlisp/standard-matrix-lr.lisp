@@ -102,7 +102,7 @@ on the use of LAPACK."
          (assert ipiv)
          (call-lapack-with-error-test-macro
           (load-time-value (lapack "getrf" 'element-type))
-          m n mat-store m ipiv 0))
+          m n (:pinned mat-store) m ipiv 0))
        (loop
 	 for j of-type fixnum from 0 below k
 	 for offset-jj of-type fixnum = (standard-matrix-indexing j j m n) do
@@ -165,7 +165,9 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
        (assert (= (length ipiv) LR-nrows))
        (call-lapack-with-error-test-macro
         (load-time-value (lapack "getrs" 'element-type))
-        "N" LR-nrows b-ncols LR-store LR-nrows ipiv b-store b-nrows 0))
+        "N" LR-nrows b-ncols
+        (:pinned LR-store) LR-nrows (:pinned ipiv)
+        (:pinned b-store) b-nrows 0))
      (progn
        (when ipiv    ; swap rhs according to ipiv
          (locally
