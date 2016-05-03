@@ -34,6 +34,36 @@
 
 (in-package :fl.discretization)
 
+;;; Evaluation interface
+
+(defgeneric fe-local-value (asv cell local-pos)
+  (:documentation
+   "Evaluates a FE ansatz-space-vector in @arg{cell} at @arg{local-pos}."))
+(defgeneric fe-value (asv global-pos)
+  (:documentation
+   "Evaluates a FE ansatz-space-vector at @arg{global-pos}."))
+(defgeneric fe-local-gradient (asv cell local-pos)
+  (:documentation
+   "Evaluates the gradient of a FE ansatz-space-vector on @arg{cell} at @arg{local-pos}."))
+(defgeneric fe-gradient (asv global-pos)
+  (:documentation
+   "Evaluates the gradient of the FE ansatz-space-vector @arg{asv} at @arg{global-pos}."))
+(defgeneric cell-integrate (cell object &key &allow-other-keys)
+  (:documentation "Integrates @arg{object} on @arg{cell}."))
+(defgeneric fe-integrate (asv
+                          &key cells skeleton initial-value combiner key coeff-func)
+  (:documentation
+  "Integrates a finite element function over the domain.  key is a
+transformer function, as always (e.g. #'abs if you want the L1-norm)."))
+(defgeneric fe-extreme-values (asv &key cells skeleton component)
+  (:documentation
+  "Computes the extreme values of a finite element function over the domain
+or some region.  The result is a pair, the car being the minimum values and
+the cdr the maximum values.  Each part is a matrix of the format ncomps x
+multiplicity."))
+
+;;; Implementation
+
 (defmethod fe-local-value ((asv <ansatz-space-vector>) cell local-pos)
   "Evaluates a finite element function in @arg{cell} at @arg{local-pos}."
   (vector-map #'m*-tn
@@ -43,9 +73,9 @@
 (defmethod fe-value ((asv <ansatz-space-vector>) global-pos)
   "Evaluates a finite element function at @arg{global-pos}."
   (let ((cell (loop for threshold in '(nil 1.0e-12 1.0e-10 1.0e-8)
-                 for cell = (let ((fl.mesh::*inside-threshold* threshold))
-                              (find-cell-from-position (mesh asv) global-pos))
-                 when cell do (return cell))))
+                    for cell = (let ((fl.mesh::*inside-threshold* threshold))
+                                 (find-cell-from-position (mesh asv) global-pos))
+                    when cell do (return cell))))
     (unless cell
       (error "No suitable cell found which may be due to round-off errors."))
     (fe-local-value asv cell (global->local cell global-pos))))
@@ -63,9 +93,6 @@
   "Evaluates a finite element gradient at point pos."
   (let ((cell (find-cell-from-position (mesh asv) pos)))
     (fe-local-gradient asv cell (global->local cell pos))))
-
-(defgeneric cell-integrate (cell object &key &allow-other-keys)
-  (:documentation "Integrates @arg{object} on @arg{cell}."))
 
 (defmethod cell-integrate (cell (func function)
                            &key initial-value (combiner #'m+!)
