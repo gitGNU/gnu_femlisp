@@ -104,7 +104,7 @@ oscillating domain."
 (time
  (storing
    (cdr-bl-computation
-    2 4 5 :plot t :plot-mesh t :amplitude 0.15 :shift 1.0 :extensible nil
+    2 4 5 :plot t :plot-mesh t :amplitude 0.15 :shift 1.0 :extensible t
     :solver (lu-solver) :output :all)))
 
 ;; (plot (getbb *result* :solution) :depth 2)
