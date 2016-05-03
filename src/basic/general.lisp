@@ -101,6 +101,33 @@ unstructured information about this object."))
   (error "Property slot '~A' cannot be unbound" slot-name))
 
 
+;;;; Result modification by hooks
+
+(defparameter *hooks*
+  (make-hash-table)
+  "Table mapping a symbol to a list of hooks.
+A hook is a function which may be called on a property object
+for updating other properties.")
+
+(defun call-hooks (function-name object)
+  "Call all hooks defined for @arg{function-name} on @arg{object} and
+returns @arg{object}."
+  (loop for hook-entry in (gethash function-name *hooks*) do
+    (funcall (cdr hook-entry) object))
+  object)
+
+(defun add-hook (function-name hook-name hook-function)
+  "Add a hook with name @arg{hook-name} to the hooks for @arg{function-name}."
+  (let ((hook-list (gethash function-name *hooks*)))
+    (if (null hook-function)
+        (setf hook-list (remove hook-name hook-list :key #'car))
+        (let ((entry (assoc hook-name hook-list)))
+          (if entry
+              ;; replace existing setting
+              (setf (cdr entry) hook-function)
+              (pushnew (cons hook-name hook-function) hook-list))))
+    (setf (gethash function-name *hooks*) hook-list)))
+
 ;;;; Testing
 
 (defun test-general ()
