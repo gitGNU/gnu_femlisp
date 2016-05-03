@@ -268,7 +268,39 @@ Parameters: order=~D, levels=~D~%~%"
 (make-effective-elasticity-inlay-domain-demo 3 4 2)
 
 #+(or)(demo *effective-elasticity-demo*)
-     
+
+(defun elahom-performance-calculation (&key (levels 2) (output 2) (threshold 1e-12))
+  (elasticity-interior-effective-coeff-demo
+   (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
+   :order 5 :levels levels :plot nil :output output)
+  (let ((defnorm (getbb (getbb *result* :solver-blackboard) :defnorm)))
+    (format t "Defect norm at the end: ~G~%" defnorm)
+    (when (member levels '(1 2))
+      (let ((serial-defnorm (ecase levels
+                              (1 1.56164e-09)
+                              (2 3.131577e-09))))
+        (assert (< (abs (- defnorm serial-defnorm)) threshold))))))
+
+(defun elahom-performance-test (nrs-of-kernels &rest args &key &allow-other-keys)
+  (format t "We perform one computation for initializing everything:~%")
+  (apply #'elahom-performance-calculation args)
+  ;; then we test performance for varying number of kernels
+  (loop for n in nrs-of-kernels do
+       (new-kernel n)
+       (format t "Testing for ~D kernels:~%" n)
+       (apply #'elahom-performance-calculation args)))
+
+(defun elahom-longtime-stability-test (nr-of-trials &rest args
+                                       &key (levels 1) (threshold 1e-12) &allow-other-keys)
+  (loop for i below nr-of-trials do
+    (format t "~&~%*** Rechnung ~D~%~%" i)
+       (apply #'elahom-performance-calculation
+              :levels levels :threshold threshold
+              (sans args :levels :threshold))))
+
+;;; (elahom-performance-calculation :levels 1)
+;;; (elahom-longtime-stability-test 2 :levels 1)
+
 (defun test-homogenization-elasticity ()
   (time (elasticity-interior-effective-coeff-demo
 	 (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2)) :order 3 :levels 2
@@ -342,7 +374,7 @@ Parameters: order=~D, levels=~D~%~%"
     (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
     :order 5 :levels 2 :plot nil :output 1))
   
-  (loop for i below 10 do
+  (loop for i below 1 do
     (format t "~&~%*** Rechnung ~D~%~%" i)
     (elasticity-interior-effective-coeff-demo
      (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
