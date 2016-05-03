@@ -105,10 +105,21 @@ list of indices for all subcells with dofs.  Usually, the <scalar-fe> will occur
 as values of a procedure or as values in a hash-table with the reference
 cells as keys."))
 
-(defmethod nr-of-dofs ((fe <scalar-fe>)) (length (fe-basis fe)))
-(defmethod nr-of-inner-dofs ((fe <scalar-fe>)) (aref (subcell-ndofs fe) 0))
-(defmethod nr-of-components ((fe <scalar-fe>)) 1)
-(defmethod components ((fe <scalar-fe>)) (vector fe))
+(defgeneric nr-of-dofs (fe)
+  (:documentation "Number of degrees of freedom for the (vector) finite element.")
+  (:method ((fe <scalar-fe>)) (length (fe-basis fe))))
+
+(defgeneric nr-of-inner-dofs (fe)
+  (:documentation "Number of inner degrees of freedom for the (vector) finite element.")
+  (:method ((fe <scalar-fe>)) (aref (subcell-ndofs fe) 0)))
+
+;;; the following two symbols are defined already for PDE problems with a similar meaning
+(defmethod nr-of-components ((fe <scalar-fe>))
+  "For scalar components the number of components is 1."
+  1)
+(defmethod components ((fe <scalar-fe>))
+ "The vector of components (which are scalar finite elements) of a vector finite element."
+  (vector fe))
 
 (defun subcell-ndofs (fe)
   (getf (properties fe) 'SUBCELL-NDOFS))
@@ -161,8 +172,10 @@ of arrays which yield such an offset for every subcell."))
 (defmethod nr-of-components ((fe <vector-fe>))
   (length (components fe)))
 
-(defmethod component ((vecfe <vector-fe>) comp)
-  (aref (components vecfe) comp))
+(defgeneric component (fe comp)
+  (:documentation "Returns the @arg{comp}-th component of the (vector) finite element @arg{fe}.")
+  (:method ((vecfe <vector-fe>) comp)
+      (aref (components vecfe) comp)))
 
 (defmethod discretization-order ((vecfe <vector-fe>))
   (loop for fe across (components vecfe)
@@ -251,22 +264,23 @@ interpolation with the finite element @arg{fe}.")
     #'(lambda (x) (aref (funcall func x)
 			(dof-component dof)))))
 
-(defmethod interpolate-on-refcell ((fe <fe>) function)
-  "Interpolates @arg{function} on the reference cell of the finite element
+(defgeneric interpolate-on-refcell (fe function)
+  (:documentation "Interpolates @arg{function} on the reference cell of the finite element
 @arg{fe}.  Returns a standard-matrix corresponding to the block in the
-sparse vector."
-  (let ((values (loop+ ((dof (fe-dofs fe)))
-		  when (interior-dof? dof) collecting
-		  (evaluate dof (interpolation-function fe function :dof dof)))))
-    (when values
-      (assert (apply #'= (mapcar #'multiplicity values)))
-      (let ((vblock (make-real-matrix (nr-of-inner-dofs fe)
-				      (multiplicity (first values)))))
-	(loop for value in values and i from 0 do
+sparse vector.")
+  (:method ((fe <fe>) function)
+      (let ((values (loop+ ((dof (fe-dofs fe)))
+                      when (interior-dof? dof) collecting
+                      (evaluate dof (interpolation-function fe function :dof dof)))))
+        (when values
+          (assert (apply #'= (mapcar #'multiplicity values)))
+          (let ((vblock (make-real-matrix (nr-of-inner-dofs fe)
+                                          (multiplicity (first values)))))
+            (loop for value in values and i from 0 do
 	      (if (numberp value)
 		  (setf (vref vblock i) value)
 		  (minject! vblock value i 0)))
-	vblock))))
+            vblock)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; ip-values, ip-gradients
@@ -323,11 +337,44 @@ Note that this function is memoized using an :around method."))
     (vector-map (rcurry #'ip-gradients-at-point pos)
                 (components fe))))
 
+(defun fast-ip-gradients (fe positions)
+  (let ((nr-ips (length positions))
+        (nr-shapes (nr-of-dofs fe))
+        (dim (length (aref positions 0))))
+    (lret ((result
+             (coerce (loop repeat nr-ips
+                           collect (zeros nr-shapes dim))
+                     'vector)))
+      (loop+ ((shape (fe-basis fe)) i)
+        do
+        (let ((gradient (gradient shape)))
+          (loop for pos across positions
+                and mat across result
+                do
+                   (loop+ ((comp gradient) j)
+                     do (setf (mref mat i j)
+                              (evaluate comp pos)))))))))
+
+(defun slow-ip-gradients (fe positions)
+  (vector-map (curry #'ip-gradients-at-point fe) positions))
+
+#+(or)
+(loop for dim from 1 upto 3 do
+  (loop for order from 1 upto 5 do
+    (let* ((fe (get-fe (lagrange-fe order :nr-comps nil) (n-cube dim)))
+           (qrule (quadrature-rule fe))
+           (points (integration-points qrule)))
+      (format t "slow=~A fast=~A~%"
+              (measure-time (_ (slow-ip-gradients fe points)))
+              (measure-time (_ (fast-ip-gradients fe points)))))))
+
 (with-memoization (:id 'scalar-ip-gradients)
   (defmethod ip-gradients ((fe <scalar-fe>) (positions vector))
     "Returns a list of nr-ip float-matrices of dimension (n-basis x dim)."
     (memoizing-let ((fe fe) (positions positions))
-      (vector-map (curry #'ip-gradients-at-point fe) positions))))
+      (fast-ip-gradients fe positions)
+      ;;(slow-ip-gradients fe positions)
+      )))
 
 (with-memoization (:id 'vector-ip-gradients)
   (defmethod ip-gradients ((fe <vector-fe>) (positions vector))
