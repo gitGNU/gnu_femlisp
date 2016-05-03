@@ -114,10 +114,10 @@ the slot @var{properties}."))
 (defmethod get-fe ((as <ansatz-space>) cell)
   (funcall (slot-value (fe-class as) 'cell->fe) cell))
 
-(defmethod hierarchical-mesh ((as <ansatz-space>))
-  "h-mesh accessor for ansatz-space.  Use it for emphasizing that you work
-with a hierarchical mesh."
-  (the <hierarchical-mesh> (values (mesh as))))
+(defgeneric hierarchical-mesh (aso)
+  (:documentation "The hierarchical mesh for the given ansatz-space or ansatz-space object.")
+  (:method ((as <ansatz-space>))
+      (the <hierarchical-mesh> (values (mesh as)))))
 
 (defmethod multiplicity ((as <ansatz-space>))
   (multiplicity (problem as)))
@@ -128,13 +128,19 @@ with a hierarchical mesh."
 (defmethod discretization-order ((as <ansatz-space>))
   (discretization-order (fe-class as)))
 
+(defmethod initialize-instance :after ((as <ansatz-space>)
+                                       &key &allow-other-keys)
+  (call-hooks 'initialize-ansatz-space as))
+
 (defun make-fe-ansatz-space (fe-class problem mesh)
   "Constructor of @class{<ansatz-space>}."
   (let ((n1 (nr-of-components fe-class))
 	(n2 (nr-of-components problem)))
     (when (and n1 n2 (/= n1 n2))
       (error "Number of components of FE discretization and problem don't agree")))
-  (make-instance '<ansatz-space> :fe-class fe-class :problem problem :mesh mesh))
+  (make-instance '<ansatz-space>
+                 :fe-class fe-class
+                 :problem problem :mesh mesh))
 
 (defgeneric set-constraints (ansatz-space)
   (:documentation "Computes the constraint matrices for this ansatz-space.
@@ -158,5 +164,28 @@ components may vary with the respective patch."
 			     :initial-element order)
 		 type)))))
     ;; return the generated ansatz-space
-    (make-instance '<ansatz-space> :problem problem :mesh mesh :fe-class disc)))
+    (make-fe-ansatz-space disc problem mesh)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; ansatz-space objects
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass <ansatz-space-object> (property-mixin)
+  ((ansatz-space :reader ansatz-space :initarg :ansatz-space :type <ansatz-space>))
+  (:documentation "Mixin for objects to which an ansatz-space is associated."))
+
+(defmethod mesh ((aso <ansatz-space-object>))
+  (mesh (ansatz-space aso)))
+
+(defmethod hierarchical-mesh ((aso <ansatz-space-object>))
+  (hierarchical-mesh (ansatz-space aso)))
+
+(defmethod fe-class ((aso <ansatz-space-object>))
+  (fe-class (ansatz-space aso)))
+
+(defmethod problem ((aso <ansatz-space-object>))
+  (problem (ansatz-space aso)))
+
+(defmethod make-analog ((aso <ansatz-space-object>))
+  (make-instance (class-of aso) :ansatz-space (ansatz-space aso)))
 
