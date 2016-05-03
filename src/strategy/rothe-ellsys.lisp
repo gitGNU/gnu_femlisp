@@ -47,7 +47,7 @@ be solved at the beginning."
 					  #m(1.0) (nr-of-components problem)))
 	       constraints)
 	constraints)))
-   
+
 (defmethod initial-value-interpolation-problem ((rothe <rothe>) (problem <ellsys-problem>))
   "Returns a stationary problem for interpolating the initial value."
   (make-instance
