@@ -382,10 +382,11 @@ use the inlining macro directly."  `(inlining (defun ,name ,@rest)))
 (defmacro multiple-defgen (names args)
   "Defines multiple generic functions at once.
 Usually, this will only be used for helper functions."
-  `(progn
-     ,@(mapcar #'(lambda (name)
-                   `(defgeneric ,name ,args))
-               names)))
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (progn
+       ,@(mapcar #'(lambda (name)
+                     `(defgeneric ,name ,args))
+                 names))))
 
 ;;; some macros for choosing between possibilities
 (defmacro ?1 (&rest args)
