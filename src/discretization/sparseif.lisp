@@ -270,7 +270,7 @@ obtained from @function{ip-values}."
 		(vector-map #'m*-tn point-values local-vec))
 	      shape-values))
 
-(defmethod extract-ip-data ((cell <cell>) qrule property-list)
+(defun extract-ip-data (cell qrule property-list)
   "Converts all ansatz-space objects in the parameters list into local
 value arrays corresponding to the finite element."
   (loop for (key object) on property-list by #'cddr
@@ -287,7 +287,9 @@ value arrays corresponding to the finite element."
 (defmethod global-local-matrix-operation ((smat <ansatz-space-automorphism>) local-mat
                                           (image-cell <cell>) (domain-cell <cell>)
                                           operation
-                                          &key (image-subcells t) (domain-subcells t))
+                                          &key
+                                          (image-subcells t) (domain-subcells t)
+                                          (delay-p t))
   (declare (optimize debug))
   (let ((domain-fe (get-fe (domain-ansatz-space smat) domain-cell))
 	(image-fe (get-fe (image-ansatz-space smat) image-cell)))
@@ -318,65 +320,38 @@ value arrays corresponding to the finite element."
                      (list (cell-key domain-cell mesh)))))
           (with-mutual-exclusion (smat)
             (let* ((mblocks (extract-value-blocks smat row-keys col-keys))
-                   #+(or)
-                   (keys
-                     (loop for rk in row-keys
-                           and i from 0 nconcing
-                                        (loop for ck in col-keys and j from 0
-                                              when (aref mblocks i j)
-                                                collect (cons rk ck)))))
-              ;;            (with-region (smat keys)
-
-              ;; alte Version
-              #+(or)
-              (dotimes (i nr-dofs-1)
-                (let ((comp-1 (aref component-index-1 i))
-                      (in-comp-1 (aref in-component-index-1 i))
-                      (vblock-index-1 (aref vblock-index-1 i))
-                      (in-vblock-index-1 (aref in-vblock-index-1 i)))
-                  (when (or image-subcells (zerop vblock-index-1))
-                    (dotimes (j nr-dofs-2)
-                      (let ((comp-2 (aref component-index-2 j))
-                            (in-comp-2 (aref in-component-index-2 j))
-                            (vblock-index-2 (aref vblock-index-2 j))
-                            (in-vblock-index-2 (aref in-vblock-index-2 j)))
-                        (when (or domain-subcells (zerop vblock-index-2))
-                          (symbol-macrolet
-                              ((local (mref (mref local-mat comp-1 comp-2)
-                                            in-comp-1 in-comp-2))
-                               (global (mref (aref mblocks vblock-index-1 vblock-index-2)
-                                             in-vblock-index-1 in-vblock-index-2)))
-                            (ecase operation
-                              (:local<-global (setq local global))
-                              (:global<-local (setq global local))
-                              (:global+=local (incf global local))
-                              (:global-=local (decf global local))))))))))
-              ;; neue Version
-              (let ((operation
-                      (ecase operation
-                        (:local<-global #'fl.matlisp::matop-x<-y!)
-                        (:global<-local #'fl.matlisp::matop-x->y!)
-                        (:global+=local #'fl.matlisp::matop-y+=x!)
-                        (:global-=local #'fl.matlisp::matop-y-=x!))))
-                (loop
-                  for vblock-index-1 below (length row-keys) do
-                    (loop
-                      for vblock-index-2 below (length col-keys) do
-                        (whereas ((global-block (aref mblocks vblock-index-1 vblock-index-2)))
-                          (loop for comp1 below (nr-of-components image-fe) do
-                            (loop for comp2 below (nr-of-components domain-fe) do
-                              (whereas ((local-block (aref local-mat comp1 comp2)))
-                                (funcall
-                                 operation
-                                 local-block
-                                 global-block
-                                 (aref in-global-start-1 comp1 vblock-index-1)
-                                 (aref in-global-start-2 comp2 vblock-index-2)
-                                 (aref in-local-start-1 comp1 vblock-index-1)
-                                 (aref in-local-start-2 comp2 vblock-index-2)
-                                 (aref in-local-start-1 comp1 (1+ vblock-index-1))
-                                 (aref in-local-start-2 comp2 (1+ vblock-index-2))))))))))
-              )))))))
+                   (operation
+                     (ecase operation
+                       (:local<-global #'fl.matlisp::matop-x<-y!)
+                       (:global<-local #'fl.matlisp::matop-x->y!)
+                       (:global+=local #'fl.matlisp::matop-y+=x!)
+                       (:global-=local #'fl.matlisp::matop-y-=x!))))
+              (flet ((worker (vblock-index-1)
+                       (loop
+                         for vblock-index-2 below (length col-keys) do
+                           (whereas ((global-block (aref mblocks vblock-index-1 vblock-index-2)))
+                             (loop for comp1 below (nr-of-components image-fe) do
+                               (loop for comp2 below (nr-of-components domain-fe) do
+                                 (whereas ((local-block (aref local-mat comp1 comp2)))
+                                   (funcall
+                                    operation
+                                    local-block
+                                    global-block
+                                    (aref in-global-start-1 comp1 vblock-index-1)
+                                    (aref in-global-start-2 comp2 vblock-index-2)
+                                    (aref in-local-start-1 comp1 vblock-index-1)
+                                    (aref in-local-start-2 comp2 vblock-index-2)
+                                    (aref in-local-start-1 comp1 (1+ vblock-index-1))
+                                    (aref in-local-start-2 comp2 (1+ vblock-index-2))))))))))
+                (if delay-p
+                    ;; we delay the calculation and return a list of thunks
+                    ;; which can be processed in parallel
+                    (mapcar (lambda (k) (fl.macros::delay (worker k)))
+                            (range< 0 (length row-keys)))
+                    ;; otherwise all operations are performed immediately
+                    (loop for k below (length row-keys)
+                          do (worker k))
+                    )))))))))
 
 (defmethod fill-local-from-global-mat ((smat <sparse-matrix>) local-mat
                                        (cell <cell>) &optional (domain-cell cell))
