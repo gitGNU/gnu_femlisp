@@ -154,8 +154,8 @@ position."
 		(car vlist)
 		(make-instance
 		 (class-of (aref subcells k))
-		 :boundary (map 'cell-vec (curry #'aref subcells)
-				(aref boundary-indices-of-subcells k)))))
+		 :boundary (map-cell-vec (curry #'aref subcells)
+                                         (aref boundary-indices-of-subcells k)))))
 	  finally (return (aref subcells 0)))))
 
 (defun make-cell-from-corners (cell-class corners)
