@@ -172,6 +172,7 @@ patches."
 ;;;; Miscellaneous
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+#+(or)
 (defun compare-lexicographically (&key (fuzzy 1.0d-12) direction)
   "Returns a function which compares two vectors lexicographically."
   #'(lambda (pos1 pos2)
@@ -181,6 +182,20 @@ patches."
 	 when (< x (- y fuzzy)) do (return (eq dir :up))
 	 when (> x (+ y fuzzy)) do (return (eq dir :down))
 	 finally (return nil))))
+
+(defun compare-lexicographically (&key (fuzzy 1.0d-12) direction)
+  "Returns a function which compares two vectors lexicographically."
+  #'(lambda (pos1 pos2)
+      (block nil
+        (let ((dirs direction))
+          (map nil (lambda (x y)
+                     (let ((dir (or (car dirs) :up)))
+                       (when (< x (- y fuzzy))
+                         (return (eq dir :up)))
+                       (when (> x (+ y fuzzy))
+                         (return (eq dir :down)))
+                       (setq dirs (cdr dirs))))
+               pos1 pos2)))))
 
 (defun sort-lexicographically (elist &key (fuzzy 1.0d-12))
   "Sorts a cell list lexicographically by the coordinates of their
