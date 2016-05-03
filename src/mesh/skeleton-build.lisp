@@ -34,10 +34,12 @@
 
 (in-package :fl.mesh)
 
-(defmethod subskeleton ((skel <skeleton>) test)
-  (lret ((subskel (make-instance '<skeleton> :cells (find-cells test skel))))
-    (doskel (cell subskel)
-      (setf (skel-ref subskel cell) (skel-ref skel cell)))))
+(defgeneric subskeleton (skel test)
+  (:documentation "Returns a minimal skeleton containing the cells satisfying the test.")
+  (:method ((skel <skeleton>) test)
+      (lret ((subskel (make-instance '<skeleton> :cells (find-cells test skel))))
+        (doskel (cell subskel)
+          (setf (skel-ref subskel cell) (skel-ref skel cell))))))
 
 (defun skeleton-without-cell (skel cell-to-remove)
   "Removes a cell from a skeleton such that the rest remains a skeleton.
@@ -60,7 +62,7 @@ skel."
 			(identified-cells cell skel))
 		new-skel))))
 
-(defmethod copy-skeleton (skel &key properties transformation)
+(defun copy-skeleton (skel &key properties transformation)
   "Copies a skeleton.  Properties is a list of properties to be copied."
   (when (member 'IDENTIFIED properties)
     (warn "The IDENTIFIED property is handled automatically."))
@@ -72,7 +74,7 @@ skel."
 		 (make-vertex (copy-seq (vertex-position cell)))
 		 (let ((copy (copy-cell cell)))
 		   (setf (slot-value copy 'boundary)
-			 (map 'cell-vec (rcurry #'gethash table) (boundary cell)))
+			 (map-cell-vec (rcurry #'gethash table) (boundary cell)))
 		   copy))))
 	(setf (skel-ref new-skel new-cell) ())
 	(dolist (prop properties)
@@ -214,7 +216,7 @@ mapped-cell first.")))
   (setf (slot-value cell 'mapping)
 	(compose-2 transformation (mapping cell))))
 
-(defmethod transformed-skeleton ((skel <skeleton>) &key transformation properties)
+(defun transformed-skeleton (skel &key transformation properties)
   "Transforms skel by transforming the cell mappings resp. vertex
 positions."
   (copy-skeleton
@@ -227,7 +229,7 @@ positions."
 		       :mapping (cell-mapping old-cell)))
        (transform-cell! new-cell transformation))))
 
-(defmethod linearly-transformed-skeleton ((skel <skeleton>) &key A b properties)
+(defun linearly-transformed-skeleton (skel &key A b properties)
   "Transforms skel by transforming the vertex positions."
   (copy-skeleton
    skel :properties properties :transformation
@@ -235,7 +237,7 @@ positions."
        (declare (ignore old-cell))
        (transform-cell! new-cell (make-instance '<linear-function> :A A :b b)))))
 
-(defmethod shift-skeleton ((skel <skeleton>) shift &key properties)
+(defun shift-skeleton (skel shift &key properties)
   "Shifts skel by vec.  vec has to be a vector of dimension
 \(embedded-dimension skel\)."
   (linearly-transformed-skeleton
