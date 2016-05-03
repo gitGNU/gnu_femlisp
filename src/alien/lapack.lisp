@@ -240,7 +240,7 @@ the necessary alien representation."
   ;; with the IEEE FP modes appropriately set for Fortran, and GC is disallowed
   ;; such that it does not interfere by moving the Lisp arrays after their
   ;; address has been calculated.
-  (dbg :lapack "Calling with:~%~{~A~%~}~%" (remove nil args))
+  (dbg :lapack "Calling ~A with:~%~{~A~%~}~%" routine args)
   (apply #'foreign-call routine
 	 (loop for arg in args
                when arg collect (lapack-convert arg))))
@@ -253,14 +253,19 @@ the necessary alien representation."
   ;; with the IEEE FP modes appropriately set for Fortran, and GC is disallowed
   ;; such that it does not interfere by moving the Lisp arrays after their
   ;; address has been calculated.
-  (let ((pinned-objects (remove-duplicates args)))
-    `(progn
-       (dbg :lapack "Calling ~A with~%args=~A~%and pinned objects=~A~%"
-            ,routine ',args ',pinned-objects)
-       (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects
-        ,pinned-objects
-        (funcall ,routine ,@(loop for arg in args
-                                  collect `(lapack-convert ,arg)))))))
+  (flet ((pinned-p (arg) (and (consp arg) (eq (car arg) :pinned))))
+    (let ((pinned-args
+           (loop for arg in args
+              when (pinned-p arg) collect (second arg)))
+          (args (mapcar (lambda (arg) (if (pinned-p arg) (second arg) arg))
+                        args)))
+      `(progn
+         (dbg :lapack "Calling ~A with~%args=~A~%and pinned objects=~A~%"
+              ,routine ',args ',pinned-args)
+         (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects
+                ,pinned-args
+                (funcall ,routine ,@(loop for arg in args
+                                       collect `(lapack-convert ,arg))))))))
   
 (defun call-lapack-with-error-test (&rest args)
   "Wrapper for @function{call-lapack} which tests if the routine worked

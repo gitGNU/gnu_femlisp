@@ -472,15 +472,12 @@ compatible way of ensuring method compilation."
     (number x)
     (vector (fl.port:vector-sap x))))
 
-#+(or sbcl scl)
-(defun execute-with-pinned-objects (func objects)
-  (loop while (and objects (not (arrayp (car objects))))
-        do (setf objects (cdr objects)))
-  (if (null objects)
-      (funcall func)
+(defun execute-thunk-with-pinned-objects (thunk pinned-objects)
+  (if (null pinned-objects)
+      (funcall thunk)
       (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects
-             ((car objects))
-             (execute-with-pinned-objects func (cdr objects)))))
+             ((car pinned-objects))
+             (execute-thunk-with-pinned-objects thunk (cdr pinned-objects)))))
 
 (defun foreign-call (function &rest args)
   "Ensures a safe environment for a foreign function call, especially so
@@ -498,7 +495,7 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   #+(or sbcl scl)
   (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects (args)
          (apply function (mapcar #'foreign-convert args)))
-  ;;(execute-with-pinned-objects (lambda () (apply function args)) args)
+  ;;(execute-thunk-with-pinned-objects (lambda () (apply function args)) args)
   ;;(apply function args)
   #-(or allegro ccl lispworks cmu scl sbcl ecl)
   (portability-warning 'foreign-call-wrapper)
