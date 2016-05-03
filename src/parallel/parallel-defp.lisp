@@ -48,6 +48,7 @@
 
    ;; multiprocessing.lisp
    "WITH-FEMLISP-WORKERS"
+   "WITH-ATOMIC-OUTPUT"
    "PARQUEUE"
 ;;   "WITH-PARALLEL-NETWORK" "PARCELL" "NAMED-PARCELL" "VALUE"
    )
