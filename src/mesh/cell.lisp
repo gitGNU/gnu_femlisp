@@ -80,6 +80,9 @@ Alas, this does not exist in CLOS:-(")
   (:documentation "This is an abstract class which is a base for
   standard-cell and boundary-cell."))
 
+(defun map-cell-vec (func &rest vecs)
+  (apply #'map 'cell-vec func vecs))
+
 (defclass <standard-cell> (<cell-with-boundary>)
   ((boundary :reader boundary :initarg :boundary :type cell-vec :documentation
 	     "A vector of boundary cells."))
@@ -632,6 +635,10 @@ be called instead of @function{l2g} and @function{l2Dg}."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; global->local
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric g2l (cell global-pos)
+  (:documentation "Computes the local position inside the cell for the given global position.
+This function is not really used at the moment, in contrast to @function{global->local}."))
 
 (defgeneric global->local (cell global-pos)
   (:documentation "Mainly useful for finite element evaluation: from the
