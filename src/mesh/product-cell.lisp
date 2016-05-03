@@ -114,14 +114,14 @@ table.  The tensor product boundary is in the order de1 x e2, e1 x de2."))
 (defmethod make-product-cell ((vtx <vertex>) (cell <cell>) table)
   (make-instance
    (class-of cell)
-   :boundary (map 'cell-vec #'(lambda (side) (gethash (list vtx side) table))
-		  (boundary cell))))
+   :boundary (map-cell-vec #'(lambda (side) (gethash (list vtx side) table))
+                           (boundary cell))))
 
 (defmethod make-product-cell ((cell <cell>) (vtx <vertex>) table)
   (make-instance
    (class-of cell)
-   :boundary (map 'cell-vec #'(lambda (side) (gethash (list side vtx) table))
-		  (boundary cell))))
+   :boundary (map-cell-vec #'(lambda (side) (gethash (list side vtx) table))
+                           (boundary cell))))
 
 (defmethod make-product-cell ((cell1 <cell>) (cell2 <cell>) table)
   (make-instance
@@ -130,10 +130,10 @@ table.  The tensor product boundary is in the order de1 x e2, e1 x de2."))
 	    (append (factor-simplices cell1) (factor-simplices cell2))))
    :boundary
    (concatenate 'cell-vec
-		(map 'cell-vec #'(lambda (side) (gethash (list side cell2) table))
-		     (boundary cell1))
-		(map 'cell-vec #'(lambda (side) (gethash (list cell1 side) table))
-		     (boundary cell2)))))
+		(map-cell-vec #'(lambda (side) (gethash (list side cell2) table))
+                              (boundary cell1))
+		(map-cell-vec #'(lambda (side) (gethash (list cell1 side) table))
+                              (boundary cell2)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; vertices
@@ -144,13 +144,16 @@ table.  The tensor product boundary is in the order de1 x e2, e1 x de2."))
 ;;; lexicographical ordering wrt the ordering of the corners of their
 ;;; factors.
 
-(defmethod pseudo-vertices ((cell <cell>) (factor <vertex>))
-  (list (vertices cell)))
-(defmethod pseudo-vertices ((cell <product-cell>) (factor <simplex>))
-  (let ((bdry (boundary cell))
-	(factor-bdry (boundary factor)))
-    (cons (car (pseudo-vertices (aref bdry 1) (aref factor-bdry 1)))
-	  (pseudo-vertices (aref bdry 0) (aref factor-bdry 0)))))
+(defgeneric pseudo-vertices (cell factor)
+  (:documentation "Helper function for extracting all vertices of @arg{cell} in a reasonable order.")
+  (:method ((cell <cell>) (factor <vertex>))
+      (list (vertices cell)))
+  (:method ((cell <product-cell>) (factor <simplex>))
+      (let ((bdry (boundary cell))
+            (factor-bdry (boundary factor)))
+        (cons (car (pseudo-vertices (aref bdry 1) (aref factor-bdry 1)))
+              (pseudo-vertices (aref bdry 0) (aref factor-bdry 0))))))
+
 (defmethod vertices ((cell <product-cell>))
   (apply #'append (pseudo-vertices cell (car (factor-simplices cell)))))
 
