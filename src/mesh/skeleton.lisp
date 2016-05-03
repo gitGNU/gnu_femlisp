@@ -34,7 +34,7 @@
 
 (in-package :fl.mesh)
 
-(defclass <skeleton> ()
+(defclass <skeleton> (property-mixin)
   ((dimension :accessor dimension :initarg :dimension :type (integer -1))
    (etables :accessor etables))
   (:documentation "A skeleton is a vector of hash-tables containing the
@@ -205,10 +205,13 @@ pair."
     (setf (get-cell-property cell skel prop) value))
   skel)
 
-(defun skel-map (func skel)
-  (lret ((new-skel (make-analog skel)))
-    (doskel ((cell value) skel)
-      (setf (skel-ref new-skel cell) (funcall func cell value)))))
+(defgeneric skel-map (func skel)
+  (:documentation "Maps a skeleton with func to another skeleton having the same keys
+and mapped values.  May be configured later on.")
+  (:method (func skel)
+      (lret ((new-skel (make-analog skel)))
+        (doskel ((cell value) skel)
+          (setf (skel-ref new-skel cell) (funcall func cell value))))))
 
 (defun find-cells (test skel &key dimension with-properties where)
   "Returns a list of cells contained in skel and satisfying test."
