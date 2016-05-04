@@ -22,12 +22,18 @@ Common Lisp implementations as well (e.g. ABCL or GCL).
 
 @item Some Common Lisp software, namely:
 @itemize
-@item ASDF from Daniel Barlow.
+@item ASDF originally from Daniel Barlow.
 @item The INFIX library from Mark Kantrowitz'.
 @item The BORDEAUX-THREADS library by Daniel Barlow
+@item The CLOSER-MOP library by Pascal Costanza
+@item The FIVE-AM library by Stelian Ionescu
 @item The LPARALLEL library by James M. Lawrence
 @item The CL-PPCRE library by Edi Weitz
 @end itemize
+
+All of these libraries are easily available using the wonderful software
+installation utility Quicklisp, see @url{http://www.quicklisp.org}, developed
+and maintained by Zach Beane.
 
 @item Graphics software.
 If you want to have graphics available, you should have installed the
@@ -48,6 +54,9 @@ need them):
 @item UMFPACK and/or SuperLU
 @item Triangle by R. M. Shewchuk.
 You should install this, if you need a 2D triangle mesh generator.  This
+probably will not be necessary for academic research and model problems.
+@item Tetgen by Hang Si
+You should install this, if you need a 3D tetrahedral mesh generator.  This
 probably will not be necessary for academic research and model problems.
 @end itemize
 
@@ -140,6 +149,7 @@ install if necessary.
 @menu
 * Direct solvers::
 * Triangle mesh generator::
+* Tetgen mesh generator::
 @end menu
 
 @node Direct solvers, Triangle mesh generator, Additional software, Additional software
@@ -160,7 +170,7 @@ from within the @path{femlisp} directory.  If these commands cannot
 figure out the path to the libraries, feel free to edit the Makefile in
 @path{femlisp/interfaces} according to your needs.
 
-@node Triangle mesh generator,  , Direct solvers, Additional software
+@node Triangle mesh generator, Tetgen mesh generator, Direct solvers, Additional software
 @subsection Triangle mesh generator
 
 Next, Femlisp can make use of the mesh generator Triangle by
@@ -168,6 +178,13 @@ J. R. Shewchuk, which is available as a package in most Linux
 implementations.  If you have it installed on your system, you only have
 to make sure that it can be found in your path, such that Femlisp can
 find it.
+
+@node Tetgen mesh generator,  , Triangle mesh generator, Additional software
+@subsection Tetgen mesh generator
+
+Femlisp can also make use of the mesh generator Tetgen by Hang Si.  If
+you have it installed on your system, you only have to make sure that it
+can be found in your path, such that Femlisp can find it as well.
 
 @node Using Femlisp as a standalone program,  , Additional software, Installation
 @section Using Femlisp as a standalone program
@@ -209,6 +226,9 @@ startup.  This is done by executing the command
 @example
 make femlisp
 @end example
-After that, @femlisp{} should always start up fast.  Note that after a
-change in @femlisp{} source code, this step has to be repeated.
+After that, @femlisp{} should always start up fast.
 
+However, note that after a change in @femlisp{} source code, this step
+has to be repeated.  Therefore, most Common Lisp programmers do not work
+in this way, but load their libraries at the beginning of a long
+worksession which can last for days or even weeks.
