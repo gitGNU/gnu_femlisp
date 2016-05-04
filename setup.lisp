@@ -51,7 +51,7 @@ during initialization of Femlisp."))
 
 (in-package :fl.start)
 
-(defparameter *femlisp-version* "1.0.0")
+(defparameter *femlisp-version* "1.0.1")
 (defparameter *process* nil
   "This variable should be set externally for identifying a certain process.")
 
