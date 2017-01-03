@@ -62,6 +62,17 @@ in parallel.")
     "Default method returns NUMBER."
     'number))
 
+(defgeneric entries (object)
+  (:documentation "List of entries.")
+  (:method (vec)
+      "Default method"
+    (mapper-collect #'for-each vec))
+  (:method ((arr array))
+      (mapper-collect #'array-for-each arr))
+  (:method ((vec <vector>))
+    (mapper-collect #'for-each-entry vec))
+  )
+
 (defgeneric nr-of-entries (vector)
   (:documentation "Total number of (block) entries for vectors."))
 

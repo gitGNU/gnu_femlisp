@@ -36,7 +36,7 @@
 
 (defclass <ldu-sparse> ()
   ((lower-left :reader lower-left :initarg :lower-left)
-   (diagonal :reader diagonal :initarg :diagonal)
+   (diagonal :reader ldu-diagonal :initarg :diagonal)
    (upper-right :reader upper-right :initarg :upper-right)
    (ordering :reader ordering :initarg :ordering :type vector)))
 
@@ -192,27 +192,28 @@ with respect to the graph given by @arg{mat}."
   (values (sparse-ldu A :ordering ipiv) ipiv t))
 
 (defmethod getrs! ((ldu <ldu-sparse>) (result <ht-sparse-vector>) &optional ipiv)
-  ;; solve (I + L) result~ = rhs
-  (loop with L of-type <sparse-matrix> = (lower-left ldu)
-	for i across (ordering ldu)
-	for result-i = (vref result i)
-	when (matrix-row L i) do
-	(for-each-key-and-entry-in-row
-	 #'(lambda (j Lij) (gemm! -1.0 Lij (vref result j) 1.0 result-i))
-	 L i))
-  ;; solve (D + U) result = result~ (where D^{-1} is stored)
-  (loop with U of-type <sparse-matrix> = (upper-right ldu)
-	with D of-type <sparse-matrix> = (diagonal ldu)
-	for i across (reverse (ordering ldu))
-	for result-i = (vref result i) do
-	(when (matrix-row U i)
-	  (for-each-key-and-entry-in-row
-	   #'(lambda (j Uij) (gemm! -1.0 Uij (vref result j) 1.0 result-i))
-	   U i))
-	(copy! (m* (mref D i i) result-i) result-i))
+  (with-slots (lower-left upper-right diagonal ordering) ldu
+    ;; solve (I + L) result~ = rhs
+    (loop with L of-type <sparse-matrix> = lower-left
+          for i across ordering
+          for result-i = (vref result i)
+          when (matrix-row L i) do
+            (for-each-key-and-entry-in-row
+             #'(lambda (j Lij) (gemm! -1.0 Lij (vref result j) 1.0 result-i))
+             L i))
+    ;; solve (D + U) result = result~ (where D^{-1} is stored)
+    (loop with U of-type <sparse-matrix> = upper-right
+          with D of-type <sparse-matrix> = diagonal
+          for i across (reverse ordering)
+          for result-i = (vref result i) do
+            (when (matrix-row U i)
+              (for-each-key-and-entry-in-row
+               #'(lambda (j Uij) (gemm! -1.0 Uij (vref result j) 1.0 result-i))
+               U i))
+            (copy! (m* (mref D i i) result-i) result-i))
   
-  ;; return the result
-  (values result ipiv t))
+    ;; return the result
+    (values result ipiv t)))
 
 (defmethod m* ((ldu <ldu-sparse>) (rhs <ht-sparse-vector>))
   "An ldu-decomposition is considered as an inverse."
@@ -418,7 +419,7 @@ associated with each key."
     (describe (sparse-matrix->ccs A :keys #(1)))
     (display A)
     (display (lower-left (sparse-ldu A)))
-    (display (diagonal (sparse-ldu A)))
+    (display (ldu-diagonal (sparse-ldu A)))
     (display (upper-right (sparse-ldu A)))
     (ordering (sparse-ldu A))
 
@@ -439,7 +440,7 @@ associated with each key."
     
     (display A)
     (display (lower-left (sparse-ldu A)))
-    (display (diagonal (sparse-ldu A)))
+    (display (ldu-diagonal (sparse-ldu A)))
     (display (upper-right (sparse-ldu A)))
     (ordering (sparse-ldu A))
     (let ((rhs (make-instance '<ht-sparse-vector>)))

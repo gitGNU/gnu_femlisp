@@ -45,11 +45,10 @@ surface.  This is used in the strategy package."
     (let ((local-interpolation (interpolation-matrix ansatz-space :region refined-cells))
 	  (local-projection (projection-matrix ansatz-space :region refined-cells)))
       (dbg-when :update-i-p-sol
-        (plot solution) (sleep 1.0))
-      (copy! (sparse-m* local-interpolation solution :sparsity :A) solution)
+        (show solution))
+      (gemm! 1.0 local-interpolation solution 0.0 solution)
       (dbg-when  :update-i-p-sol
-        (plot (getbb blackboard :solution))
-        (break))
+        (show (getbb blackboard :solution)))
       (m+! local-interpolation interpolation)
       (m+! local-projection projection))))
 

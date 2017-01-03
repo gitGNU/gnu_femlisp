@@ -1,0 +1,2 @@
+#!/bin/sh
+mpirun_rrze -np 6 -npersock 1 mpi-script-worker --dynamic-space-size 16000

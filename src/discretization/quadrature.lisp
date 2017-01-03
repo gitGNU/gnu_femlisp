@@ -145,19 +145,23 @@ occur for the inexact arithmetic."
   (zeros-of-separating-family
    #'(lambda (n) (jacobi-polynomial 0 beta n)) s 1.0e-16 float-p))
 
-(defun weights-for-gauss-points (beta zeros)
+(defun weights-for-ips (beta ips)
+  "Determines weights for the integration points @arg{ips} such
+that they integrate
+  @math{int_{-1}^{1} (1+y)^beta ... dy}
+ with optimal order."
   (let ((int-weight (poly-expt (make-polynomial '(1 1)) beta)))
-    (labels ((weight-for-zero (xi)
-	       (let* ((zeros-without-xi (remove xi zeros))
+    (labels ((weight-for-ip (xi)
+	       (let* ((ips-without-xi (remove xi ips))
 		      (lagrange (scal
-				 (/ 1 (reduce #'* (mapcar #'(lambda (xj) (- xi xj)) zeros-without-xi)))
+				 (/ 1 (reduce #'* (mapcar #'(lambda (xj) (- xi xj)) ips-without-xi)))
 				 (reduce #'poly* (mapcar #'(lambda (xj)
 							     (make-polynomial (list (- xj) 1)))
-							 zeros-without-xi)
+							 ips-without-xi)
 					 :initial-value (make-polynomial '(1)))))
 		      (lag-int (integrate-simple-polynomial (poly* lagrange int-weight))))
 		 (- (evaluate lag-int 1) (evaluate lag-int -1)))))
-      (mapcar #'weight-for-zero zeros))))
+      (mapcar #'weight-for-ip ips))))
 
 
 ;;; qr for \int_0^1 (1-y)^n f(y) dy
@@ -166,7 +170,7 @@ occur for the inexact arithmetic."
       ()
       (loop with coords = (gauss-points-for-weight n s)
 	    for coord in coords
-	    and weight in (weights-for-gauss-points n coords)
+	    and weight in (weights-for-ips n coords)
 	    collect (list (float (/ weight (expt 2 (+ n 1))) 1.0)
 			  (/ (- 1.0 coord) 2)))))
 
@@ -210,7 +214,6 @@ occur for the inexact arithmetic."
 	 :points (map 'vector #'ip-coords ips)
 	 :weights (map 'vector #'ip-weight ips))))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Gauss-Lobatto quadrature
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -223,6 +226,56 @@ occur for the inexact arithmetic."
 
 (defun gauss-lobatto-points-on-unit-interval (s)
   (mapcar #'(lambda (x) (/ (1+ x) 2)) (gauss-lobatto-points s)))
+
+(defun gauss-lobatto-rule-on-unit-interval (s)
+  (let* ((points (gauss-lobatto-points s))
+         (weights (weights-for-ips 0 points)))
+    (loop for point in points
+          and weight in weights
+          collect (make-<ip>
+                   :weight (/ weight 2)
+                   :coords (double-vec (/ (+ 1.0 point) 2))))))
+
+(with-memoization (:id 'gauss-lobatto-rule)
+  (defun gauss-lobatto-rule (factor-dims s)
+    (assert (apply #'= 1 factor-dims)
+            () "Should be checked theoretically first, if one can do this analogous to the Gauss rules.")
+    (memoizing-let ((factor-dims factor-dims) (s s))
+      (let ((ips (if (null factor-dims)
+		     (list (make-<ip> :weight 1.0 :coords (double-vec)))
+		     (apply #'product-rule
+			    (make-list (length factor-dims) :initial-element
+                                       (gauss-lobatto-rule-on-unit-interval s))))))
+        (make-instance
+         '<integration-rule>
+         :order (- (* 2 (+ s 2)) 2)
+         :points (map 'vector #'ip-coords ips)
+         :weights (map 'vector #'ip-weight ips))))))
+
+;;;; calculate order
+
+(defun test-integration-rule (points weights &optional (output t))
+  "Tests the given rule against monomials of increasing degree.
+As a by-product this determines the order of the rule."
+  (let ((dim (length (elt points 0))))
+    (loop
+      with flag = nil
+      for degree from 0
+      until flag do
+        (when output (format t "Order ~D:~%" degree))
+        (loop for mono in (n-variate-monomials-of-degree dim degree) do
+          (let* ((exact (fl.discretization::integrate-over-reference-product-cell
+                         mono (factor-dimensions (n-cube dim))))
+                 (approximate
+                   (loop for point across points
+                         and weight across weights
+                         sum (* weight (evaluate mono point))))
+                 (diff (- exact approximate)))
+            (unless (mzerop diff 1e-12)
+              (setq flag t))
+            (format t "~10A ~10A ~10,2G~%"
+                    exact approximate diff)))
+      finally (return (- degree 2)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Testing: (test-quadrature)
@@ -244,6 +297,12 @@ occur for the inexact arithmetic."
          (a (time (mapcar (_ (float _ 1.0)) (gauss-points-for-weight 0 n nil))))
          (b (time (gauss-points-for-weight 0 n t))))
     (mapcar #'- a b))
+  (let ((rule (gauss-rule '(1) 2)))
+    (test-integration-rule (integration-points rule) (integration-weights rule)))
+
+  (let ((rule (gauss-lobatto-rule '(1) 1)))
+    (test-integration-rule (integration-points rule)
+                           (integration-weights rule)))
   )
 
 (fl.tests:adjoin-test 'test-quadrature)

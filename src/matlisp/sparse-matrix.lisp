@@ -241,6 +241,14 @@ for this index."
                    (and (entry-allowed-p smat rk ck)
                         (mref smat rk ck)))))))
 
+(defgeneric map-matrix (result mapper mat)
+  (:method (result mapper (smat <sparse-matrix>))
+      "A mapper for sparse matrices."
+    (dovec ((entry i j) smat result)
+      (multiple-value-bind (entry1 i1 j1)
+          (funcall mapper entry i j)
+        (setf (mref result i1 j1) entry1)))))
+  
 (defmethod mat-diff ((smat1 <sparse-matrix>) (smat2 <sparse-matrix>))
   (format t "Missing in [2]~%")
   (dovec ((entry i j) smat1)
@@ -771,13 +779,6 @@ and the information on the blackoard.")
   (assert (access-type smat :require :column))
   (dic-for-each-key fn (column-table smat)))
 
-#+(or)
-(defun parallel-for-each-col-key (fn smat)
-  (dic-for-each-key fn (column-table smat) :parallel t))
-#+(or)
-(defun parallel-for-each-row-key (fn smat)
-  (dic-for-each-key fn (row-table smat) :parallel t))
-
 (defmethod remove-key ((smat <sparse-dictionary-matrix>) &rest indices)
   (ecase (length indices)
     (2 (destructuring-bind (row-key col-key) indices
@@ -802,14 +803,19 @@ and the information on the blackoard.")
 
 (defclass <ht-sparse-matrix>
     (locked-region-mixin <sparse-dictionary-matrix>)
-  ((row-table :accessor row-table :initarg :row-table
-	      :initform (make-hash-table) :type hash-table
+  ((test :initform 'eql :initarg :test)
+   (row-table :accessor row-table :initarg :row-table :type hash-table
 	      :documentation "Table of rows.")
-   (column-table :accessor column-table :initarg :column-table
-		 :initform (make-hash-table) :type hash-table
+   (column-table :accessor column-table :initarg :column-table :type hash-table
 		 :documentation "Table of columns."))
   (:documentation "The <ht-sparse-matrix> represents an unordered matrix graph
 indexed by general keys."))
+
+(defmethod initialize-instance :after ((smat <ht-sparse-matrix>) &key &allow-other-keys)
+  (with-slots (test row-table column-table fl.parallel::locked-region) smat
+    (setf row-table (make-hash-table :test test)
+          column-table (make-hash-table :test test)
+          fl.parallel::locked-region (make-hash-table :test test))))
 
 (defun make-sparse-matrix
     (&rest args
@@ -821,16 +827,17 @@ indexed by general keys."))
 
 (defmethod (setf matrix-block) (value (smat <ht-sparse-matrix>) row-key col-key)
   (with-mutual-exclusion (smat)
-    (setf (gethash col-key
-                   (or (gethash row-key (row-table smat))
-                       (setf (gethash row-key (row-table smat))
-                             (make-hash-table :size 30))))
-          value)
-    (setf (gethash row-key
-                   (or (gethash col-key (column-table smat))
-                       (setf (gethash col-key (column-table smat))
-                             (make-hash-table :size 30))))
-          value)))
+    (with-slots (test row-table column-table) smat
+        (setf (gethash col-key
+                       (or (gethash row-key row-table)
+                           (setf (gethash row-key row-table)
+                                 (make-hash-table :size 30 :test test))))
+              value)
+      (setf (gethash row-key
+                     (or (gethash col-key column-table)
+                         (setf (gethash col-key column-table)
+                               (make-hash-table :size 30 :test test))))
+            value))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Tests

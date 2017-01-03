@@ -38,26 +38,6 @@
 ;;; Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defclass mutex-object ()
-  ((lock :initform (bordeaux-threads:make-recursive-lock "my-lock"))
-   (data :initarg :data)))
-
-(defun mutex-wrap (object)
-  (make-instance 'mutex-object :data object))
-
-(defun mutex-unwrap (object)
-  (slot-value object 'data))
-
-(defmacro accessing-exclusively (bindings &body body)
-  (if bindings
-      (destructuring-bind ((name object) . rest)
-          bindings
-        `(let ((,name ,object))
-           (bordeaux-threads:with-recursive-lock-held ((slot-value ,name 'lock))
-             (with-slots ((,name data)) ,name
-               (accessing-exclusively ,rest ,@body)))))
-      `(locally ,@body)))
-
 (defun m+-nil-reducer (&rest args)
   (and args
        (let ((this (car args))
@@ -119,15 +99,18 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
 (defun effective-tensor (blackboard)
   (with-items (&key ansatz-space problem solution rhs) blackboard
     (and solution rhs
-	 (etypecase problem
-	   (<cdr-problem>
-	    (m- (mref (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A)
-		      0 0)
-		(correction-tensor solution rhs)))
-	   (<ellsys-problem> 
-	    (m- (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A)
-		(convert-elasticity-correction (correction-tensor solution rhs)))))
-	 )))
+         (call-hooks
+          'effective-tensor
+          (etypecase problem
+            (<cdr-problem>
+             (m- (mref (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A)
+                       0 0)
+                 (correction-tensor solution rhs)))
+            (<ellsys-problem> 
+             (m- (average-coefficient ansatz-space :coefficient 'FL.ELLSYS::A)
+                 (convert-elasticity-correction (correction-tensor solution rhs)))))
+          ansatz-space
+	 ))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -144,7 +127,7 @@ tensor into an (dim x dim)-array with (dim x dim)-matrix entries."
 ;;;; Variables
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *result* nil
+(defvar *result* nil
   "Special variable used for storing the blackbboard of the last
 computation.")
 

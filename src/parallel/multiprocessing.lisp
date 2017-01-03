@@ -34,6 +34,33 @@
 
 (in-package :fl.parallel)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Multithreaded printing
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar *print-lock* (make-recursive-lock "PRINT-LOCK"))
+
+(defmacro with-atomic-output (&body body)
+  "If output of a process is desired to be atomic
+wrap it in @arg{with-atomic-output}."
+  `(with-recursive-lock-held (*print-lock*)
+     ,@body))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Multithreaded debugging
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar *debug-lock* (make-recursive-lock "DEBUG-LOCK"))
+
+(defmethod dbg :around (id format-string &rest args)
+  "Serializing of debug output."
+  (declare (ignore id format-string args))
+  (with-recursive-lock-held (*debug-lock*)
+    (call-next-method)))
+
+(defun mp-dbg (id format &rest args)
+  (funcall #'dbg id "~A:~%~?" (current-thread) format args))
+
 ;;; Some CLOS mixins for mutex and waitqueues 
 
 (defclass mutex-mixin ()
@@ -72,20 +99,20 @@ the function given in @arg{perform} is called.")
 		      (aand until (not (funcall it wq))))
 	    do
                (when (aand finish (funcall it))
-                 (mp-dbg "Finishing wait...")
+                 (mp-dbg :mp "Finishing wait...")
                  (notify wq)
                  (return nil))
-               (mp-dbg "Waiting...")
+               (mp-dbg :mp "Waiting...")
                (condition-wait (waitqueue wq) (mutex wq))
             finally
-               (mp-dbg "Performing after waiting...")
+               (mp-dbg :mp "Performing after waiting...")
                (return (awhen perform (funcall it wq)))))))
 
 (defgeneric notify (waitqueue-object)
   (:documentation "Notifies @arg{waitqueue-object}.")
   (:method (obj) "The default method does nothing.")
   (:method ((wq waitqueue-mixin))
-    ;;(mp-dbg "notifying ~A" wq)
+    ;;(mp-dbg :mp "notifying ~A" wq)
     (condition-notify (waitqueue wq))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -138,33 +165,6 @@ the function given in @arg{perform} is called.")
 		   (lambda () ,@body)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Multithreaded printing
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defvar *print-lock* (make-recursive-lock "PRINT-LOCK"))
-
-(defmacro with-atomic-output (&body body)
-  "If output of a process is desired to be atomic
-wrap it in @arg{with-atomic-output}."
-  `(with-recursive-lock-held (*print-lock*)
-     ,@body))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Multithreaded debugging
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defvar *debug-lock* (make-recursive-lock "DEBUG-LOCK"))
-
-(defmethod dbg :around (id format-string &rest args)
-  "Serializing of debug output."
-  (declare (ignore id format-string args))
-  (with-recursive-lock-held (*debug-lock*)
-    (call-next-method)))
-
-(defun mp-dbg (format &rest args)
-  (funcall #'dbg :mp "~A:~%~?" (current-thread) format args))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; thread-safe queue
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -178,18 +178,18 @@ wrap it in @arg{with-atomic-output}."
 (defgeneric finish (object)
   (:method ((pq parqueue))
     (with-mutual-exclusion (pq)
-      (mp-dbg "finishing queue ~A" pq)
+      (mp-dbg :mp "finishing queue ~A" pq)
       (setf (finished-p pq) t)
       (notify pq))))
 
 (defmethod enqueue :around (obj (pq parqueue))
-  (with-slots (finished-p maximal-size current-size) pq
-    (assert (not finished-p))
-    (mp-dbg "enqueueing ~A in ~A" obj pq)
-    (with-mutual-exclusion (pq)
+  (with-mutual-exclusion (pq)
+    (with-slots (finished-p maximal-size current-size) pq
+      (assert (not finished-p))
+      (mp-dbg :mp "enqueueing ~A in ~A" obj pq)
       (loop while (and maximal-size (>= current-size maximal-size)) do
-           (mp-dbg "queue ~A full - waiting" pq)
-           (condition-wait (waitqueue pq) (mutex pq)))
+        (mp-dbg :mp "queue ~A full - waiting" pq)
+        (condition-wait (waitqueue pq) (mutex pq)))
       (call-next-method)
       (incf current-size)
       (notify pq) ; notify of change!
@@ -197,21 +197,99 @@ wrap it in @arg{with-atomic-output}."
       )))
 
 (defmethod dequeue :around ((pq parqueue))
-  (with-slots (finished-p current-size) pq
-    (with-mutual-exclusion (pq)
+  (with-mutual-exclusion (pq)
+    (with-slots (finished-p current-size) pq
       (loop
-         (mp-dbg "trying to dequeue ~A (finished: ~A, empty: ~A, top: ~A)"
-                 pq finished-p (emptyp pq) (car (fl.utilities::head pq)))
-         (cond ((or finished-p (not (emptyp pq)))
-                (multiple-value-bind (value emptyp)
-                    (call-next-method)
-                  (unless emptyp (decf current-size))
-                  (notify pq)           ; notify of change
-                  (mp-dbg "dequeued value=~A, emptyp=~A" value emptyp)
-                  (return-from dequeue (values value emptyp))))
-               (t (mp-dbg "waiting on parqueue ~A" pq)
-                  (condition-wait (waitqueue pq) (mutex pq))))
+        (mp-dbg :mp "trying to dequeue ~A (finished: ~A, empty: ~A, top: ~A)"
+                pq finished-p (emptyp pq) (car (fl.utilities::head pq)))
+        (cond ((or finished-p (not (emptyp pq)))
+               (multiple-value-bind (value emptyp)
+                   (call-next-method)
+                 (unless emptyp (decf current-size))
+                 (notify pq)           ; notify of change
+                 (mp-dbg :mp "dequeued value=~A, emptyp=~A" value emptyp)
+                 (return-from dequeue (values value emptyp))))
+              (t (mp-dbg :mp "waiting on parqueue ~A" pq)
+                 (condition-wait (waitqueue pq) (mutex pq))))
          ))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Multithreaded pool
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass parpool (mutex-mixin)
+  ((table :type hash-table
+          :documentation "A table mapping keys to a list of parpool entries")
+   (ppes :type hash-table
+         :documentation "A table mapping an object to its ppe")
+   (test :initform 'eql :initarg :test)
+   #+(or)(generator :initform (required-argument) :initarg :generator))
+  (:documentation "A parallel pool implemented as a shared hash-table.
+The slot pool contains a hash-table, the test slot contains the hash-table test, the generator contains a function which is called if the pool is empty, i.e. all objects are used and generates a new object for the given argument."))
+
+(defstruct (parpool-entry (:conc-name ppe-))
+  object refcount key)
+
+(defmethod initialize-instance :after ((pool parpool) &key &allow-other-keys)
+  (with-slots (table test ppes) pool
+    (setf table (make-hash-table :test test))
+    (setf ppes (make-hash-table :test 'eq))))
+
+(defmethod describe-object :after ((ppool parpool) stream)
+  (format stream "~A contains the following:~%" ppool)
+  (maphash (lambda (key value)
+             (format stream "~A ->~%~{ ~A~}~%" key value))
+           (slot-value ppool 'table))
+  (format stream "Furthermore, the following objects are registered:~%")
+  (maphash (lambda (key value)
+             (format stream "~A -> ~A~%" key value))
+           (slot-value ppool 'ppes)))
+
+(defun register-in-pool (pool key object)
+  "Note that the object is only registered, but not put in the pool!"
+  (with-mutual-exclusion (pool)
+    (with-slots (table ppes) pool
+      (let ((ppe (make-parpool-entry :object object :key key)))
+        (let (*print-array*)
+          (dbg :parpool "Registering new ppe ~A for object ~A under key=~A"
+               ppe object key))
+        (assert (not (gethash object ppes)))
+        (setf (gethash object ppes) ppe)))))
+
+(defun get-from-pool (pool key)
+  (with-mutual-exclusion (pool)
+    (with-slots (table) pool
+      (whereas ((ppe (pop (gethash key table nil))))
+        (lret ((object (ppe-object ppe)))
+          (let ((*print-array*))
+            (dbg :parpool "Getting from pool ppe ~A for object ~A under key=~A"
+                 ppe object key)))))))
+
+(defun put-back-in-pool (pool object)
+  (with-mutual-exclusion (pool)
+    (with-slots (ppes table) pool
+      (let ((ppe (gethash object ppes)))
+        (assert ppe)
+        (let ((key (ppe-key ppe)))
+          (assert (not (member ppe (gethash key table) :test 'eq)))
+          (let (*print-array*)
+            (dbg :parpool "Putting back in pool ppe ~A for object ~A under key=~A"
+               ppe object key))
+          (push ppe (gethash key table)))))))
+
+(defun set-refcount (pool object count)
+  (with-mutual-exclusion (pool)
+    (with-slots (ppes) pool
+      (let ((ppe (gethash object ppes)))
+        (setf (ppe-refcount ppe) count)))))
+
+(defun decrease-refcount (pool object &optional (decrement 1))
+  (with-mutual-exclusion (pool)
+    (with-slots (ppes) pool
+      (let ((ppe (gethash object ppes)))
+        (when (zerop (decf (ppe-refcount ppe) decrement))
+          (setf (ppe-refcount ppe) nil)
+          (put-back-in-pool pool object))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; pipeline
@@ -256,7 +334,7 @@ function @function{call-next}.  Every job is run in a separate thread."
    (lambda ()
      (let ((*input-queue* from)
            (*output-queue* to))
-       (mp-dbg "starting...")
+       (mp-dbg :mp "starting...")
        ;; (let ((*thread-local-memoization-table* ()))
        ;;   (declare (special *thread-local-memoization-table*))
        (if (null from)
@@ -266,12 +344,12 @@ function @function{call-next}.  Every job is run in a separate thread."
                     (dequeue from)
                   (when emptyp
                     (return))
-                  (mp-dbg "working on ~A" args)
+                  (mp-dbg :mp "working on ~A" args)
                   (apply job args)
-                  (mp-dbg "finished working on ~A" args)
+                  (mp-dbg :mp "finished working on ~A" args)
                   (thread-yield)))
                 )
-       (mp-dbg "...done")
+       (mp-dbg :mp "...done")
        (awhen to (finish it))
        #+(or)(remove-worker group (current-thread))))
    :name "pipeline-worker"))
@@ -291,17 +369,17 @@ queue."))
   (with-mutual-exclusion (group)
     (push (make-thread
 	   (lambda ()
-	     (mp-dbg "starting...")
+	     (mp-dbg :mp "starting...")
 	     ;; (let ((*thread-local-memoization-table* ()))
              (loop
                (multiple-value-bind (args emptyp)
                    (dequeue (tasks group))
                  (when emptyp (return))
-                 (mp-dbg "working on ~A" args)
+                 (mp-dbg :mp "working on ~A" args)
                  (apply (work group) (mklist args))
-                 (mp-dbg "finished working on ~A." args)
+                 (mp-dbg :mp "finished working on ~A." args)
                  (thread-yield)))
-             (mp-dbg "...done")
+             (mp-dbg :mp "...done")
              (remove-worker group (current-thread)))
 	   :name "femlisp-worker")
 	  (threads group))))
@@ -311,7 +389,7 @@ queue."))
   (assert (finished-p (tasks group)))
   (with-mutual-exclusion (group)
     (assert (member thread (threads group)))
-    (mp-dbg " --- removes itself.")
+    (mp-dbg :mp " --- removes itself.")
     (setf (threads group)
 	  (delete thread (threads group)))
     (notify group)))
@@ -352,7 +430,7 @@ which generates the argument-lists by calling the function
 (defun femlisp-workers ()
   (remove-if-not
    (lambda (thread)
-     (member (thread-name thread) '("femlisp-worker" "pipeline-worker" "stencil-worker")
+     (member (thread-name thread) '("femlisp-worker" "pipeline-worker" "stencil-worker" "lparallel")
              :test #'string=))
    (all-threads)))
 
@@ -413,13 +491,27 @@ threads which call @arg{func} on those arguments."
 ;;; therefore be efficiently parallelized
 
 (defun mandelbrot-iteration (c)
-  (declare (ftype (function (complex double-float) fixnum))
+  (declare (ftype (function ((complex double-float)) fixnum))
            (optimize speed))
-  (loop for k of-type fixnum from 1 below 1000
-       for z of-type (complex double-float) = c then
-       (+ (* z z) c)
-       until (> (abs z) 100.0)
-       finally (return k)))
+  (?1
+   (loop for k of-type fixnum from 1 below 1000
+         and z of-type (complex double-float) = c
+               then (+ (* z z) c)
+         until (> (abs z) 100.0d0)
+         finally (return k))
+   (labels ((mi1 (z n)
+              (declare (type (complex double-float) z)
+                       (type fixnum n))
+              (if (or (>= n 1000) (> (abs z) 100.0))
+                  n
+                  (mi1 (+ (* z z) c) (1+ n)))))
+     (mi1 c 1))
+   (named-let mi1 ((z c) (n 1))
+     (declare (type (complex double-float) z)
+              (type fixnum n))
+     (if (or (>= n 1000) (> (abs z) 100.0))
+         n
+         (mi1 (+ (* z z) c) (1+ n))))))
 
 (defun mandelbrot-box (x1 x2 y1 y2 nx ny &optional result-p)
   (declare (type double-float x1 x2 y1 y2)
@@ -431,13 +523,21 @@ threads which call @arg{func} on those arguments."
     (declare (type double-float dx dy)
              (type fixnum sum))
     (loop for kx upto nx
-       for x of-type double-float = x1 then (+ x1 dx) do
-       (loop for ky upto ny
-          for y of-type double-float = y1 then (+ y1 dy) do
-            (incf sum
-                  (setf (aref result kx ky)
-                        (mandelbrot-iteration (complex x y))))))
+          and x of-type double-float = x1 then (+ x dx) do
+            (loop for ky upto ny
+                  and y of-type double-float = y1 then (+ y dy) do
+                    (incf sum
+                          (setf (aref result kx ky)
+                                (mandelbrot-iteration (complex x y))))))
     (if result-p result sum)))
+
+(defun histogram (array)
+  "Calculates a Histogram of Mandelbrot iteration numbers."
+  (lret* ((max (loop for k below (array-total-size array)
+                     maximize (row-major-aref array k)))
+          (result (make-array (1+ max) :initial-element 0)))
+    (loop for k below (array-total-size array)
+          do (incf (aref result (row-major-aref array k))))))
 
 (defun simple-consing (n)
   (loop repeat n do
@@ -461,7 +561,7 @@ threads which call @arg{func} on those arguments."
 	     (loop for obj = (dequeue pq) while obj
 		   do (with-recursive-lock-held (lock)
 			(push obj result)))
-	     (mp-dbg "Done.~%")))
+	     (mp-dbg :mp "Done.~%")))
       (make-thread #'worker :name "femlisp-worker")
       (make-thread #'worker :name "femlisp-worker")
       (make-thread #'worker :name "femlisp-worker")
@@ -542,6 +642,9 @@ threads which call @arg{func} on those arguments."
   ;; (terminate-workers)
 
   (speedup-test (let ((n (expt 2 27))) (_ (loop repeat n sum 1))))
+  (mandelbrot-box -2.0d0 1.0d0 -1.0d0 1.0d0 2 2)
+  (time (mandelbrot-box -2.0d0 1.0d0 -1.0d0 1.0d0 1536 1024))
+  (histogram (mandelbrot-box -2.0d0 1.0d0 -1.0d0 1.0d0 256 256 t))
   (speedup-test (_ (mandelbrot-box 0.0 10.0 0.0 10.0 100 100)))
   (speedup-test (_ (simple-consing 500000)))
 
@@ -580,7 +683,22 @@ threads which call @arg{func} on those arguments."
 
   (dbg-off :mp)
 
+  (let ((pool (make-instance 'parpool)))
+    (let ((o1 (vector 1))
+          (o2 (vector 1 1)))
+      (register-in-pool pool 1 o1)
+      (register-in-pool pool 1 o2)
+      (let ((o (get-from-pool pool 1)))
+        (format t "~&Got ~A~%" o)
+        (set-refcount pool o 4)
+        (describe pool)
+        (decrease-refcount pool o)
+        (decrease-refcount pool o)
+        (decrease-refcount pool o)
+        (decrease-refcount pool o)
+        (describe pool)
+        )))
+
   )
 
 ;;; (femlisp-multiprocessing-tests)
-

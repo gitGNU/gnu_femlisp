@@ -51,6 +51,10 @@
 	       entry)))
      gamma)))
 
+(defun elasticity-cell-problem-reaction (dim value)
+  "We want to have zero at the corners."
+  (diagonal-reaction-coefficient (make-double-vec dim value)))
+
 (defun elasticity-inlay-cell-problem (domain &key (inlay-p #'patch-in-inlay-p)
 				      (interior 100.0))
   "Generates the inlay cell problem.  The coefficient is of the
@@ -79,7 +83,10 @@ N^{lr}_q = \int_Y \div_{x_j} A^{lk}_{ji} N^{lr}_q = F[k*dim+i]
 	    (:d-dimensional
 	     (list
 	      (isotropic-elasticity-tensor-coefficient dim eps)
-	      (elasticity-cell-problem-gamma dim)))))))))
+	      (elasticity-cell-problem-gamma dim)))
+            ((and :0-dimensional :boundary (not :inlay))
+             (list
+              (elasticity-cell-problem-reaction dim 10.0)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; utilities
@@ -141,7 +148,7 @@ with dim^3 components which are plotted one after the other."
            (make-instance '<linear-solver>
                           :iteration bpx
                           :success-if `(and (> :step 2) (> :step-reduction 1.0) (< :defnorm 1.0e-8))
-                          :failure-if `(and (> :step 100) (> :step-reduction 1.0) (> :defnorm 1.0e-8))))
+                          :failure-if `(and (> :step 200) (> :step-reduction 1.0) (> :defnorm 1.0e-8))))
          (make-instance
           '<linear-solver> :iteration
           (let ((smoother
@@ -159,7 +166,8 @@ with dim^3 components which are plotted one after the other."
              :smoother smoother :pre-steps 2 :post-steps 2
              :gamma 2 :fmg t))
           :success-if `(and (> :step 2) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
-          :failure-if `(and (> :step 100) (> :step-reduction 0.9) (> :defnorm 1.0e-9))))
+          :failure-if `(and (> :step 100) (> :step-reduction 0.9) (> :defnorm 1.0e-9))
+          ))
 	:plot-mesh plot
 	:observe
 	(append *stationary-fe-strategy-observe*
@@ -169,10 +177,10 @@ with dim^3 components which are plotted one after the other."
 		       #'(lambda (blackboard)
 			   (let ((tensor (effective-tensor blackboard)))
                              (setq saved-effective-tensor tensor)
-			      (format nil "~19,10,2E~19,10,2E~19,10,2E"
-				      (and tensor (mref (mref tensor 0 0) 0 0))
-                                      (and tensor (mref (mref tensor 0 0) 1 1))
-                                      (and tensor (mref (mref tensor 1 0) 1 0)))))))))
+                             (format nil "~19,10,2E~19,10,2E~19,10,2E"
+                                     (and tensor (mref (mref tensor 0 0) 0 0))
+                                     (and tensor (> dim 1) (mref (mref tensor 0 0) 1 1))
+                                     (and tensor (> dim 1) (mref (mref tensor 1 0) 1 0)))))))))
 		   ))
     (when plot
       ;; plot components of cell solution tensor
@@ -188,9 +196,8 @@ with dim^3 components which are plotted one after the other."
 
 #+(or)
 (time (elasticity-interior-effective-coeff-demo
-       (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 3))
-       :order 5 :levels 2 :plot nil :output 1))
-
+       (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 1))
+       :order 1 :levels 2 :plot nil :output 2))
 
 #|
 (prof:with-profiling (:type :time)
@@ -260,7 +267,7 @@ Parameters: order=~D, levels=~D~%~%"
 		:execute
 		(lambda ()
 		  (elasticity-interior-effective-coeff-demo
-		   (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2))
+		   (elasticity-inlay-cell-problem (n-cell-with-ball-inlay dim))
 		   :order order :levels levels)))))
     (adjoin-demo demo *effective-elasticity-demo*)))
 
@@ -269,39 +276,66 @@ Parameters: order=~D, levels=~D~%~%"
 
 #+(or)(demo *effective-elasticity-demo*)
 
-(defun elahom-performance-calculation (&key (levels 2) (output 2) (threshold 1e-12))
+(defun elahom-performance-calculation (&key (levels 2) (output 2) (threshold 2e-10))
   (elasticity-interior-effective-coeff-demo
    (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
    :order 5 :levels levels :plot nil :output output)
-  (let ((defnorm (getbb (getbb *result* :solver-blackboard) :defnorm)))
-    (format t "Defect norm at the end: ~G~%" defnorm)
+  (with-items (&key defnorm initial-defnorm)
+      (getbb *result* :solver-blackboard)
+    (format t "Initial defect norm: ~A  --> Defect norm at the end: ~G~%"
+            initial-defnorm defnorm)
     (when (member levels '(1 2))
       (let ((serial-defnorm (ecase levels
-                              (1 1.56164e-09)
-                              (2 3.131577e-09))))
+                              (1 1.56e-09)
+                              (2 3.13e-09))))
         (assert (< (abs (- defnorm serial-defnorm)) threshold))))))
 
-(defun elahom-performance-test (nrs-of-kernels &rest args &key &allow-other-keys)
-  (format t "We perform one computation for initializing everything:~%")
-  (apply #'elahom-performance-calculation args)
+(defun elahom-performance-test (nrs-of-kernels &rest args &key initialize &allow-other-keys)
+  (when initialize
+    (format t "We perform one computation on two levels for initializing FE and interpolation:~%")
+    (elahom-performance-calculation :levels 2))
   ;; then we test performance for varying number of kernels
   (loop for n in nrs-of-kernels do
-       (new-kernel n)
-       (format t "Testing for ~D kernels:~%" n)
-       (apply #'elahom-performance-calculation args)))
+    (sb-ext:gc :full t)
+    (new-kernel n)
+    (format t "Testing for ~D kernels:~%" n)
+    (apply #'elahom-performance-calculation (sans args :initialize))))
 
+;; (elahom-performance-test '(1 2) :levels 3)
 (defun elahom-longtime-stability-test (nr-of-trials &rest args
-                                       &key (levels 1) (threshold 1e-12) &allow-other-keys)
+                                       &key (levels 1) (threshold 1e-10)
+                                       &allow-other-keys)
   (loop for i below nr-of-trials do
     (format t "~&~%*** Rechnung ~D~%~%" i)
        (apply #'elahom-performance-calculation
               :levels levels :threshold threshold
               (sans args :levels :threshold))))
 
-;;; (elahom-performance-calculation :levels 1)
+;;; (elahom-performance-calculation :levels 2)
 ;;; (elahom-longtime-stability-test 2 :levels 1)
 
+(defun mconvert (mat)
+  (flet ((key-converter (key)
+           (if (typep key 'fl.mesh::identification)
+               (mapcar #'midpoint (fl.mesh::cells key))
+               (midpoint key))))
+    (map-matrix (make-instance 'fl.matlisp::<ht-sparse-matrix> :test 'equalp)
+                (lambda (e i j)
+                  (values e (key-converter i) (key-converter j)))
+                mat)))
+
+;; (setq *mymat* (mconvert *mymat*))
+;; (row-keys *mymat*)
+;; (x<-0 *mymat*)
+;; (loop for i below 100 do
+;;   (x<-0 *mymat*)
+;;   (assemble-interior (ansatz-space *mymat*) :surface :matrix *mymat*)
+;;   (assert (< (norm (m-! (mconvert *mymat0*) (mconvert *mymat*))) 1e-10)))
+
+
+
 (defun test-homogenization-elasticity ()
+
   (time (elasticity-interior-effective-coeff-demo
 	 (elasticity-inlay-cell-problem (n-cell-with-ball-inlay 2)) :order 3 :levels 2
          :output :all))
@@ -372,7 +406,9 @@ Parameters: order=~D, levels=~D~%~%"
   (time
    (elasticity-interior-effective-coeff-demo
     (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
-    :order 5 :levels 2 :plot nil :output 1))
+    :order 5 :levels 2 :plot nil :output 2))
+  
+  (assemble-interior (getbb *result* :ansatz-space) :surface)
   
   (loop for i below 1 do
     (format t "~&~%*** Rechnung ~D~%~%" i)

@@ -71,11 +71,11 @@
 for a specific fe-class on a given mesh."))
 
 (defmethod initialize-instance :after ((asv <ansatz-space-vector>)
-                                       &key multiplicity &allow-other-keys)
+                                       &rest args &key multiplicity &allow-other-keys)
   (unless multiplicity
     (setf (slot-value asv 'multiplicity)
           (multiplicity (ansatz-space asv))))
-  (call-hooks 'initialize-ansatz-space-vector asv))
+  (apply #'call-hooks 'initialize-ansatz-space-vector asv args))
 
 (defmethod key->size ((asv <ansatz-space-vector>))
   (key->size (ansatz-space asv)))
@@ -146,8 +146,8 @@ entries.  Essential constraints are satisfied."
 		       :initarg :image-ansatz-space :type <ansatz-space>)))
 
 (defmethod initialize-instance :after ((asm <ansatz-space-morphism>)
-                                       &key &allow-other-keys)
-  (call-hooks 'initialize-ansatz-space-morphism asm))
+                                       &rest args &key &allow-other-keys)
+  (apply #'call-hooks 'initialize-ansatz-space-morphism asm args))
 
 (defun make-ansatz-space-morphism (domain-as image-as)
   (fl.amop::make-programmatic-instance
@@ -179,9 +179,8 @@ entries.  Essential constraints are satisfied."
   (ansatz-space asa))
 
 (defmethod initialize-instance :after ((asa <ansatz-space-automorphism>)
-                                       &key &allow-other-keys)
-  (call-hooks 'initialize-ansatz-space-automorphism
-              asa))
+                                       &rest args &key &allow-other-keys)
+  (apply #'call-hooks 'initialize-ansatz-space-automorphism asa args))
 
 (defun make-ansatz-space-automorphism (as)
   (fl.amop::make-programmatic-instance

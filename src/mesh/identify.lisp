@@ -40,11 +40,14 @@
 
 (defclass identification ()
   ((skeleton :initarg :skeleton)
-   (cells :initarg :cells :documentation "A list of identified cells."))
+   (cells :reader cells :initarg :cells :documentation "A list of identified cells."))
   (:documentation "This object describes a cluster of identified cells.  At
 the moment, it is used to describe identified boundaries and might be used
 later on for parallelization purposes.  Those identifications are refered
 to in the properties of each cell."))
+
+(defun identification-p (object)
+  (typep object 'identification))
 
 (defmethod print-object :after ((id identification) stream)
   "Print the cells in the identification."
@@ -74,7 +77,7 @@ to in the properties of each cell."))
 
 (defmethod identified-cells (cell skel)
   (aif (cell-identification cell skel)
-       (slot-value it 'cells)
+       (cells it)
        (list cell)))
 
 (defun identify (identified-cells skel)
@@ -157,19 +160,6 @@ the unit cell, but may create problems in other situations."
     (mapc (rcurry #'identify skel) (hash-table-values table))
     (check-identification skel)
     skel))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Interfacing
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass <interface> (<skeleton>)
-  ((neighbors :accessor neighbors :initarg :neighbors
-	      :type (simple-array <skeleton> (*))))
-  (:documentation "Not in use up to now.  Interface structure for domain
-decomposition approaches.  Might be used also for parallelization in the
-future.  Cells are mapped to identified cells in the neighboring
-skeletons."))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Tests

@@ -63,8 +63,10 @@ altogether."
 
 (defmacro dbg-when (id &body body)
   "Perform a check only if debugging @arg{id}."
-  `(when (dbg-p ,id)
-    ,@body))
+  (let ((the-id (gensym)))
+    `(let ((,the-id ,id))
+       (when (or (eq ,the-id t) (dbg-p ,the-id))
+         ,@body))))
 
 (defgeneric dbg (id format-string &rest args)
   (:documentation "When debugging on @arg{id} print out the arguments

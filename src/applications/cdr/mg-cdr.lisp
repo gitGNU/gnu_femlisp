@@ -34,17 +34,34 @@
 
 (in-package :fl.application)
 
-(defun test-v-cycle-convergence (dim order level &key (smoother *gauss-seidel*)
-				 (steps 20) galerkin-p (output 1) cr-max (base-level 1)
-				 (combination :multiplicative) cg)
+(defun test-v-cycle-convergence (dim order level
+                                 &key (smoother *gauss-seidel*)
+                                   (steps 20) galerkin-p (output 1) cr-max (base-level 1)
+                                   (combination :multiplicative) cg (type :dirichlet)
+                                   (coarse-grid-iteration :lu)
+                                   (smoothing-steps 1))
   "Solves with a V-cycle and prints the average convergence rate.  If
 cr-max is provided, it is checked if the convergence rate is smaller than
 this value."
-  (let* ((problem (cdr-model-problem dim))
+  (let* ((problem
+           (ecase type
+             (:dirichlet (cdr-model-problem dim))
+             (:reaction
+              (cdr-model-problem
+               dim :dirichlet nil
+                   :reaction 1.0
+                   :source (lambda (x) (let ((x (aref x 0)))
+                                         (* x (- 1.0 x))))))))
 	 (cs (geometric-cs
-	      :gamma 1 :smoother smoother :pre-steps 1 :post-steps 0
+	      :gamma 1 :smoother smoother :pre-steps smoothing-steps :post-steps 0
 	      :combination combination
-	      :base-level base-level :galerkin-p galerkin-p))
+	      :base-level base-level :galerkin-p galerkin-p
+              :coarse-grid-iteration
+              (ecase coarse-grid-iteration
+                (:lu (make-instance '<lu>))
+                (:multi-smooth
+                 (make-instance '<multi-iteration>
+                                :base smoother :nr-steps 30)))))
 	 (cg (and cg (make-instance '<cg> :preconditioner cs)))
 	 (solver (make-instance '<linear-solver> :iteration (or cg cs)
 				:success-if `(or (< :defnorm 1.0e-12) (> :step ,steps))))
@@ -67,7 +84,13 @@ this value."
   (dbg-on :mg) (dbg-off)
   (time (test-v-cycle-convergence
 	 1 1 3 :base-level 2 :steps 10 :cr-max 0.3941  ; should be 0.39407...
-	 :smoother (make-instance '<jacobi> :damp 0.5)))
+               :smoother (make-instance '<jacobi> :damp 0.5)))
+  (time (test-v-cycle-convergence
+	 1 1 5 :base-level 1 :steps 30
+               :smoother (make-instance '<jacobi> :damp 0.5)
+               :type :reaction :coarse-grid-iteration :multi-smooth
+               :smoothing-steps 2))
+  (show (getbb *result* :solution))
   (time (test-v-cycle-convergence
 	 2 3 4 :base-level 2 :steps 10
 	 :smoother (make-instance '<jacobi> :damp 0.5)

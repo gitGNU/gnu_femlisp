@@ -51,39 +51,44 @@
 	 #'(lambda (fe) (make-real-matrix (nr-of-dofs fe) multiplicity))
 	 (components fe))))
 
-(defun make-local-mat (as1 cell1 &optional (as2 as1) (cell2 cell1))
-  "Generates a local matrix discretization for the given ansatz-space(s)."
-  (let ((fe-1 (get-fe as1 cell1))
-        (fe-2 (get-fe as2 cell2)))
-    (lret ((result
-            (let ((comps-1 (components fe-1))
-                  (comps-2 (components fe-2)))
-              (make-filled-array
-               (list (length comps-1) (length comps-2))
-               :initializer (lambda (i j)
-                              (make-real-matrix (nr-of-dofs (aref comps-1 i))
-                                                (nr-of-dofs (aref comps-2 j))))))))
-      (array-for-each #'x<-0 result))))
+(defvar *local-mat-pool*
+  (make-instance 'parpool :test 'equal)
+  "Parallel pool from which local matrices may be extracted.")
 
-#+(or)
-(let ((pool (fl.parallel::thread-local-memoization-pool)))
-  (defun make-local-mat (as1 cell1 &optional (as2 as1) (cell2 cell1))
-    "Generates a local matrix discretization for the given ansatz-space(s)."
+(defvar *use-pool-p* nil "T if pool should be used.")
+  
+;;; (setq *local-mat-pool* (make-instance 'parpool :test 'equal))
+
+(defgeneric make-local-mat (as1 cell1 &optional as2 cell2)
+  (:documentation
+   "Generates a local matrix discretization for the given ansatz-space(s).")
+  (:method (as1 cell1 &optional (as2 as1) (cell2 cell1))
+      "Default method.  Allocates a new matrix."
     (let ((fe-1 (get-fe as1 cell1))
           (fe-2 (get-fe as2 cell2)))
       (lret ((result
-              (fl.parallel::thread-local-memoize
-               pool
-               (lambda (fe-1 fe-2)
-                 (let ((comps-1 (components fe-1))
-                       (comps-2 (components fe-2)))
-                   (make-filled-array
-                    (list (length comps-1) (length comps-2))
-                    :initializer (lambda (i j)
-                                   (make-real-matrix (nr-of-dofs (aref comps-1 i))
-                                                     (nr-of-dofs (aref comps-2 j)))))))
-               (list fe-1 fe-2))))
-        (array-for-each (lambda (mat) (x<-0 mat)) result)))))
+               (let ((comps-1 (components fe-1))
+                     (comps-2 (components fe-2)))
+                 (make-filled-array
+                  (list (length comps-1) (length comps-2))
+                  :initializer (lambda (i j)
+                                 (make-real-matrix (nr-of-dofs (aref comps-1 i))
+                                                   (nr-of-dofs (aref comps-2 j))))))))
+        (array-for-each #'x<-0 result))))
+  (:method :around (as1 cell1 &optional (as2 as1) (cell2 cell1))
+    "Try using a pool if provided"
+    (if (and *use-pool-p* *local-mat-pool*)
+        (let* ((fe-1 (get-fe as1 cell1))
+               (fe-2 (get-fe as2 cell2))
+               (key (list fe-1 fe-2)))
+          (with-mutual-exclusion (*local-mat-pool*)
+            (aif (get-from-pool *local-mat-pool* key)
+                 (progn (array-for-each #'x<-0 it)
+                        it)
+                 (lret ((local-mat (call-next-method)))
+                   (assert local-mat)
+                   (register-in-pool *local-mat-pool* key local-mat)))))
+        (call-next-method))))
 
 ;;; transfer between local and global vector
 
@@ -284,12 +289,28 @@ value arrays corresponding to the finite element."
 ;;; <sparse-matrix> interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defparameter *check-lock* (bordeaux-threads:make-recursive-lock))
+(defparameter *check-hash-table* (make-hash-table :test 'equal))
+(defun lock (mat rk)
+  (bordeaux-threads:with-recursive-lock-held (*check-lock*)
+    (aif (gethash mat *check-hash-table*)
+         (error "Concurrent access to matrix~%~A~%from row~%~A~%and row~%~A~%" mat it rk)
+         (setf (gethash mat *check-hash-table*) rk))))
+(defun unlock (mat)
+  (bordeaux-threads:with-recursive-lock-held (*check-lock*)
+    (remhash mat *check-hash-table*)))
+
+(defun delay-possible-p (keys)
+  (or (notany #'identification-p keys)
+      (let ((ids (remove-if-not #'identification-p keys)))
+        (= (length (remove-duplicates ids)) (length ids)))))
+
 (defmethod global-local-matrix-operation ((smat <ansatz-space-automorphism>) local-mat
                                           (image-cell <cell>) (domain-cell <cell>)
                                           operation
                                           &key
                                           (image-subcells t) (domain-subcells t)
-                                          (delay-p t))
+                                          (delay-p nil))
   (declare (optimize debug))
   (let ((domain-fe (get-fe (domain-ansatz-space smat) domain-cell))
 	(image-fe (get-fe (image-ansatz-space smat) image-cell)))
@@ -315,43 +336,93 @@ value arrays corresponding to the finite element."
                      (map 'list (rcurry #'cell-key mesh) (subcells image-cell))
                      (list (cell-key image-cell mesh))))
                (col-keys
-                 (if domain-subcells
-                     (map 'list (rcurry #'cell-key mesh) (subcells domain-cell))
-                     (list (cell-key domain-cell mesh)))))
-          (with-mutual-exclusion (smat)
-            (let* ((mblocks (extract-value-blocks smat row-keys col-keys))
-                   (operation
-                     (ecase operation
-                       (:local<-global #'fl.matlisp::matop-x<-y!)
-                       (:global<-local #'fl.matlisp::matop-x->y!)
-                       (:global+=local #'fl.matlisp::matop-y+=x!)
-                       (:global-=local #'fl.matlisp::matop-y-=x!))))
-              (flet ((worker (vblock-index-1)
-                       (loop
-                         for vblock-index-2 below (length col-keys) do
-                           (whereas ((global-block (aref mblocks vblock-index-1 vblock-index-2)))
-                             (loop for comp1 below (nr-of-components image-fe) do
-                               (loop for comp2 below (nr-of-components domain-fe) do
-                                 (whereas ((local-block (aref local-mat comp1 comp2)))
-                                   (funcall
-                                    operation
-                                    local-block
-                                    global-block
-                                    (aref in-global-start-1 comp1 vblock-index-1)
-                                    (aref in-global-start-2 comp2 vblock-index-2)
-                                    (aref in-local-start-1 comp1 vblock-index-1)
-                                    (aref in-local-start-2 comp2 vblock-index-2)
-                                    (aref in-local-start-1 comp1 (1+ vblock-index-1))
-                                    (aref in-local-start-2 comp2 (1+ vblock-index-2))))))))))
-                (if delay-p
-                    ;; we delay the calculation and return a list of thunks
-                    ;; which can be processed in parallel
-                    (mapcar (lambda (k) (fl.macros::delay (worker k)))
-                            (range< 0 (length row-keys)))
-                    ;; otherwise all operations are performed immediately
-                    (loop for k below (length row-keys)
-                          do (worker k))
-                    )))))))))
+                 (if (and (eq image-cell domain-cell)
+                          (eq image-subcells domain-subcells))
+                     ;; shortcut: col-keys:=row-keys
+                     row-keys
+                     (if domain-subcells
+                         (map 'list (rcurry #'cell-key mesh) (subcells domain-cell))
+                         (list (cell-key domain-cell mesh))))))
+          (let* ((mblocks (with-mutual-exclusion (smat)
+                            (extract-value-blocks smat row-keys col-keys)))
+                 (operation
+                   (ecase operation
+                     (:local<-global #'fl.matlisp::matop-x<-y!)
+                     (:global<-local #'fl.matlisp::matop-x->y!)
+                     (:global+=local #'fl.matlisp::matop-y+=x!)
+                     (:global-=local #'fl.matlisp::matop-y-=x!))))
+            (flet ((worker (vblock-index-1)
+                     (loop
+                       for vblock-index-2 below (length col-keys) do
+                         (whereas ((global-block (aref mblocks vblock-index-1 vblock-index-2)))
+                           (lock global-block (elt row-keys vblock-index-1))
+                           (loop for comp1 below (nr-of-components image-fe) do
+                             (loop for comp2 below (nr-of-components domain-fe) do
+                               (whereas ((local-block (aref local-mat comp1 comp2)))
+                                 (funcall
+                                  operation
+                                  local-block
+                                  global-block
+                                  (aref in-global-start-1 comp1 vblock-index-1)
+                                  (aref in-global-start-2 comp2 vblock-index-2)
+                                  (aref in-local-start-1 comp1 vblock-index-1)
+                                  (aref in-local-start-2 comp2 vblock-index-2)
+                                  (aref in-local-start-1 comp1 (1+ vblock-index-1))
+                                  (aref in-local-start-2 comp2 (1+ vblock-index-2))))))
+                           (unlock global-block)))))
+              (values
+               ;; we return a list of thunks
+               ;; which can be processed in parallel
+               (mapcar (lambda (k) (lambda () (worker k)))
+                       (range< 0 (length row-keys)))
+               ;; but also a flag indicating if parallel processing is possible
+               ;; which may not be the case if the cell contains identified subcells
+               (and delay-p
+                    (delay-possible-p row-keys)
+                    (or (eq row-keys col-keys)
+                        (delay-possible-p col-keys))))
+              )))))))
+
+(defclass chunk-queue (parqueue)
+  ((in-work-count :initform 0)
+   (finalizer :initform nil))
+  (:documentation "Queue for chunk work.  A chunk is a list of thunks,
+which can be enqueued only if the queue is empty."))
+
+(defmethod dequeue :after ((cq chunk-queue))
+  (with-mutual-exclusion (cq)
+    (with-slots (in-work-count) cq
+      (incf in-work-count))))
+  
+(defun work-done (cq)
+  (with-mutual-exclusion (cq)
+    (with-slots (in-work-count finalizer) cq
+      (decf in-work-count)
+      (when (and finalizer (emptyp cq) (zerop in-work-count))
+        (funcall finalizer)
+        (setf finalizer nil)))))
+
+(defgeneric work-on-queue (work-queue)
+  (:method ((cq chunk-queue))
+      (loop for work = (with-mutual-exclusion (cq)
+                         (unless (emptyp cq)
+                           (dequeue cq)))
+            while work do
+              (funcall work)
+              (work-done cq))))
+
+(defgeneric chunk-enqueue (cq chunk &optional finalizer)
+  (:method ((cq chunk-queue) (chunk list) &optional finalizer)
+      (loop until (with-mutual-exclusion (cq)
+                    (with-slots (in-work-count) cq
+                      (when (and (emptyp cq)
+                                 (zerop in-work-count))
+                        ;; we can get rid of the work chunk
+                        (dolist (work chunk t)
+                          (enqueue work cq))
+                        (setf (slot-value cq 'finalizer) finalizer)
+                        t)))
+            do (work-on-queue cq))))
 
 (defmethod fill-local-from-global-mat ((smat <sparse-matrix>) local-mat
                                        (cell <cell>) &optional (domain-cell cell))
@@ -382,6 +453,11 @@ value arrays corresponding to the finite element."
           (fe (get-fe fe-class (n-cube 2))))
          ;;(nr-of-dofs (aref (components fe) 0))
     (fe-secondary-information fe))
+
+  (let ((cq (make-instance 'chunk-queue)))
+    (chunk-enqueue cq (list (_ (print 1))  (_ (print 2))) (_ (print "fertig")))
+    (work-on-queue cq))
+
   )
 
 ;;; (test-sparseif)

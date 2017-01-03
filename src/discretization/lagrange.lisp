@@ -155,7 +155,7 @@ lower-dimensional shapes and coordinates."
 ;;;; fe-class definitions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(with-memoization (:test 'equalp)
+(with-memoization (:test 'equalp :debug t)
   (defun cell-lagrange-fe (cell order type &optional disc)
     "Returns a Lagrange fe depending on reference cell, an order \(which
 can be number or vector\), and a type symbol."
@@ -173,10 +173,13 @@ can be number or vector\), and a type symbol."
 				(cell-lagrange-fe refcell order type))
 		      order)))))))
 
-(with-memoization (:test 'equalp)
+(with-memoization (:test 'equalp :debug t)
   (defun lagrange-fe (order &key (nr-comps 1) (type :uniform))
-    "Constructor for Lagrange fe."
+    "Constructor for Lagrange fe.  nr-comps=nil builds a scalar fe-discretization,
+otherwise a vector-fe-discretization is built."
     (declare (notinline lagrange-fe))
+    (when (vectorp order)
+      (assert (= (length order) nr-comps)))
     (when (and nr-comps (numberp order))
       (setq order (make-array nr-comps :initial-element order)))
     ;; (vectorp order) is now indicator for vector-fe/scalar-fe
@@ -186,8 +189,12 @@ can be number or vector\), and a type symbol."
 			'<vector-fe-discretization>
 			'<scalar-fe-discretization>))))
 	(with-slots (components cell->fe) disc
-	  (setf (get-property disc :type) type)
-	  (setf cell->fe (rcurry #'cell-lagrange-fe order type disc))
+	  (setf (get-property disc :type) type
+                (get-property disc :order) order
+                (get-property disc :nr-comps) nr-comps)
+	  (setf cell->fe
+                (lambda (cell)
+                  (cell-lagrange-fe cell order type disc)))
 	  (if (vectorp order)
 	      (setf components
 		    (vector-map (rcurry #'lagrange-fe :nr-comps nil :type type)

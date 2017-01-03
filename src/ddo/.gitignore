@@ -1,0 +1,7 @@
+*~
+*.fasl
+*.log
+*.fig.bak
+TAGS
+semantic.cache
+mpi-worker

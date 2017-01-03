@@ -72,6 +72,8 @@ solution strategies for continuous, stationary PDE problems."))
     (ensure (slot-value fe-strategy 'solver)
 	    (select-solver discretized-problem solver-blackboard))
     (measure-time-for-block ("~&Solver realtime: ~F seconds~%")
+      (sb-ext:gc :full t)
+      (room)
       ;;(let ((fl.parallel::*kernel* nil))  ;; !!!
       (solve (slot-value fe-strategy 'solver) solver-blackboard))
     (setf solution (getbb solver-blackboard :solution))))

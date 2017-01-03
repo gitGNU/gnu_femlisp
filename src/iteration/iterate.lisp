@@ -84,6 +84,20 @@
   "Observe time during an iteration.  This should be used as element in the
 observe list of an iteration.")
 
+(defparameter *step-observe*
+  (list "Step" "~4D"
+        #'(lambda (blackboard) (getbb blackboard :step)))
+  "Observe step number during an iteration.  This should be used as element in the
+observe list of an iteration.")
+
+(defun float-quantity-observe (name id &optional (float-format "5,2") (length 12))
+  "Observes the float quantity which can be found with @arg{id} on the blackboard
+under a name @arg{name} which should be a string."
+  (let ((length (max length (length name))))
+    (list (format nil "~vA" length name)
+          (format nil "~~~D,~AE" length float-format)
+          (lambda (blackboard) (getbb blackboard id)))))
+  
 (defun compile-termination-test (test)
   "Compiles a given list expression TEST into a test function acting on a
 blackboard.  Keywords are replaced by macros accessing the blackboard."
@@ -202,6 +216,10 @@ name together with the name of the inner iteration."
 	     (setf status :failure))
 	    (t (setf status nil))))))
 
+(defmethod next-step ((iter <iteration>) blackboard)
+  ;; do nothing
+  )
+  
 (defmethod next-step :after ((iter <iteration>) blackboard)
   "Increment step counter."
   (incf (getbb blackboard :step)))
@@ -233,8 +251,11 @@ the correct order."
 (defun test-iterate ()
   (let ((iter (make-instance
 	       '<iteration>
-	       :success-if '(and (> :step 5) (< :defnorm 1.0e-8)))))
-    (describe iter)
-    (terminate-p iter (blackboard :step 10 :defnorm 1.0e-9)))
+	       :success-if '(or (= :step 5) (< :defnorm 1.0e-8))
+               :observe (list *step-observe* *time-observe*)
+               :output t)))
+    ;; (describe iter)
+    (iterate iter (blackboard :step 0 :defnorm 1.0)))
   )
+
 (fl.tests:adjoin-test 'test-iterate)

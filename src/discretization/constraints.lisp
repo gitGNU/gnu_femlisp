@@ -254,9 +254,9 @@ sets the constraint matrix to identity for the level-unknowns."
 (defun assemble-constraints (ansatz-space)
   (macrolet ((set-constraints (name P Q r)
 	       `(symbol-macrolet ((line (properties ansatz-space)))
-		 (setf (getf line ,(intern (concatenate 'string name "-P") :keyword)) ,P)
-		 (setf (getf line ,(intern (concatenate 'string name "-Q") :keyword)) ,Q)
-		 (setf (getf line ,(intern (concatenate 'string name "-R") :keyword)) ,R))))
+                  (setf (getf line ,(intern (concatenate 'string name "-P") :keyword)) ,P)
+                  (setf (getf line ,(intern (concatenate 'string name "-Q") :keyword)) ,Q)
+                  (setf (getf line ,(intern (concatenate 'string name "-R") :keyword)) ,R))))
 	   
     ;; constraints assembly
     (let ((constraints-P (make-ansatz-space-automorphism ansatz-space))
@@ -267,23 +267,26 @@ sets the constraint matrix to identity for the level-unknowns."
       ;; hanging nodes constraints
       (loop for level from (1- (top-level h-mesh)) downto 0
 	    do
-	    (multiple-value-bind (hanging-P hanging-Q hanging-r)
-		(hanging-nodes-constraints ansatz-space :level level)
-	      (multiple-value-setq (constraints-P constraints-Q constraints-r)
-		(combined-constraints constraints-P constraints-Q constraints-r
-				      hanging-P hanging-Q hanging-r))
-	      #+(or)(break)))
+               (multiple-value-bind (hanging-P hanging-Q hanging-r)
+                   (hanging-nodes-constraints ansatz-space :level level)
+                 (multiple-value-setq (constraints-P constraints-Q constraints-r)
+                   (combined-constraints constraints-P constraints-Q constraints-r
+                                         hanging-P hanging-Q hanging-r))
+                 #+(or)(break)))
       (set-constraints "HANGING" constraints-P constraints-Q constraints-r)
-      
+      (dbg :constraints "Hanging node constraints: ~D" (nrows constraints-P))
       ;; identification constraints
+
+      ;; do we need this????
+      #+(or)
       (loop for level from 0 upto (top-level h-mesh)
 	    do
-	    (multiple-value-bind (id-P id-Q id-r)
-		(identification-constraints ansatz-space :level level)
-	      (multiple-value-setq (constraints-P constraints-Q constraints-r)
-		(combined-constraints constraints-P constraints-Q constraints-r
-				      id-P id-Q id-r))
-	      #+(or)(break)))
+               (multiple-value-bind (id-P id-Q id-r)
+                   (identification-constraints ansatz-space :level level)
+                 (multiple-value-setq (constraints-P constraints-Q constraints-r)
+                   (combined-constraints constraints-P constraints-Q constraints-r
+                                         id-P id-Q id-r))
+                 #+(or)(break)))
       ;;(set-constraints "IDENTIFICATION" constraints-P constraints-Q constraints-r)
       
       ;; essential boundary constraints
@@ -300,7 +303,9 @@ sets the constraint matrix to identity for the level-unknowns."
 	  (combined-constraints constraints-P constraints-Q constraints-r
 				essential-P essential-Q essential-r))
 	#+(or)(break)
-	(set-constraints "ESSENTIAL" essential-P essential-Q essential-r))
+        (dbg :constraints "Essential BC constraints: ~D" (nrows essential-P))
+	(set-constraints "ESSENTIAL" essential-P essential-Q essential-r)
+        )
     
       ;; eliminate the constraints
       (let ((new-P (extend-by-identity constraints-P (column-table constraints-Q) :copy t))
@@ -327,6 +332,8 @@ nodes and essential boundary conditions.  When assemble-locally is t the
 sparse structure of mat is used instead of the sparse structure of the
 hanging node interface.  When include-constraints is non-nil, the
 constraints are included in matrix and rhs."
+  (when (mzerop constraints-P)
+    (return-from eliminate-constraints (values mat rhs)))
   (let ((result-mat (and mat (make-analog mat)))
 	(result-rhs (and rhs (make-analog rhs)))
 	(region (make-hash-table)))

@@ -1,17 +1,26 @@
 # -*- mode: text; -*-
 
-This directory contains some software by other parties which can be used
-together with Femlisp.
+This directory contains some software by other parties which can be
+used together with Femlisp.  Note that this is only useful, if those
+libraries cannot be installed outside of Femlisp for general use.
 
-- Dan Barlow's ASDF system definition utility.  This is bundled with SBCL
-  but not yet with CMUCL.  This software is part of the CCLAN project
-  hosted at www.sourceforge.net.
+- Jonathan Richard Shewchuk's TRIANGLE for triangulating 2D domains.
+  This library can be fetched from the web by issuing the command
+  "make triangle" from within the Femlisp main directory.  On Debian
+  Linux and variants, do "apt install triangle-bin" instead.
 
-- Mark Kantrowitz' INFIX package from the CMU AI repository.  Because the
-  license is not free in its strict sense, it is not included
-  automatically, but can be fetched from the web by issuing the command
-  "make infix" from within the Femlisp main directory.
+- Hang Si's Tetgen for generating tetrahedral meshes.  This library
+  can be fetched from the web by issuing the command "make tetgen"
+  from within the Femlisp main directory.  On Debian Linux and
+  variants, do "apt install tetgen" instead.
 
-- Jonathan Richard Shewchuk's TRIANGLE for triangulating 2D domains.  This
-  can be fetched from the web by issuing the command "make triangle" from
-  within the Femlisp main directory.
+- Temporarily, I have put my adaption "cl-cpu-affinity" of Nikodemus
+  Siivola's "sb-cpu-affinity" library also in this directory.  It will
+  be removed, as soon as it becomes a standard Quicklisp library.
+
+- For setting CPU affinities, Femlisp needs the "lscpu" command for
+  determining the machine architecture it is currently running on.
+  Since I encountered problems calling this command at runtime when
+  memory was tight, Femlisp looks in this directory ("external"), if
+  it can find a file "lscpu-e-output" which should contain the output of
+  "lscpu -e".

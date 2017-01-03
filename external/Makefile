@@ -29,10 +29,13 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ###########################################################################
 
-all: triangle
+all: triangle tetgen
 
 triangle:
 	cd triangle; make
+
+tetgen:
+	cd tetgen; make
 
 clean:
 	find . \( -name "*.o" -o -name "*.fas" -o -name "*.fasl" -o -name "*.x86f" \) -exec rm {} \;

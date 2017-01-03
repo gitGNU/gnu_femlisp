@@ -45,7 +45,7 @@
    
    ;; process communication
    "RUN-PROGRAM" "PROCESS-INPUT" "PROCESS-OUTPUT" "PROCESS-ERROR"
-   "PROCESS-CLOSE" "PROCESS-STATUS"
+   "PROCESS-CLOSE" "PROCESS-STATUS" "RUN-PROGRAM-OUTPUT"
 
    ;; load alien code
    "LOAD-FOREIGN-LIBRARY" "DEF-FUNCTION" "SIMPLIFIED-DEF-FUNCTION"
@@ -296,6 +296,17 @@ compatible way of ensuring method compilation."
   #-(or cmu ccl scl sbcl)
   (portability-warning 'process-status process)
   )
+
+(defun run-program-output (program args)
+  "Returns a list of all lines of the output of @function{RUN-PROGRAM}
+when called with the arguments @arg{PROGRAM} and @arg{ARGS}."
+  (let ((process (run-program (find-executable program) args
+                              :wait nil :input :stream :output :stream
+                              :error-output nil)))
+    (unwind-protect
+	 (with-open-stream (stream (process-output process))
+	   (loop for line = (read-line stream nil) while line collect line))
+      (process-close process))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Memory

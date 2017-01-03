@@ -323,8 +323,8 @@ grid, or an algebraic multigrid iteration."
 	      rhs-vec (make-array nr-levels :initial-element nil)
 	      res-vec (make-array nr-levels :initial-element nil)
 	      residual-p-vec (make-array nr-levels :initial-element nil))
-	(setq pre-smoother-vec (make-array nr-levels)
-	      post-smoother-vec (make-array nr-levels))
+	(setq pre-smoother-vec (make-array nr-levels :initial-element nil)
+	      post-smoother-vec (make-array nr-levels :initial-element nil))
 	;; smoothers on levels above base-level
 	(loop for level from top-level above base-level do
 	     (let* ((A-l (aref a-vec level))
@@ -365,28 +365,29 @@ grid, or an algebraic multigrid iteration."
 		  (aref a-vec base-level))))
 	
 	;; and return the multigrid iterator
-	(make-instance
-	 '<iterator>
-	 :matrix A
-	 :residual-before t
-	 :initialize nil
-	 :iterate
-	 #'(lambda (x b r)
-	     ;; set top-level solution, rhs, res to given values
-	     (setf (sol_ top-level) x
-		   (rhs_ top-level) b
-		   (res_ top-level) r)
-	     ;; initialize solver state
-	     (setf (residual-p_ top-level) t)
-	     (setf current-level top-level)
+	(lret ((iterator (make-instance
+                          '<iterator>
+                          :matrix A
+                          :residual-before t
+                          :initialize nil
+                          :iterate
+                          #'(lambda (x b r)
+                              ;; set top-level solution, rhs, res to given values
+                              (setf (sol_ top-level) x
+                                    (rhs_ top-level) b
+                                    (res_ top-level) r)
+                              ;; initialize solver state
+                              (setf (residual-p_ top-level) t)
+                              (setf current-level top-level)
 	     
-	     (if (fmg mg-it)
-		 (f-cycle mg-it mg-data)
-		 (lmgc mg-it mg-data))
-	     x)
-	 :residual-after
-	 (if (= base-level top-level)
-	     (slot-value coarse-grid-it 'fl.iteration::residual-after)
-	     (aand (aref post-smoother-vec top-level)
-		   (slot-value it 'fl.iteration::residual-after))))
+                              (if (fmg mg-it)
+                                  (f-cycle mg-it mg-data)
+                                  (lmgc mg-it mg-data))
+                              x)
+                          :residual-after
+                          (if (= base-level top-level)
+                              (slot-value coarse-grid-it 'fl.iteration::residual-after)
+                              (aand (aref post-smoother-vec top-level)
+                                    (slot-value it 'fl.iteration::residual-after))))))
+          (setf (get-property iterator 'mg-data) mg-data))
 	))))

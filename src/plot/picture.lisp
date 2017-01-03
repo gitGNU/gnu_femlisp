@@ -119,6 +119,17 @@ picture is implemented as a full-tensor of rank 2 or 3."))
 			       (t int-val))))
 		   pic)))
 
+(defun array-to-picture (array &optional (stride 1))
+  "Convert a two-dimensional array of positive numbers to a picture"
+  (lret* ((m (array-dimension array 0))
+          (n (array-dimension array 1))
+          (pic (make-picture
+                m n :element-type '(unsigned-byte 8))))
+    (dotimes (i m)
+      (dotimes (j n)
+        (setf (pic-ref pic i j)
+              (min (* stride (aref array i j)) 255))))))
+
 (defgeneric write-pgm (picture &key &allow-other-keys))
 
 (defmethod write-pgm ((pic picture) &key (filename *plot-picture-file*) (format 'P5))

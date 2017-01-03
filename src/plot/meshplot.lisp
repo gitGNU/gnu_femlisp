@@ -108,7 +108,10 @@
 			       &key (cells nil cells-p) part transformation)
   "Plots a mesh. If provided, @arg{cells} should be 1-cells."
   (unless cells-p
-    (setq cells (1d-surface-cells skel part)))
+    (setq cells
+          (if (typep skel '<hierarchical-mesh>)
+              (1d-surface-cells skel part)
+              (cells-of-dim skel 1))))
   (unless cells (return-from graphic-write-data))
   (assert (every #'(lambda (cell) (= (dimension cell) 1)) cells))
   (let* ((vertex-indices (compute-cell-vertices cells))

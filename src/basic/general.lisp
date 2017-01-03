@@ -109,11 +109,13 @@ unstructured information about this object."))
 A hook is a function which may be called on a property object
 for updating other properties.")
 
-(defun call-hooks (function-name object)
+(defun call-hooks (function-name object &rest args)
   "Call all hooks defined for @arg{function-name} on @arg{object} and
 returns @arg{object}."
-  (loop for hook-entry in (gethash function-name *hooks*) do
-    (funcall (cdr hook-entry) object))
+  (dbg :hook "Calling hooks for ~A" function-name)
+  (loop for (hook-id . hook) in (gethash function-name *hooks*) do
+    (dbg :hook "Calling hook ~A" hook-id)
+    (apply hook object args))
   object)
 
 (defun add-hook (function-name hook-name hook-function)
@@ -127,6 +129,15 @@ returns @arg{object}."
               (setf (cdr entry) hook-function)
               (pushnew (cons hook-name hook-function) hook-list))))
     (setf (gethash function-name *hooks*) hook-list)))
+
+;;;; Check
+
+(defgeneric check (obj)
+  (:documentation "Checks the data structure of @arg{obj}.")
+  (:method-combination progn)
+  (:method progn (obj)
+    "Default method does nothing"
+    nil))
 
 ;;;; Testing
 

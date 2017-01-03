@@ -129,7 +129,7 @@ a function, you may use this base class."))
 	      :solution))
    :residual-after nil))
 
-(defun linsolve (mat rhs &key sol res output iteration (residual-norm #'norm)
+(defun linsolve (mat rhs &key sol res output iteration (residual-norm #'l2-norm)
 		 (threshold 1.0d-12) reduction (maxsteps 100)
 		 success-if failure-if &allow-other-keys)
   "Old and deprecated interface for solving linear problems."

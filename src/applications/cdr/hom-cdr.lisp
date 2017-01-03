@@ -60,7 +60,7 @@
 
 ;;; cell problems defined by the coefficient function on regular meshes
 
-(defun cdr-cell-problem (dim/domain &key diffusion)
+(defun cdr-cell-problem (dim/domain &key diffusion (corner-constraint-p t))
   "Returns the cell problem on the n-cell-domain of the given dimension.
 Gamma yields dim right hand sides of the form A e_k, i.e. the columns of
 the diffusion tensor."
@@ -77,7 +77,7 @@ the diffusion tensor."
 	   ((= (dimension patch) dim)
 	    (list (ensure-tensor-coefficient 'FL.ELLSYS::A diffusion)
 		  (ensure-coefficient 'FL.ELLSYS::H (vector (eye dim)))))
-	   ((mzerop (midpoint patch))
+	   ((and corner-constraint-p (mzerop (midpoint patch)))
 	    (list (constraint-coefficient 1 1)))))
 	 )))
 
@@ -95,14 +95,16 @@ the diffusion tensor."
    #'(lambda (x)
        (scal (reduce #'* (map 'vector #'(lambda (xc) #I(2.0+sin(2*pi*xc))) x))
 	     (eye dim)))))
-  
+
+(defun ball-diffusion (dim eps)
+  (lambda (x)
+    (scal (if (<= (norm (m- (make-double-vec dim 0.5) x)) 0.25)
+              eps 1.0)
+          (eye dim))))
+
 (defun simple-ball-inlay-cell-problem (dim eps)
-  (cdr-cell-problem
-   dim :diffusion
-   #'(lambda (x)
-       (scal (if (<= (norm (m- (make-double-vec dim 0.5) x)) 0.25)
-		 eps 1.0)
-	     (eye dim)))))
+  (cdr-cell-problem  dim :diffusion (ball-diffusion dim eps)))
+
 
 (defun chequerboard-problem (dim eps)
   "Returns cell problem on the n-cell-domain of the given dimension with
@@ -186,7 +188,7 @@ must be a scalar multiple of the identity."
 ;;; Testing:
 #+(or)
 (let ((*output-depth* 2))
-  (storing (cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t)))
+  (storing (cdr-interior-effective-coeff-demo (porous-cell-problem 2) 4 2 :plot t :output 2)))
 
 #+(or)(cdr-interior-effective-coeff-demo (inlay-cell-problem 2 0.1) 4 2)
 #+(or)

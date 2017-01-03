@@ -32,25 +32,32 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(in-package :cl-user)
+
 (defpackage "FL.PARALLEL"
   (:use "COMMON-LISP" "FL.UTILITIES" "FL.MACROS" "FL.DEBUG"
         "LPARALLEL"  "LPARALLEL.KERNEL" "LPARALLEL.QUEUE"
         "BORDEAUX-THREADS")
   (:export
+   ;; mutex.lisp
+   "MUTEX-OBJECT" "MUTEX-WRAP" "ACCESSING-EXCLUSIVELY" "WITH-MUTEX"
+   
+   ;; multiprocessing.lisp
+   "MP-DBG"
    "MUTEX-MIXIN" "WITH-MUTUAL-EXCLUSION"
    "WAITQUEUE-MIXIN" "MAKE-WAITQUEUE"
    "LOCKED-REGION-MIXIN" "WITH-REGION"
-   
-   "MP-DBG" "NEW-KERNEL"
-   "WITH-WORKERS" "WORK-ON" "WITH-ACCUMULATORS"
-
-   "PWORK"
-
-   ;; multiprocessing.lisp
    "WITH-FEMLISP-WORKERS"
    "WITH-ATOMIC-OUTPUT"
    "PARQUEUE"
-;;   "WITH-PARALLEL-NETWORK" "PARCELL" "NAMED-PARCELL" "VALUE"
+   "PARPOOL" "REGISTER-IN-POOL" "GET-FROM-POOL" "PUT-BACK-IN-POOL"
+   "SET-REFCOUNT" "DECREASE-REFCOUNT"
+
+   ;; parallel.lisp
+   "NEW-KERNEL" "PWORK"
+
+   ;; parallel-adaptions.lisp
+   "WITH-WORKERS" "WORK-ON" "WITH-ACCUMULATORS"
    )
   (:documentation
    "This package provides some Femlisp extensions for parallel execution

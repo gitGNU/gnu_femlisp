@@ -111,17 +111,13 @@ Costanza's @code{AspectL}.")
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defparameter *discrete-iterative-solver-observe*
-  (list (list "Step" "~4D"
-	      #'(lambda (blackboard) (getbb blackboard :step)))
-	(list "||residual||" "~12,5,2E"
-	      #'(lambda (blackboard) (getbb blackboard :defnorm)))
-	(list "res[k]/res[k-1]" "   ~12,5,2E"
-	      #'(lambda (blackboard)
-		  (getbb blackboard :step-reduction))))
+  (list *step-observe*
+        (float-quantity-observe "||residual||" :defnorm)
+        (float-quantity-observe "res[k]/res[k-1]" :step-reduction))
   "Standard observe quantities for iterative solvers.")
 
 (defclass <discrete-iterative-solver> (<iterative-solver>)
-  ((residual-norm :reader residual-norm :initform #'norm
+  ((residual-norm :reader residual-norm :initform #'l2-norm
 		  :initarg :residual-norm)
    (observe :initform *discrete-iterative-solver-observe*))
   (:documentation "The base class of solvers for discrete linear and

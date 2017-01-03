@@ -68,6 +68,7 @@
   (:method :around (function dictionary &key parallel &allow-other-keys)
     (if (and parallel lparallel:*kernel*)
         (with-workers (function)
+          ;;; we do not want nested parallelization!
           (call-next-method #'work-on dictionary :parallel nil))
         (call-next-method)))
   (:method (func (dic list) &key &allow-other-keys)

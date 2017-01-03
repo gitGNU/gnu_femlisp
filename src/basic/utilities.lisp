@@ -290,6 +290,14 @@ the displaced array.  (Erik Naggum, c.l.l. 17.1.2004)"
 		    start (+ start offset))
 	      (return (values array start (+ start (length array))))))))
 
+(defun array-contents (array)
+  (named-let recur ((k 0)
+                    (evaluator (curry #'aref array)))
+    (if (= k (array-rank array))
+        (funcall evaluator)
+        (loop for i below (array-dimension array k)
+              collect (recur (1+ k) (curry evaluator i))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; List operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1254,6 +1262,7 @@ called:
     (dequeue x))
 
   (make-filled-array '(2 2) :initializer (_ (* _1 _2)))
+  (array-contents #2a((1 2 3) (4 5 6)))
   )
 
 ;; (fl.utilities::test-utilities)

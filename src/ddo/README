@@ -1,0 +1,107 @@
+
+INFO -*- mode: Org; auto-fill-mode: nil -*-
+
+* DDO = Dynamic Distributed Objects
+
+** Project goal
+
+This project aims at providing an object-oriented layer for painlessly
+managing distributed objects.
+
+
+* Testing
+
+** Compiling the workers
+
+# in the ddo directory do
+sbcl --eval "(asdf:load-system :mpi-worker)"
+
+or (if no distributed memory tests)
+sbcl --eval "(asdf:load-system :femlisp-initialize)"
+
+** Starting the MPI workers locally
+
+# in the ddo directory do
+mpirun -np 2 mpi-worker
+
+# then connect via following the commands in "test-elahom.lisp"
+# especially by loading "connect-to-workers.lisp" and sending
+# commmands via as (ddo ...)
+
+** Starting external MPI workers on Norton/Sultana
+
+mpirun -np 1 -bysocket -bind-to-socket ./mpi-worker --dynamic-space-size 80000
+mpirun -np 2 -bysocket -bind-to-socket ./mpi-worker --dynamic-space-size 40000
+mpirun -np 3 -bysocket -bind-to-socket ./mpi-worker --dynamic-space-size 25000
+mpirun -np 4 -bysocket -bind-to-socket ./mpi-worker --dynamic-space-size 20000
+mpirun -np 8 -bysocket -bind-to-socket ./mpi-worker --dynamic-space-size 16000
+
+mpirun -np 24 --map-by ppr:6:socket ./mpi-worker --dynamic-space-size 5000
+(liefert 6 pro socket aber jeder mit 6 threads aktiviert)
+
+mpirun -np 24  --map-by ppr:2:hwthread ./mpi-worker --dynamic-space-size 5000
+(verwendet auch HT-Threads)
+
+mpirun -np 24 --map-by hwthread ./mpi-worker --dynamic-space-size 5000
+(verwendet auch HT-Threads)
+
+
+# start via script
+mpirun -np 4 -bysocket -bind-to-socket ./mpi-worker --dynamic-space-size 16000 --script ddo-femlisp/test-elahom-script.lisp
+
+** Starting external MPI workers on Lima
+qsub -d ~/CL-HOME/ddo -I -l nodes=1:ppn=24:likwid:f2.66,walltime=01:00:00
+mpirun -np 1 --bind-to socket mpi-worker --dynamic-space-size 16000
+
+# Falls Probleme mit Modulen:
+
+module load intel64 likwid intelmpi mkl
+
+# for more nodes
+qsub -d ~/CL-HOME/ddo -I -l nodes=3:ppn=24:likwid:f2.66,walltime=01:00:00
+mpirun_rrze -np 6 mpi-worker --dynamic-space-size 16000
+
+Alternatively:
+mpirun_rrze -np 2 mpi-script-worker --dynamic-space-size 16000
+
+# Or even (with nodes and walltime suitably adapted)
+qsub -d ~/CL-HOME/ddo -l nodes=2:ppn=24:likwid:f2.66,walltime=01:00:00 mpirun-worker.sh
+
+** Starting external MPI workers on Emmy
+qsub -d ~/CL-HOME/ddo -I -l nodes=3:ppn=40:likwid:f2.66,walltime=01:00:00
+mpirun_rrze -npernode 2 mpi-worker --dynamic-space-size 32000
+
+
+** Discretization test
+
+- Execute the commands in "test-discretize" interactively
+
+- Alternatively, if "test-discretize" is suitably prepared:
+
+sbcl --dynamic-space-size=2000<<EOF
+(require :ddo-femlisp)
+(load "test-discretize.lisp")
+EOF
+
+
+* Jobs
+
+qsub -d ~/CL-HOME/ddo -l nodes=1:ppn=24:likwid:f2.66,walltime=01:00:00 mpirun-worker.sh
+1900364.ladm1
+qsub -d ~/CL-HOME/ddo -l nodes=2:ppn=24:likwid:f2.66,walltime=01:00:00 mpirun-worker.sh
+1900365.ladm1
+qsub -d ~/CL-HOME/ddo -l nodes=3:ppn=24:likwid:f2.66,walltime=01:00:00 mpirun-worker.sh
+1900368.ladm1
+qsub -d ~/CL-HOME/ddo -l nodes=4:ppn=24:likwid:f2.66,walltime=01:00:00 mpirun-worker.sh
+1900369.ladm1
+qsub -d ~/CL-HOME/ddo -l nodes=6:ppn=24:likwid:f2.66,walltime=01:00:00 mpirun-worker.sh
+1900370.ladm1
+
+qsub -d ~/CL-HOME/ddo -l nodes=2:ppn=24:likwid:f2.66,walltime=01:00:00 mpirun-worker.sh
+1902809.ladm1
+
+* Bugs
+
+qsub -d ~/CL-HOME/ddo -l nodes=1:ppn=24:likwid:f2.66,walltime=01:00:00 mpirun-worker.sh
+mit "mpirun-worker.sh":
+mpirun -np $((2 * $PBS_NUM_NODES)) -npernode 2 mpi-worker --dynamic-space-size 16000 --script ddo-femlisp/test-elahom-script.lisp

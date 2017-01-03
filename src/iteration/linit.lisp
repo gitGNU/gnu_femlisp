@@ -45,7 +45,7 @@
   (:documentation "The <linear-iteration> class.  Linear iterations are
 e.g. <gauss-seidel> or <multigrid>."))
 
-(defclass <iterator> ()
+(defclass <iterator> (property-mixin)
   ((matrix :initarg :matrix :documentation
 	   "The matrix on which the iterator is working.")
    (initialize :initarg :initialize :initform nil :documentation
@@ -237,7 +237,7 @@ parameter, eta is the diagonal enhancement."))
 		(axpy! damp rblock x-block)
 		#+(or)(x<-0 rblock)
 		)))
-          (row-table mat) :parallel t)  ;; !!!
+          (row-table mat) :parallel t)
          #+(or)
 	 (for-each-row-key
 	  #'(lambda (row-key)
@@ -391,7 +391,6 @@ the iteration.")))
 (defun test-linit ()
   "Most tests can be found in linsolve.lisp."
   (make-instance '<multi-iteration> :base *undamped-jacobi* :nr-steps 2)
-  ;; test LU-iteration for full and sparse matrices
   (let* ((A (laplace-sparse-matrix 3))
 	 (b (make-image-vector-for A)))
     (fill-random! b 1.0)

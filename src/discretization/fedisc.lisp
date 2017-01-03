@@ -93,9 +93,9 @@ on for implementing matrixless computations."))
              (local-mass-mat (and mass-matrix (make-local-mat ansatz-space cell)))
              (local-rhs (and rhs (make-local-vec ansatz-space cell)))
              (fe-paras (loop for obj in (required-fe-functions coeffs)
-                          collect obj collect
-                          (get-local-from-global-vec
-                           cell (get-property problem (car obj))))))
+                             collect obj collect
+                                         (get-local-from-global-vec
+                                          cell (get-property problem (car obj))))))
         (dbg :disc "FE-parameters: ~A" fe-paras)
         (discretize-locally
          problem coeffs fe qrule geometry
@@ -141,45 +141,62 @@ complexity.")
       (apply #'assemble-interior as cells args)))
   (:method ((as <ansatz-space>) (where list) &key matrix mass-matrix rhs parallel-clustering &allow-other-keys)
       (declare (ignorable parallel-clustering))
+    (measure-time-for-block ("~&Ensuring matrix entries needs ~F seconds~%")
+      (let ((mesh (mesh matrix)))
+        (loop for cell in where
+              do
+                 (assert (skel-ref mesh cell))
+                 (loop
+                   with subcells = (subcells cell)
+                   for sc1 across subcells
+                   for key1 = (cell-key sc1 mesh) do
+                     (loop for sc2 across subcells
+                           for key2 = (cell-key sc2 mesh)
+                           when (entry-allowed-p matrix key1 key2)
+                             do (mref matrix key1 key2))))))
     ;; The matrix-transfer-queue contains work accessing the matrix.
     ;; This queue has to be empty, before a new chunk of parallel matrix transfer
     ;; operations can be pushed onto it!
-    (let ((mtq (make-instance 'parqueue)))
-      (labels ((try-matrix-transfer ()
-                 "Work on matrix transfer queue, if necessary."
-                 (loop for work = (with-mutual-exclusion (mtq)
-                                    (unless (emptyp mtq)
-                                      (dequeue mtq)))
-                       while work do (fl.macros::force work)))
-               (push-and-do-matrix-transfer (ops)
-                 "Try to push operations on the matrix transfer queue."
-                 (loop while ops do
-                   (with-mutual-exclusion (mtq)
-                     (when (emptyp mtq)
-                       (loop for op in ops do (enqueue op mtq))
-                       (setf ops ())))
-                   (try-matrix-transfer)))
-               (work-on-cell (cell)
-                 (try-matrix-transfer)  ; try to help other workers with matrix transfer
+    (let ((chunk-queue (make-instance 'chunk-queue)))
+      (flet ((work-on-cell (cell)
+               (let ((*use-pool-p* T))
+                 ;; try to help other workers with matrix transfer
+                 (work-on-queue chunk-queue)
+                 ;; then work on assembly
                  (dbg :disc-loop "Working on: ~A" cell)
                  (destructuring-bind (&key local-mat local-rhs local-mass-mat)
                      (assemble-cell cell as :matrix matrix :rhs rhs
                                             :mass-matrix mass-matrix)
-                   ;; accumulate to global matrix and rhs (if not nil)
-                   (when (and rhs local-rhs)
-                     (increment-global-by-local-vec cell rhs local-rhs))
-                   (when (and matrix local-mat)
-                     (push-and-do-matrix-transfer
-                      (global-local-matrix-operation
-                       matrix local-mat cell cell :global+=local :delay-p t)))
-                   (when (and mass-matrix local-mass-mat)
-                     (push-and-do-matrix-transfer
-                      (global-local-matrix-operation
-                       mass-matrix local-mass-mat cell cell :global+=local :delay-p t))))))
-        (with-workers (#'work-on-cell :parallel t)
+                   (flet ((matrix-update (gmat lmat)
+                            (when (and gmat lmat)
+                              (multiple-value-bind (ops delay-possible-p)
+                                  (global-local-matrix-operation
+                                   gmat lmat cell cell :global+=local :delay-p t)
+                                (cond (delay-possible-p
+                                       (chunk-enqueue chunk-queue ops
+                                                      (_ (awhen (and *use-pool-p* *local-mat-pool*)
+                                                           (put-back-in-pool it lmat))))
+                                       ;; and work on matrix transfer
+                                       (work-on-queue chunk-queue))
+                                      (t 
+                                       (with-mutual-exclusion (gmat)
+                                         (loop for op in ops do (funcall op)))
+                                       (awhen (and *use-pool-p* *local-mat-pool*)
+                                         (put-back-in-pool it lmat))))))))
+                     ;; accumulate to global matrix and rhs (if not nil)
+                     (when (and rhs local-rhs)
+                       (increment-global-by-local-vec cell rhs local-rhs))
+                     (matrix-update matrix local-mat)
+                     (matrix-update mass-matrix local-mass-mat)))
+                 )))
+        (with-workers (#'work-on-cell :parallel t)  ; !!!
           (dolist (cell where)
             (work-on cell)))
-        ))))
+         (when *local-mat-pool*
+           (dbg :local-mat-pool "LOCAL-MAT-POOL contains ~D objects after assembly"
+                (hash-table-count (slot-value *local-mat-pool* 'fl.parallel::ppes))))
+         ))
+    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Assembly of full problem

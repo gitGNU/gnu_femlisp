@@ -92,8 +92,11 @@ Returns the time in seconds together with the repetition count."
 (defmacro measure-time-for-block
     ((message &key (active-p '(fl.debug:dbg-p :log-times)) (real-p t))
      &body block)
-  `(lret ((time (measure-time (lambda () ,@block) 1 ,real-p)))
-     (when ,active-p (format t ,message time))))
+  (with-gensyms (time result)
+    `(let* (,result
+            (,time (measure-time (lambda () (setq ,result (progn ,@block)))
+                                1 ,real-p)))
+       (when ,active-p (format t ,message ,time)))))
 
 (defun daxpy-speed (n)
   "Returns the number of daxpy-ops for vectors of size @arg{n}."

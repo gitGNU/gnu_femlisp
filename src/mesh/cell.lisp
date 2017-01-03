@@ -465,13 +465,6 @@ cell boundary is copied."))
 	  (slot-value cell 'mapping))
     copy))
 
-(defgeneric check (obj)
-  (:documentation "Checks the data structure of @arg{obj}.")
-  (:method-combination progn)
-  (:method progn (obj)
-    "Default method does nothing"
-    nil))
-
 (defmethod check progn ((cell <cell-with-boundary>))
   (loop with side-dim = (1- (dimension cell))
      for side across (boundary cell) do

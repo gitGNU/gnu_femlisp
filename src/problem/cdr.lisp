@@ -332,7 +332,6 @@ Bratu reaction term."
 
 (defun test-cdr ()
 
-  #+(or)  ; fl.iteration is not necessarily available
   (let ((problem
 	 (create-problem 'FL.CDR::<CDR-PROBLEM>
 	     (:domain (n-cube-domain 2) :components '(u) :multiplicity 1)
@@ -344,8 +343,11 @@ Bratu reaction term."
 		 (coeff FL.CDR::SCALAR-SOURCE () 1.0)))
 	       (:external-boundary
 		(coeff FL.CDR::SCALAR-CONSTRAINT () 0.0)))))))
+    (assert problem)
+    #+(or)  ; fl.iteration is not yet available
     (solve (blackboard :problem problem :solver (fl.iteration::lu-solver)
-                       :success-if '(> :step 3) :output :all)))
+                       :success-if '(> :step 3) :output :all))
+    )
 
   (assert (get-property (cdr-model-problem 1) 'linear-p))
   (coefficients (cdr-model-problem 1))

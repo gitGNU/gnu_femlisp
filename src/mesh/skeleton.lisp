@@ -357,14 +357,35 @@ Warning: Up to now a quadratic algorithm is used."
 
 (defun skeleton-substance (skel)
   "The substance of a skeleton are those cells which are not boundary of a
-cell in @arg{cell}.  This function returns those cells in the form of a
+cell in @arg{skel}.  This function returns those cells in the form of a
 hash-table."
-  (lret ((non-bdry-cells (make-hash-table)))
+  (let ((non-bdry-cells (make-hash-table)))
     (doskel (cell skel)
       (setf (gethash cell non-bdry-cells) t))
     (doskel (cell skel)
       (loop for side across (boundary cell) do
-           (remhash side non-bdry-cells)))))
+        (dolist (side1 (identified-cells side skel))
+          (remhash side1 non-bdry-cells))))
+    (call-hooks 'skeleton-substance non-bdry-cells)))
+
+(defun substance-boundary-cells (skel)
+  ;; find boundary of the "flesh" and build up a table of those cells to
+  ;; the flesh cells
+  (lret ((bdry-ht (make-hash-table)))
+    (dohash (cell (skeleton-substance skel))
+      (dovec (side (boundary cell))
+        (dolist (side1 (identified-cells side skel))
+          (push cell (gethash side1 bdry-ht ())))))
+    ;; clean up
+    (dohash ((face neighbors) bdry-ht)
+      (let ((nr-neighbors (length neighbors)))
+        (case nr-neighbors
+          (1 #| do nothing |# )
+          (2 (remhash face bdry-ht))
+          (t (error "Hyperface ~A shared by ~D cells:~%~A"
+                    face nr-neighbors neighbors)))))
+    ;; collect all faces having only one neighbor
+    (call-hooks 'substance-boundary-cells bdry-ht)))
 
 (defun skeleton-boundary (skel)
   "Returns a skeleton consisting of cells of skel of dimension n-1 which
@@ -372,21 +393,9 @@ have only one neighbor."
   (when (zerop (dimension skel))
     (return-from skeleton-boundary
       (make-instance '<skeleton> :dimension -1))) ; an empty skeleton
-  ;; find boundary of the "flesh" and build up a table of those cells to
-  ;; the flesh cells
-  (let ((bdry-ht (make-hash-table)))
-    (loop for cell being each hash-key of (skeleton-substance skel) do
-         (loop for side across (boundary cell) do
-              (dolist (side1 (identified-cells side skel))
-                (push cell (gethash side1 bdry-ht ())))))
     ;; and build a skeleton from the boundary hyperfaces
-    (make-instance
-     '<skeleton> :cells
-     (loop for face being each hash-key of bdry-ht using (hash-value neighbors)
-        for nr-neighbors = (length neighbors)
-        when (= nr-neighbors 1) collecting face
-        when (> nr-neighbors 2) do
-        (error "Hyperface ~A shared by more than two cells:~%~A" face neighbors)))))
+  (make-instance '<skeleton>
+                 :cells (hash-table-keys (substance-boundary-cells skel))))
 
 (defun closed? (skel)
   "Checks if the boundary of @arg{skel} is empty.  This should be the case for

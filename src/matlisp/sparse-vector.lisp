@@ -264,18 +264,20 @@ and solutions simultaneously."))
      x)))
 
 (defmethod norm ((x <sparse-vector>) &optional (p 2))
-  (if (eq p :inf)
-      (with-accumulators (sum 0 #'max)
-        (for-each-entry
-         (lambda (xc)
-           (setf sum (max sum (norm xc :inf))))
-         x))
-      (expt (with-accumulators (sum 0 #'+)
-              (for-each-entry
-               (lambda (xc)
-                 (incf sum (expt (norm xc p) p)))
-               x))
-            (/ p))))
+  (case p
+    (:inf
+     (with-accumulators (sum 0 #'max)
+       (for-each-entry
+        (lambda (xc)
+          (setf sum (max sum (norm xc :inf))))
+        x)))
+    (2 (sqrt (dot x x)))
+    (t (expt (with-accumulators (sum 0 #'+)
+               (for-each-entry
+                (lambda (xc)
+                  (incf sum (expt (norm xc p) p)))
+                x))
+             (/ p)))))
 
 
 (defmethod print-object :after ((svec <sparse-vector>) stream)
@@ -325,10 +327,15 @@ and solutions simultaneously."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass <ht-sparse-vector> (locked-region-mixin <sparse-dictionary-vector>)
-  ((blocks :reader blocks :initform (make-hash-table :test #'eq)
-           :type hash-table
+  ((test :initform 'eql :initarg :test)
+   (blocks :reader blocks :type hash-table
 	   :documentation "Table of blocks."))
   (:documentation "Sparse block vector class implemented using a hash-table."))
+
+(defmethod initialize-instance :after ((svec <ht-sparse-vector>) &key &allow-other-keys)
+  (with-slots (test blocks fl.parallel::locked-region) svec
+    (setf blocks (make-hash-table :test test)
+          fl.parallel::locked-region (make-hash-table :test test))))
 
 (defun make-sparse-vector
     (&rest args

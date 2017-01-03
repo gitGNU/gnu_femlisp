@@ -76,7 +76,11 @@ documentation of the package @package{ELLSYS}."
 
   (let ((cell (getf fe-geometry :cell))
         (ip-values (ip-values vecfe qrule))
-        (ip-gradients (ip-gradients vecfe qrule)))
+        (ip-gradients
+          (and (intersection
+                (mapcar #'coefficient-name coeffs)
+                '(FL.ELLSYS::A FL.ELLSYS::AI FL.ELLSYS::B FL.ELLSYS::C  FL.ELLSYS::H))
+               (ip-gradients vecfe qrule))))
     (dbg :disc "Number of quadrature points = ~A" (length ip-values))
 
     ;; loop over quadrature points
@@ -91,8 +95,8 @@ documentation of the package @package{ELLSYS}."
                 ;; nr-comps x (n-basis x 1)
                 (shape-vals (aref ip-values i))
                 ;; nr-comps x (n-basis x dim)
-                (shape-grads (aref ip-gradients i))
-                (gradients (and Dphi^-1 (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
+                (shape-grads (and ip-gradients (aref ip-gradients i)))
+                (gradients (and Dphi^-1 shape-grads (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
                 (coeff-input (construct-coeff-input
                               cell global Dphi shape-vals gradients fe-parameters))
                 (left-vals shape-vals)

@@ -35,8 +35,7 @@
 (in-package :fl.strategy)
 
 (defparameter *rothe-observe*
-  (list (list "Step" "~4D"
-	      (lambda (blackboard) (getbb blackboard :step)))
+  (list *step-observe*
 	*time-observe*
 	(list "    Time" "~8,2F"
 	      (lambda (blackboard)

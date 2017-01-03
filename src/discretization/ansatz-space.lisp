@@ -72,9 +72,10 @@ depends only on the cell (usually via its reference cell)."))
 components vector."
   (unless (slot-boundp disc 'cell->fe)
     (setf (slot-value disc 'cell->fe)
-	  (with-memoization (:id 'initialize-vector-fe-discretization)
+	  (with-memoization (:id 'initialize-vector-fe-discretization :debug t)
 	    (lambda (cell)
 	      (memoizing-let ((refcell (reference-cell cell)))
+                (break)  ; apparently not used at the moment
 		(make-instance
 		 '<vector-fe> :cell refcell :discretization disc :components
 		 (map 'vector #'(lambda (comp-disc) (get-fe comp-disc refcell))
@@ -86,12 +87,6 @@ components vector."
 
 (defmethod nr-of-components ((vecfe-disc <vector-fe-discretization>))
   (length (components vecfe-disc)))
-
-(defmethod component ((fedisc <fe-discretization>) i)
-  (make-instance
-   '<standard-fe-discretization> :cell->fe
-   #'(lambda (cell)
-       (aref (components (get-fe fedisc cell)) i))))
 
 (defmethod component ((fedisc <vector-fe-discretization>) i)
   (aref (components fedisc) i))
@@ -128,8 +123,7 @@ the slot @var{properties}."))
 (defmethod discretization-order ((as <ansatz-space>))
   (discretization-order (fe-class as)))
 
-(defmethod initialize-instance :after ((as <ansatz-space>)
-                                       &key &allow-other-keys)
+(defmethod initialize-instance :after ((as <ansatz-space>) &key &allow-other-keys)
   (call-hooks 'initialize-ansatz-space as))
 
 (defun make-fe-ansatz-space (fe-class problem mesh)
@@ -187,5 +181,7 @@ components may vary with the respective patch."
   (problem (ansatz-space aso)))
 
 (defmethod make-analog ((aso <ansatz-space-object>))
-  (make-instance (class-of aso) :ansatz-space (ansatz-space aso)))
+  (call-hooks 'make-analog-aso
+              (make-instance (class-of aso) :ansatz-space (ansatz-space aso))
+              aso))
 

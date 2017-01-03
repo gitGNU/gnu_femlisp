@@ -107,12 +107,12 @@
 
 (defun handle-cell (cell)
   (let ((network (network cell)))
-    (mp-dbg "~&Performing action from parcell ~A~%" (name cell))
+    (mp-dbg :mp "~&Performing action from parcell ~A~%" (name cell))
     (let ((result (funcall (action cell))))
       (with-mutual-exclusion (cell)
         (setf (slot-value cell 'value) result)
         (setf (state cell) :ready)
-        (mp-dbg "~&Computed: ~A.~%" result)))
+        (mp-dbg :mp "~&Computed: ~A.~%" result)))
     (loop for dest in (outputs cell) do
          (disconnect dest cell)
          (propagate dest))

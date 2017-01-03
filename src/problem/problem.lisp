@@ -150,13 +150,15 @@ contains a function returning a linear problem."))
   (describe (lse :matrix #m(1.0) :rhs #m(1.0)))
   ;; problem for solving x^2=2 by Newton's method
   (let* ((nlse
-	  (nlse :linearization
+           (nlse :linearization
 		#'(lambda (solution)
 		    (assert solution)
 		    (let ((x (vref solution 0)))
 		      (lse :matrix (make-real-matrix (vector (* 2.0 x)))
 			   :rhs (make-real-matrix (vector (+ 2.0 (* x x)))))))
-		:solution #m(1.4))))
+                 :solution #m(1.4))))
+    (assert nlse)
+    #+(or)
     (solve (blackboard :problem nlse :output 1)))
   )
 

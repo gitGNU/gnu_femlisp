@@ -181,10 +181,6 @@ of arrays which yield such an offset for every subcell."))
   (loop for fe across (components vecfe)
 	maximize (discretization-order fe)))
 
-(defun make-vector-fe (components)
-  (let ((components components))
-    (make-instance '<vector-fe> :components components)))
-
 ;;; property content
 (definline subcell-offsets (fe)
   "Reader for subcell-offsets.  This is an array of length the number of

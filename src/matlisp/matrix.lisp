@@ -45,6 +45,8 @@
 
 (defgeneric mref (A i j)
   (:documentation "Returns the matrix element @code{A[i,j]}.")
+  (:method ((x number) (i (eql 0)) (j (eql 0)))
+      x)
   (:method ((x vector) i (j (eql 0)))
     (vref x i))
   (:method ((x <vector>) i (j (eql 0)))
