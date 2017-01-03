@@ -67,7 +67,8 @@
      (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))))))
 
 (defsystem :femlisp-parallel
-  :depends-on (:femlisp-basic :bordeaux-threads :lparallel :cl-ppcre)
+  :depends-on (:femlisp-basic :bordeaux-threads :lparallel :cl-ppcre
+                              #+linux :cl-cpu-affinity)
   :pathname "src"
   :around-compile call-with-femlisp-environment
   :components
@@ -76,6 +77,7 @@
     :components
     ((:file "parallel-defp" :depends-on ())
      (:file "parallel" :depends-on ("parallel-defp"))
+     (:file "mutex" :depends-on ("parallel-defp"))
      (:file "parallel-adaptions" :depends-on ("parallel"))
      (:file "multiprocessing" :depends-on ("parallel-adaptions"))
      ;; (:file "parcells" :depends-on ("multiprocessing"))
@@ -235,7 +237,7 @@
      (:file "feeval" :depends-on ("ansatz-space" "sparseif"))
      (:file "constraints" :depends-on ("ansatz-space" "sparseif"))
      (:file "assembly-heap" :depends-on ("discretization-defp"))
-     (:file "fedisc" :depends-on ("constraints" "assembly-heap"))
+     (:file "fedisc" :depends-on ("sparseif" "constraints" "assembly-heap"))
      ;;
      ;;(:file "cdr-fe" :depends-on ("fedisc"))
      (:file "system-fe" :depends-on ("fedisc"))
