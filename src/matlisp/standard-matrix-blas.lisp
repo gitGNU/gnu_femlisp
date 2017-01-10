@@ -234,6 +234,7 @@ nrows and ncols of the given matrices."
          (when (and (plusp z-nrows) (plusp z-ncols))
            (conditional-compile
             (cl->lapack-type 'element-type nil)
+            #+(or)
             (call-lapack-macro
              (load-time-value (lapack "gemm" 'element-type))
              ,(ecase job ((:nn :nt) "N") ((:tn :tt) "T"))
@@ -241,7 +242,6 @@ nrows and ncols of the given matrices."
              z-nrows z-ncols ,x-length-2
              alpha (:pinned x-store) x-nrows (:pinned y-store) y-nrows
              beta (:pinned z-store) z-nrows)
-            #+(or)
             (call-lapack (load-time-value (lapack "gemm" 'element-type))
                          ,(ecase job ((:nn :nt) "N") ((:tn :tt) "T"))
                          ,(ecase job ((:nn :tn) "N") ((:nt :tt) "T"))
@@ -303,14 +303,14 @@ nrows and ncols of the given matrices."
                       (<= (+ y-row-off x-m) y-nrows)
                       (<= (+ y-col-off x-n) y-ncols))
            (error "Illegal arguments."))
-         #+(or)
-         (when *blas2-operation-count*
-           (incf *blas2-operation-count* (* x-m x-n)))
-         (matrix-loop ((x :col-index x-col-off x-col-end)
-                       (y :col-index y-col-off))
-                      (matrix-loop ((x :row-index x-row-off x-row-end)
-                                    (y :row-index y-row-off))
-                                   ,operation)))
+           #+(or)
+           (when *blas2-operation-count*
+             (incf *blas2-operation-count* (* x-m x-n)))
+           (matrix-loop ((x :col-index x-col-off x-col-end)
+                         (y :col-index y-col-off))
+                        (matrix-loop ((x :row-index x-row-off x-row-end)
+                                      (y :row-index y-row-off))
+                                     ,operation)))
        y)))
 
 (define-matrix-matrix-operation extended-minject! (setf (ref y) (ref x)))

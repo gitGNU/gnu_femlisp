@@ -94,12 +94,18 @@ on the use of LAPACK."
     (when *blas3-operation-count*
       (locally (declare (optimize (speed 0)))
         (incf *blas3-operation-count* (floor (* m n k) 3))))
-    (assert (= m n k))  ; should be the only comnination we use at the moment
+    (assert (= m n k))  ; should be the only combination we use at the moment
     (with-blas-data (mat)
       (conditional-compile
        (cl->lapack-type 'element-type nil)
        (progn
          (assert ipiv)
+         (assert (plusp m) ()
+                 "Bad call to DGETRF - probably on an empty matrix.")
+         (call-lapack-with-error-test
+          (lapack "getrf" 'element-type)
+          m n mat-store m ipiv 0)
+         #+(or)
          (call-lapack-with-error-test-macro
           (load-time-value (lapack "getrf" 'element-type))
           m n (:pinned mat-store) m ipiv 0))
@@ -163,11 +169,18 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
      (locally
        (check-type ipiv (simple-array (signed-byte 32) (*)))
        (assert (= (length ipiv) LR-nrows))
+       (call-lapack-with-error-test
+        (lapack "getrs" 'element-type)
+        "N" LR-nrows b-ncols
+        LR-store LR-nrows ipiv
+        b-store b-nrows 0)
+       #+(or)
        (call-lapack-with-error-test-macro
         (load-time-value (lapack "getrs" 'element-type))
         "N" LR-nrows b-ncols
         (:pinned LR-store) LR-nrows (:pinned ipiv)
-        (:pinned b-store) b-nrows 0))
+        (:pinned b-store) b-nrows 0)
+       )
      (progn
        (when ipiv    ; swap rhs according to ipiv
          (locally
@@ -280,20 +293,20 @@ with rhs B.  LR must be a n x n - matrix, b must be a n x m matrix."
      (loop repeat 10000 do
 	   (matlisp::copy! mat mat2)
 	 (matlisp::getrf! mat2))))
+
+  (format t "LR-Performance (GFLOPS) for matrices of sizes 2^4 to 2^11:~%~A~%"
+          (loop for k from 4 upto 11
+                collect
+                ;; measure/calculate performance as GFLOPs
+                (let* ((n (expt 2 k))
+                       (repetitions (floor (/ 1d10 (expt n 3))))
+                       (A (eye n)))
+                  (let ((time (fl.utilities::measure-time
+                               (lambda () (getrf! A))
+                               repetitions)))
+                    (/ (* repetitions 2/3 (expt n 3)) time 1e9)))))
   
-  (loop for k from 4 upto 11
-        collect
-        ;; measure/calculate performance as GFLOPs
-        (let* ((n (expt 2 k))
-               (repetitions (floor (/ 1d10 (expt n 3))))
-               (A (eye n)))
-          (let ((time (fl.utilities::measure-time
-                       (lambda () (getrf! A))
-                       repetitions)))
-            (/ (* repetitions 2/3 (expt n 3)) time 1e9))))
-  ;; we can handle also general matrices, however we comment this out at
-  ;; the moment, due to an optimization warning of CMUCL/SBCL which we do
-  ;; not want to see when testing -- allowed again 11.12.2008
+  ;; we can handle also general matrices
   (mequalp (m/ (make-instance (standard-matrix t)
 			      :content '((1 2) (3 4))))
 	   (make-instance (standard-matrix t)
