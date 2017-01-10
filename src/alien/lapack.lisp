@@ -230,7 +230,14 @@ be done after replacing types for the implementation?"
   (:documentation "Convert argument for use in a LAPACK routine.")
   (:method (x) (error "Don't know to convert arg"))
   (:method ((x number)) x)
-  (:method ((x vector)) (fl.port:vector-sap x)))
+  (:method ((x vector))
+      "Before calling the alien routine, vectors will probably be converted
+to a pointer to their store.  However, this is done in the foreign-call routine."
+    x)
+  ;; Additionally, other methods can be defined separately.
+  ;; Especially, the standard-matrix class defines an own method
+  ;; for this generic function.
+  )
 
 (defun call-lapack (routine &rest args)
   "Call the LAPACK routine @arg{routine} with the arguments @arg{args}.
@@ -403,7 +410,8 @@ satisfactorily."
     (dnrm2 10 x 1)))
 
 (defun test-lapack ()
-  
+
+  (remove-all-lapack-functions *nrm2*)
   (lapack-lisp-name "gemm" :float)
   (lapack *hegv* :double)
   (lapack-external-name '("sspgv" "dspgv" "chegv" "zhegv") :complex-float)
@@ -432,11 +440,36 @@ satisfactorily."
 		   '(nil 0)))
     A)
 
+  (let ((A (coerce #(1.0 0.0 0.0 0.0) '(simple-array double-float (*))))
+	(ipiv (make-array 2 :element-type '(unsigned-byte 32) :initial-element 0)))
+    (assert (equal (multiple-value-list (call-lapack (lapack "getrf" :double) 2 2 A 2 ipiv 0))
+		   '(nil 2)))
+    A)
+
   (let ((A (make-array 4 :initial-element 1.0 :element-type 'double-float))
         (B (make-array 4 :initial-element 2.0 :element-type 'double-float))
         (C (make-array 4 :initial-element 0.0 :element-type 'double-float)))
     (call-lapack (lapack "gemm" :double) "N" "N" 2 2 2 1.0 A 2 B 2 1.0 C 2)
     C)
+  
+  (let ((A (coerce #(2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 2.0)
+		   '(simple-array double-float (*))))
+        (B (coerce #(2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 2.0)
+		   '(simple-array double-float (*))))
+        (C (constant-vector 9 1.0d0)))
+    (call-lapack (lapack "gemm" :double) "N" "N" 3 3 3 1.0d0 A 3 B 3 1.0d0 C 3)
+    C)
+
+  ;; Bug in Lapack?  An error should be reported for this singular matrix B
+  (let ((w (constant-vector 2 0.0d0))
+        (Z (constant-vector 4 0.0d0))
+        (work (constant-vector 6 0.0d0)))
+    (call-lapack (lapack *hegv* :double) 1 "V" "U" 2
+                 (coerce #(1.0 0.0 1.0) '(simple-array double-float (*)))
+                 (coerce #(1.0 0.0 0.0) '(simple-array double-float (*)))
+                 w Z 2 work 6 0)
+    Z)
+
   )
 
 (fl.tests:adjoin-test 'test-lapack)
