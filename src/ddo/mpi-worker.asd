@@ -32,6 +32,7 @@
   :serial t
   :version "0.2.0"
   :components (
-	       (:file "mpi-worker-save-core")
+	       (:file "packages")
+	       (:file "mpi-worker-save-core" :depends-on ("mpi-worker"))
                )
-  :depends-on (:ddo :ddo-femlisp-initialize :mpi-worker-routines))
+  :depends-on (:ddo :cl-ppcre))

@@ -34,12 +34,18 @@
   :components (
 	       (:file "packages")
 	       (:file "relations" :depends-on ("packages"))
-	       (:file "graphs" :depends-on ("relations"))
-	       (:file "ddo" :depends-on ("relations"))
+	       (:file "specials" :depends-on ("packages"))
+	       (:file "utils" :depends-on ("packages" "specials"))
+	       (:file "ddo" :depends-on ("packages" "relations" "specials" "utils"))
+	       (:file "synchronize" :depends-on ("packages" "specials" "utils" "ddo"))
+;;	       (:file "ddo-performance-check" :depends-on ("packages" "specials" "utils" "ddo"))
+	       (:file "remote-control" :depends-on ("packages" "specials" "utils"))
+	       (:file "ddo-final" :depends-on ("ddo" "synchronize" "remote-control"))
+               ;;
+	       (:file "mpi-worker" :depends-on ("packages"))
 	       ;; (:file "test" :depends-on ("packages"))
                )
-  :depends-on (:sb-cpu-affinity
-               :femlisp-basic :femlisp-parallel
+  :depends-on (:femlisp-basic :femlisp-parallel
                :lfarm-server :lfarm-admin :lfarm-client
-               :cl-mpi :cl-mpi-extensions
-               :uiop :trees :alexandria))
+               :cl-mpi :cl-mpi-extensions :uiop
+               :trees :alexandria))

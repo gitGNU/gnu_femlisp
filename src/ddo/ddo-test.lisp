@@ -1,7 +1,31 @@
-(in-package :ddo-femlisp-test)
+(in-package :ddo-test)
+
+(file-documentation
+ "Routines for profiling and testing DDO.")
+
+#| This test may be run interactively as follows (assuming that
+  mpi-workers have been started and are waiting for a
+  connection):
+
+(lfarm:end-kernel)  ; for closing an existing connection
+(load #p"femlisp:bin;connect-to-mpi-workers.lisp")
+(ddo- (load #p"femlisp:src;ddo;ddo-test.lisp"))
+(ddo (dbg-on :ddo-test))
+(ddo (setf ddo::*debug-show-data* nil))
+(ddo (loop for level upto 5 do (test level 1000)))
+|#
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;  For profiling communication
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; Tests communication by sending random messages between many
+;;; processors.  These messages are shaped similarly to what
+;;; occurs during the solution of the elasticity homogenization
+;;; problem with finite elements of order 5.
 
 (defun random-double-vec (n)
-  (lret ((result (make-double-vec n)))
+  (lret ((result (make-double-float-array n)))
     (loop for k below n do
       (setf (aref result k) (random 1.0)))))
 
@@ -170,9 +194,4 @@
     t))
 
 
-;;; (lfarm:end-kernel)
-;;; (load "../connect-to-mpi-workers.lisp")
-;;; (ddo- (load "ddo-femlisp/ddo-test.lisp"))
-;;; (ddo (dbg-on :ddo-test))
-;;; (ddo (setf ddo::*debug-show-data* nil))
-;;; (ddo (loop for level below 6 do (test level 1000)))
+
