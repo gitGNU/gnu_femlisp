@@ -1,6 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 
-FEMLISP_CL=`which lisp`
+if test -f femlisp-config.mk
+then
+    source femlisp-config.mk
+fi
+
 if test -z "$FEMLISP_CL"
 then
     FEMLISP_CL=`which sbcl`
@@ -40,18 +44,14 @@ then
 fi
 
 case $FEMLISP_CL_TYPE in
-    acl) echo -e "using Allegro CL\n";;
-    cmucl) echo -e "using CMUCL\n";;
-    lispworks) echo -e "using Lispworks\n";;
-    sbcl) echo -e "... using SBCL\n";;
-    ecl) echo -e "... using ECL\n";;
-    gcl) echo -e "... using GCL\n";;
-    scl) echo -e "... using SCL\n";;
+    acl|cmucl|lispworks|sbcl|ecl|gcl|scl)  ;;
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
 esac
 
-current_dir=`pwd`
-FEMLISP_DIR=`dirname "$current_dir"` 
+if test -z "$FEMLISP_DIR"
+then
+    FEMLISP_DIR=`pwd`
+fi
 echo "Check the path to the Femlisp directory [$FEMLISP_DIR]: "
 read input
 if test -n "$input"
@@ -81,12 +81,8 @@ fi
 # All variables are set, thus we start configuring:
 
 # change the Femlisp script
-sed "s%^\([ \t]*\)FEMLISP_DIR=.*%\1FEMLISP_DIR=$FEMLISP_DIR%" femlisp >femlisp2
-mv -f femlisp2 femlisp
-sed "s%^\([ \t]*\)FEMLISP_CL=.*%\1FEMLISP_CL=$FEMLISP_CL%" femlisp >femlisp2
-mv -f femlisp2 femlisp
-sed "s%^\([ \t]*\)FEMLISP_CL_TYPE=.*%\1FEMLISP_CL_TYPE=$FEMLISP_CL_TYPE%" femlisp >femlisp2
-mv -f femlisp2 femlisp
-
-# mark the script as executable 
-chmod +x femlisp
+cat >femlisp-config.mk<<EOF
+FEMLISP_DIR=$FEMLISP_DIR
+FEMLISP_CL=$FEMLISP_CL
+FEMLISP_CL_TYPE=$FEMLISP_CL_TYPE
+EOF

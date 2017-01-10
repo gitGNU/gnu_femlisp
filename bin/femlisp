@@ -1,19 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 #PBS -l nodes=1:ppn=2,mem=2gb
 
-set -x
-
-if test -z "$FEMLISP_CL"; then
-    FEMLISP_CL=/usr/local/bin/sbcl
-fi
-
-if test -z "$FEMLISP_CL_TYPE"; then
-    FEMLISP_CL_TYPE=sbcl
-fi
-
-if test -z "$FEMLISP_DIR"; then
-    FEMLISP_DIR=/home/neuss/CL-HOME/femlisp
-fi
+DIR="${BASH_SOURCE%/*}"
+if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+. "$DIR/../femlisp-config.mk"
 
 case $FEMLISP_CL_TYPE in
     acl) core="-I"; load="-L"; eval="-e"; noinit="-qq";;
@@ -26,52 +16,10 @@ case $FEMLISP_CL_TYPE in
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
 esac
 
-case $FEMLISP_CL_TYPE in
-    lispworks) build="-build";;
-    *) build=$load;;
-esac
-
-cd $FEMLISP_DIR
-FEMLISP_CORE=bin/femlisp-$FEMLISP_CL_TYPE.core
-
-if test "$1" = "--save-core-and-die"; then
-    rm -f $FEMLISP_CORE
-    # the following passing of a keyword is a kludge due to a bug in Allegro
-    $FEMLISP_CL $build femlisp-build.lisp
-    if test -f $FEMLISP_CORE
-    then
-	if test -z "$core"; then
-	    chmod +x $FEMLISP_CORE
-	fi
-	echo "Built core in $FEMLISP_CORE"
-    else
-	echo "Building core file was not successful"
-    fi
-    exit 0
-fi
-
-if test "$1" = "--load"; then
-    case $FEMLISP_CL_TYPE in
-	lispworks) load="-init"; noinit="-nositeinit";;
-    esac
-    load_file_sequence="$load $2"
-fi
+FEMLISP_CORE=$FEMLISP_DIR/bin/femlisp-$FEMLISP_CL_TYPE-core
 
 if test -f $FEMLISP_CORE; then
-    if test -z "$core"; then
-	call_sequence="$FEMLISP_CORE $noinit"
-    else
-	call_sequence="$FEMLISP_CL $core $FEMLISP_CORE $noinit"
-    fi
+    $FEMLISP_CORE "$@"
 else
-    call_sequence="$FEMLISP_CL $@ $load start.lisp"
+    exec $FEMLISP_CL $eval "(asdf:oos 'asdf:load-op :femlisp)" "$@"
 fi
-
-# if test -z "$eval"; then
-#     eval_sequence=""
-# else
-#     eval_sequence="$eval (fl.port:femlisp-restart)"
-# fi
-
-echo "$call_sequence $load_file_sequence" # $eval_sequence
-exec $call_sequence $load_file_sequence # $eval_sequence

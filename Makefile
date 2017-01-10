@@ -29,6 +29,10 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ###########################################################################
 
+include femlisp-config.mk
+
+.PHONY: all clean cleanall configure documentation superlu umfpack femlisp mpi-worker
+
 help:
 	echo "Options: all, configure, clean, cleanall, documentation, femlisp,";\
 	echo "         help, triangle, tetgen, superlu, umfpack."
@@ -36,7 +40,7 @@ help:
 all: configure superlu umfpack femlisp documentation
 
 configure:
-	cd bin; ./femlisp-configure
+	./configure
 
 documentation:
 	cd doc; $(MAKE) all
@@ -48,11 +52,14 @@ umfpack:
 	cd interface; $(MAKE) umfpack
 
 femlisp:
-	sh ./bin/femlisp --save-core-and-die
+	$(FEMLISP_CL) --eval "(asdf:oos 'asdf:load-op :femlisp-save-core)"
+
+mpi-worker:
+	cd ./bin; rm -f mpi-worker; $(FEMLISP_CL) --eval "(asdf:oos 'asdf:load-op :femlisp-mpi-worker)"
 
 clean:
 	rm -f *.x86f *.fasl *.ufasl *.fas? *.fas *.o *.amd64f *.lx32fsl;
-	cd bin; rm -f *.core;
+	cd bin; rm -f *-core mpi-worker mpi-worker-connection-data;
 	cd doc; $(MAKE) clean;
 	cd src; $(MAKE) clean;
 	cd external; $(MAKE) clean;
