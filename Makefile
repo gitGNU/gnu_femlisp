@@ -65,5 +65,6 @@ clean:
 	cd external; $(MAKE) clean;
 
 cleanall: clean
+	rm femlisp-config.mk
 	cd external; $(MAKE) clean;
 	cd interface; $(MAKE) clean;

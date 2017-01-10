@@ -2,6 +2,35 @@
 
 * Current work:
 
+* From Femlisp-1.1.0 to Femlisp-2.0.0
+
+Some demonstration of parallel computing can be found as Femlisp demos
+under Arcticles -> MHeisig-NNeuss-2017.
+
+Interactive control of an MPI worker pool can be done via LFARM.
+
+The DDO library was integrated into Femlisp.  It allows to distribute
+objects across a distributed memory architecture where different
+worker nodes communicate via MPI.  A mesh can be distributed across
+the nodes.  Assembly then happens completely parallel, and also some
+solvers are mostly parallel.
+
+lparallel worker pools can be allocated with (new-kernel).  The pool
+is used for discretization and some matrix operations (especially the
+calculation of defect, interpolation, restriction).
+
+There is a new library cl-cpu-affinity in the external directory which
+is an adaption of Nikodemus Siivola's sb-cpu-affinity.  It allows to
+pin workers to certain CPUs.
+
+This is a major step forward because the basis for parallelization has
+been laid.  Femlisp can now work in parallel both in a shared-memory
+setting, and also under MPI.  For a more precise description, see the
+following points.  Also the article Heisig-Neuss (2017) which
+describes the motivation behind these changes is interesting in this
+respect.  Calculations for this article can be found in the file
+#p"femlisp:src;applications;articles;heisig-neuss-2017.lisp".
+
 * From Femlisp-1.0.0 to Femlisp-1.1.0
 
 Faster and better calculation of multi-dimensional Lagrange shape

@@ -367,7 +367,7 @@
       :depends-on ("demos" "domains" "cdr" "elasticity")
       :components
       ((:file "heuveline-rannacher-2003")
-       (:file "konwihr-paper-2017")))
+       (:file "heisig-neuss-2017")))
      (:module
       "books"
       :depends-on ("demos" "domains" "cdr" "elasticity")

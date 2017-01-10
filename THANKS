@@ -3,8 +3,23 @@
 Femlisp owes special thanks mainly to the following people, groups, and
 institutions (in reverse chronological order):
 
-- Christian Wieners and the University of Karlsruhe for allowing me to
-  continue the work on Femlisp,
+- Balthasar Reuter for many good tips around Unix and parallel computing
+
+- Marco Heisig for cl-mpi and good team-work
+  
+- the implementors of so many nice free Common Lisp libraries: Zach
+  Beane for Quicklisp, the ASDF developers, James Lawrence for
+  lparallel and lfarm, Edi Weitz for cl-ppcre, ...
+
+- Nicodemus Siivola for always being helpful and for implementing
+  sb-cpu-affinity from which cl-cpu-affinity is (quite trivially)
+  derived
+ 
+- Eberhard Bänsch and the Friedrich-Alexander-Universität Erlangen
+  Nürberg for allowing me to continue the work on Femlisp,
+
+- Christian Wieners and the University of Karlsruhe (later KIT) for
+  allowing me to continue the work on Femlisp,
 
 - the SBCL developers for making SBCL such a powerful Lisp implementation,
 

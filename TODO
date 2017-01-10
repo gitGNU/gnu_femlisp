@@ -6,21 +6,28 @@ Femlisp needs the following more or less urgently:
 * Remove the Femlisp-related bugs from the file BUGS
 
 * Discretization
+
  - submesh fe and associated quadrature rules
  - sparse interpolation/projection matrices
  - more FE methods, e.g. Discontinuous Galerkin
+ - Better implementation of Lagrange ansatz-spaces on product cells
+ - Higher precision of Lagrange shape function values and derivatives
+   at interpolation points
  - OS thread parallelization of one-time calculation of quadrature
    schemes, shape and gradient, and interpolation
    
 * Linear algebra
- - sparse LR for sparse-matrix
+
+ - sparse LR for the sparse-matrix format
  - switch from sparse-matrix to CCS (?)
  - more Krylov-type methods
 
 * Problem solving
+
  - more time-stepping schemes
 
 * Parallelization
+
  - automatic use of parallel resources
  - seamless cooperation with an MPI slave cluster
 
@@ -28,5 +35,10 @@ Smaller improvements
 --------------------
 
 * Discretization
- - implement zero-variate polynomials (i.e. scalars)
 
+ - implement zero-variate polynomials (i.e. scalars)
+ - better polynomial implementation
+
+* Parallelization
+
+- Concurrent binary trees
