@@ -39,6 +39,7 @@
    ;; UNIX environment
    "FIND-EXECUTABLE" "FIND-SHARED-LIBRARY"
    "HOSTNAME" "GETENV" "UNIX-CHDIR" "SYSTEM-NAMESTRING"
+   "DYNAMIC-SPACE-SIZE"
    
    ;; runtime compilation
    "COMPILE-SILENTLY" "RUNTIME-COMPILE" "COMPILE-AND-EVAL"
@@ -115,11 +116,20 @@ compatible way of ensuring method compilation."
   (funcall (funcall (if (dbg-p :compile) #'compile #'fl.port:compile-silently)
 		    nil `(lambda () ,source))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; CL environment
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun dynamic-space-size ()
+  "Available memory for calculations"
+  #+sbcl (sb-ext:dynamic-space-size)
+  #-sbcl nil
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; UNIX environment access
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+  
 (defun hostname ()
   "Returns the hostname."
   #+asdf3 (uiop:hostname)
@@ -504,7 +514,8 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   (system:without-gcing
     (apply function args))
   #+(or sbcl scl)
-  (#+scl ext:with-pinned-object #+sbcl sb-sys:with-pinned-objects (args)
+  (#+scl ext:with-pinned-object
+   #+sbcl sb-sys:with-pinned-objects (args)
          (apply function (mapcar #'foreign-convert args)))
   ;;(execute-thunk-with-pinned-objects (lambda () (apply function args)) args)
   ;;(apply function args)
@@ -570,33 +581,74 @@ that no GC changes array pointers obtained by @function{vector-sap}."
 ;;; Saving a core and restarting
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun femlisp-restart ()
-  #+(or cmu scl) (progn (ext::print-herald))
-  (fl.start::femlisp-banner)
-  (setq *package* (find-package :fl.application)))
-
 (defun save-femlisp-core-and-die (&optional core-file-name)
   "Saves Femlisp core and quits."
   (unless core-file-name
     (setq core-file-name
-          (asdf:system-relative-pathname
-           :femlisp
-           (format nil "bin/femlisp-~A.core" (string-downcase (asdf::implementation-type))))))
+          (fl.start:femlisp-pathname
+           (format nil "bin/femlisp-~A-core"
+                   (string-downcase (lisp-implementation-type))))))
   (format t "Saving ~A~%" core-file-name)
-  (setf *package* (find-package :fl.application))
   #+allegro
   (progn
-    (tpl:setq-default *package* (find-package :fl.application))
-    (rplacd (assoc 'tpl::*saved-package*
-                   tpl:*default-lisp-listener-bindings*)
-            'common-lisp:*package*))
-  #+asdf3 (push 'femlisp-restart uiop:*image-restore-hook*)
-  #.(or
-     #+asdf3.1
-     '(asdf:operate 'asdf:image-op :femlisp)
-     #+(and asdf3 (not (or ecl mkcl)))
-     '(uiop:dump-image core-file-name)
-     '(portability-warning 'save-femlisp-core-and-die core-file-name))
+    (setq excl:*restart-init-function*
+	  (let ((directory (pathname-directory fl.start::*femlisp-pathname*)))
+	    #'(lambda ()
+		(setf (logical-pathname-translations "FEMLISP")
+		      `(("**;*.*.*"
+			 ,(make-pathname :directory `(,@directory :wild-inferiors)
+					 :name :wild :type :wild :version :wild))))
+		(tpl:setq-default *package* (find-package :fl.application))
+		(rplacd (assoc 'tpl::*saved-package*
+			       tpl:*default-lisp-listener-bindings*)
+			'common-lisp:*package*))))
+    (excl:dumplisp :name core-file-name))
+  #+clisp (EXT:SAVEINITMEM core-file-name)
+  #+(or cmu scl)
+  (ext:save-lisp
+   core-file-name #+cmu :print-herald #+cmu t
+   :init-function
+   (lambda ()
+     (fl.start::femlisp-banner)
+     (setq *package* (find-package :fl.application))
+     (lisp::%top-level)))
+  #+gcl     (si:save-system core-file-name)
+  #+ecl     (quit)
+  #+lispworks (hcl:save-image
+	       core-file-name :environment nil :restart-function
+	       (lambda ()
+		 (fl.start::femlisp-banner)
+		 (setq *package* (find-package :fl.application))))
+  #+sbcl (sb-ext:save-lisp-and-die
+          core-file-name :purify t :executable t :toplevel
+          (lambda ()
+            (fl.start::femlisp-restart)
+            (sb-impl::toplevel-init)))
+  #-(or allegro lispworks clisp cmu scl sbcl ecl gcl)  ; do nothing
+  (portability-warning 'save-femlisp-core-and-die core-file-name)
+  ;; we quit in any case
+  #+(or)(quit)
+  )
+
+#+(or)
+(defun save-femlisp-core-and-die (&optional core-file-name (restart-f 'fl.start::femlisp-restart))
+  "Saves Femlisp core and quits."
+  (unless core-file-name
+    (setq core-file-name
+          (fl.start:femlisp-pathname
+           (format nil "bin/femlisp-~A-core"
+                   (string-downcase (lisp-implementation-type))))))
+  (format t "Saving ~A~%" core-file-name)
+  (setf *package* (find-package :fl.application))
+  ;; #+allegro
+  ;; (progn
+  ;;   (tpl:setq-default *package* (find-package :fl.application))
+  ;;   (rplacd (assoc 'tpl::*saved-package*
+  ;;                  tpl:*default-lisp-listener-bindings*)
+  ;;           'common-lisp:*package*))
+  #+asdf3 (push restart-f uiop:*image-restore-hook*)
+  #+asdf3 (uiop:dump-image core-file-name :executable t)
+  #-asdf3 (portability-warning 'save-femlisp-core-and-die core-file-name)
   #+asdf3 (quit))
 
 
