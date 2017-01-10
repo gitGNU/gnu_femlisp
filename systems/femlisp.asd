@@ -35,7 +35,8 @@
 (defpackage :femlisp-system (:use :common-lisp :asdf))
 (in-package :femlisp-system)
 
-(defun call-with-femlisp-environment (fun)
+(defun call-with-read-double-float-environment (fun)
+  "Numerical calculations usually work with double-float numbers, because single-float numbers ususally do not have sufficient precision.  This function is used for dynamically binding the default-float-format when loading Femlisp parts which rely on this functionality for not interfering with other peoples libraries."
   (let ((*read-default-float-format* 'double-float))
     (funcall fun)))
 
@@ -45,14 +46,17 @@
                #+allegro (:require "osi")
                :closer-mop :fiveam
                )
-  :around-compile call-with-femlisp-environment ;; Requires ASDF 2.018, which *everyone* has in 2014.
+  :pathname "../src"
   :components
-  ((:file "setup")
-   (:file "femlisp-config" :depends-on ("setup"))
+  ((:module
+    "config"
+    :depends-on ()
+    :components
+    ((:file "setup")
+     (:file "femlisp-config" :depends-on ("setup"))))
    (:module
     "basic"
-    :depends-on ("setup")
-    :pathname "src/basic"
+    :depends-on ("config")
     :components
     ((:file "debug" :depends-on ())
      (:file "tests" :depends-on ())
@@ -69,8 +73,7 @@
 (defsystem :femlisp-parallel
   :depends-on (:femlisp-basic :bordeaux-threads :lparallel :cl-ppcre
                               #+linux :cl-cpu-affinity)
-  :pathname "src"
-  :around-compile call-with-femlisp-environment
+  :pathname "../src"
   :components
   ((:module
     "parallel"
@@ -85,8 +88,7 @@
 
 (defsystem :femlisp-dictionary
   :depends-on (:femlisp-basic :femlisp-parallel)
-  :pathname "src"
-  :around-compile call-with-femlisp-environment
+  :pathname "../src"
   :components
   ((:module
     "dictionary"
@@ -98,8 +100,8 @@
 
 (defsystem :femlisp-matlisp
   :depends-on (:femlisp-basic :femlisp-parallel :femlisp-dictionary)
-  :pathname "src"
-  :around-compile call-with-femlisp-environment
+  :pathname "../src"
+  :around-compile call-with-read-double-float-environment
   :components
   ((:module
     "alien"
@@ -140,8 +142,8 @@
   :depends-on (:femlisp-basic :femlisp-parallel :femlisp-matlisp
                               :femlisp-dictionary
                               :infix :cl-ppcre :cl-gd)
-  :pathname "src"
-  :around-compile call-with-femlisp-environment
+  :pathname "../src"
+  :around-compile call-with-read-double-float-environment
   :components
   ((:module
     "function"
@@ -155,7 +157,7 @@
    ;;
    (:module
     "mesh"
-    :depends-on ( "function")
+    :depends-on ("function")
     :components
     ((:file "mesh-defp")
      (:file "cell" :depends-on ("mesh-defp"))
@@ -364,7 +366,8 @@
       "articles"
       :depends-on ("demos" "domains" "cdr" "elasticity")
       :components
-      ((:file "heuveline-rannacher-2003")))
+      ((:file "heuveline-rannacher-2003")
+       (:file "konwihr-paper-2017")))
      (:module
       "books"
       :depends-on ("demos" "domains" "cdr" "elasticity")
@@ -385,3 +388,13 @@
     (:file "finalize" :depends-on ("applications"))
    )					; femlisp modules
   )
+
+(asdf:defsystem :femlisp-save-core
+  :serial t
+  :depends-on (:femlisp)
+  :pathname "../src"
+  :components (
+	       (:file "save-core")
+               )
+  )
+
