@@ -1,8 +1,5 @@
 (in-package :cl-user)
 
-(defpackage "MPI-WORKER"
-  (:use "CL" "MPI"))
-
 (defpackage "NET.SCIPOLIS.RELATIONS"
   (:nicknames "RELATIONS")
   (:use "COMMON-LISP"
@@ -21,7 +18,7 @@
 
 (defpackage "DDO"
   (:use "COMMON-LISP"
-        "FL.MACROS" "FL.UTILITIES" "FL.DEBUG" "FL.AMOP" "FL.PARALLEL"
+        "FL.MACROS" "FL.UTILITIES" "FL.DEBUG" "FL.AMOP" "FL.PORT" "FL.PARALLEL"
         "NET.SCIPOLIS.RELATIONS"
         "CL-MPI-EXTENSIONS")
   (:import-from "TREES"
@@ -35,29 +32,45 @@
   (:import-from "CL-MPI"
                 "MPI-INIT" "MPI-INITIALIZED" "MPI-COMM-SIZE" "MPI-COMM-RANK")
   (:export
+   ;; specials.lisp
    "*DEBUG-SHOW-DATA*"
    "*SYNCHRONIZATION-REAL-TIME*"
    "*COMMUNICATION-REAL-TIME*"
    "*COMMUNICATION-SIZE*"
+   ;; ddo.lisp
    "NEW-LOCAL-ID" "LOCAL-ID" "DISTRIBUTED-P"
    "DISTRIBUTED-DATA" "RESET-DISTRIBUTED-OBJECTS"
    "DDO-MIXIN" "DDO-CONTAINER-MIXIN"
    "DISTRIBUTED-P" "DISTRIBUTED-CONTAINER-P"
    "DISTRIBUTED-SLOTS" "DISTRIBUTED-SLOT-NAMES" "DISTRIBUTED-SLOT-VALUES"
-   "ALL-PROCESSORS" "OWNERS" "NEIGHBORS-FOR" "MASTERP"
+   "DDO-PERFORMANCE-CHECK"
+   ;; synchronize.lisp
+   "ALL-PROCESSORS" "OWNERS" "NEIGHBORS-FOR" "DO-NEIGHBORS" "MASTERP"
    "ENSURE-DISTRIBUTED-CLASS" "MAKE-DISTRIBUTED-OBJECT" "MAKE-DISTRIBUTED-CONTAINER"
    "MINIMUM-ID-MERGER" "OP-MERGER"
    "INSERT-INTO-CHANGED"
    "SYNCHRONIZE" "*SYNCHRONIZATION-MERGER*"
+   ;; remote-control.lisp
    "DDO" "DDOX" "DDO-")
   (:DOCUMENTATION
    "This package provides distributed objects."))
 
+(defpackage "MPI-WORKER"
+  (:use "CL" "MPI"
+        "FL.MACROS" "FL.UTILITIES")
+  (:export "WORKER-CONNECT"))
+
 (defpackage "DDO-TEST"
   (:use "COMMON-LISP"
-        "FL.MACROS" "FL.UTILITIES" "FL.DEBUG" "FL.AMOP"
+        "FL.MACROS" "FL.UTILITIES" "FL.DEBUG" "FL.AMOP" "FL.PARALLEL"
         "LFARM" "MPI"
-        "RELATIONS" "DDO")
+        "RELATIONS" "DDO" "MPI-WORKER")
   (:export )
   (:documentation
    "This package uses what the others provide."))
+
+(defpackage "MPI-WORKER"
+  (:use "CL" "MPI"
+        "FL.MACROS" "FL.UTILITIES")
+  (:export "WORKER-CONNECT"))
+
