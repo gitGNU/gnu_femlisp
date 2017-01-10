@@ -1,10 +1,10 @@
-;;; -*- mode: lisp; fill-column: 75; -*-
+;;; -*- mode: lisp; fill-column: 70; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; __FILENAME__.lisp - Sample header for a Femlisp source file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2011-
+;;; Copyright (C) 2017-
 ;;; Nicolas Neuss, Friedrich-Alexander-Universitaet Erlangen-Nuernberg
 ;;; All rights reserved.
 ;;; 
