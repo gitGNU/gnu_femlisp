@@ -1,5 +1,8 @@
 (in-package :fl.parallel)
 
+(error "This file should not be loaded.  It was once a quickhack
+for working around a bad CPU affinity setting of mpirun.")
+
 (defun set-cpu-affinity-to-mpi-comm-rank ()
   (when (cl-mpi:mpi-initialized)
     (let* ((rank (cl-mpi:mpi-comm-rank))

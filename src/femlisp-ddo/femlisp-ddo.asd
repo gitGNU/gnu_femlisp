@@ -1,6 +1,6 @@
 ;;; -*- Mode: LISP; Syntax: COMMON-LISP; Package: CL-USER; Base: 10 -*-
 
-;;; Copyright (C) 2015, Dr. Nicolas Neuss.  All rights reserved.
+;;; Copyright (C) 2016, Dr. Nicolas Neuss.  All rights reserved.
 
 ;;; Redistribution and use in source and binary forms, with or without
 ;;; modification, are permitted provided that the following conditions
@@ -28,54 +28,27 @@
 
 (in-package :cl-user)
 
-(asdf:defsystem :ddo-femlisp
+(asdf:defsystem :femlisp-ddo
   :serial t
-  :version "0.2.0"
+  :version "0.3.0"
   :components (
 	       (:file "packages" :depends-on ())
-	       (:file "ddo-test" :depends-on ("packages"))
 	       (:file "mesh-ddo" :depends-on ("packages"))
 	       (:file "sparseas-ddo" :depends-on ("packages"))
-	       (:file "discretize-ddo" :depends-on ("ddo-sparseas"))
-	       (:file "solve-ddo" :depends-on ("ddo-sparseas"))
+	       (:file "discretize-ddo" :depends-on ("sparseas-ddo"))
+	       (:file "solve-ddo" :depends-on ("sparseas-ddo"))
 	       (:file "strategy-ddo" :depends-on ("packages"))
 	       (:file "hom-ddo" :depends-on ("packages"))
-	       (:file "elahom-testing" :depends-on ("ddo-hom" "ddo-solve" "ddo-strategy"))
+	       (:file "elahom-testing" :depends-on ("hom-ddo" "solve-ddo" "strategy-ddo"))
                )
-  :depends-on (:lfarm-server
-               :lfarm-admin :lfarm-client
+  :depends-on (:femlisp
+               :lfarm-server :lfarm-admin :lfarm-client
                :cl-mpi :cl-mpi-extensions
                :uiop :trees :alexandria
-               :ddo :femlisp))
+               :net.scipolis.graphs
+               :ddo))
 
-(asdf:defsystem :femlisp-initialize
+(asdf:defsystem :femlisp-mpi-worker
   :serial t
-  :version "0.2.0"
-  :components (
-	       (:file "elahom-initialize")
-               )
-  :depends-on (:femlisp-niko))
-
-(asdf:defsystem :femlisp-save-core
-  :serial t
-  :version "0.2.0"
-  :components (
-	       (:file "save-core")
-               )
-  :depends-on (:femlisp-initialize))
-
-(asdf:defsystem :ddo-femlisp-initialize
-  :serial t
-  :version "0.2.0"
-  :components (
-	       (:file "elahom-initialize")
-               )
-  :depends-on (:ddo :femlisp-initialize))
-
-(asdf:defsystem :ddo-femlisp-save-core
-  :serial t
-  :version "0.2.0"
-  :components (
-	       (:file "save-core")
-               )
-  :depends-on (:ddo-femlisp-initialize))
+  :components ()  ; no components here, because :mpi-worker saves a core
+  :depends-on (:femlisp :ddo :femlisp-ddo :mpi-worker))

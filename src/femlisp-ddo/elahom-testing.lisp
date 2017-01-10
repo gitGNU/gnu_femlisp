@@ -57,7 +57,7 @@
     (setq *diag* (ddo-femlisp::diagonal-asa *mat*)))
   
   ;;
-  (ddo::ddo-performance-check)
+  (ddo-performance-check)
   ;;
   (let* ((problem (problem *ansatz-space*))
          (mesh (mesh *ansatz-space*))
