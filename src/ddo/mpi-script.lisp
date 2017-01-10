@@ -1,1 +1,0 @@
-ddo-femlisp/test-elahom-script.lisp
