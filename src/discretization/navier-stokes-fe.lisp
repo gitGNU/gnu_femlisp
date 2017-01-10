@@ -52,7 +52,8 @@ order @math{k} in dimension @math{d}."
 		      (if (< k dim)
 			  (+ order delta)
 			  order))
-		    (range<= 0 dim))))
+		    (range<= 0 dim))
+               :nr-comps (1+ dim)))
 
 #+(or)  ; is provided by ellsys discretization
 (defvar *full-newton* t

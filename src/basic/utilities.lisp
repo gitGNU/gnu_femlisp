@@ -248,6 +248,13 @@ Example: (translate \"abcdefg\" '((\"a\" . \"x\")  (\"b\" . \"yz\")))"
 ;;; Arrays
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(declaim (ftype (function ((integer 0 #.array-total-size-limit) &optional double-float)
+                          (simple-array double-float (*)))
+                make-double-float-array))
+
+(defun make-double-float-array (size &optional (initial 0.0d0))
+   (make-array size :element-type 'double-float :initial-element initial))
+
 (defun for-each-tuple (func limits)
   "Calls @arg{func} on each tuple greater or equal to (0 ... 0) and below
 @arg{dims}."

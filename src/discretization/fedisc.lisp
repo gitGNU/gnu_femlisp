@@ -141,25 +141,32 @@ complexity.")
       (apply #'assemble-interior as cells args)))
   (:method ((as <ansatz-space>) (where list) &key matrix mass-matrix rhs parallel-clustering &allow-other-keys)
       (declare (ignorable parallel-clustering))
-    (measure-time-for-block ("~&Ensuring matrix entries needs ~F seconds~%")
-      (let ((mesh (mesh matrix)))
-        (loop for cell in where
-              do
-                 (assert (skel-ref mesh cell))
-                 (loop
-                   with subcells = (subcells cell)
-                   for sc1 across subcells
-                   for key1 = (cell-key sc1 mesh) do
-                     (loop for sc2 across subcells
-                           for key2 = (cell-key sc2 mesh)
-                           when (entry-allowed-p matrix key1 key2)
-                             do (mref matrix key1 key2))))))
+    (when (or matrix mass-matrix)
+      ;; we have to do this for parallelization
+      ;; (matrix is implemented via hash-table which can not be filled concurrently,
+      ;; at least for SBCL)
+      (measure-time-for-block ("~&Ensuring matrix entries needs ~F seconds~%")
+        (let ((mesh (mesh as)))
+          (loop for cell in where
+                do
+                   (assert (skel-ref mesh cell))
+                   (loop
+                     with subcells = (subcells cell)
+                     for sc1 across subcells
+                     for key1 = (cell-key sc1 mesh) do
+                       (loop for sc2 across subcells
+                             for key2 = (cell-key sc2 mesh) do
+                               (when (and matrix (entry-allowed-p matrix key1 key2))
+                                 (mref matrix key1 key2))
+                               (when (and mass-matrix (entry-allowed-p mass-matrix key1 key2))
+                                 (mref mass-matrix key1 key2))
+                             ))))))
     ;; The matrix-transfer-queue contains work accessing the matrix.
     ;; This queue has to be empty, before a new chunk of parallel matrix transfer
     ;; operations can be pushed onto it!
     (let ((chunk-queue (make-instance 'chunk-queue)))
       (flet ((work-on-cell (cell)
-               (let ((*use-pool-p* T))
+               (let ((*use-pool-p* t))  ; !!!
                  ;; try to help other workers with matrix transfer
                  (work-on-queue chunk-queue)
                  ;; then work on assembly

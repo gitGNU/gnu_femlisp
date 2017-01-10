@@ -45,9 +45,6 @@
 (defparameter *mflop-delta* 1.0
   "Time interval in seconds over which we measure performance.")
 
-(defun make-double-float-array (size &optional (initial 0.0))
-   (make-array size :element-type 'double-float :initial-element initial))
-
 (defun daxpy (x a y n)
   (declare (type fixnum n)
 	   (type (simple-array double-float (*)) x y)
@@ -100,11 +97,11 @@ Returns the time in seconds together with the repetition count."
 
 (defun daxpy-speed (n)
   "Returns the number of daxpy-ops for vectors of size @arg{n}."
-  (let ((x (make-array n :element-type 'double-float :initial-element 2.0))
-	(y (make-array n :element-type 'double-float :initial-element 1.0)))
+  (let ((x (make-double-float-array n 2.0d0))
+	(y (make-double-float-array n 1.0d0)))
     ;;(/ (measure-time #'(lambda () (blas::DAXPY n 2.0 x 1 y 1))))
     (multiple-value-bind (secs count)
-	(measure-time-repeated #'(lambda () (daxpy x 2.0 y n)))
+	(measure-time-repeated #'(lambda () (daxpy x 2.0d0 y n)))
       (/ (* n count) 1.0e6 secs))))
 
 (defun common-lisp-speed (&key (memory-weight 0.5))

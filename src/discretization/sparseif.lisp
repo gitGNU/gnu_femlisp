@@ -359,16 +359,17 @@ value arrays corresponding to the finite element."
                            (loop for comp1 below (nr-of-components image-fe) do
                              (loop for comp2 below (nr-of-components domain-fe) do
                                (whereas ((local-block (aref local-mat comp1 comp2)))
-                                 (funcall
-                                  operation
-                                  local-block
-                                  global-block
-                                  (aref in-global-start-1 comp1 vblock-index-1)
-                                  (aref in-global-start-2 comp2 vblock-index-2)
-                                  (aref in-local-start-1 comp1 vblock-index-1)
-                                  (aref in-local-start-2 comp2 vblock-index-2)
-                                  (aref in-local-start-1 comp1 (1+ vblock-index-1))
-                                  (aref in-local-start-2 comp2 (1+ vblock-index-2))))))
+                                 (let ((gs1 (aref in-global-start-1 comp1 vblock-index-1))
+                                       (gs2 (aref in-global-start-2 comp2 vblock-index-2)))
+                                   (unless (or (minusp gs1) (minusp gs2))
+                                     (funcall
+                                      operation
+                                      local-block
+                                      global-block gs1 gs2
+                                      (aref in-local-start-1 comp1 vblock-index-1)
+                                      (aref in-local-start-2 comp2 vblock-index-2)
+                                      (aref in-local-start-1 comp1 (1+ vblock-index-1))
+                                      (aref in-local-start-2 comp2 (1+ vblock-index-2))))))))
                            (unlock global-block)))))
               (values
                ;; we return a list of thunks

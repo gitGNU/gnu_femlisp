@@ -64,7 +64,10 @@ depends only on the cell (usually via its reference cell)."))
 (defmethod nr-of-components ((fe-disc <scalar-fe-discretization>)) 1)
 
 (defclass <vector-fe-discretization> (<standard-fe-discretization>)
-  ((components :reader components :initarg :components))
+  ((components :reader components :initarg :components
+               :documentation "Either a vector of components or
+ the symbol :variable, if the components vary across the domain
+ as is the case for hp-FEM."))
   (:documentation "Vector FE discretization class."))
 
 (defmethod initialize-instance :after ((disc <vector-fe-discretization>) &key &allow-other-keys)
@@ -86,7 +89,8 @@ components vector."
 	maximize (discretization-order disc)))
 
 (defmethod nr-of-components ((vecfe-disc <vector-fe-discretization>))
-  (length (components vecfe-disc)))
+  (whereas ((comps (components vecfe-disc)))
+    (and (vectorp comps) (length comps))))
 
 (defmethod component ((fedisc <vector-fe-discretization>) i)
   (aref (components fedisc) i))
@@ -147,16 +151,18 @@ these matrices change when mesh or discretization are adapted."))
 components may vary with the respective patch."
   (assert (eq (domain problem) (domain mesh)))
   (let ((disc (make-instance '<vector-fe-discretization>)))
-    (setf (slot-value disc 'cell->fe)
-	  (with-memoization ()
-	    (lambda (cell)
-	      (memoizing-let ((patch (patch-of-cell cell mesh))
-			      (refcell (reference-cell cell)))
-		(cell-lagrange-fe
-		 refcell
-		 (make-array (fl.problem::count-components (components-of-patch patch problem))
-			     :initial-element order)
-		 type)))))
+    (with-slots (cell->fe components) disc
+      (setf cell->fe
+            (with-memoization ()
+              (lambda (cell)
+                (memoizing-let ((patch (patch-of-cell cell mesh))
+                                (refcell (reference-cell cell)))
+                  (cell-lagrange-fe
+                   refcell
+                   (make-array (fl.problem::count-components (components-of-patch patch problem))
+                               :initial-element order)
+                   type)))))
+      (setf components :variable))
     ;; return the generated ansatz-space
     (make-fe-ansatz-space disc problem mesh)))
 

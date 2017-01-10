@@ -487,11 +487,11 @@ Examples:
 
     (poly* '((() (0 1)))
            '(1 -1))
+
+    (let ((result (poly* (shift-polynomial (make-polynomial '(() (0 1))) 1)
+                         (make-polynomial '(1 -1)))))
+      (assert (= 3 (variance result))))
     
-    (assert
-     (= 3 (variance
-           (poly* (shift-polynomial (make-polynomial '(() (0 1))) 1)
-                  (make-polynomial '(1 -1))))))
     ))
 
 ;;; (test-polynom)

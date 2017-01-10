@@ -80,38 +80,40 @@ documentation of the package @package{ELLSYS}."
           (and (intersection
                 (mapcar #'coefficient-name coeffs)
                 '(FL.ELLSYS::A FL.ELLSYS::AI FL.ELLSYS::B FL.ELLSYS::C  FL.ELLSYS::H))
-               (ip-gradients vecfe qrule))))
+               (ip-gradients vecfe qrule)))
+        (gradients (getf fe-geometry :gradients))
+        (gradient-inverses (getf fe-geometry :gradient-inverses)))
     (dbg :disc "Number of quadrature points = ~A" (length ip-values))
 
     ;; loop over quadrature points
     (loop
        for i from 0
        and global across (getf fe-geometry :global-coords)
-       and Dphi across (getf fe-geometry :gradients)
-       and Dphi^-1 across (getf fe-geometry :gradient-inverses)
        and weight across (getf fe-geometry :weights)
        do
-         (let* (
-                ;; nr-comps x (n-basis x 1)
-                (shape-vals (aref ip-values i))
-                ;; nr-comps x (n-basis x dim)
-                (shape-grads (and ip-gradients (aref ip-gradients i)))
-                (gradients (and Dphi^-1 shape-grads (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
-                (coeff-input (construct-coeff-input
-                              cell global Dphi shape-vals gradients fe-parameters))
-                (left-vals shape-vals)
-                (right-vals (if residual-p
-                                (map 'vector #'m* shape-vals local-u)
-                                shape-vals))
-                (right-gradients gradients)
-                (left-gradients (if residual-p
-                                    (map 'vector #'m* gradients local-u)
-                                    gradients)))
-           (assert (vectorp left-vals))
-           (loop
+          (let* (
+                 (Dphi (and gradients (aref gradients i)))
+                 (Dphi^-1 (and gradients (aref gradient-inverses i)))
+                 ;; nr-comps x (n-basis x 1)
+                 (shape-vals (aref ip-values i))
+                 ;; nr-comps x (n-basis x dim)
+                 (shape-grads (and ip-gradients (aref ip-gradients i)))
+                 (gradients (and Dphi^-1 shape-grads (map 'vector (rcurry #'m* Dphi^-1) shape-grads)))
+                 (coeff-input (construct-coeff-input
+                               cell global Dphi shape-vals gradients fe-parameters))
+                 (left-vals shape-vals)
+                 (right-vals (if residual-p
+                                 (map 'vector #'m* shape-vals local-u)
+                                 shape-vals))
+                 (right-gradients gradients)
+                 (left-gradients (if residual-p
+                                     (map 'vector #'m* gradients local-u)
+                                     gradients)))
+            (assert (vectorp left-vals))
+            (loop
               for coeff in coeffs
               for name = (coefficient-name coeff) do
-              ;; matrix part
+                ;; matrix part
                 (when matrix
                   (case name
                     ;; diffusion
@@ -139,8 +141,8 @@ documentation of the package @package{ELLSYS}."
                        (for-each-entry-and-key
                         #'(lambda (velocity i j)
                             (let ((convection-contribution
-                                   (m*-nt (m* (aref left-gradients i) (scal -1.0 velocity))
-                                          (aref right-vals j))))
+                                    (m*-nt (m* (aref left-gradients i) (scal -1.0 velocity))
+                                           (aref right-vals j))))
                               (when *upwinding*
                                 (scal! 2.0 (ensure-m-matrix-property convection-contribution)))
                               (axpy! weight convection-contribution
@@ -153,8 +155,8 @@ documentation of the package @package{ELLSYS}."
                         #'(lambda (velocity i j)
                             (if *upwinding*
                                 (let ((contribution
-                                       (m* (aref left-vals i)
-                                           (transpose (m* (aref right-gradients j) velocity)))))
+                                        (m* (aref left-vals i)
+                                            (transpose (m* (aref right-gradients j) velocity)))))
                                   ;; enhancement factor for consistency
                                   (axpy! (* 1.0
                                             weight)
@@ -176,39 +178,39 @@ documentation of the package @package{ELLSYS}."
                               (gemm! (* weight reaction) (aref left-vals i) (aref right-vals j)
                                      1.0 (mref matrix i j) :NT)))
                         reaction-tensor)))))
-                  (when rhs
-                    (case name
-                      (FL.ELLSYS::F
-                       (dbg :disc "Discretizing standard source")
-                       (let ((source-vector (evaluate coeff coeff-input)))
-                         (for-each-entry-and-key
-                          #'(lambda (source k)
-                              (gemm! weight (aref left-vals k) (ensure-matlisp source)
-                                     1.0 (aref rhs k)))
-                          source-vector)))
-                      (FL.ELLSYS::G
-                       (dbg :disc "Discretizing g-source")
-                       (let ((g-source-vector (evaluate coeff coeff-input)))
-                         (for-each-entry-and-key
-                          #'(lambda (g-source k)
-                              (gemm! weight (aref left-gradients k) g-source
-                                     1.0 (aref rhs k)))
-                          g-source-vector)))
-                      (FL.ELLSYS::H
-                       (dbg :disc "Discretizing h-source")
-                       (let ((diff-tensor (evaluate (get-coefficient coeffs 'FL.ELLSYS::A) coeff-input))
-                             (gamma (evaluate coeff coeff-input)))
-                         (for-each-entry-and-key
-                          #'(lambda (diffusion i j)
-                              (gemm! weight (m* (aref left-gradients j) diffusion) (aref gamma j)
-                                     1.0 (aref rhs i)))
-                          diff-tensor)))))
-                )
-           (when mass-matrix
-             (dbg :disc "Discretizing mass matrix")
-             (loop for i from 0 and vals across shape-vals do
-                  (gemm! weight vals vals 1.0 (mref mass-matrix i i) :NT)))
-                ))
+                (when rhs
+                  (case name
+                    (FL.ELLSYS::F
+                     (dbg :disc "Discretizing standard source")
+                     (let ((source-vector (evaluate coeff coeff-input)))
+                       (for-each-entry-and-key
+                        #'(lambda (source k)
+                            (gemm! weight (aref left-vals k) (ensure-matlisp source)
+                                   1.0 (aref rhs k)))
+                        source-vector)))
+                    (FL.ELLSYS::G
+                     (dbg :disc "Discretizing g-source")
+                     (let ((g-source-vector (evaluate coeff coeff-input)))
+                       (for-each-entry-and-key
+                        #'(lambda (g-source k)
+                            (gemm! weight (aref left-gradients k) g-source
+                                   1.0 (aref rhs k)))
+                        g-source-vector)))
+                    (FL.ELLSYS::H
+                     (dbg :disc "Discretizing h-source")
+                     (let ((diff-tensor (evaluate (get-coefficient coeffs 'FL.ELLSYS::A) coeff-input))
+                           (gamma (evaluate coeff coeff-input)))
+                       (for-each-entry-and-key
+                        #'(lambda (diffusion i j)
+                            (gemm! weight (m* (aref left-gradients j) diffusion) (aref gamma j)
+                                   1.0 (aref rhs i)))
+                        diff-tensor)))))
+              )
+            (when mass-matrix
+              (dbg :disc "Discretizing mass matrix")
+              (loop for i from 0 and vals across shape-vals do
+                (gemm! weight vals vals 1.0 (mref mass-matrix i i) :NT)))
+            ))
     ;; nonstandard rhs (outside of ip loop)
     (whereas ((fe-rhs-function (and rhs (get-coefficient coeffs 'FL.ELLSYS::FE-RHS))))
              (m+! (evaluate fe-rhs-function (list :cell cell :fe vecfe :geometry fe-geometry))

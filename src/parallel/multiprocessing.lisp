@@ -494,24 +494,28 @@ threads which call @arg{func} on those arguments."
   (declare (ftype (function ((complex double-float)) fixnum))
            (optimize speed))
   (?1
+   ;; Version 1
    (loop for k of-type fixnum from 1 below 1000
          and z of-type (complex double-float) = c
                then (+ (* z z) c)
          until (> (abs z) 100.0d0)
          finally (return k))
+   ;; Version 2
    (labels ((mi1 (z n)
               (declare (type (complex double-float) z)
                        (type fixnum n))
-              (if (or (>= n 1000) (> (abs z) 100.0))
+              (if (or (>= n 1000) (> (abs z) 100.0d0))
                   n
                   (mi1 (+ (* z z) c) (1+ n)))))
      (mi1 c 1))
+   ;; Version 3
    (named-let mi1 ((z c) (n 1))
      (declare (type (complex double-float) z)
               (type fixnum n))
-     (if (or (>= n 1000) (> (abs z) 100.0))
+     (if (or (>= n 1000) (> (abs z) 100.0d0))
          n
-         (mi1 (+ (* z z) c) (1+ n))))))
+         (mi1 (+ (* z z) c) (1+ n))))
+   ))
 
 (defun mandelbrot-box (x1 x2 y1 y2 nx ny &optional result-p)
   (declare (type double-float x1 x2 y1 y2)

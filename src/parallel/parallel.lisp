@@ -17,15 +17,13 @@
 (defun calculate-effective-cachesize ()
   "Calculates effective cachesize in bytes."
   (let ((l 30))
-    (labels ((make-double-vec (n)
-               (make-array n :element-type 'double-float :initial-element 0.0d0))
-             (test (k)
+    (flet ((test (k)
                (let* ((n (expt 2 k))
                       (count (expt 2 (- l k)))
-                      (x (make-double-vec n))
-                      (y (make-double-vec n)))
+                      (x (make-double-float-array n))
+                      (y (make-double-float-array n)))
                  (declare (optimize speed (safety 0)))
-                 (fl.utilities::measure-time
+                 (measure-time
                   (lambda () (replace x y)) count))))
       (format t "Measuring effective cache size (this may take some time)...~%")
       (loop for k from 10 below 30
@@ -64,6 +62,11 @@
 
 (defun get-processors ()
   (whereas ((output (or (ignore-errors (fl.port:run-program-output "lscpu" '("-e")))
+                        ;; the following is a rather unsafe kludge for
+                        ;; getting around an SBCL problem occuring
+                        ;; when calling subprocesses when the
+                        ;; available memory is small.
+                        #+(or) 
                         (awhen (probe-file #p"femlisp:external;lscpu-e-output")
                           (with-open-file (stream it)
                             (loop for line = (read-line stream nil)
@@ -99,23 +102,31 @@
          (max-workers (length available-workers)))
     (ensure nr-threads max-workers)
     (end-kernel)
+    (when set-affinity-p
+      (unless (member :cl-cpu-affinity *features*)
+        (warn "No CPU pinning possible on this architecture.")
+        (setq set-affinity-p nil)))
     (cond
-      ((null available-workers)
-       (warn "No workers available.  This is probably due to missing system information.
-On a Linux system you should ensure that the lscpu command is working."))
       ((< nr-threads 1)
-       (error "Kernel with negative number of workers required"))
+       (error "Kernel with nonpositive number of workers required"))
+      ((null available-workers)
+       (when set-affinity-p
+         (warn "No worker information available, so no CPU pinning is possible")
+         (setq set-affinity-p nil)))
       ((> nr-threads max-workers)
-       (error "~D workers required, but only ~D are available" nr-threads max-workers))
+       (warn "~D workers required, but only ~D CPUs are available, which may slow down calculations.
+~:[~;  Furthermore no CPU pinning is possible in this situation.~]"
+             nr-threads max-workers set-affinity-p))
       ((= nr-threads 1)
-       (warn "We do not allow a kernel with one worker when only one thread is available, because in this situation we have observed problems setting the affinity.  Thus, we continue in serial mode without a worker kernel."))
+       (warn "Only one worker thread is required, which does not really help with performance.
+~:[~;  We also do not do CPU pinning in this situation, but use all available CPUs.~]"
+             set-affinity-p))
       (t
        (let ((count -1))
          (flet ((my-worker-context (worker-loop)
                   (let ((*worker-id* (incf count)))
                     ;; set cpu affinity
-                    (when (and set-affinity-p
-                               (member :cl-cpu-affinity *features*))
+                    (when set-affinity-p
                       (funcall (intern "SET-CPU-AFFINITIES" (find-package "CL-CPU-AFFINITY"))
                                (mapcar #'pi-cpu (nth *worker-id* available-workers))))
                     ;; enter the worker loop; return when the worker shuts down
@@ -228,6 +239,8 @@ All results are collected in a vector of the same size."
         (submit-task channel #'f i))))
     
   (pwork (lambda (x) (* x x)) #((1) (2)))
+  ;; a useful test which is uncommented because FL.MATLISP is not
+  ;; available at this time
   #+(or)
   (let ((n 1000))
     (let ((a1 (fl.matlisp:ones n))

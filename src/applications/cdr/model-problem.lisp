@@ -118,6 +118,7 @@ after a step."))
 (make-model-problem-demo (n-cube-domain 3) "unit-cube")
 
 (defun test-laplace-model-problem ()
+  (model-problem-computation (n-cube-domain 1) :plot t :time 2.0)
   (model-problem-computation (n-cube-domain 2) :plot t :time 2.0)
   (dbg-on :graphic)
   (plot (getbb *result* :solution))

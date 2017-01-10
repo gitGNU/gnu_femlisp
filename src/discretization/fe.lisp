@@ -347,15 +347,16 @@ Note that this function is memoized using an :around method."))
           (loop for pos across positions
                 and mat across result
                 do
-                   (loop+ ((comp gradient) j)
-                     do (setf (mref mat i j)
-                              (evaluate comp pos)))))))))
+                   (loop for j below dim
+                         and comp in gradient
+                         do (setf (mref mat i j)
+                                  (evaluate comp pos)))))))))
 
 (defun slow-ip-gradients (fe positions)
   (vector-map (curry #'ip-gradients-at-point fe) positions))
 
 #+(or)
-(loop for dim from 1 upto 3 do
+(loop for dim from 0 upto 3 do
   (loop for order from 1 upto 5 do
     (let* ((fe (get-fe (lagrange-fe order :nr-comps nil) (n-cube dim)))
            (qrule (quadrature-rule fe))
@@ -504,27 +505,31 @@ scalar product in pairing."
 property list."
   ;;(declare (optimize speed))
   (dbg :fe "Using qrule with ~A points" n)
-  (let ((global-coords (multiple-local->global cell sample-points))
-	(gradients (multiple-local->Dglobal cell sample-points))
-	(volumes (make-array n))
-	(gradient-inverses (make-array n))
-	(combined-weights (make-array n)))
+  (let* ((global-coords (multiple-local->global cell sample-points))
+         (gradients (when (plusp (dimension cell))
+                      (multiple-local->Dglobal cell sample-points)))
+         (volumes (make-array n))
+         (gradient-inverses (and gradients (make-array n)))
+         (combined-weights (make-array n)))
     (dotimes (i n)
       (let* ((local-coord (aref sample-points i))
 	     (global-coord (aref global-coords i))
-	     (Dphi (aref gradients i))
+	     (Dphi (and gradients (aref gradients i)))
 	     (metric-ip (and metric (funcall metric :local local-coord :global global-coord)))
 	     (volume-ip (and volume (funcall volume :local local-coord :global global-coord)))
 	     (volume-at-point
-	      (* (sqrt (abs (det (if metric
-				     (m*-tn Dphi (m* metric-ip Dphi))
-				     (m*-tn Dphi Dphi)))))
+               (* (sqrt (abs (det (if Dphi
+                                      (if metric
+                                          (m*-tn Dphi (m* metric-ip Dphi))
+                                          (m*-tn Dphi Dphi))
+                                      1.0))))
 		 (or volume-ip 1.0)))
-	     (Dphi-inverse (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi))))
+	     (Dphi-inverse (and Dphi (when (= (nrows Dphi) (ncols Dphi)) (m/ Dphi)))))
 	;;
 	(setf (aref volumes i) volume-at-point
-	      (aref gradient-inverses i) Dphi-inverse
-	      (aref combined-weights i) (* volume-at-point (if weights (aref weights i) 1.0)))))
+	      (aref combined-weights i) (* volume-at-point (if weights (aref weights i) 1.0)))
+        (when gradients
+          (setf (aref gradient-inverses i) Dphi-inverse))))
     (list :cell cell :local-coords sample-points :global-coords global-coords
 	  :gradients gradients :volume volumes :gradient-inverses gradient-inverses
 	  :weights combined-weights)))

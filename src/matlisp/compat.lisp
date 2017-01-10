@@ -49,13 +49,15 @@
 	(unless (= (aref pivot i) (1+ i)) (setq prod (- prod)))
 	finally (return prod)))
 
-(defun det (mat)
-  "Returns the determinant of the square matrix @arg{mat}."
-  (if (or (zerop (nrows mat)) (zerop (ncols mat)))
-      1.0  ; yields correct value for volume in the vertex case
-      (multiple-value-bind (lr pivot)
-	  (getrf! (copy mat))
-	(det-from-lr lr pivot))))
+(defgeneric det (mat)
+  (:documentation "Returns the determinant of the square matrix @arg{mat}.")
+  (:method ((mat number)) mat)
+  (:method (mat)
+      (if (or (zerop (nrows mat)) (zerop (ncols mat)))
+          1.0  ; yields correct value for volume in the vertex case
+          (multiple-value-bind (lr pivot)
+              (getrf! (copy mat))
+            (det-from-lr lr pivot)))))
 
 (defun area-of-span (mat)
   "Computes the volume spanned by the columns of @arg{mat}."

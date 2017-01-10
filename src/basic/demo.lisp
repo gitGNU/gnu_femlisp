@@ -139,8 +139,14 @@ for `homogenization-2d'."
   (with-slots (long short execute leaves)
     demo
     (format t "~&~64,,,'*<~>~%~%")
-    (when short (format t "~A~%~%" short))
-    (when long (format t "~A~%~%" long))
+    (when short (format t "~A~%~%"
+                        (typecase short
+                         (function (funcall short))
+                         (t short))))
+    (when long (format t "~A~%~%"
+                       (typecase long
+                         (function (funcall long))
+                         (t long))))
     (when execute (funcall execute))
     (when (or leaves (eq demo *demo-root*))
       (loop
@@ -151,9 +157,9 @@ for `homogenization-2d'."
 		     name (slot-value leaf 'short)))
        (format t "~&~%Your choice (? for help): ")
        (finish-output)
-       (let ((input (read-line)))
+       (let ((input (read-line *standard-input* nil)))
 	 (cond
-	   ((string-equal input "quit")
+	   ((or (null input) (string-equal input "quit"))
 	    (update-demo-status demo)
 	    (throw 'quit nil))
 	   ((member input '("back" "up") :test #'equalp)
@@ -219,8 +225,7 @@ a string stream to provide sample input.")
   "Extract demo information from the documentation string of the
 generating function."
   (let ((results
-	 ;; #+cl-ppcre (nth-value 1 (cl-ppcre:scan-to-strings
-	 ;; 			  "(.*) - (.*)\\s*((?s).*)" string))
+	 ;; #+cl-ppcre (nth-value 1 (cl-ppcre:scan-to-strings "(.*) - (.*)\\s*((?s).*)" string))
 	 (let ((pos1 (search " - " string))
 	       (pos2 (search (format nil "~%~%") string)))
 	   (list (subseq string 0 pos1)
@@ -293,7 +298,8 @@ generating function."
 	 (let ((*user-input-stream*
 		(and input (make-string-input-stream input))))
 	   (when (catch 'trap
-		   (handler-bind ((error #'(lambda (condition) (throw 'trap condition))))
+		   (handler-bind ((error #'(lambda (condition) (throw 'trap condition)))
+                                  (warning #'(lambda (condition) (throw 'trap condition))))
 		     (format t "~&~%***** Testing ~A *****~%~%" name)
 		     (funcall execute)
 		     nil))

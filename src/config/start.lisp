@@ -36,6 +36,7 @@
 (in-package :cl-user)
 
 (require :asdf)
+
 (asdf:load-system :asdf) ;; give asdf2 a fair chance to upgrade to asdf3.
 
 (let ((asdf::*compile-file-failure-behaviour* :error))
