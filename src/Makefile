@@ -28,11 +28,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-all: TAGS
-
-TAGS: *.lisp
-	find . -name "*.lisp" -print | \
-	etags - --regex='/[ \t]*\(definline\|defmemo\) +\([^ ]*\) //\1/'
+.PHONY: clean linecount
 
 linecount:
 	find . -name "*.lisp" -exec wc -l '{}' ';'
