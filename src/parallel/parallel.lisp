@@ -56,12 +56,12 @@
 
 (defstruct (procinfo (:conc-name pi-) (:type list))
   cpu
-  node
+  core
   socket
-  core)
+  node)
 
 (defun get-processors ()
-  (whereas ((output (or (ignore-errors (fl.port:run-program-output "lscpu" '("-e")))
+  (whereas ((output (or (ignore-errors (fl.port:run-program-output "lscpu" '("-p")))
                         ;; the following is a rather unsafe kludge for
                         ;; getting around an SBCL problem occuring
                         ;; when calling subprocesses when the
@@ -71,11 +71,11 @@
                           (with-open-file (stream it)
                             (loop for line = (read-line stream nil)
                                   while line collect line))))))
-    (assert (string= (subseq (first output) 0 20)
-                     "CPU NODE SOCKET CORE"))
-    (loop for line in (rest output)
-          collect (read-from-string
-                   (concatenate 'string "(" (subseq line 0 20) ")")))))
+    (loop for line in output while line
+          unless (eql (aref line 0) #\#)
+          collect
+          (mapcar #'parse-integer
+                  (take 4 (cl-ppcre:split "," line))))))
 
 (defun allowed-processors ()
   (if (member :cl-cpu-affinity *features*)
