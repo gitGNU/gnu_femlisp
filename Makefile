@@ -29,7 +29,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ###########################################################################
 
-include femlisp-config.mk
+-include femlisp-config.mk
 
 .PHONY: all clean cleanall configure documentation superlu umfpack femlisp mpi-worker
 
