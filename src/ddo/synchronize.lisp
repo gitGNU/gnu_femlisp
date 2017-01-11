@@ -39,34 +39,6 @@
 first establishes the communication pattern and the second one
 transfers the data.")
 
-(defun all-processors ()
-  (loop for k below (mpi-comm-size) collect k))
-
-(defun neighbors-for (object-or-local-id)
-  "All processors for a distributed object"
-  (let ((local-id (etypecase object-or-local-id
-                    (ddo-mixin (local-id object-or-local-id))
-                    (integer object-or-local-id))))
-    (accessing-exclusively ((it *distribution*))
-      (mapcar #'second (R-select it local-id '_ '_)))))
-
-(defun owners (object-or-local-id)
-  (cons (mpi-comm-rank) (neighbors-for object-or-local-id)))
-
-(defun masterp (object-or-local-id)
-  "The master of a distributed object is simply as the processor with
-minimal rank.  Note that using this function somehow works against the
-whole DDO concept, so that its use should be avoided whenever possible."
-  (apply #'< (mpi-comm-rank) (neighbors-for object-or-local-id)))
-
-(defun neighbors ()
-  "Default and simplest: all processors without me"
-  (remove (mpi-comm-rank) (range< 0 (mpi-comm-size))))
-
-(defmacro do-neighbors ((proc) &body body)
-  `(loop for ,proc in (neighbors)
-         do ,@body))
-
 (defun first-comm-encode (vecs)
   "Encodes a list of integer vectors into a single UINT-VEC"
   (let ((nr-vectors (length vecs))

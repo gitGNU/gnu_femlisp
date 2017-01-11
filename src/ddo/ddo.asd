@@ -38,7 +38,6 @@
 	       (:file "utils" :depends-on ("packages" "specials"))
 	       (:file "ddo" :depends-on ("packages" "relations" "specials" "utils"))
 	       (:file "synchronize" :depends-on ("packages" "specials" "utils" "ddo"))
-;;	       (:file "ddo-performance-check" :depends-on ("packages" "specials" "utils" "ddo"))
 	       (:file "remote-control" :depends-on ("packages" "specials" "utils"))
 	       (:file "ddo-final" :depends-on ("ddo" "synchronize" "remote-control"))
                ;;

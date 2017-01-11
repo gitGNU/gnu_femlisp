@@ -273,38 +273,6 @@ distributed slots accordingly."
   (cl-store::store-simple-string (symbol-name (class-name (class-of obj))) stream))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;  For profiling relation handling
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun ddo-performance-check ()
-  "Checks how much time the relation handling alone, that is without any
-communication, needs on the currently active distributed objects."
-  (accessing-exclusively ((distribution *distribution*)
-                          (distributed-objects *distributed-objects*))
-    (format t "~&DDO performance check~%")
-    (format t "~&Number of distributed-objects = ~D~%" (hash-table-count distributed-objects))
-    (measure-time-for-block ("~&Selecting all processor interfaces: ~F~%")
-      (do-neighbors (proc)
-        (R-select distribution '_ proc '_)))
-    (let (entries)
-      (measure-time-for-block ("~&Selecting all distribution entries: ~F~%" :active-p t)
-        (setq entries (R-select distribution '_ '_ '_)))
-      (format t "~&#Number of distribution-entries = ~D~%" (length entries))
-      (measure-time-for-block ("~&Selecting all distribution entries sequentially: ~F" :active-p t)
-        (loop for entry in entries do
-          (apply #'R-select distribution entry)))
-      (measure-time-for-block ("~&Selecting local-id sequentially: ~F" :active-p t)
-        (loop for (local-id proc distant-id) in entries do
-          (R-select distribution '_ proc distant-id)))
-      (measure-time-for-block ("~&Selecting distant-id sequentially: ~F" :active-p t)
-        (loop for (local-id proc distant-id) in entries do
-          (R-select distribution local-id proc '_))))
-    (format t "~&END performance check~%")
-    (force-output)))
-
-;;; (ddo-performance-check)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;  Testing
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
