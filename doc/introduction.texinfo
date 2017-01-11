@@ -2,9 +2,9 @@
 @chapter Introduction, Installation, Top, Top
 
 @menu
-* Tools for solving PDEs::      
-* Common Lisp::                 
-* Advantages::                  
+* Tools for solving PDEs::
+* Common Lisp::
+* Advantages::
 @end menu
 
 @node Tools for solving PDEs, Common Lisp, Introduction, Introduction

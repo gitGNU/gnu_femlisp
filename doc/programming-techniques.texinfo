@@ -6,11 +6,12 @@ unusual, especially to programmers not knowing Common Lisp.  This
 chapter, we briefly explain some of them.
 
 @menu
-* Object-oriented programming::  
-* Dynamic class generation::    
-* Memoization::                 
-* Blackboards::                 
-* Documentation::               
+* Object-oriented programming::
+* Dynamic class generation::
+* Memoization::
+* Blackboards::
+* Documentation::
+* Parallelization::
 @end menu
 
 @node Object-oriented programming, Dynamic class generation, Programming techniques, Programming techniques
@@ -150,7 +151,7 @@ Sometimes (e.g. within the generic function @function{iterate})
 several functions operate one after the other on the same blackboard
 which resembles very much an assembly line.
 
-@node Documentation,  , Blackboards, Programming techniques
+@node Documentation, Parallelization, Blackboards, Programming techniques
 @section Documentation, testing, and demos
 
 Common Lisp offers several interesting possibilities for integrating the
@@ -182,3 +183,122 @@ demo node is generated with @function{make-demo} and added to the tree
 of all demos with @function{adjoin-demo}.  After loading @femlisp{}, the
 whole demo suite is available and can be run with the command
 @function{femlisp-demo}.
+
+@node Parallelization,  , Documentation, Programming techniques
+@section Parallelization
+
+@femlisp{} offers parallelization of two kinds.  The first is
+shared-memory parallelization which is based on the threads of the
+operating system, the second is distributed-memory parallelization with
+the help of MPI.
+
+@menu
+* Shared-memory parallelization::
+* Distributed-memory parallelization::
+@end menu
+
+@node Shared-memory parallelization, Distributed-memory parallelization, Parallelization, Parallelization
+@subsection Shared-memory parallelization
+
+Most CL implementations have some threading capabilities which allow to
+use the multi-core processors efficiently that can be found in most of
+the current computers.  Unfortunately, this has not yet been
+standardized (the ANSI CL standard is from 1994!), so that each CL
+implementation provides an own set of functions for making this
+possible.  On the other hand, the @library{bordeaux-threads} library
+provides a unified interface to these capabilities, and the
+@library{lparallel} library even provides a higher level of abstraction,
+because it allows to allocate a pool of workers which can work on
+sequences using parallel map and parallel reduce operations.
+
+@femlisp{} uses both of these libraries for providing an interface which
+is slightly more complicated than pmap/preduce, but can be applied
+inside every iterative form.
+
+@menu
+* Allocating a new kernel::
+* Working in parallel::
+* Terminating a kernel::
+@end menu
+
+@node Allocating a new kernel, Working in parallel, Shared-memory parallelization, Shared-memory parallelization
+@subsubsection Allocating a new kernel
+
+By default, @femlisp{} starts in serial mode (this may change in later
+versions).  You can allocate a new worker pool by issuing the command
+
+@example
+(new-kernel)
+@end example
+
+This should allocate a worker pool (a ``kernel'', as the underlying
+library @library{lparallel} calls it) which is adapted to your machine's
+architecture (more precisely, it depends on how much Femlisp can find
+out about it using the system command ``lscpu'').
+
+Alternatively, you can give @code{new-kernel} as parameter the number of
+workers which you want to use.
+
+@node Working in parallel, Terminating a kernel, Allocating a new kernel, Shared-memory parallelization
+@subsubsection Working in parallel
+
+After you have allocated a worker pool, @femlisp{} tries to use it in
+several algorithms which will hopefully increase the performance of your
+calculation.
+
+However, please note that the paralellization of @femlisp{} is not yet
+complete, so you should not expect overall performance improvements.
+
+@node Terminating a kernel,  , Working in parallel, Shared-memory parallelization
+@subsubsection Terminating a kernel
+
+If you want to revert to serial mode, you can terminate a worker pool
+using the command
+@example
+(lparallel:end-kernel)
+@end example
+
+@node Distributed-memory parallelization,  , Shared-memory parallelization, Parallelization
+@subsection Distributed-memory parallelization
+
+The distributed-memory parallelization in @femlisp{} is based on the
+well-known standard MPI, for which a Common Lisp interface exists in the
+form of the @library{cl-mpi} library developed by Alex Fukunaga and
+Marco Heisig.
+
+On top of @library{cl-mpi}, @femlisp{} implements the higher-level
+library @library{ddo}, which allows to make objects distributed between
+processors, and keeps track of their relations when they are changed or
+even deleted locally.
+
+More about @library{cl-mpi} and @library{ddo} together with a report on
+a serious practical application can be found in @cite{Heisig-Neuss
+2017}.
+
+@menu
+* Distributed objects::
+* Synchronization::
+* Compiling the MPI worker::
+* Starting the worker pool::
+* Connecting to the worker pool::
+* Communicating with the worker pool::
+@end menu
+
+@node Distributed objects, Synchronization, Distributed-memory parallelization, Distributed-memory parallelization
+@subsubsection Distributed objects
+
+@node Synchronization, Compiling the MPI worker, Distributed objects, Distributed-memory parallelization
+@subsubsection Synchronization
+
+@node Compiling the MPI worker, Starting the worker pool, Synchronization, Distributed-memory parallelization
+@subsubsection Compiling the MPI worker
+
+@node Starting the worker pool, Connecting to the worker pool, Compiling the MPI worker, Distributed-memory parallelization
+@subsubsection Starting the worker pool
+
+@node Connecting to the worker pool, Communicating with the worker pool, Starting the worker pool, Distributed-memory parallelization
+@subsubsection Connecting to the worker pool
+
+@node Communicating with the worker pool,  , Connecting to the worker pool, Distributed-memory parallelization
+@subsubsection Communicating with the worker pool
+

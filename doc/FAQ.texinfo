@@ -2,18 +2,18 @@
 @chapter FAQ
 
 @menu
-* Installation and Getting Started::  
-* Mesh Management::             
-* Linear Algebra::              
-* Problems::                    
-* Discretization::              
-* Solvers::                     
-* Parallelization::             
-* General::                     
+* Installation and Getting Started FAQ::
+* Mesh Management FAQ::
+* Linear Algebra FAQ::
+* Problems FAQ::
+* Discretization FAQ::
+* Solver FAQ::
+* Parallelization FAQ::
+* General::
 @end menu
 
-@node Installation and Getting Started, Mesh Management, FAQ, FAQ
-@section Installation and Getting Started
+@node Installation and Getting Started FAQ, Mesh Management FAQ, FAQ, FAQ
+@section Installation and Getting Started FAQ
 
 @enumerate
 @item Q: On which architectures is Femlisp available?
@@ -35,8 +35,8 @@
    Ask on the mailing list, if you should encounter problems.
 @end enumerate
 
-@node Mesh Management, Linear Algebra, Installation and Getting Started, FAQ
-@section Mesh Management
+@node Mesh Management FAQ, Linear Algebra FAQ, Installation and Getting Started FAQ, FAQ
+@section Mesh Management FAQ
 
 @enumerate
 @item Q: Which types of cells are available?
@@ -54,8 +54,8 @@
    especially anisotropic product-cell refinement is available.
 @end enumerate
 
-@node Linear Algebra, Problems, Mesh Management, FAQ
-@section Linear Algebra
+@node Linear Algebra FAQ, Problems FAQ, Mesh Management FAQ, FAQ
+@section Linear Algebra FAQ
 
 @enumerate
 @item Q: Why is Femlisp's linear algebra so slow?
@@ -77,8 +77,8 @@
    current approach while being as efficient as the usual CRS scheme.
 @end enumerate
 
-@node Problems, Discretization, Linear Algebra, FAQ
-@section Problems
+@node Problems FAQ, Discretization FAQ, Linear Algebra FAQ, FAQ
+@section Problems FAQ
 
 @enumerate
 @item Q: How can I solve nonlinear problems?
@@ -104,8 +104,8 @@
    to subscribe for doing so (spam protection).
 @end enumerate
 
-@node Discretization, Solvers, Problems, FAQ
-@section Discretization
+@node Discretization FAQ, Solver FAQ, Problems FAQ, FAQ
+@section Discretization FAQ
 
 @enumerate
 @item Q: Is it possible to handle problems with more than one right-hand side
@@ -117,8 +117,8 @@
    fit into this pattern.
 @end enumerate
 
-@node Solvers, Parallelization, Discretization, FAQ
-@section Solvers
+@node Solver FAQ, Parallelization FAQ, Discretization FAQ, FAQ
+@section Solver FAQ
 
 @enumerate
 @item Q: Is there a GMRES iteration available?
@@ -126,8 +126,8 @@
    A: No, not yet.  This would be a very welcome contribution.
 @end enumerate
 
-@node Parallelization, General, Solvers, FAQ
-@section Parallelization
+@node Parallelization FAQ, General, Solver FAQ, FAQ
+@section Parallelization FAQ
 
 @enumerate
 @item Q: What about parallelization?
@@ -138,7 +138,7 @@
    also possible using MPI or PVM, but would require a major restructuring.
 @end enumerate
 
-@node General,  , Parallelization, FAQ
+@node General,  , Parallelization FAQ, FAQ
 @section General
 
 @enumerate

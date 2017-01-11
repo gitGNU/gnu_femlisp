@@ -31,6 +31,8 @@
 * Package FL.PLOT::
 * Package FL.DOMAINS::
 * Package FL.APPLICATION::
+* Package DDO::
+* Package DDO-FEMLISP::
 @end menu
 
 @node Package FL.UTILITIES, Package FL.MACROS, Reference manual, Reference manual
@@ -78,10 +80,16 @@ Boxes an object.
 @end deffn
 
 @anchor{fun-fl.utilities-call-hooks}
-@deffn Function CALL-HOOKS @var{FUNCTION-NAME} @var{OBJECT}
+@deffn Function CALL-HOOKS @var{FUNCTION-NAME} @var{OBJECT} &REST @var{ARGS}
 @findex CALL-HOOKS
 Call all hooks defined for @arg{function-name} on @arg{object} and
 returns @arg{object}.
+@end deffn
+
+@anchor{fun-fl.utilities-check}
+@deffn Function CHECK @var{OBJ}
+@findex CHECK
+Checks the data structure of @arg{obj}.
 @end deffn
 
 @anchor{fun-fl.utilities-check-properties}
@@ -901,7 +909,7 @@ Posted to cll at 17.10.2006 by Kenny Tilton.
 @end deffn
 
 @anchor{macro-fl.macros-ensure}
-@deffn Macro ENSURE @var{PLACE} @var{NEWVAL} &ENVIRONMENT @var{ENV}
+@deffn Macro ENSURE @var{PLACE} @var{NEWVAL}
 @findex ENSURE
 Essentially (or place (setf place newval)).  Posted by Erling Alf to
 c.l.l. on 11.8.2004, implementing an idea of myself posted on c.l.l. on 30
@@ -1004,7 +1012,7 @@ An analog to case using string comparison.
 @end deffn
 
 @anchor{macro-fl.macros-symbol-macroletf}
-@deffn Macro SYMBOL-MACROLETF (&REST @var{BINDINGS}) &BODY @var{BODY} &ENVIRONMENT @var{ENVIRONMENT}
+@deffn Macro SYMBOL-MACROLETF (&REST @var{BINDINGS}) &BODY @var{BODY}
 @findex SYMBOL-MACROLETF
 Like SYMBOL-MACROLET but evaluate subforms just once up front.
 @end deffn
@@ -1222,6 +1230,12 @@ Defines a foreign function.  See examples in
 @path{alien;src;superlu.lisp}.
 @end deffn
 
+@anchor{fun-fl.port-dynamic-space-size}
+@deffn Function DYNAMIC-SPACE-SIZE 
+@findex DYNAMIC-SPACE-SIZE
+Available memory for calculations
+@end deffn
+
 @anchor{fun-fl.port-finalize}
 @deffn Function FINALIZE @var{OBJ} @var{FUNC}
 @findex FINALIZE
@@ -1307,6 +1321,13 @@ Returns the status of @arg{process}.
 Runs @arg{program} with arguments @arg{args}.
 @end deffn
 
+@anchor{fun-fl.port-run-program-output}
+@deffn Function RUN-PROGRAM-OUTPUT @var{PROGRAM} @var{ARGS}
+@findex RUN-PROGRAM-OUTPUT
+Returns a list of all lines of the output of @function{RUN-PROGRAM}
+when called with the arguments @arg{PROGRAM} and @arg{ARGS}.
+@end deffn
+
 @anchor{fun-fl.port-runtime-compile}
 @deffn Function RUNTIME-COMPILE @var{SOURCE}
 @findex RUNTIME-COMPILE
@@ -1388,6 +1409,22 @@ Direct slots:
 @end itemize
 @end deftp
 
+@anchor{class-fl.parallel-parpool}
+@deftp Class PARPOOL
+@tindex PARPOOL
+A parallel pool implemented as a shared hash-table.
+The slot pool contains a hash-table, the test slot contains the hash-table test, the generator contains a function which is called if the pool is empty, i.e. all objects are used and generates a new object for the given argument.
+
+Superclasses: MUTEX-MIXIN
+
+Direct slots:
+@itemize
+@item TABLE: A table mapping keys to a list of parpool entries
+@item PPES: A table mapping an object to its ppe
+@item TEST: Self-explanatory.
+@end itemize
+@end deftp
+
 @anchor{class-fl.parallel-parqueue}
 @deftp Class PARQUEUE
 @tindex PARQUEUE
@@ -1409,6 +1446,12 @@ Direct slots:
 Distribute a task to each lparallel worker and wait until all finish.
 Arguments may be a vector of size equal or smaller than (kernel-worker-count).
 All results are collected in a vector of the same size.
+@end deffn
+
+@anchor{fun-fl.parallel-register-in-pool}
+@deffn Function REGISTER-IN-POOL @var{POOL} @var{KEY} @var{OBJECT}
+@findex REGISTER-IN-POOL
+Note that the object is only registered, but not put in the pool!
 @end deffn
 
 @anchor{class-fl.parallel-waitqueue-mixin}
@@ -1447,6 +1490,12 @@ wrap it in @arg{with-atomic-output}.
 This macro distributes work generated in body with calling the locally
 bound function @function{work-on} on some arguments to several working
 threads which call @arg{func} on those arguments.
+@end deffn
+
+@anchor{macro-fl.parallel-with-mutex}
+@deffn Macro WITH-MUTEX @var{OBJECT} &BODY @var{BODY}
+@findex WITH-MUTEX
+Needs to be called unfortunately around push/incf/setf.
 @end deffn
 
 @anchor{macro-fl.parallel-with-mutual-exclusion}
@@ -1716,7 +1765,7 @@ each diagonal entry being @arg{values}.
 @end deffn
 
 @anchor{fun-fl.matlisp-display}
-@deffn Function DISPLAY @var{MATRIX} &KEY (@var{STREAM} @var{T}) @var{ROW-ORDER} @var{COL-ORDER} @var{ORDER} &ALLOW-OTHER-KEYS
+@deffn Function DISPLAY @var{MATRIX} &KEY (@var{STREAM} @var{T}) @var{ORDER} @var{COL-ORDER} @var{ROW-ORDER} &ALLOW-OTHER-KEYS
 @findex DISPLAY
 Formats the contents of @arg{matrix} in rectangular
   form.
@@ -1787,6 +1836,12 @@ Type of the elements of the vector/matrix.
 @deffn Function ENSURE-MATLISP @var{OBJ} &OPTIONAL @var{TYPE}
 @findex ENSURE-MATLISP
 Tries to coerce @arg{obj} into Matlisp format.
+@end deffn
+
+@anchor{fun-fl.matlisp-entries}
+@deffn Function ENTRIES @var{OBJECT}
+@findex ENTRIES
+List of entries.
 @end deffn
 
 @anchor{fun-fl.matlisp-entry-allowed-p}
@@ -3260,12 +3315,6 @@ list.
 Returns the cells of @arg{skel} of highest dimension in form of a list.
 @end deffn
 
-@anchor{fun-fl.mesh-check}
-@deffn Function CHECK @var{OBJ}
-@findex CHECK
-Checks the data structure of @arg{obj}.
-@end deffn
-
 @anchor{fun-fl.mesh-combine-identifications}
 @deffn Function COMBINE-IDENTIFICATIONS @var{SETS}
 @findex COMBINE-IDENTIFICATIONS
@@ -4206,18 +4255,6 @@ Base class for all problems.
 Superclasses: PROPERTY-MIXIN
 @end deftp
 
-@anchor{class-fl.problem-<solver>}
-@deftp Class <SOLVER>
-@tindex <SOLVER>
-The base class of linear, nonlinear and whatever
-iterative solvers.
-
-Direct slots:
-@itemize
-@item OUTPUT: Self-explanatory.
-@end itemize
-@end deftp
-
 @anchor{class-fl.problem-<time-dependent-problem>}
 @deftp Class <TIME-DEPENDENT-PROBLEM>
 @tindex <TIME-DEPENDENT-PROBLEM>
@@ -4491,18 +4528,6 @@ Defines coefficients dispatching on @arg{patch}.
 @deffn Macro SETUP-COMPONENTS (@var{PATCH}) &BODY @var{PATCH-DEFINITIONS}
 @findex SETUP-COMPONENTS
 Defines components dispatching on @arg{patch}.
-@end deffn
-
-@anchor{fun-fl.problem-solve}
-@deffn Function SOLVE @var{SOLVER} &OPTIONAL @var{BLACKBOARD}
-@findex SOLVE
-Solve a problem specified on the blackboard.  Returns a
-modified blackboard.  The returned blackboard is guaranteed to contain at
-least the fields :solution and :status.  :status is one of the values
-:success or :failure.
-
-SOLVE can also be called as (SOLVE blackboard) and will then try to figure
-out a suitable solver itself.
 @end deffn
 
 @anchor{fun-fl.problem-stationary-problem-class}
@@ -4847,7 +4872,9 @@ Superclasses: <STANDARD-FE-DISCRETIZATION>
 
 Direct slots:
 @itemize
-@item COMPONENTS: Self-explanatory.
+@item COMPONENTS: Either a vector of components or
+ the symbol :variable, if the components vary across the domain
+ as is the case for hp-FEM.
 @end itemize
 @end deftp
 
@@ -4869,7 +4896,7 @@ Direct slots:
 @end deftp
 
 @anchor{fun-fl.discretization-assemble-interior}
-@deffn Function ASSEMBLE-INTERIOR @var{ANSATZ-SPACE} @var{WHERE} &KEY @var{LEVEL} @var{MATRIX} @var{MASS-MATRIX} @var{RHS} @var{PARALLEL-CLUSTERING} &ALLOW-OTHER-KEYS
+@deffn Function ASSEMBLE-INTERIOR @var{ANSATZ-SPACE} @var{WHERE} &KEY @var{LEVEL} @var{MATRIX} @var{MASS-MATRIX} @var{RHS} @var{PARALLEL-CLUSTERING} @var{RHS} @var{MATRIX} &ALLOW-OTHER-KEYS
 @findex ASSEMBLE-INTERIOR
 Assemble the interior, i.e. ignore constraints arising from boundaries
 and hanging nodes.  Discretization is done using the ansatz space
@@ -5179,7 +5206,8 @@ components may vary with the respective patch.
 @anchor{fun-fl.discretization-lagrange-fe}
 @deffn Function LAGRANGE-FE @var{ORDER} &KEY (@var{NR-COMPS} 1) (@var{TYPE} @var{UNIFORM})
 @findex LAGRANGE-FE
-Constructor for Lagrange fe.
+Constructor for Lagrange fe.  nr-comps=nil builds a scalar fe-discretization,
+otherwise a vector-fe-discretization is built.
 @end deffn
 
 @anchor{fun-fl.discretization-lagrange-mapping}
@@ -5214,7 +5242,7 @@ Constructor of @class{<ansatz-space>}.
 @end deffn
 
 @anchor{fun-fl.discretization-make-local-mat}
-@deffn Function MAKE-LOCAL-MAT @var{AS1} @var{CELL1} &OPTIONAL (@var{AS2} @var{AS1}) (@var{CELL2} @var{CELL1})
+@deffn Function MAKE-LOCAL-MAT @var{AS1} @var{CELL1} &OPTIONAL @var{AS2} @var{CELL2}
 @findex MAKE-LOCAL-MAT
 Generates a local matrix discretization for the given ansatz-space(s).
 @end deffn
@@ -5244,6 +5272,12 @@ Number of degrees of freedom for the (vector) finite element.
 @deffn Function NR-OF-INNER-DOFS @var{FE}
 @findex NR-OF-INNER-DOFS
 Number of inner degrees of freedom for the (vector) finite element.
+@end deffn
+
+@anchor{fun-fl.discretization-product-rule}
+@deffn Function PRODUCT-RULE &REST @var{QUADRATURE-RULES}
+@findex PRODUCT-RULE
+Computes a product rule for several lower-dimensional quadrature rules.
 @end deffn
 
 @anchor{fun-fl.discretization-projection-matrix}
@@ -5310,10 +5344,26 @@ components.  Each component is an array giving the offset of this component
 in a sparse vector value block corresponding to the subcell.
 @end deffn
 
+@anchor{fun-fl.discretization-test-integration-rule}
+@deffn Function TEST-INTEGRATION-RULE @var{POINTS} @var{WEIGHTS} &OPTIONAL (@var{OUTPUT} @var{T})
+@findex TEST-INTEGRATION-RULE
+Tests the given rule against monomials of increasing degree.
+As a by-product this determines the order of the rule.
+@end deffn
+
 @anchor{fun-fl.discretization-transfer-matrix}
 @deffn Function TRANSFER-MATRIX @var{DOMAIN-AS} @var{IMAGE-AS} &KEY @var{NO-SLAVES}
 @findex TRANSFER-MATRIX
 Builds a transfer matrix from domain-as to image-as.
+@end deffn
+
+@anchor{fun-fl.discretization-weights-for-ips}
+@deffn Function WEIGHTS-FOR-IPS @var{BETA} @var{IPS}
+@findex WEIGHTS-FOR-IPS
+Determines weights for the integration points @arg{ips} such
+that they integrate
+  @math{int_{-1}^{1} (1+y)^beta ... dy}
+ with optimal order.
 @end deffn
 
 @node Package FL.ELLSYS-FE, Package FL.ELASTICITY-FE, Package FL.DISCRETIZATION, Reference manual
@@ -5372,6 +5422,13 @@ Standard observe quantities for iterative solvers.
 @defvr Variable *OUTPUT-DEPTH*
 @vindex *OUTPUT-DEPTH*
 Maximum iteration depth for which status output is done.
+@end defvr
+
+@anchor{var-fl.iteration-*step-observe*}
+@defvr Variable *STEP-OBSERVE*
+@vindex *STEP-OBSERVE*
+Observe step number during an iteration.  This should be used as element in the
+observe list of an iteration.
 @end defvr
 
 @anchor{var-fl.iteration-*time-observe*}
@@ -5521,6 +5578,8 @@ An <iterator> object contains functions doing iteration
 work or flags indicating which work has or has not to be done for calling
 that iterator.  It is generated by the generic function make-iterator.
 
+Superclasses: PROPERTY-MIXIN
+
 Direct slots:
 @itemize
 @item MATRIX: The matrix on which the iterator is working.
@@ -5630,6 +5689,18 @@ Direct slots:
 @end itemize
 @end deftp
 
+@anchor{class-fl.iteration-<solver>}
+@deftp Class <SOLVER>
+@tindex <SOLVER>
+The base class of linear, nonlinear and whatever
+iterative solvers.
+
+Direct slots:
+@itemize
+@item OUTPUT: Self-explanatory.
+@end itemize
+@end deftp
+
 @anchor{class-fl.iteration-<special-solver>}
 @deftp Class <SPECIAL-SOLVER>
 @tindex <SPECIAL-SOLVER>
@@ -5715,7 +5786,7 @@ iteration iter.
 @end deffn
 
 @anchor{fun-fl.iteration-linsolve}
-@deffn Function LINSOLVE @var{MAT} @var{RHS} &KEY @var{SOL} @var{RES} @var{OUTPUT} @var{ITERATION} (@var{RESIDUAL-NORM} (@var{FUNCTION} @var{NORM})) (@var{THRESHOLD} 1.e-12) @var{REDUCTION} (@var{MAXSTEPS} 100) @var{SUCCESS-IF} @var{FAILURE-IF} &ALLOW-OTHER-KEYS
+@deffn Function LINSOLVE @var{MAT} @var{RHS} &KEY @var{SOL} @var{RES} @var{OUTPUT} @var{ITERATION} (@var{RESIDUAL-NORM} (@var{FUNCTION} @var{L2-NORM})) (@var{THRESHOLD} 1.e-12) @var{REDUCTION} (@var{MAXSTEPS} 100) @var{SUCCESS-IF} @var{FAILURE-IF} &ALLOW-OTHER-KEYS
 @findex LINSOLVE
 Old and deprecated interface for solving linear problems.
 @end deffn
@@ -5753,6 +5824,18 @@ Returns a list of blocks where each block is a vector of keys.  May return
 a second value which is a list of pair.  Each pair is of the form
 start-index/end-index and can be used to filter out different fe
 components.
+@end deffn
+
+@anchor{fun-fl.iteration-solve}
+@deffn Function SOLVE @var{SOLVER} &OPTIONAL @var{BLACKBOARD}
+@findex SOLVE
+Solve a problem specified on the blackboard.  Returns a
+modified blackboard.  The returned blackboard is guaranteed to contain at
+least the fields :solution and :status.  :status is one of the values
+:success or :failure.
+
+SOLVE can also be called as (SOLVE blackboard) and will then try to figure
+out a suitable solver itself.
 @end deffn
 
 @anchor{fun-fl.iteration-terminate-p}
@@ -6426,7 +6509,7 @@ boundary.
 Boundary which is interpolated from heights.
 @end deffn
 
-@node Package FL.APPLICATION,  , Package FL.DOMAINS, Reference manual
+@node Package FL.APPLICATION, Package DDO, Package FL.DOMAINS, Reference manual
 @section Package FL.APPLICATION
 
 This package uses most other Femlisp packages.  It is
@@ -6449,5 +6532,156 @@ Quits Femlisp.
 @deffn Macro STORING &BODY @var{BODY}
 @findex STORING
 Stores the result of @arg{body} in @var{*result*}.
+@end deffn
+
+@node Package DDO, Package DDO-FEMLISP, Package FL.APPLICATION, Reference manual
+@section Package DDO
+
+This package provides distributed objects.
+
+@anchor{var-ddo-*communication-real-time*}
+@defvr Variable *COMMUNICATION-REAL-TIME*
+@vindex *COMMUNICATION-REAL-TIME*
+When non-nil, communication time is recorded.
+@end defvr
+
+@anchor{var-ddo-*communication-size*}
+@defvr Variable *COMMUNICATION-SIZE*
+@vindex *COMMUNICATION-SIZE*
+When non-nil, communication size is recorded.
+@end defvr
+
+@anchor{var-ddo-*debug-show-data*}
+@defvr Variable *DEBUG-SHOW-DATA*
+@vindex *DEBUG-SHOW-DATA*
+When T show all data communicated between processors.  This is only reasonable for
+toy problems.
+@end defvr
+
+@anchor{var-ddo-*synchronization-merger*}
+@defvr Variable *SYNCHRONIZATION-MERGER*
+@vindex *SYNCHRONIZATION-MERGER*
+Merger for the synchronization which can be a generic function
+  dispatching on the class of object.  An example is provided by the
+  generic function #'minimum-id-merger.  Usually this dynamic variable will
+  be bound around a call to @func{synchronize}.
+@end defvr
+
+@anchor{var-ddo-*synchronization-real-time*}
+@defvr Variable *SYNCHRONIZATION-REAL-TIME*
+@vindex *SYNCHRONIZATION-REAL-TIME*
+When non-nil, communication time is recorded.
+@end defvr
+
+@anchor{macro-ddo-ddo}
+@deffn Macro DDO &BODY @var{COMMANDS}
+@findex DDO
+Broadcast the given commands
+@end deffn
+
+@anchor{macro-ddo-ddo-}
+@deffn Macro DDO- &BODY @var{COMMANDS}
+@findex DDO-
+Call workers sequentially, mainly for debugging purposes if separate
+output is desired.  Of course, this should only be called with commands
+which do not require synchronization!
+@end deffn
+
+@anchor{class-ddo-ddo-container-mixin}
+@deftp Class DDO-CONTAINER-MIXIN
+@tindex DDO-CONTAINER-MIXIN
+Mixin for a ddo container which may contain distributed
+and non-distributed objects.  Not used at the moment!
+
+Direct slots:
+@itemize
+@item DISTRIBUTED-SLOTS: This determines a list of slots for which changes are
+propagated.  This is a list consisting of items that are either a symbol or
+a pair of the form (symbol . combiner).  Here, the symbol is the name of a
+slot and the combiner is a certain function which is called when combining
+distributed values.
+@end itemize
+@end deftp
+
+@anchor{fun-ddo-ddo-performance-check}
+@deffn Function DDO-PERFORMANCE-CHECK 
+@findex DDO-PERFORMANCE-CHECK
+Checks how much time the relation handling alone, that is without any
+communication, needs on the currently active distributed objects.
+@end deffn
+
+@anchor{macro-ddo-ddox}
+@deffn Macro DDOX &BODY @var{COMMANDS}
+@findex DDOX
+Perform the commands serially on the controller
+@end deffn
+
+@anchor{fun-ddo-distributed-data}
+@deffn Function DISTRIBUTED-DATA 
+@findex DISTRIBUTED-DATA
+Only for debugging purposes: return all distributed data in a property list
+@end deffn
+
+@anchor{fun-ddo-ensure-distributed-class}
+@deffn Function ENSURE-DISTRIBUTED-CLASS @var{CLASS} &OPTIONAL (@var{TYPE} @var{OBJECT})
+@findex ENSURE-DISTRIBUTED-CLASS
+Generates for @arg{class} a distributed object/container variant.
+@end deffn
+
+@anchor{fun-ddo-make-distributed-container}
+@deffn Function MAKE-DISTRIBUTED-CONTAINER @var{OBJECT} &OPTIONAL @var{DISTRIBUTED-SLOTS}
+@findex MAKE-DISTRIBUTED-CONTAINER
+Turn the container @arg{object} into a distributed container.
+@end deffn
+
+@anchor{fun-ddo-make-distributed-object}
+@deffn Function MAKE-DISTRIBUTED-OBJECT @var{OBJECT} @var{PROCESSORS} &OPTIONAL @var{CONTAINER-OR-SLOTS}
+@findex MAKE-DISTRIBUTED-OBJECT
+Make OBJECT into a distributed object belonging to PROCESSORS.
+The change will become active only after the next synchronization!
+@end deffn
+
+@anchor{fun-ddo-masterp}
+@deffn Function MASTERP @var{OBJECT-OR-LOCAL-ID}
+@findex MASTERP
+The master of a distributed object is simply as the processor with
+minimal rank.  Note that using this function somehow works against the
+whole DDO concept, so that its use should be avoided whenever possible.
+@end deffn
+
+@anchor{fun-ddo-minimum-id-merger}
+@deffn Function MINIMUM-ID-MERGER @var{OBJECT} @var{ID-VALUE-PAIRS}
+@findex MINIMUM-ID-MERGER
+In principle, this function should look up up the
+ minimal id and set all distributed slots accordingly.
+@end deffn
+
+@anchor{fun-ddo-neighbors-for}
+@deffn Function NEIGHBORS-FOR @var{OBJECT-OR-LOCAL-ID}
+@findex NEIGHBORS-FOR
+All processors for a distributed object
+@end deffn
+
+@anchor{fun-ddo-reset-distributed-objects}
+@deffn Function RESET-DISTRIBUTED-OBJECTS 
+@findex RESET-DISTRIBUTED-OBJECTS
+For testing purposes!  Resets all distributed-object tables.
+@end deffn
+
+@anchor{fun-ddo-synchronize}
+@deffn Function SYNCHRONIZE &OPTIONAL @var{LABEL} &REST @var{ARGS}
+@findex SYNCHRONIZE
+Synchronize distributed objects across the MPI kernel.
+@end deffn
+
+@node Package DDO-FEMLISP,  , Package DDO, Reference manual
+@section Package DDO-FEMLISP
+
+This package contains Femlisp parallelization stuff.
+
+@anchor{fun-ddo-femlisp-aso-make-distributed}
+@deffn Function ASO-MAKE-DISTRIBUTED @var{ASO} &KEY @var{CONSISTENT-P} @var{MERGER} (@var{MERGER} (@var{FUNCTION} @var{ADDITION-MERGER})) &ALLOW-OTHER-KEYS
+@findex ASO-MAKE-DISTRIBUTED
+Turns aso into a distributed aso
 @end deffn
 

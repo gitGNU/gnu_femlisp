@@ -2,8 +2,8 @@
 @chapter Overview
 
 @menu
-* Features::                    
-* Structure::                   
+* Features::
+* Structure::
 @end menu
 
 @node Features, Structure, Overview, Overview

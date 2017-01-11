@@ -3,232 +3,257 @@
 
 @menu
 * Software needed::
-* Installation instructions::
-* Additional software::
-* Using Femlisp as a standalone program::
+* Detailed installation instructions::
 @end menu
 
-@node Software needed, Installation instructions, Installation, Installation
+@node Software needed, Detailed installation instructions, Installation, Installation
 @section Software needed
 
-@itemize
-@item A Common Lisp implementation which is sufficiently ANSI conformant.
-@femlisp{} is known to work with all major ANSI Common Lisp
-implementations, i.e. Allegro CL, CMUCL, Clozure CL, ECL, Lispworks,
-SBCL, Scieneer CL.  Furthermore, it runs with CLISP (however, since
-CLISP does not compile to native code, too slowly for most practical
-uses), and it should be quite straightforward to port it to other ANSI
-Common Lisp implementations as well (e.g. ABCL or GCL).
+For @femlisp{} installation, you will need the following:
 
-@item Some Common Lisp software, namely:
-@itemize
-@item ASDF originally from Daniel Barlow.
-@item The INFIX library from Mark Kantrowitz'.
-@item The BORDEAUX-THREADS library by Daniel Barlow
-@item The CLOSER-MOP library by Pascal Costanza
-@item The FIVE-AM library by Stelian Ionescu
-@item The LPARALLEL library by James M. Lawrence
-@item The CL-PPCRE library by Edi Weitz
-@end itemize
+@menu
+* Common Lisp implementation::
+* Graphics software::
+* Numerical software::
+* Common Lisp libraries::
+@end menu
 
-All of these libraries are easily available using the wonderful software
-installation utility Quicklisp, see @url{http://www.quicklisp.org}, developed
-and maintained by Zach Beane.
+@node Common Lisp implementation, Graphics software, Software needed, Software needed
+@subsection Common Lisp implementation
+@femlisp{} is tested regularly on SBCL, so it can be expected to work
+best with this implementation.
 
-@item Graphics software.
-If you want to have graphics available, you should have installed the
-following packages in such a way that they are found in your current
-path.
+Former @femlisp{} versions have been tested with many other ANSI Common
+Lisp implementations, i.e. Allegro CL, CMUCL, Clozure CL, ECL,
+Lispworks, SBCL, Scieneer CL, and even CLISP (however, since CLISP does
+not compile to native code, too slowly for most practical uses), and it
+should be quite straightforward to port it to other ANSI Common Lisp
+implementations as well (e.g. ABCL or GCL).
+
+@node Graphics software, Numerical software, Common Lisp implementation, Software needed
+@subsection Graphics software.
+@femlisp{} can make use of the following graphic programs:
+
 @itemize
 @item Data Explorer (OpenDX)
 @item Gnuplot
-@end itemize
-An alternative to OpenDX is some VTK viewer like Mayavi/Mayavi2.
-However, in contrast to OpenDX, these viewers are not started
-automatically from within Femlisp.
-
-@item Numerical software.  
-@femlisp{} can make use of the following software (although it does not
-need them):
-@itemize
-@item UMFPACK and/or SuperLU
-@item Triangle by R. M. Shewchuk.
-You should install this, if you need a 2D triangle mesh generator.  This
-probably will not be necessary for academic research and model problems.
-@item Tetgen by Hang Si
-You should install this, if you need a 3D tetrahedral mesh generator.  This
-probably will not be necessary for academic research and model problems.
+@item VTK
 @end itemize
 
-@item Documentation
+@node Numerical software, Common Lisp libraries, Graphics software, Software needed
+@subsection Numerical software
+@femlisp{} can make use of the following libraries:
+
 @itemize
-@item The ANSI Common Lisp Hyperspec.  
-This is a HTMLized copy of the ANSI Common Lisp standard which was made
-freely available by Lispworks.
+@item BLAS/LAPACK libraries
+@item The sparse direct solvers UMFPACK and/or SuperLU
+@item The 2D mesh generator Triangle by R. M. Shewchuk.
+@item The 3D mesh generator Tetgen by Hang Si
+@item An MPI implementation
 @end itemize
+
+Availability of the BLAS/LAPACK libraries as well as the sparse direct
+solvers can improve performance, although large parts of @femlisp{} will
+work without them.  In the same way, most of the @femlisp{} demos are
+concerned with model problems for which no advanced mesh generation is
+necessary.  Finally, MPI is needed only when you want to run @femlisp{}
+as a distributed application.
+
+@node Common Lisp libraries,  , Numerical software, Software needed
+@subsection Common Lisp libraries.
+Internally, @femlisp{} uses the following Common Lisp libraries:
+
+@itemize
+@item ASDF from Daniel Barlow (and many others)
+@item The INFIX library from Mark Kantrowitz
+@item The BORDEAUX-THREADS library by Daniel Barlow
+@item The CLOSER-MOP library by Pascal Costanza
+@item The FIVE-AM library by Stelian Ionescu
+@item The CFFI library by Luis Oliveira
+@item The LPARALLEL library by James M. Lawrence
+@item The LFARM library by James M. Lawrence
+@item The CL-MPI library by Marco Heisig
+@item The CL-PPCRE library by Edi Weitz
 @end itemize
+
+Note that you should not have to care about installing any of those
+libraries, if you are using the Common Lisp software manager Quicklisp
+by Zach Beane as suggested in the following section.
 
 @c ----------------------------------------------------------------
 
-@node Installation instructions, Additional software, Software needed, Installation
-@section Installation instructions
+@node Detailed installation instructions,  , Software needed, Installation
+@section Detailed installation instructions
 
 @menu
-* Installation of a CL implementation::
-* Getting Quicklisp::
+* SBCL installation::
+* Quicklisp::
 * Graphics::
-* Obtaining Femlisp::
-* Using Femlisp::
+* Additional numerical software::
+* Femlisp Installation::
 @end menu
 
-@node Installation of a CL implementation, Getting Quicklisp, Installation instructions, Installation instructions
-@subsection Installation of a CL implementation
+@node SBCL installation, Quicklisp, Detailed installation instructions, Detailed installation instructions
+@subsection SBCL installation
 
-There are several free Common Lisp implementations with which @femlisp{}
-is known to work completely, namely CMUCL and SBCL.  It runs also on the
-commercial implementations Scieneer CL, Allegro CL, and Lispworks.
-Femlisp should also run with ECL and Clozure CL, however, it is not
-regularly tested with those implementations.
+SBCL is a well-established free Common Lisp implementation on which
+@femlisp{} is developed and regularly tested.
 
-The most popular choice is probably SBCL (Steel Bank Common Lisp), see
-@url{http://www.sbcl.org}, which is available as a package in most Linux
-systems.
+On Debian/GNU Linux, SBCL can be installed using
 
-@node Getting Quicklisp, Graphics, Installation of a CL implementation, Installation instructions
-@subsection Getting Quicklisp
+@example
+    sudo apt install sbcl sbcl-source sbcl-doc
+@end example
+
+Although @femlisp{} will probably work with many other CL
+implementations, the precise installation procedures can be quite
+different, and we do not want to handle this here.
+
+@node Quicklisp, Graphics, SBCL installation, Detailed installation instructions
+@subsection Quicklisp
 In recent years, Quicklisp (see @url{http://www.quicklisp.org/}) has
-become the de facto standard for getting Common Lisp libraries.  Make
-sure that it works for you.  Note that Quicklisp installation is VERY
-easy following the installation instructions on the Quicklisp homepage.
+become the de facto standard for loading Common Lisp libraries.  Make
+sure that it works for you.
 
-@node Graphics, Obtaining Femlisp, Getting Quicklisp, Installation instructions
-@subsection Graphics
+Quicklisp installation is easy following the installation instructions
+on the Quicklisp homepage.  On Debian/GNU Linux, it can even be
+installed as a package using
+
+@example
+    sudo apt install cl-quicklisp
+@end example
+
+@node Graphics, Additional numerical software, Quicklisp, Detailed installation instructions
+@subsection Graphic programs
 
 @femlisp{} uses two graphics packages, namely Gnuplot and Data
 Explorer (OpenDX).  Make sure that they can be found in your path and
 that they work.
 
-On most Linux systems, this software is available as a package.
+On Linux, these libraries should be available using the package
+manager.  For example, on Debian/GNU Linux, they can be installed using
+something like the following shell command:
 
-@node Obtaining Femlisp, Using Femlisp, Graphics, Installation instructions
-@subsection Obtaining Femlisp
-
-Issue the command
 @example
-(ql:quickload "femlisp")
+    sudo apt install dx dx-doc gnuplot gnuplot-doc
 @end example
 
-Alternatively, you may clone the Femlisp git repository directly using
+@node Additional numerical software, Femlisp Installation, Graphics, Detailed installation instructions
+@subsection Additional numerical software
+
+@femlisp{} can make use of some external software described in this
+section, but it does not depend on it in a critical way.  Therefore, you
+may postpone its installation until later, unless you already have a
+certain application in mind.
+
+@menu
+* BLAS/LAPACK libraries::
+* Direct sparse solvers::
+* Mesh generators::
+* MPI::
+@end menu
+
+@node  BLAS/LAPACK libraries, Direct sparse solvers, Additional numerical software, Additional numerical software
+@subsubsection BLAS/LAPACK libraries
+
+Although @femlisp{} has an own implementation of the BLAS/LAPACK
+capabilities it needs, the optimized versions may increase performance
+significantly.
+
+On Debian/GNU Linux, these libraries are available as packages called
+something like ``libblas<version>'' or ``liblapack<version>''.  These
+packages provide shared libraries (.so suffix) which are linked to
+@femlisp{} when it is loaded.
+
+@node Direct sparse solvers, Mesh generators, BLAS/LAPACK libraries, Additional numerical software
+@subsubsection Direct sparse solvers
+
+@femlisp{} can link to two sparse direct solvers, namely SuperLU or
+UMFPACK.  Again those solvers have to be supplied as shared libraries.
+On Debian/GNU Linux, these are available as packages called something
+like ``libsuperlu<version>'' or ``libumfpack<version>''.
+
+Note that direct solvers are not necessary for most of the @femlisp{}
+demonstrations, because hierarchical solvers are usually more efficient.
+
+@node Mesh generators, MPI, Direct sparse solvers, Additional numerical software
+@subsubsection Mesh generators
+
+Femlisp can make use of the 2D mesh generator Triangle by J. R. Shewchuk
+and the 3D mesh generator Tetgen by Hang Si.
+
+On Debian/GNU Linux, these programs can be installed using
+
+@example
+    sudo apt install triangle-bin tetgen
+@end example
+
+When this succeeds, the corresponding binaries ``triangle'' and
+``tetgen'' should be found, and can also be used by @femlisp{}.
+
+Note that for a lot of model problems, the mesh can be constructed in a
+rather straightforward way, such that mesh generators are not needed.
+Especially, this is the case for most of the @femlisp{} demos.
+
+@node MPI,  , Mesh generators, Additional numerical software
+@subsubsection MPI
+
+If you want to do distributed computing with @femlisp{}, you need an MPI
+implementation.  We mostly use OpenMPI, but also others (e.g. MPICH or
+IntelMPI) should work.
+
+On Debian/GNU Linux, OpenMPI can be installed using
+
+@example
+    sudo apt install openmpi-bin
+@end example
+
+@node Femlisp Installation,  , Additional numerical software, Detailed installation instructions
+@subsection Femlisp Installation
+
+@menu
+* Downloading Femlisp::
+* Compiling Femlisp::
+* Starting Femlisp::
+@end menu
+
+@node Downloading Femlisp, Compiling Femlisp, Femlisp Installation, Femlisp Installation
+@subsubsection Downloading Femlisp
+
+Although Quicklisp provides some version of Femlisp, it may be
+recommendable to obtain a more recent one by cloning the Femlisp git
+repository directly using
+
 @example
 git clone git://git.savannah.nongnu.org/femlisp.git
 @end example
-(The ``nongnu'' in the server name refers to the fact, that Femlisp is
-covered by a BSD license instead of the more restrictive GNU license.)
 
-Then you have to make sure that the Common Lisp system utility asdf can
-find the file @path{femlisp/femlisp.asd}.  After that you can load
-Femlisp using
-@example
-(asdf:oos 'asdf:load-op :femlisp)
-@end example
+The result of this command should be a directory called ``femlisp''.
 
-@node Using Femlisp,  , Obtaining Femlisp, Installation instructions
-@subsection Using Femlisp
-You should now be ready for using @femlisp{}.  For example, you can
-start a demo by
-@example
-(fl.demo:femlisp-demo)
-@end example
+@node Compiling Femlisp, Starting Femlisp, Downloading Femlisp, Femlisp Installation
+@subsubsection Compiling Femlisp
 
-@node Additional software, Using Femlisp as a standalone program, Installation instructions, Installation
-@section Additional software
+Move into the @femlisp{} directory and issue the command
 
-@femlisp{} can make use of further external software, which you may
-install if necessary.
-
-@menu
-* Direct solvers::
-* Triangle mesh generator::
-* Tetgen mesh generator::
-@end menu
-
-@node Direct solvers, Triangle mesh generator, Additional software, Additional software
-@subsection Direct solvers
-
-@femlisp{} can link to two sparse direct solvers, namely SuperLU or
-UMFPACK.  When those are available on your system, you have to compile
-the glue programs superlu.c and/or umfpack.c in the directory
-@path{femlisp/interface}.  This can be done by issuing the commands
-@example
-make superlu
-@end example
-or
-@example
-make umfpack
-@end example
-from within the @path{femlisp} directory.  If these commands cannot
-figure out the path to the libraries, feel free to edit the Makefile in
-@path{femlisp/interfaces} according to your needs.
-
-@node Triangle mesh generator, Tetgen mesh generator, Direct solvers, Additional software
-@subsection Triangle mesh generator
-
-Next, Femlisp can make use of the mesh generator Triangle by
-J. R. Shewchuk, which is available as a package in most Linux
-implementations.  If you have it installed on your system, you only have
-to make sure that it can be found in your path, such that Femlisp can
-find it.
-
-@node Tetgen mesh generator,  , Triangle mesh generator, Additional software
-@subsection Tetgen mesh generator
-
-Femlisp can also make use of the mesh generator Tetgen by Hang Si.  If
-you have it installed on your system, you only have to make sure that it
-can be found in your path, such that Femlisp can find it as well.
-
-@node Using Femlisp as a standalone program,  , Additional software, Installation
-@section Using Femlisp as a standalone program
-
-This section is only of relevance, if you want to use Femlisp as a
-standalone program without too much tweaking.
-
-@menu
-* Configuration of the startup script::
-* Compiling Femlisp::
-* Saving a Femlisp core::
-@end menu
-
-@node Configuration of the startup script, Compiling Femlisp, Using Femlisp as a standalone program, Using Femlisp as a standalone program
-@subsection Configuration of the startup script
-
-Issue the command
 @example
 make configure
 @end example
-in the @path{femlisp} directory and answer the questions being asked.
 
-@node Compiling Femlisp, Saving a Femlisp core, Configuration of the startup script, Using Femlisp as a standalone program
-@subsection Running Femlisp
+You will be asked some parameters and can check that the suggested
+default values fit.
 
-You should now be able to start @femlisp{} by executing the script
-@file{femlisp/bin/femlisp}.  The first time you use this script, your
-Lisp implementation will have to compile @femlisp{} which may take a
-while.  The next time, startup will be much faster.  You can exit
-Lisp/@femlisp{} by typing "(quit)".  Note that it is recommendable to
-invoke this newly created executable either from an Emacs shell buffer
-or wrapped inside the readline-wrap @command{rlwrap} (i.e. as
-@code{rlwrap femlisp}).
+Then issue the shell command
 
-@node Saving a Femlisp core,  , Compiling Femlisp, Using Femlisp as a standalone program
-@subsection Saving a Femlisp core
-You can also save a core which avoids reloading @femlisp{} during
-startup.  This is done by executing the command
 @example
 make femlisp
 @end example
-After that, @femlisp{} should always start up fast.
 
-However, note that after a change in @femlisp{} source code, this step
-has to be repeated.  Therefore, most Common Lisp programmers do not work
-in this way, but load their libraries at the beginning of a long
-worksession which can last for days or even weeks.
+This will compile @femlisp{} and save a suitable core in the ``bin''
+subdirectory.
+
+@node Starting Femlisp,  , Compiling Femlisp, Femlisp Installation
+@subsubsection Starting Femlisp
+
+If installation was successful, @femlisp{} can be started by executing
+the script ``bin/femlisp'' and you can continue as described in chapter
+@ref{First steps}.

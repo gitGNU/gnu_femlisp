@@ -2,11 +2,11 @@
 @chapter First steps
 
 @menu
-* Demos::                       
-* Solving problems::            
-* Plotting::                    
-* Common Lisp environment::     
-* Learning Common Lisp::        
+* Demos::
+* Solving problems::
+* Plotting::
+* Common Lisp environment::
+* Learning Common Lisp::
 @end menu
 
 @node Demos, Solving problems, First steps, First steps
@@ -26,12 +26,12 @@ This section discusses how to solve several standard problems with
 use your Common Lisp environment before trying these examples.
 
 @menu
-* Stationary diffusion problem::  
-* Nonlinear diffusion problem::  
-* Elasticity problem::          
-* Navier-Stokes problem::       
-* Heat equation::               
-* Eigenvalue problems::         
+* Stationary diffusion problem::
+* Nonlinear diffusion problem::
+* Elasticity problem::
+* Navier-Stokes problem::
+* Heat equation::
+* Eigenvalue problems::
 @end menu
 
 @node Stationary diffusion problem, Nonlinear diffusion problem, Solving problems, Solving problems
@@ -222,7 +222,7 @@ mesh, source, and matrix can be done with
 (plot (getbb *result* :matrix))
 @end lisp
 
-You can also plot the result to several graphic formats.  For example,
+You can also save plots to several graphic formats.  For example,
 
 @lisp
 (plot (getbb *result* :mesh) :background :white :tubes nil :glyphs nil

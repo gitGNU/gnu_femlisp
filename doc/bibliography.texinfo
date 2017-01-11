@@ -48,6 +48,10 @@ P. Graham: @emph{On Lisp}.  Prentice Hall, 1993.
 @item (Graham 1996)
 P. Graham: @emph{ANSI Common Lisp}.  Prentice Hall, 1996.
 
+@item (Heisig-Neuss 2017)
+M. Heisig, N. Neuss: Making a Common Lisp Finite Element library
+high-performing - a case study (submitted).
+
 @item (Keene 1989)
 S. E. Keene: @emph{Object-Oriented Programming in Common Lisp: A
 Programmer's Guide to CLOS}. Addison-Wesley, 1989.

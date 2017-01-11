@@ -32,6 +32,7 @@ Common Lisp
 @alias slot = code
 @alias path = file
 @alias program = file
+@alias library = code
 
 @macro slisp{code}
 
@@ -40,9 +41,9 @@ Common Lisp
 @end lisp
 @end macro
 
-@set EDITION 1.0
-@set VERSION 1.0.1
-@set UPDATED 03 March 2015
+@set EDITION 2.0
+@set VERSION 2.0.0
+@set UPDATED 10 January 2017
 
 @c for install-info
 @dircategory Math
@@ -114,77 +115,104 @@ equations.
 
 Introduction, Installation, Top, Top
 
-* Tools for solving PDEs::      
-* Common Lisp::                 
-* Advantages::                  
+* Tools for solving PDEs::
+* Common Lisp::
+* Advantages::
 
 Installation
 
 * Software needed::
-* Installation instructions::
-* Additional software::
-* Using Femlisp as a standalone program::
+* Detailed installation instructions::
 
-Installation instructions
+Software needed
 
-* Installation of a CL implementation::
-* Getting Quicklisp::
+* Common Lisp implementation::
+* Graphics software::
+* Numerical software::
+* Common Lisp libraries::
+
+Detailed installation instructions
+
+* SBCL installation::
+* Quicklisp::
 * Graphics::
-* Obtaining Femlisp::
-* Using Femlisp::
+* Additional numerical software::
+* Femlisp Installation::
 
-Additional software
+Additional numerical software
 
-* Direct solvers::
-* Triangle mesh generator::
-* Tetgen mesh generator::
+* BLAS/LAPACK libraries::
+* Direct sparse solvers::
+* Mesh generators::
+* MPI::
 
-Using Femlisp as a standalone program
+Femlisp Installation
 
-* Configuration of the startup script::
+* Downloading Femlisp::
 * Compiling Femlisp::
-* Saving a Femlisp core::
+* Starting Femlisp::
 
 First steps
 
-* Demos::                       
-* Solving problems::            
-* Plotting::                    
-* Common Lisp environment::     
-* Learning Common Lisp::        
+* Demos::
+* Solving problems::
+* Plotting::
+* Common Lisp environment::
+* Learning Common Lisp::
 
 Solving problems
 
-* Stationary diffusion problem::  
-* Nonlinear diffusion problem::  
-* Elasticity problem::          
-* Navier-Stokes problem::       
-* Heat equation::               
-* Eigenvalue problems::         
+* Stationary diffusion problem::
+* Nonlinear diffusion problem::
+* Elasticity problem::
+* Navier-Stokes problem::
+* Heat equation::
+* Eigenvalue problems::
 
 Programming techniques
 
-* Object-oriented programming::  
-* Dynamic class generation::    
-* Memoization::                 
-* Blackboards::                 
-* Documentation::               
+* Object-oriented programming::
+* Dynamic class generation::
+* Memoization::
+* Blackboards::
+* Documentation::
+* Parallelization::
+
+Parallelization
+
+* Shared-memory parallelization::
+* Distributed-memory parallelization::
+
+Shared-memory parallelization
+
+* Allocating a new kernel::
+* Working in parallel::
+* Terminating a kernel::
+
+Distributed-memory parallelization
+
+* Distributed objects::
+* Synchronization::
+* Compiling the MPI worker::
+* Starting the worker pool::
+* Connecting to the worker pool::
+* Communicating with the worker pool::
 
 Overview
 
-* Features::                    
-* Structure::                   
+* Features::
+* Structure::
 
 FAQ
 
-* Installation and Getting Started::  
-* Mesh Management::             
-* Linear Algebra::              
-* Problems::                    
-* Discretization::              
-* Solvers::                     
-* Parallelization::             
-* General::                     
+* Installation and Getting Started FAQ::
+* Mesh Management FAQ::
+* Linear Algebra FAQ::
+* Problems FAQ::
+* Discretization FAQ::
+* Solver FAQ::
+* Parallelization FAQ::
+* General::
 
 Reference manual
 
@@ -217,6 +245,8 @@ Reference manual
 * Package FL.PLOT::
 * Package FL.DOMAINS::
 * Package FL.APPLICATION::
+* Package DDO::
+* Package DDO-FEMLISP::
 
 @end detailmenu
 @end menu

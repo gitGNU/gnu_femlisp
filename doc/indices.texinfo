@@ -12,7 +12,7 @@
 @c @printindex vr
 
 
-@node Concept Index, , Bibliography, Top
+@node Concept Index
 @chapter Concept Index
 
 @printindex cp
