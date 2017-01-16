@@ -111,12 +111,24 @@ different, and we do not want to handle this here.
 
 @node Quicklisp, Graphics, SBCL installation, Detailed installation instructions
 @subsection Quicklisp
+
 In recent years, Quicklisp (see @url{http://www.quicklisp.org/}) has
 become the de facto standard for loading Common Lisp libraries.  Make
 sure that it works for you.
 
 Quicklisp installation is easy following the installation instructions
-on the Quicklisp homepage.  On Debian/GNU Linux, it can even be
+from the Quicklisp homepage @cite{Quicklisp} which are essentially the
+following commands:
+
+@example
+  curl -O https://beta.quicklisp.org/quicklisp.lisp
+  sbcl --load quicklisp.lisp  # if your CL implementation is SBCL
+  * (quicklisp-quickstart:install)
+  * (ql:add-to-init-file)
+  * (quit)
+@end example
+
+On recent Debian/GNU Linux or Ubuntu versions, Quicklisp can even be
 installed as a package using
 
 @example
@@ -213,11 +225,14 @@ On Debian/GNU Linux, OpenMPI can be installed using
 
 @menu
 * Downloading Femlisp::
+* Configuring Femlisp::
+* Getting CL libraries::
+* Registering Femlisp::
 * Compiling Femlisp::
 * Starting Femlisp::
 @end menu
 
-@node Downloading Femlisp, Compiling Femlisp, Femlisp Installation, Femlisp Installation
+@node Downloading Femlisp, Configuring Femlisp, Femlisp Installation, Femlisp Installation
 @subsubsection Downloading Femlisp
 
 Although Quicklisp provides some version of Femlisp, it may be
@@ -230,8 +245,8 @@ git clone git://git.savannah.nongnu.org/femlisp.git
 
 The result of this command should be a directory called ``femlisp''.
 
-@node Compiling Femlisp, Starting Femlisp, Downloading Femlisp, Femlisp Installation
-@subsubsection Compiling Femlisp
+@node  Configuring Femlisp, Getting CL libraries, Downloading Femlisp, Femlisp Installation
+@subsubsection Configuring Femlisp
 
 Move into the @femlisp{} directory and issue the command
 
@@ -242,7 +257,53 @@ make configure
 You will be asked some parameters and can check that the suggested
 default values fit.
 
-Then issue the shell command
+@node Getting CL libraries, Registering Femlisp, Configuring Femlisp, Femlisp Installation
+@subsubsection Getting CL libraries
+
+Move into the @femlisp{} directory and issue the command
+
+@example
+make quickload-libraries
+@end example
+
+@footnote{
+If you should encounter the problem that you have a version of
+ASDF which is too old (which may happen if your CL implementation is too
+old), you may try to get around this problem by installing a recent
+version of ASDF in the directory @file{femlisp/external} by:
+
+@example
+make asdf
+@end example
+
+and adding the following line to your CL initialization file (.sbclrc
+for SBCL):
+@example
+#-asdf3.1 (load (merge-pathnames "femlisp/external/asdf/build/asdf.lisp" (user-homedir-pathname)))
+@end example
+}
+
+@node Registering Femlisp, Compiling Femlisp, Getting CL libraries, Femlisp Installation
+@subsubsection Registering Femlisp
+
+Femlisp provides several own ``system files'' which have to be
+registered with ASDF (the Common Lisp system loading facility which is
+the de-facto standard nowadays).  This can be done by appending the
+following lines to the initialization file of your CL implementation
+(~/.sbclrc for SBCL), after the lines for the initialization of
+Quicklisp:
+
+@example
+;; registering Femlisp systems (change path if necessary)
+(let ((femlisp-init (merge-pathnames "femlisp/systems" (user-homedir-pathname))))
+  (when (probe-file femlisp-init)
+    (push femlisp-init (intern "*CENTRAL-REGISTRY*" (find-package :asdf)))))
+@end example
+
+@node Compiling Femlisp, Starting Femlisp, Registering Femlisp, Femlisp Installation
+@subsubsection Compiling Femlisp
+
+Move into the @femlisp{} directory and issue the command
 
 @example
 make femlisp

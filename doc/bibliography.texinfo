@@ -71,6 +71,9 @@ Proceedings of the CISC 2002. Springer-Verlag, 2002.
 P. Norvig @emph{Principles of Artificial Intelligence Programming}.
 Morgan Kaufmann Publishers, Inc., San Francisco, USA, 1992.
 
+@item (Quicklisp)
+Quicklisp Homepage.  @url{http://www.quicklisp.org}.
+
 @item (Ruede 1993)
 U. Ruede @emph{Mathematical and Computational Techniques for Multilevel
 Adaptive Methods}.  @emph{Frontiers in Applied Mathematics} 13, SIAM,

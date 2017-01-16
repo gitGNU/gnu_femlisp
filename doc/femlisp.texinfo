@@ -149,6 +149,9 @@ Additional numerical software
 Femlisp Installation
 
 * Downloading Femlisp::
+* Configuring Femlisp::
+* Getting CL libraries::
+* Registering Femlisp::
 * Compiling Femlisp::
 * Starting Femlisp::
 
