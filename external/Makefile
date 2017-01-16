@@ -31,6 +31,9 @@
 
 all: triangle tetgen
 
+asdf:
+	git clone https://gitlab.common-lisp.net/asdf/asdf.git
+
 triangle:
 	cd triangle; make
 
