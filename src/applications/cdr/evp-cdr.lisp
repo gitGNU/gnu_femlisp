@@ -39,14 +39,14 @@ eigenvalue/eigenvector pairs for convection-diffusion-reaction problems.")
 
 (defun laplace-eigenvalue-computation
     (domain &key output plot (dirichlet 0.0) (multiplicity 1)
-     (shift (if dirichlet 0.0 1.0)) (time 20) (nr-levels 5))
+     (shift (if dirichlet 0.0 1.0)) (time 20) (nr-levels 5) (base-level 1))
   "Function performing the eigenvalue demo for the Laplace operator."
   (let ((problem (cdr-model-problem
 		  domain :evp t :multiplicity multiplicity
                   :dirichlet dirichlet)))
     (storing
       (solve (blackboard
-	      :problem problem :base-level 0
+	      :problem problem :base-level base-level
 	      :success-if `(or (>= :time ,time) (>= :nr-levels ,nr-levels))
 	      :output output :observe
 	      (append *stationary-fe-strategy-observe*
@@ -64,12 +64,15 @@ eigenvalue/eigenvector pairs for convection-diffusion-reaction problems.")
 operator on a ~A.  The solution strategy does uniform refinement
 and terminates if more than 20 seconds have passed after a
 step." domain-name)))
-    (let ((demo
-	   (make-demo
-	    :name title :short short :long long
-	    :execute (lambda ()
-		       (laplace-eigenvalue-computation
-			domain :multiplicity 3 :plot t :output 1)))))
+    (let*  ((dim (dimension domain))
+            (demo
+              (make-demo
+               :name title :short short :long long
+               :execute (lambda ()
+                          (laplace-eigenvalue-computation
+                           domain
+                           :multiplicity 3 :base-level (if (= dim 1) 1 0)
+                           :plot t :output 1)))))
       (adjoin-demo demo *eigenvalue-demo*))))
 
 #+(or)
@@ -152,7 +155,9 @@ step." domain-name)))
 
 (defun evp-cdr-test ()
   (plot (laplace-eigenvalue-computation
-	 (n-cube-domain 1) :output t :plot t))
+	 (n-cube-domain 1)
+         :multiplicity 3 :base-level 1
+         :output t :plot t))
 
   ;; the following is used in the manual
   (let ((problem (cdr-model-problem 2 :evp t)))
