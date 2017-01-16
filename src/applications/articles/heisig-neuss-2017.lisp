@@ -51,7 +51,7 @@
     (format t "~&Estimating CPU speed. This may take a little time, so please wait...")
     (force-output)
     (setq *konwihr-speed* (common-lisp-speed))
-    (format t " Done.~%")
+    (format t " Measured ~5,0F MFLOPS.~%" (* 10 (round *konwihr-speed* 10)))
     (force-output))
   *konwihr-speed*)
 
