@@ -51,7 +51,7 @@
     (format t "~&Estimating CPU speed. This may take a little time, so please wait...")
     (force-output)
     (setq *konwihr-speed* (common-lisp-speed))
-    (format t " Measured ~5,0F MFLOPS.~%" (* 10 (round *konwihr-speed* 10)))
+    (format t " Measured ~D MFLOPS.~%" (* 10 (round *konwihr-speed* 10)))
     (force-output))
   *konwihr-speed*)
 
@@ -139,8 +139,11 @@ the range 1-~D."
   (let* ((max-levels (konwihr-paper-max-levels))
          (query (format nil "Levels (1-~D): " (or max-levels 4)))
          (levels (user-input query #'parse-integer (_ (<= 1 _ max-levels))))
+         (thread-query
+           (format nil "Threads~@[ [recommended=~D~]]: "
+                   (aand (fl.parallel::get-workers) (length it))))
          (threads (and parallel-p 
-                       (user-input "Threads : " #'parse-integer #'plusp))))
+                       (user-input thread-query #'parse-integer #'plusp))))
     (fl.parallel::end-kernel)
     (when threads (new-kernel threads))
     (initialize-konwihr-paper-calculation)
