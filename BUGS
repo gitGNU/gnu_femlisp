@@ -19,9 +19,14 @@ This is a list of known bugs:
   - Windows are not closed when terminating the program, but have to be
     killed separately.
 
+    http://www.opendx.org/cgi-bin/forum/YaBB.pl?num=1176042404
+
+    Femlisp tries to repair this by killing the process itself,
+	but this approach is non-optimal.  For example, it would fail
+	in the case of a Femlisp core-dump.
+	
   - One cannot assign other colors to plots of 1d fe functions.  
 
   - On some systems black lines can appear on plots of some regular meshes.
 
   - The size of glyphs cannot be reasonably influenced for DIM=3.
-
