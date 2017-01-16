@@ -47,6 +47,9 @@
   "The current @program{dx} process.")
 
 (defun ensure-dx-process ()
+  #+linux
+  (unless (fl.port:getenv "DISPLAY")
+    (error "No DISPLAY variable set which is necessary for running dx"))
   (when *dx-process*  ; (eq (fl.port:process-status *dx-process*) :running) ?
     (return-from ensure-dx-process *dx-process*))
   ;; execute it within the images directory
@@ -64,7 +67,13 @@
            :directory (images-pathname))))
   (unless *dx-process*
     (warn "~&ENSURE-DX-PROCESS: could not start DX.~%"))
+  ;; there is a bug in DX which leaves the DX window around
+  ;; when not all children are killed which we do here
+  ;; when exiting SBCL
+  (fl.port:add-exit-hook 'dx-close)
   *dx-process*)
+
+;;; #+sbcl (pushnew 'dx-close sb-ext:*exit-hooks*)
 
 (defmethod graphic-input-stream ((program (eql :dx)))
   (fl.port:process-input (ensure-dx-process)))
@@ -76,10 +85,15 @@
   (whereas ((process (ensure-dx-process)))
     (fl.port:process-output process)))
 
-#+(or)  ; (ensure-dx-process)
-(when *dx-process*
-  (fl.port:process-close *dx-process*)
-  (setq *dx-process* nil))
+(defun dx-close ()
+  (whereas ((process *dx-process*))
+    (fl.port::kill-process process)
+    (fl.port:process-close process)
+    (setq *dx-process* nil)))
+
+;; (ensure-dx-process)
+#+(or)  
+(when *dx-process* (dx-close))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Communication with graphic servers
@@ -107,13 +121,13 @@ This is a trick to make @arg{dx} redraw the picture.")
                          (force-output *trace-output*)))
        until (search "0:  ECHO:  Femlisp request processed" line))))
 
-(defparameter *dx-bug-workaround* nil
+(defvar *dx-bug-workaround* nil
   "If T switches on hardware rendering.  This variant is problematic,
 although it gets rid of black lines in dx pictures in some situations.
 E.g. it does not do xy-graphs correctly and fails for @lisp{(plot (n-cube
 1))}.  It can also kill the Xwindows interface on some computers.")
 
-(defparameter *show-dx-window* t
+(defvar *show-dx-window* nil
   "Show the DX window when something is plotted.  This may be useful on
 Laptops when the window is hidden.")
 
