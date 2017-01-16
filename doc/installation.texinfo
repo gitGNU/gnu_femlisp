@@ -295,9 +295,10 @@ Quicklisp:
 
 @example
 ;; registering Femlisp systems (change path if necessary)
-(let ((femlisp-init (merge-pathnames "femlisp/systems" (user-homedir-pathname))))
+(let ((femlisp-init (merge-pathnames "femlisp/systems/" (user-homedir-pathname))))
   (when (probe-file femlisp-init)
-    (push femlisp-init (intern "*CENTRAL-REGISTRY*" (find-package :asdf)))))
+    (push femlisp-init
+          (symbol-value (intern "*CENTRAL-REGISTRY*" (find-package :asdf))))))
 @end example
 
 @node Compiling Femlisp, Starting Femlisp, Registering Femlisp, Femlisp Installation
