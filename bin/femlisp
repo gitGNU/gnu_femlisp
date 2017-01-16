@@ -10,7 +10,7 @@ case $FEMLISP_CL_TYPE in
     cmucl) core="-core"; load="-load"; eval="-eval"; noinit="-nositeinit -noinit";;
     scl) core="-core"; load="-load"; eval="-eval"; noinit="-nositeinit -noinit";;
     lispworks) core=""; load="-init"; noinit="-init - -siteinit -";;
-    sbcl) core="--core"; load="--load"; eval="--eval"; noinit="--sysinit /dev/null --userinit /dev/null";;
+    sbcl) core="--core"; load="--load"; eval="--eval"; noinit="--sysinit /dev/null --userinit /dev/null"; dynamic_space_size_pair="--dynamic-space-size $FEMLISP_DYNAMIC_SPACE_SIZE";;
     ecl) core=""; load="-load"; eval="-eval"; noinit="-norc";;
     gcl) core=""; load="-load"; eval="-eval";;
     *) echo "Unknown Common Lisp in FEMLISP_CL_TYPE"; exit 1;;
@@ -19,7 +19,7 @@ esac
 FEMLISP_CORE=$FEMLISP_DIR/bin/femlisp-$FEMLISP_CL_TYPE-core
 
 if test -f $FEMLISP_CORE; then
-    $FEMLISP_CORE "$@"
+    $FEMLISP_CORE $dynamic_space_size_pair "$@"
 else
-    exec $FEMLISP_CL $eval "(asdf:oos 'asdf:load-op :femlisp)" "$@"
+    exec $FEMLISP_CL $dynamic_space_size_pair $eval "(asdf:oos 'asdf:load-op :femlisp)" "$@"
 fi
