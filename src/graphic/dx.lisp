@@ -47,9 +47,6 @@
   "The current @program{dx} process.")
 
 (defun ensure-dx-process ()
-  #+linux
-  (unless (fl.port:getenv "DISPLAY")
-    (error "No DISPLAY variable set which is necessary for running dx"))
   (when *dx-process*  ; (eq (fl.port:process-status *dx-process*) :running) ?
     (return-from ensure-dx-process *dx-process*))
   ;; execute it within the images directory
