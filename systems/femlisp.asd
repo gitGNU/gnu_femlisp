@@ -35,13 +35,18 @@
 (defpackage :femlisp-system (:use :common-lisp :asdf))
 (in-package :femlisp-system)
 
+;;; the following is a temporary kludge because on older CL implementations
+;;; ASDF3.1 may not be available, but is needed e.g. by fiveam.
+#-asdf3.1 (let ((file (probe-file "../external/asdf/build/asdf.lisp")))
+            (when file (load file)))
+
 (defun call-with-read-double-float-environment (fun)
   "Numerical calculations usually work with double-float numbers, because single-float numbers ususally do not have sufficient precision.  This function is used for dynamically binding the default-float-format when loading Femlisp parts which rely on this functionality for not interfering with other peoples libraries."
   (let ((*read-default-float-format* 'double-float))
     (funcall fun)))
 
 (defsystem :femlisp-basic
-  :depends-on (#+(or clisp ccl) :cffi #+(or clisp ccl) :closer-mop
+  :depends-on (#+(or clisp ccl) :cffi
                #+sbcl :sb-posix #+sbcl :sb-introspect
                #+allegro (:require "osi")
                :closer-mop :fiveam
