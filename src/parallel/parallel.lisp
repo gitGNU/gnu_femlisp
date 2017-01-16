@@ -100,7 +100,9 @@
 (defun new-kernel (&optional nr-threads (set-affinity-p t))
   (let* ((available-workers (get-workers))
          (max-workers (length available-workers)))
-    (ensure nr-threads max-workers)
+    (ensure nr-threads (if available-workers
+                           max-workers
+                           1))
     (end-kernel)
     (when set-affinity-p
       (unless (member :cl-cpu-affinity *features*)
