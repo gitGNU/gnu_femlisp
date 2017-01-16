@@ -58,10 +58,18 @@ if test -n "$input"
 then
     FEMLISP_DIR="$input"
 fi
-
 if ! test -d "$FEMLISP_DIR"; then
     echo "Directory \"$FEMLISP_DIR\" not found"
     exit 1
+fi
+
+MEMORY=`free -m | grep ^Mem | awk '{print $2}'`
+DYNAMIC_SPACE_SIZE=$(($MEMORY / 2))
+echo "How much memory do you want Femlisp to use by default [MEM/2=$DYNAMIC_SPACE_SIZE]? "
+read input
+if test -n "$input"
+then
+    DYNAMIC_SPACE_SIZE="$input"
 fi
 
 # Obsolete, but may become necessary later on because of license issues
@@ -85,4 +93,5 @@ cat >femlisp-config.mk<<EOF
 FEMLISP_DIR=$FEMLISP_DIR
 FEMLISP_CL=$FEMLISP_CL
 FEMLISP_CL_TYPE=$FEMLISP_CL_TYPE
+FEMLISP_DYNAMIC_SPACE_SIZE=$DYNAMIC_SPACE_SIZE
 EOF
