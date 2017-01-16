@@ -99,7 +99,7 @@ the KONWIHR calculations.
 
 This calculation may take about ~D seconds, but it is necessary only once
 for all these demos, so please wait..."
-            (round (* 20e-3 (konwihr-speed))))
+            (round (/ 20000 (konwihr-speed))))
     (force-output)
     (initialize-elahom-calculation 3 5 2)
     (setq *konwihr-initialized* t)
