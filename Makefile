@@ -45,6 +45,9 @@ asdf:
 configure:
 	./configure
 
+quickload-libraries:
+        $(FEMLISP_CL) --eval "(progn (ql:quickload (list :cl-ppcre :cl-gd :fiveam :bordeaux-threads :lparallel :cffi)) (quit))"
+
 documentation:
 	cd doc; $(MAKE) all
 
