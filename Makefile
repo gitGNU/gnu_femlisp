@@ -35,9 +35,12 @@
 
 help:
 	echo "Options: all, configure, clean, cleanall, documentation, femlisp,";\
-	echo "         help, triangle, tetgen, superlu, umfpack."
+	echo "         help, asdf, superlu, umfpack."
 
 all: configure superlu umfpack femlisp documentation
+
+asdf:
+	cd external; make asdf
 
 configure:
 	./configure
