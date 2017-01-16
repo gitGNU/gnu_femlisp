@@ -29,10 +29,11 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ###########################################################################
 
-all: triangle tetgen
+.PHONY: clean
 
 asdf:
 	git clone https://gitlab.common-lisp.net/asdf/asdf.git
+	cd asdf; make
 
 triangle:
 	cd triangle; make
