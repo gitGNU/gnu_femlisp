@@ -47,7 +47,8 @@
    ;; process communication
    "RUN-PROGRAM" "PROCESS-INPUT" "PROCESS-OUTPUT" "PROCESS-ERROR"
    "PROCESS-CLOSE" "PROCESS-STATUS" "RUN-PROGRAM-OUTPUT"
-
+   "KILL-PROCESS"
+   
    ;; load alien code
    "LOAD-FOREIGN-LIBRARY" "DEF-FUNCTION" "SIMPLIFIED-DEF-FUNCTION"
    "CONVERT-TYPE"
@@ -56,6 +57,9 @@
    ;; weak pointers and GC
    "MAKE-WEAK-POINTER" "WEAK-POINTER-VALUE"
    "FINALIZE" "GC"
+
+   ;; exiting
+   "ADD-EXIT-HOOK"
    )
   (:export "SAVE-FEMLISP-CORE-AND-DIE" "FEMLISP-RESTART")
   (:documentation "This package should contain the implementation-dependent
@@ -305,6 +309,17 @@ compatible way of ensuring method compilation."
   #+sbcl (sb-ext:process-status process)
   #-(or cmu ccl scl sbcl)
   (portability-warning 'process-status process)
+  )
+
+(defun kill-process (process)
+  "Kills the given process"
+  #+(and sbcl linux)
+  (run-program
+   "/usr/bin/pkill"
+   (list "-P"  (format nil "~D" (sb-impl::process-pid process)))
+   :wait t)
+  #-(and sbcl linux)
+  (portability-warning 'kill-process process)
   )
 
 (defun run-program-output (program args)
@@ -571,6 +586,13 @@ that no GC changes array pointers obtained by @function{vector-sap}."
 ;;;; Quitting
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun add-exit-hook (hook)
+  #+sbcl    (pushnew hook sb-ext:*exit-hooks*)
+  #+ccl     (pushnew hook ccl:*lisp-cleanup-functions*)
+  #+allegro (pushnew hook sys:*exit-cleanup-forms* :test #'equal)
+  #-(or sbcl ccl allegro)
+  (portability-warning 'add-exit-hook))
+  
 (defun quit ()
   "Quits Femlisp."
   #+asdf3 (uiop:quit)
