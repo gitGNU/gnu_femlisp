@@ -52,8 +52,6 @@ during initialization of Femlisp."))
 (in-package :fl.start)
 
 (defparameter *femlisp-version* "2.0.0")
-(defparameter *process* nil
-  "This variable should be set externally for identifying a certain process.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Setup the logical host "FEMLISP"
@@ -103,36 +101,4 @@ location of this file when it is loaded.")
 ;;; @file{system/femlisp.asd}.
 
 ;; (setq *READ-DEFAULT-FLOAT-FORMAT* 'double-float)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Register banner
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun femlisp-version () *femlisp-version*)
-(defun femlisp-herald () (format nil "    Femlisp/~a" (femlisp-version)))
-
-(defun femlisp-banner ()
-  (format
-   t "~&~%*** Femlisp-~A ***
-
-Copyright (C) 2003-2017
-Nicolas Neuss
-University Heidelberg, KIT Karlsruhe, University Erlangen-Nuernberg.
-
-Femlisp comes with ABSOLUTELY NO WARRANTY, for details see the
-file LICENSE in the Femlisp main directory.  This is free
-software, and you are welcome to redistribute it under certain
-conditions.
-
-You can enter \"(fl.demo:femlisp-demo)\" to get a guided tour
-through Femlisp, and enter \"(quit)\" to leave the program.~%~%"
-   *femlisp-version*))
-
-(defun femlisp-restart ()
-  "Should be called when restarting a saved Femlisp core."
-  #+(or cmu scl) (progn (ext::print-herald))
-  (femlisp-banner)
-  (setq *read-default-float-format* 'double-float)
-  (setq *package* (find-package :fl.application))
-  )
 
