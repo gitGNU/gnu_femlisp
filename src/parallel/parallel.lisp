@@ -108,36 +108,34 @@
       (unless (member :cl-cpu-affinity *features*)
         (warn "No CPU pinning possible on this architecture.")
         (setq set-affinity-p nil)))
-    (cond
-      ((< nr-threads 1)
-       (error "Kernel with nonpositive number of workers required"))
-      ((null available-workers)
-       (when set-affinity-p
-         (warn "No worker information available, so no CPU pinning is possible")
-         (setq set-affinity-p nil)))
-      ((> nr-threads max-workers)
-       (warn "~D workers required, but only ~D CPUs are available, which may slow down calculations.
+    (when (< nr-threads 1)
+      (error "Kernel with nonpositive number of workers required"))
+    (when (null available-workers)
+      (when set-affinity-p
+        (warn "No worker information available, so no CPU pinning is possible")
+        (setq set-affinity-p nil)))
+    (when (> nr-threads max-workers)
+      (warn "~D workers required, but only ~D CPUs are available, which may slow down calculations.
 ~:[~;  Furthermore no CPU pinning is possible in this situation.~]"
-             nr-threads max-workers set-affinity-p))
-      ((= nr-threads 1)
-       (warn "Only one worker thread is required, which does not really help with performance.
+            nr-threads max-workers set-affinity-p))
+    (when(= nr-threads 1)
+      (warn "Only one worker thread is required, which does not really help with performance.
 ~:[~;  We also do not do CPU pinning in this situation, but use all available CPUs.~]"
-             set-affinity-p))
-      (t
-       (let ((count -1))
-         (flet ((my-worker-context (worker-loop)
-                  (let ((*worker-id* (incf count)))
-                    ;; set cpu affinity
-                    (when set-affinity-p
-                      (funcall (intern "SET-CPU-AFFINITIES" (find-package "CL-CPU-AFFINITY"))
-                               (mapcar #'pi-cpu (nth *worker-id* available-workers))))
-                    ;; enter the worker loop; return when the worker shuts down
-                    (funcall worker-loop))))
-           (setf *kernel*
-                 (make-kernel nr-threads
-                              :bindings '((*worker-id* . nil)
-                                          (*thread-local-memoization-table* . nil))
-                              :context #'my-worker-context))))))))
+            set-affinity-p))
+    (let ((count -1))
+      (flet ((my-worker-context (worker-loop)
+               (let ((*worker-id* (incf count)))
+                 ;; set cpu affinity
+                 (when set-affinity-p
+                   (funcall (intern "SET-CPU-AFFINITIES" (find-package "CL-CPU-AFFINITY"))
+                            (mapcar #'pi-cpu (nth *worker-id* available-workers))))
+                 ;; enter the worker loop; return when the worker shuts down
+                 (funcall worker-loop))))
+        (setf *kernel*
+              (make-kernel nr-threads
+                           :bindings '((*worker-id* . nil)
+                                       (*thread-local-memoization-table* . nil))
+                           :context #'my-worker-context))))))
 
 ;;; starting and ending a pool of workers
 ;;; (fl.parallel::new-kernel 2)
