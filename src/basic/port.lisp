@@ -611,6 +611,7 @@ that no GC changes array pointers obtained by @function{vector-sap}."
            (format nil "bin/femlisp-~A-core"
                    (string-downcase (lisp-implementation-type))))))
   (format t "Saving ~A~%" core-file-name)
+  (setq *package* (find-package :fl.application))
   #+allegro
   (progn
     (setq excl:*restart-init-function*
