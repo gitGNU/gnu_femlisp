@@ -3,6 +3,9 @@
 This is a list of known bugs:
 -----------------------------
 
+* After saving and reloading Femlisp for SBCL, the *package* is not
+  set to :fl.application in a reliable way.
+  
 * Complex arrays do not yet work with Lispworks and Allegro (which implies
   that eigenvalue problems are not handled correctly in these
   implementations).
