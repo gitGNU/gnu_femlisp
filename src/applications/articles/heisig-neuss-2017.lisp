@@ -140,7 +140,7 @@ the range 1-~D."
          (query (format nil "Levels (1-~D): " (or max-levels 4)))
          (levels (user-input query #'parse-integer (_ (<= 1 _ max-levels))))
          (thread-query
-           (format nil "Threads~@[ [recommended=~D~]]: "
+           (format nil "Threads~@[ [recommended=~D]~]: "
                    (aand (fl.parallel::get-workers) (length it))))
          (threads (and parallel-p 
                        (user-input thread-query #'parse-integer #'plusp))))
@@ -158,7 +158,7 @@ clock frequency.
 
 According to the performance of your computer, you should expect
 a time for serial execution of 2^(3*levels) * ~3,1F seconds."
-                   (* 5e-4 (konwihr-speed))))))
+                   (/ 5e3 (konwihr-speed))))))
   (let ((initialization-demo
           (make-demo
            :name "Initialize"
