@@ -14,9 +14,10 @@
 
 Start @femlisp{} and look at the demos by typing @kbd{(femlisp-demo)}
 (followed by @kbd{RETURN}) at the CL prompt (do not forget the
-parentheses!).  You drop out of the demos by typing @kbd{quit} (without
-parentheses) at the demo prompt, and you can exit @femlisp{} by typing
-@kbd{(quit)} at the CL prompt.
+parentheses!).@footnote{If this should not work, try setting the package
+with @lisp{(in-package :fl.application)}.}  You can get out of the demos
+by typing @kbd{quit} (without parentheses) at the demo prompt, and you
+can exit @femlisp{} by typing @kbd{(quit)} at the CL prompt.
 
 @node Solving problems, Plotting, Demos, First steps
 @section Solving problems

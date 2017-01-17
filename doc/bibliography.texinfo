@@ -85,6 +85,9 @@ S. F. McCormick, editor, @emph{Multigrid Methods}, volume 3 of
 @emph{Frontiers in Applied Mathematics}, pages 73--130. SIAM,
 Philadelphia, PA, 1987.
 
+@item (SBCL)
+SBCL Homepage.  @url{http://www.sbcl.org}.
+
 @item (Seibel 2005)
 P. Seibel: @emph{Practical Common Lisp}.  Apress, 2005.  Available
 online at @url{http://www.gigamonkeys.com/book}.
