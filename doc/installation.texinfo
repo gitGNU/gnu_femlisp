@@ -105,6 +105,13 @@ On Debian/GNU Linux, SBCL can be installed using
     sudo apt install sbcl sbcl-source sbcl-doc
 @end example
 
+If you do not have administrative rights for installing SBCL, you can
+also download a binary package for your architecture from the SBCL
+site (see @cite{SBCL}).  Installation of SBCL is rather easy: After
+you have downloaded the binary, you could simply create a symbolic
+link which links the file @file{run-sbcl.sh} to @file{bin/sbcl} (or
+wherever you put your binaries).
+
 Although @femlisp{} will probably work with many other CL
 implementations, the precise installation procedures can be quite
 different, and we do not want to handle this here.
@@ -271,9 +278,7 @@ If you should encounter the problem that you have a version of
 ASDF which is too old (which may happen if your CL implementation is too
 old), you can get around this problem in two ways:
 @enumerate
-@item First, by installing a newer CL implementation.
-If this should not be possible using the system packages, it is also
-easy to install SBCL (see @cite{SBCL}) locally in your home directory.
+@item First, by installing a newer CL implementation (see @ref{SBCL installation})
 @item Second, by installing a recent version of ASDF.
 This can be done, by issuing in the directory @file{femlisp/external}
 the command
