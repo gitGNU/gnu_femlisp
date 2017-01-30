@@ -51,7 +51,7 @@ during initialization of Femlisp."))
 
 (in-package :fl.start)
 
-(defparameter *femlisp-version* "2.0.0")
+(defparameter *femlisp-version* "2.0.1")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Setup the logical host "FEMLISP"

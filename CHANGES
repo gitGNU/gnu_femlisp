@@ -2,6 +2,22 @@
 
 * Current work:
 
+* From Femlisp-2.0.0 to Femlisp-2.0.1
+
+A generic function CHECK was introduced in FL.UTILITIES.  We do not
+export it, because of the danger of interfering with the use in other
+packages.
+
+Working demonstrations also for an MPI distributed calculation.
+
+We introduced the following kludge: The Data Explorer process is
+killed when SBCL is terminated.  Ideally, this should be the case
+without explicit coding.
+
+More robust handling of thread affinity handling of the worker
+threads.  If the 'lscpu' command is not available, it is simply not
+done.
+
 * From Femlisp-1.1.0 to Femlisp-2.0.0
 
 Some demonstration of parallel computing can be found as Femlisp demos

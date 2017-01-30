@@ -188,6 +188,7 @@ manual GC on all workers and clear all distributed data ...")
                  :y)
         (ddo (new-kernel))))
     (format t "Sending commands to the workers and waiting for the result...")
+    (force-output t)
     (let ((messages
             (eval
              `(ddo-capture
