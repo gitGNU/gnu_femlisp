@@ -1,4 +1,4 @@
-(in-package :ddo-femlisp)
+(in-package :femlisp-ddo)
 
 (defmethod assemble-interior :after
     ((as <ansatz-space>) (cells list) &key rhs matrix &allow-other-keys)

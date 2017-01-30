@@ -1,4 +1,4 @@
-;;; -*- mode: lisp; -*-
+;;; -*- mode: lisp; fill-column: 70 -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;  meshgen.lisp
@@ -44,12 +44,20 @@
 ;;; Meshes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmethod make-mesh-from ((domain <domain>) &key parametric &allow-other-keys)
-  "This function creates a mesh on the domain skeleton.  The mesh either
-uses the nonlinear mappings of the domain patches (for parametric =
-:from-domain) or approximates those with polygonal (parametric = nil) or
-isoparametric mappings.  Note that the boundary always uses the domain
-mappings."
+(defmethod make-mesh-from ((domain <domain>)
+                           &key parametric (initial-mesh-refinements 0)
+                           &allow-other-keys)
+  "This function creates a mesh on the domain skeleton.
+
+The mesh either uses the nonlinear mappings of the domain patches (for
+parametric = :from-domain) or approximates those with
+polygonal (parametric = nil) or isoparametric mappings.  Note that the
+boundary always uses the domain mappings.
+
+The parameter @arg{base-level} can be used when starting from a
+refined mesh as base-level is desired.  This can be used when the mesh
+derived from the domin definition is too coarse which may be the case
+especially when it is used in the context of a domain decomposition."
   (let ((domain-dim (dimension domain)))
     (multiple-value-bind (mesh patch->cell)
 	(copy-skeleton domain)
@@ -64,7 +72,11 @@ mappings."
 		(change-class cell (mapped-cell-class (class-of cell))
 			      :mapping (funcall parametric cell))
 		(change-class cell (unmapped-cell-class (class-of cell)))))))
-      (change-class mesh '<mesh> :domain domain :parametric parametric))))
+      (lret ((mesh (change-class mesh '<mesh> :domain domain :parametric parametric)))
+        ;; start from refined mesh if desired
+        (loop repeat initial-mesh-refinements
+              do (setf mesh (refine mesh)))
+        ))))
 
 (defun copy-mesh (mesh)
   "Copies a mesh.  Properties copied are only patch and identification.  If
@@ -149,22 +161,24 @@ patches."
 (defgeneric make-hierarchical-mesh-from-domain (domain &key &allow-other-keys)
   (:documentation "Construct a hierarchical-mesh from a domain."))
 
-(defmethod make-hierarchical-mesh-from-domain (domain &key parametric &allow-other-keys)
+(defmethod make-hierarchical-mesh-from-domain (domain &rest key-args &key &allow-other-keys)
   "Construct a hierarchical-mesh from a domain."
-  (let ((mesh (make-mesh-from domain :parametric parametric)))
+  (let ((mesh (apply #'make-mesh-from domain key-args)))
     (change-class mesh '<hierarchical-mesh>)))
 
 (defun make-hierarchical-mesh-from (&rest args)
   "Creates a hierarchical-mesh from the given arguments.  See @function{MAKE-MESH-FROM}."
   (change-class (apply #'make-mesh-from args) '<hierarchical-mesh>))
 
-(defmethod make-hierarchical-mesh-from-domain (domain &key parametric &allow-other-keys)
+(defmethod make-hierarchical-mesh-from-domain
+    (domain &rest key-args &key &allow-other-keys)
   "Construct a hierarchical-mesh from a domain."
-  (let ((mesh (make-mesh-from domain :parametric parametric)))
+  (let ((mesh (apply #'make-mesh-from domain key-args)))
+    ;; and generate the hierarchical mesh
     (change-class mesh '<hierarchical-mesh>)))
 
-(defun uniformly-refined-hierarchical-mesh (domain level &key parametric)
-  (let ((mm (make-hierarchical-mesh-from-domain domain :parametric parametric)))
+(defun uniformly-refined-hierarchical-mesh (domain level &rest key-args &key &allow-other-keys)
+  (let ((mm (apply #'make-hierarchical-mesh-from-domain domain key-args)))
     (dotimes (k level mm)
       (refine mm))))
 

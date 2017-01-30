@@ -48,7 +48,7 @@
 (defmacro ddo (&body commands)
   "Broadcast the given commands"
   `(if *on-controller-p*
-       (progn ,@commands)
+       (vector (progn ,@commands))
        (lfarm:broadcast-task
         '(lambda () ,@commands))))
 
@@ -70,4 +70,17 @@ which do not require synchronization!"
                       ,@commands
                       (force-output))))
          nil)))
+
+(defmacro ddo-capture (&body commands)
+  "Broadcast the given commands and capture the output of all
+processors as a string result."
+  (with-gensyms (string-stream stream)
+    (let ((new-command
+            `(with-output-to-string (,string-stream)
+               (let* ((,stream (make-broadcast-stream ,string-stream *standard-output*))
+                      (*standard-output* ,stream))
+                   ,@commands))))
+      `(if *on-controller-p*
+           (vector (progn ,new-command))
+           (lfarm:broadcast-task '(lambda () ,new-command))))))
 

@@ -1,7 +1,7 @@
 ;;; -*- mode: lisp; fill-column: 64; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; konwihr-paper-2017.lisp - Calculations of the KONWIHR paper
+;;; heisig-neuss-2017.lisp - Calculations for [MHeisig-NNeuss-2017]-Part I
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Copyright (C) 2017
@@ -33,7 +33,34 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(in-package :fl.application)
+(in-package :cl-user)
+
+(defpackage "FL.KONWIHR"
+  (:use "COMMON-LISP"
+	"FL.MACROS" "FL.UTILITIES" "FL.MATLISP"
+	"FL.DEBUG" "FL.TESTS" "FL.DEMO" "FL.PARALLEL"
+        "FL.DICTIONARY"        
+	"FL.FUNCTION" "FL.MESH"
+	"FL.PROBLEM" "FL.CDR" "FL.ELLSYS" "FL.ELASTICITY" "FL.NAVIER-STOKES"
+	"FL.DISCRETIZATION" "FL.ELLSYS-FE" "FL.ELASTICITY-FE" "FL.NAVIER-STOKES-FE"
+	"FL.ITERATION" "FL.MULTIGRID" "FL.GEOMG"
+	"FL.STRATEGY" "FL.PLOT"
+	"FL.DOMAINS" "FL.APPLICATION")
+  (:import-from "FL.APPLICATION"
+                "ELASTICITY-INTERIOR-EFFECTIVE-COEFF-DEMO"
+                "ELASTICITY-INLAY-CELL-PROBLEM"
+                "*ARTICLES-DEMO*"
+                )
+  (:export "KONWIHR-PAPER-MAX-LEVELS" "KONWIHR-SPEED"
+           "*KONWIHR-INITIALIZED*" "INITIALIZE-KONWIHR-PAPER-CALCULATION"
+           "ELASTICITY-INTERIOR-EFFECTIVE-COEFF-DEMO"
+           "ELASTICITY-INLAY-CELL-PROBLEM"
+           "HEISIG-NEUSS-2017-DEMO" "*HEISIG-NEUSS-2017-DEMO*"
+           "*ARTICLES-DEMO*"
+           )
+  (:documentation "Special package for the KONWIHR demo problem."))
+
+(in-package :fl.konwihr)
 
 (file-documentation
  "Demos for the calculations reported in the KONWIHR paper by M. Heisig and N. Neuss.")
@@ -106,9 +133,58 @@ for all these demos, so please wait..."
     (format t "  Done.~%~%")
     (force-output)))
 
-(defvar *mheisig-nneuss-2017-demo*
+(defun heisig-neuss-2017-demo
+    (problem &key order levels (output 1) distributed-p
+               (initial-mesh-refinements 0))
+  "This is a slightly trimmed copy of the function
+@function{elasticity-interior-effective-coeff-demo}."
+  (let* ((domain (domain problem))
+	 (dim (dimension domain))
+	 (*output-depth* output)
+         saved-effective-tensor)
+    (storing
+      (solve
+       (blackboard
+	:problem problem
+        :initial-mesh-refinements initial-mesh-refinements
+	:fe-class (lagrange-fe order :nr-comps dim :type :gauss-lobatto)
+	:estimator nil
+	:indicator (make-instance '<uniform-refinement-indicator>)
+	:success-if `(>= :max-level ,(1- levels))
+	:solver
+        (let* ((smoother (make-instance
+                          (if distributed-p
+                              (intern "<DISTRIBUTED-JACOBI>" (find-package :femlisp-ddo))
+                              '<JACOBI>)
+                          :damp 1.0))
+               (cs (geometric-cs
+                    :gamma 1 :smoother smoother :pre-steps 1 :post-steps 0
+                    :coarse-grid-iteration
+                    (make-instance '<multi-iteration> :base smoother :nr-steps 1)
+                    :combination :additive))
+               (bpx (make-instance '<cg> :preconditioner cs :restart-cycle 30)))
+          (make-instance '<linear-solver>
+                         :iteration bpx
+                         :success-if `(or (zerop :defnorm) (and (> :step 2) (> :step-reduction 1.0) (< :defnorm 1.0e-8)))
+                         :failure-if `(and (> :step 200) (> :step-reduction 1.0) (> :defnorm 1.0e-8))))
+	:plot-mesh nil
+	:observe
+	(append *stationary-fe-strategy-observe*
+                (list fl.strategy::*mentries-observe*)
+		(list
+		 (list (format nil "~19@A~19@A~19@A" "A^00_00" "A^00_11" "A^10_10") "~57A"
+		       #'(lambda (blackboard)
+			   (let ((tensor (fl.application::effective-tensor blackboard)))
+                             (setq saved-effective-tensor tensor)
+                             (format nil "~19,10,2E~19,10,2E~19,10,2E"
+                                     (and tensor (mref (mref tensor 0 0) 0 0))
+                                     (and tensor (> dim 1) (mref (mref tensor 0 0) 1 1))
+                                     (and tensor (> dim 1) (mref (mref tensor 1 0) 1 0)))))))))
+		   ))))
+
+(defvar *heisig-neuss-2017-demo*
   (make-demo
-   :name "MHeisig-NNeuss-2017"
+   :name "Heisig-Neuss-2017"
    :short "Calculations from the paper by M. Heisig and N. Neuss 2017"
    :long
    (format
@@ -133,7 +209,7 @@ the range 1-~D."
     (* (fl.port:dynamic-space-size) 1e-9)
     (konwihr-paper-max-levels))))
 
-(adjoin-demo *mheisig-nneuss-2017-demo* *articles-demo*)
+(adjoin-demo *heisig-neuss-2017-demo* *articles-demo*)
 
 (defun konwihr-demo (&optional parallel-p)
   (let* ((max-levels (konwihr-paper-max-levels))
@@ -147,9 +223,9 @@ the range 1-~D."
     (fl.parallel::end-kernel)
     (when threads (new-kernel threads))
     (initialize-konwihr-paper-calculation)
-    (elasticity-interior-effective-coeff-demo
+    (heisig-neuss-2017-demo
      (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
-     :order 5 :levels levels :plot nil :output 2)))
+     :order 5 :levels levels :output 2)))
 
 (let ((comment
         (_ (format nil "~
@@ -187,12 +263,8 @@ to disturb the succeeding tests."
            :long comment
            :execute (_ (konwihr-demo t))
            :test-input "1~%2~%")))
-    (adjoin-demo initialization-demo *mheisig-nneuss-2017-demo*)
-    (adjoin-demo serial-demo *mheisig-nneuss-2017-demo*)
-    (adjoin-demo parallel-demo *mheisig-nneuss-2017-demo*)
+    (adjoin-demo initialization-demo *heisig-neuss-2017-demo*)
+    (adjoin-demo serial-demo *heisig-neuss-2017-demo*)
+    (adjoin-demo parallel-demo *heisig-neuss-2017-demo*)
     ))
 
-(defvar *mpi-worker-kernel* nil)
-
-(defun initialize-worker-kernel ()
-  )

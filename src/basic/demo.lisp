@@ -39,7 +39,7 @@
   (:export "FEMLISP-DEMO" "LEAVES" "MAKE-DEMO" "ADJOIN-DEMO"
 	   "REMOVE-DEMO" "FIND-DEMO"
 	   "*DEMO-ROOT*" "*DEMO-TIME*"
-	   "USER-INPUT"
+	   "USER-INPUT" "USER-INPUT-TEXTFIELD"
 	   "EXTRACT-DEMO-STRINGS"
 	   "TEST-ALL-DEMOS")
   (:documentation "This package provides routines for building a
@@ -220,6 +220,20 @@ a string stream to provide sample input.")
 	      (let ((item (funcall converter line)))
 		(when (funcall test-p item)
 		  (return item))))))))
+
+(defun user-input-textfield (&optional (test-p (constantly t)))
+  "User textfield input for demo functions.  Reads and concatenates lines until
+an empty line is read."
+  (loop 
+    (format t "~&Textfield input (finished by empty line):~%")
+    (finish-output)
+    (let ((result
+            (format nil "~{~A~^~%~}" 
+                    (loop for line = (read-line *user-input-stream*)
+                          until (or (null line) (zerop (length line)))
+                          collect line))))
+      (when (funcall test-p result)
+        (return result)))))
 
 (defun extract-demo-strings (string &optional translations)
   "Extract demo information from the documentation string of the

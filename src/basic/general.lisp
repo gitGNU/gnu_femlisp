@@ -132,10 +132,10 @@ returns @arg{object}."
 
 ;;;; Check
 
-(defgeneric check (obj)
+(defgeneric check (obj &key &allow-other-keys)
   (:documentation "Checks the data structure of @arg{obj}.")
   (:method-combination progn)
-  (:method progn (obj)
+  (:method progn (obj &key &allow-other-keys)
     "Default method does nothing"
     nil))
 

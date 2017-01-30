@@ -1,4 +1,4 @@
-(in-package :ddo-femlisp)
+(in-package :femlisp-ddo)
 
 (defun diagonal-asa (asa)
   (lret ((result (make-analog asa)))

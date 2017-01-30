@@ -35,11 +35,13 @@
 
 (in-package :ddo)
 
+;;; DDO synchronization flags
+
 (defparameter *debug-show-data* nil
   "When T show all data communicated between processors.  This is only reasonable for
 toy problems.")
 
-(defvar *communicate-with-all* t
+(defvar *communicate-with-all* nil
   "For debugging purposes, this may be set to T, for ensuring that communication
 is not blocked by a non-fitting communication pattern.")
 

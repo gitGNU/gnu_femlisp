@@ -29,9 +29,11 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ###########################################################################
 
+SHELL=/bin/bash
+
 -include femlisp-config.mk
 
-.PHONY: all clean cleanall configure documentation superlu umfpack femlisp mpi-worker
+.PHONY: all clean cleanall configure documentation superlu umfpack femlisp femlisp-ddo mpi-worker mpirun
 
 help:
 	echo "Options: all, configure, clean, cleanall, documentation, femlisp,";\
@@ -60,8 +62,14 @@ umfpack:
 femlisp:
 	$(FEMLISP_CL) --eval "(asdf:oos 'asdf:load-op :femlisp-save-core)"
 
+femlisp-ddo:
+	$(FEMLISP_CL) --eval "(asdf:oos 'asdf:load-op :femlisp-ddo)"  --eval "(asdf:oos 'asdf:load-op :femlisp-save-core)"
+
 mpi-worker:
 	cd ./bin; rm -f mpi-worker; $(FEMLISP_CL) --eval "(asdf:oos 'asdf:load-op :femlisp-mpi-worker)"
+
+mpirun:
+	cd ./bin; mpirun -np $(NP) mpi-worker --dynamic-space-size $$(( $(FEMLISP_DYNAMIC_SPACE_SIZE) / $(NP) ))
 
 clean:
 	rm -f *.x86f *.fasl *.ufasl *.fas? *.fas *.o *.amd64f *.lx32fsl;

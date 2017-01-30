@@ -34,6 +34,10 @@ Common Lisp
 @alias program = file
 @alias library = code
 
+@macro myanchor{title}
+@anchor{\title\}\title\
+@end macro
+
 @macro slisp{code}
 
 @lisp
@@ -41,9 +45,9 @@ Common Lisp
 @end lisp
 @end macro
 
-@set EDITION 2.0
-@set VERSION 2.0.0
-@set UPDATED 10 January 2017
+@set EDITION 2.0.1
+@set VERSION 2.0.1
+@set UPDATED 30 January 2017
 
 @c for install-info
 @dircategory Math

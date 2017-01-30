@@ -465,12 +465,12 @@ cell boundary is copied."))
 	  (slot-value cell 'mapping))
     copy))
 
-(defmethod check progn ((cell <cell-with-boundary>))
+(defmethod check progn ((cell <cell-with-boundary>) &key &allow-other-keys)
   (loop with side-dim = (1- (dimension cell))
      for side across (boundary cell) do
      (assert (= side-dim (dimension side)))))
 
-(defmethod check progn ((cell <standard-cell>))
+(defmethod check progn ((cell <standard-cell>) &key &allow-other-keys)
   (let ((mapping (cell-mapping cell)))
     ;; check if mapping is reasonable
     (assert (differentiable-p mapping))

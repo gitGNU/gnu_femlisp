@@ -45,7 +45,7 @@
    "COMPILE-SILENTLY" "RUNTIME-COMPILE" "COMPILE-AND-EVAL"
    
    ;; process communication
-   "RUN-PROGRAM" "PROCESS-INPUT" "PROCESS-OUTPUT" "PROCESS-ERROR"
+   "RUN-PROGRAM" "RUN-PROGRAM-REPORT-ERRORS" "PROCESS-INPUT" "PROCESS-OUTPUT" "PROCESS-ERROR"
    "PROCESS-CLOSE" "PROCESS-STATUS" "RUN-PROGRAM-OUTPUT"
    "KILL-PROCESS"
    
@@ -190,8 +190,8 @@ compatible way of ensuring method compilation."
 ;; TODO: use uiop:run-program for synchronous use, and
 ;; uiop/run-program::%run-program for the asynchronous case
 (defun run-program (program args
-                    &key wait directory
-                    input (output nil output-p) error-output)
+                    &key wait directory (search t)
+                      input (output nil output-p) error-output)
   "Runs @arg{program} with arguments @arg{args}."
   (declare (ignorable output-p))
   #+(or clisp ecl) (declare (ignore error-output))
@@ -246,11 +246,19 @@ compatible way of ensuring method compilation."
                    :input input :output output :error error-output)
   #+(or gcl) (si:run-process (namestring program) args)
   #+ecl (si:run-program (namestring program) args)
-  #+sbcl (sb-ext:run-program program args :wait wait
-			     :input input :output output :error error-output)
+  #+sbcl
+  (sb-ext:run-program program args :wait wait :search search
+                                   :input input :output output :error error-output)
   #-(or allegro ccl clisp cmu ecl gcl lispworks sbcl scl)
   (portability-warning 'run-program args wait input output error-output directory)
   )
+
+(defun run-program-report-errors (&rest args)
+  (multiple-value-bind (result error)
+      (ignore-errors (apply #'run-program args))
+    (unless result
+      (format t "Error: ~A~%" error))
+    result))
 
 (defun process-input (process)
   "Process-input for @arg{process}."
@@ -313,12 +321,12 @@ compatible way of ensuring method compilation."
 
 (defun kill-process (process)
   "Kills the given process"
-  #+(and sbcl linux)
+  #+(and sbcl os-unix)
   (run-program
    "/usr/bin/pkill"
    (list "-P"  (format nil "~D" (sb-impl::process-pid process)))
    :wait t)
-  #-(and sbcl linux)
+  #-(and sbcl os-unix)
   (portability-warning 'kill-process process)
   )
 
@@ -645,7 +653,7 @@ that no GC changes array pointers obtained by @function{vector-sap}."
   #+sbcl (sb-ext:save-lisp-and-die
           core-file-name :purify t :executable t :toplevel
           (lambda ()
-            (fl.start::femlisp-restart)
+            (funcall 'fl.start::femlisp-restart)
             (sb-impl::toplevel-init)))
   #-(or allegro lispworks clisp cmu scl sbcl ecl gcl)  ; do nothing
   (portability-warning 'save-femlisp-core-and-die core-file-name)

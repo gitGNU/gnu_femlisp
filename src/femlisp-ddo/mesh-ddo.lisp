@@ -1,4 +1,4 @@
-(in-package :ddo-femlisp)
+(in-package :femlisp-ddo)
 
 (defmethod skel-map :around (func skel)
   (lret ((result (call-next-method)))
@@ -79,6 +79,17 @@
   (synchronize)
   (setf (get-property mesh :distributed-p) t)
   )
+
+(defvar *distribute-n* nil
+  "Number of workers to which the mesh should be distributed.")
+
+(defmethod make-mesh-from
+    :around ((domain <domain>) &key &allow-other-keys)
+  "Distribute mesh if we are inside an MPI distributed calculation."
+  (lret ((mesh (call-next-method)))
+    (when (and (mpi-initialized) *distribute-n*)
+      (assert (<= *distribute-n* (mpi-comm-size)))
+      (distribute-mesh mesh *distribute-n*))))
 
 (defmethod fl.mesh::do-refinement! :before
     ((skel <skeleton>) (refined-skel <skeleton>) (task list) &key refined-region)

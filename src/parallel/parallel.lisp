@@ -109,19 +109,21 @@
         (warn "No CPU pinning possible on this architecture.")
         (setq set-affinity-p nil)))
     (when (< nr-threads 1)
-      (error "Kernel with nonpositive number of workers required"))
-    (when (null available-workers)
-      (when set-affinity-p
-        (warn "No worker information available, so no CPU pinning is possible")
-        (setq set-affinity-p nil)))
-    (when (> nr-threads max-workers)
-      (warn "~D workers required, but only ~D CPUs are available, which may slow down calculations.
+      (error "Number of worker threads must be positive"))
+    (if (null available-workers)
+        (when set-affinity-p
+          (warn "No worker information available, so no CPU pinning is possible")
+          (setq set-affinity-p nil))
+        (when (> nr-threads max-workers)
+          (warn "~D workers required, but only ~D CPUs are available, which may slow down calculations.
 ~:[~;  Furthermore no CPU pinning is possible in this situation.~]"
-            nr-threads max-workers set-affinity-p))
-    (when(= nr-threads 1)
+                nr-threads max-workers set-affinity-p)
+          (setq set-affinity-p nil)))
+    (when (= nr-threads 1)
       (warn "Only one worker thread is required, which does not really help with performance.
 ~:[~;  We also do not do CPU pinning in this situation, but use all available CPUs.~]"
-            set-affinity-p))
+            set-affinity-p)
+      (setq set-affinity-p nil))
     (let ((count -1))
       (flet ((my-worker-context (worker-loop)
                (let ((*worker-id* (incf count)))
@@ -138,7 +140,7 @@
                            :context #'my-worker-context))))))
 
 ;;; starting and ending a pool of workers
-;;; (fl.parallel::new-kernel 2)
+;;; (fl.parallel::new-kernel)
 ;;; (end-kernel)
 
 ;;;(pwork (_ (cl-cpu-affinity:cpu-affinity-mask-string)))
@@ -209,7 +211,7 @@ All results are collected in a vector of the same size."
     (format t "~A~%" proc))
   (get-workers)
   (pwork (_ *worker-id*))
-  (pwork (_ (cl-cpu-affinity:cpu-affinity-mask-string)))
+  #+cl-cpu-affinity (pwork (_ (cl-cpu-affinity:cpu-affinity-mask-string)))
 
   (time
    (let* ((channel (make-channel))

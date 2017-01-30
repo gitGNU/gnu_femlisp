@@ -118,7 +118,7 @@ neighbors are generated."
 				:mapping (funcall parametric child))))))))
 
 ;;; (untrace :methods 'refine-cell!)
-(defmethod check progn ((mesh <mesh>))
+(defmethod check progn ((mesh <mesh>) &key &allow-other-keys)
   "Performs some additional checks for mesh."
   nil)
 
@@ -341,7 +341,7 @@ of NIL is given if no cell covering @arg{pos} is found."
 father.  This is used at the moment for homogenization of porous domains,
 but it is not a standard situation.")
 
-(defmethod check progn ((h-mesh <hierarchical-mesh>))
+(defmethod check progn ((h-mesh <hierarchical-mesh>) &key &allow-other-keys)
   "Performs some additional checks for hierarchical meshes."
   (loop for level-mesh across (levels h-mesh) do
 	(doskel (cell level-mesh)

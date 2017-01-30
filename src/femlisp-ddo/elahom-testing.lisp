@@ -1,4 +1,4 @@
-(in-package :ddo-femlisp-test)
+(in-package :femlisp-ddo-test)
 
 ;;; testing routines for the elahom problem
 
@@ -54,7 +54,7 @@
     (setq *sol* (make-domain-vector-for *mat*))
     (setq *corr* (make-domain-vector-for *mat*))
     (for-each-key (lambda (key) (vref *res* key) (vref *sol* key) (vref *corr* key)) *rhs*)
-    (setq *diag* (ddo-femlisp::diagonal-asa *mat*)))
+    (setq *diag* (femlisp-ddo::diagonal-asa *mat*)))
   
   ;;
   (ddo-performance-check)

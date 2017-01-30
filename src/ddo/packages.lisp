@@ -51,7 +51,7 @@
    "INSERT-INTO-CHANGED"
    "SYNCHRONIZE" "*SYNCHRONIZATION-MERGER*"
    ;; remote-control.lisp
-   "DDO" "DDOX" "DDO-")
+   "DDO" "DDOX" "DDO-" "DDO-CAPTURE")
   (:DOCUMENTATION
    "This package provides distributed objects."))
 

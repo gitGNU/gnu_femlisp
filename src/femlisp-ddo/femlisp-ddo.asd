@@ -40,6 +40,7 @@
 	       (:file "strategy-ddo" :depends-on ("packages"))
 	       (:file "hom-ddo" :depends-on ("packages"))
 	       (:file "elahom-testing" :depends-on ("hom-ddo" "solve-ddo" "strategy-ddo"))
+	       (:file "heisig-neuss-2017-2" :depends-on ("elahom-testing"))
                )
   :depends-on (:femlisp
                :lfarm-server :lfarm-admin :lfarm-client

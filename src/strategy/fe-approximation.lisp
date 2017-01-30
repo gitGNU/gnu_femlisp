@@ -104,7 +104,7 @@ is used with order @math{max(2,p+1)} where p is the discretization order.
 This is reasonable, because the dual problem for estimators based on
 duality is discretized with @math{p+1}, and because the refinement near the
 boundary works significantly better with @math{p>=2}."
-  (with-items (&key problem mesh ansatz-space fe-class base-level)
+  (with-items (&key problem mesh ansatz-space fe-class initial-mesh-refinements base-level)
       blackboard
     (unless ansatz-space
       (assert problem)
@@ -119,8 +119,10 @@ boundary works significantly better with @math{p>=2}."
 				       (max 2 (1+ (discretization-order fe-class)))))))))
 		     (if (find-cell (rcurry #'typep '<boundary-cell>) domain)
 			 (change-class (triangulate domain :parametric parametric) '<hierarchical-mesh>)
-			 (uniformly-refined-hierarchical-mesh domain (or base-level 0)
-							      :parametric parametric))))
+			 (uniformly-refined-hierarchical-mesh
+                          domain (or base-level 0)
+                          :parametric parametric
+                          :initial-mesh-refinements (or initial-mesh-refinements 0)))))
       (ensure ansatz-space (make-fe-ansatz-space fe-class problem mesh)))
     ;; Ensure consistency of items on blackboard.  This might be dropped
     ;; later, because probably the ansatz-space should be considered the

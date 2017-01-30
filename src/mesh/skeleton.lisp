@@ -299,7 +299,7 @@ and mapped values.  May be configured later on.")
   '(:embedded-dimension)
   "Some optional checks for skeletons.")
 
-(defmethod check progn ((skel <skeleton>))
+(defmethod check progn ((skel <skeleton>) &key &allow-other-keys)
   "Checks the skeleton.  An error is signaled if the skeleton looks bad."
   ;; check dimensions
   (let ((emb-dim (let ((*check-well-defined-embedded-dimension* t))

@@ -32,7 +32,6 @@
   :serial t
   :version "0.2.0"
   :components (
-	       (:file "packages")
-	       (:file "mpi-worker-save-core" :depends-on ("mpi-worker"))
+	       (:file "mpi-worker-save-core")
                )
-  :depends-on (:ddo :cl-ppcre))
+  :depends-on (:ddo))

@@ -1,4 +1,4 @@
-(in-package :ddo-femlisp)
+(in-package :femlisp-ddo)
 
 #+(or)
 (defun convert-to-full-tensor (arr/mat)

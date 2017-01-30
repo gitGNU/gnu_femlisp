@@ -38,9 +38,8 @@
 ;;;; Routines for establishing the communication line
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar *gnuplot-pathname*
-  (or fl.start:*gnuplot-path*
-      (fl.port:find-executable "gnuplot"))
+(defvar *gnuplot-name*
+  "gnuplot"
   "Pathname of the @program{Gnuplot} binary.")
 
 (defvar *gnuplot-process* nil
@@ -50,9 +49,9 @@
   (when *gnuplot-process* ; and: (eq (fl.port:process-status *gnuplot-process*) :running) ?
     (return-from ensure-gnuplot-process *gnuplot-process*))
   (setq *gnuplot-process*
-	(when *gnuplot-pathname*
-	  (fl.port:run-program
-	   *gnuplot-pathname* '() :wait nil
+	(when *gnuplot-name*
+	  (fl.port:run-program-report-errors
+	   *gnuplot-name* '() :wait nil
 	   :input :stream :output :stream
 	   :directory (images-pathname))))
   (unless *gnuplot-process*

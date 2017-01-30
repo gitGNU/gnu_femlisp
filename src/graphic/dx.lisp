@@ -38,10 +38,9 @@
 ;;;; Routines for establishing the communication line
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar *dx-pathname*
-  (or fl.start:*dx-path*
-      (fl.port:find-executable "dx"))
-  "Pathname of the @program{DX} binary.")
+(defvar *dx-name*
+  "dx"
+  "Name of the @program{DX} binary.")
 
 (defvar *dx-process* nil
   "The current @program{dx} process.")
@@ -51,9 +50,9 @@
     (return-from ensure-dx-process *dx-process*))
   ;; execute it within the images directory
   (setq *dx-process*
-        (when *dx-pathname*
-          (fl.port:run-program
-           *dx-pathname*
+        (when *dx-name*
+          (fl.port:run-program-report-errors
+           *dx-name*
 	   ;; -processors 1 is apparently needed with opendx-4.4.4
            ;; but unfortunately breaks CLISP
            '("-script" "-cache" "off" "-log" "on"

@@ -113,9 +113,6 @@ communication, needs on the currently active distributed objects."
     (format t "~&END performance check~%")
     (force-output)))
 
-;;; (ddo-performance-check)
-
-
 #+(or)
 (defun send (data proc)
   (error "Not used anymore")
@@ -198,4 +195,8 @@ communication, needs on the currently active distributed objects."
                       (apply #'mpi-irecv-anything proc :tag tag
                              (and decode (list :decode decode))))))))))
 
+
+(defun test-utils ()
+  (ddo-performance-check)
+  )
 

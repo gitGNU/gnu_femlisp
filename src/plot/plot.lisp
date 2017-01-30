@@ -38,7 +38,10 @@
 ;;;; Public interface
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defparameter *plot* (if fl.graphic::*dx-pathname* t :message)
+(defvar *plot*
+  (if (fl.port:find-executable fl.graphic::*dx-name*)
+      t
+      :message)
   "If set to NIL, plotting is disabled.  If set to :message, a message is
 printed to *trace-output* instead of plotting.")
 

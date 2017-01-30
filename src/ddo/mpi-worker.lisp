@@ -40,34 +40,27 @@
     (when (= rank (mpi-comm-rank))
       (with-open-file (file filename
                             :direction :output
-                            :if-exists :append
-                            :if-does-not-exist :create)
+                            :if-exists :append)
         (apply #'format file format args)
         (force-output file)))
     (mpi-barrier)))
 
-(defun worker-connect (&optional (filespec-or-stream
-                                  #p"femlisp:bin;mpi-worker-connection-data"))
-  "Connect with the workers which are read from the given stream.
-Each line has to contain a string (the hostname) and a number (the port)."
-  (typecase filespec-or-stream
-    (stream 
-     (setq lfarm:*kernel*
-           (lfarm:make-kernel
-            (loop for line = (read-line filespec-or-stream nil) while line
-                  collect
-                  (let* ((items
-                           (nth-value 1 (cl-ppcre:scan-to-strings
-                                         "\"\([^\"]*)\"\\s*\([0-9]*\)" line))))
-                    (unless items
-                      (error "Bad connection data"))
-                    (let ((host (aref items 0))
-                          (port (parse-integer (aref items 1))))
-                      (unless (and host (stringp host) port)
-                        (error "Bad connection data"))
-                      (list host port)))))))
-    (t (with-open-file (stream filespec-or-stream)
-         (worker-connect stream)))))
+(defun worker-connect (&optional connection-spec)
+  "Connect with the workers which are derived from the given
+connection-spec.  This can be empty, a string which is interpreted as
+a filename, or a list where Each line has to contain a string (the
+hostname) and a number (the port)."
+  (ensure connection-spec #p"femlisp:bin;mpi-worker-connection-data")
+  (typecase connection-spec
+    (list
+     (setq lfarm:*kernel* (lfarm:make-kernel connection-spec)))
+    (stream
+     (let (*read-eval*)
+       (worker-connect (read connection-spec))))
+    (string (worker-connect (make-string-input-stream connection-spec)))
+    (t ;; should specify a pathname
+     (with-open-file (stream connection-spec)
+       (worker-connect stream)))))
 
 (defun main ()
   (mpi-init)
@@ -86,12 +79,18 @@ Each line has to contain a string (the hostname) and a number (the port)."
   (let ((host (uiop/os:hostname))
         (port (+ 20000 (mpi-comm-rank)))
         (filename "mpi-worker-connection-data"))
-    ;; overwrite a possibly existing connection data
+    ;; overwrite a possibly existing connection data file
     (when (= 0 (mpi-comm-rank))
       (with-open-file (file filename :direction :output :if-exists :supersede)
+        (format file "(~%")
         (force-output file)))
     ;; write new connection data
-    (sequential-write filename "~S ~A~%" host port)
+    (sequential-write filename "(~S ~A)~%" host port)
+    ;; terminate
+    (when (= 0 (mpi-comm-rank))
+      (with-open-file (file filename :direction :output :if-exists :append)
+        (format file ")~%")
+        (force-output file)))
     ;; check command line
     (if (find-if (lambda (arg)
                  (member arg '("--script" "--eval") :test #'string=))

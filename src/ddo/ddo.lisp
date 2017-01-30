@@ -37,7 +37,8 @@
 
 ;;; local ids
 
-(defvar *local-id-count* (mutex-wrap 0))
+(defvar *local-id-count* (mutex-wrap 0)
+  "Count of local-ids.")
 
 (defun new-local-id ()
   (accessing-exclusively ((count *local-id-count*))
@@ -295,7 +296,7 @@ distributed slots accordingly."
       (print (hash-table-count table)))
     ;; entry is apparently cleared only later when (gc :full t) is called separately
     )
-
+  
   (let ((object (make-instance 'dummy :data 10)))
     (ensure-distributed-class (find-class 'dummy))
     (make-distributed-object object '(0))
@@ -307,7 +308,4 @@ distributed slots accordingly."
 
   (accessing-exclusively ((distribution *distribution*))
     (pprint-tree (cdr (first (net.scipolis.relations::indices distribution)))))
-  
   )
-
-

@@ -1,4 +1,4 @@
-(in-package :ddo-femlisp)
+(in-package :femlisp-ddo)
 
 ;;; define hooks on MAKE-ANSATZ-SPACE-VECTOR
 

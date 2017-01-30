@@ -106,11 +106,11 @@ On Debian/GNU Linux, SBCL can be installed using
 @end example
 
 If you do not have administrative rights for installing SBCL, you can
-also download a binary package for your architecture from the SBCL
-site (see @cite{SBCL}).  Installation of SBCL is rather easy: After
-you have downloaded the binary, you could simply create a symbolic
-link which links the file @file{run-sbcl.sh} to @file{bin/sbcl} (or
-wherever you put your binaries).
+also download a binary package for your architecture from the SBCL site
+(see @ref{SBCL Homepage}).  Installation of SBCL is rather easy: After
+you have downloaded the binary, you could simply create a symbolic link
+which links the file @file{run-sbcl.sh} to @file{bin/sbcl} (or wherever
+you put your binaries).
 
 Although @femlisp{} will probably work with many other CL
 implementations, the precise installation procedures can be quite

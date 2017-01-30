@@ -9,6 +9,8 @@
 (lfarm:end-kernel)
 (worker-connect #p"femlisp:bin;mpi-worker-connection-data")
 
+(ddo (fl.port:dynamic-space-size))
+
 (ddo (in-package :ddo-test))
 (ddo *package*)
 (ddo (symbol-package (find-symbol "DUMMY")))

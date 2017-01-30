@@ -51,10 +51,10 @@
 
 ;;; Output
 
-(defparameter *iteration-depth* 0
+(defvar *iteration-depth* 0
   "Depth of nested iteration.")
 
-(defparameter *output-depth* 0
+(defvar *output-depth* 0
   "Maximum iteration depth for which status output is done.")
 
 (defgeneric output-p (iteration blackboard)
@@ -70,13 +70,17 @@
 	(or (member *output-depth* '(t :all :infinity))
 	    (<= *iteration-depth* *output-depth*)))))
 
-(defun indented-format (stream control-string &rest args)
-  (let ((indentation (* 5 (1- *iteration-depth*))))
-    (if (plusp indentation)
-	(apply #'format stream (concatenate 'string "~&>~VT" control-string)
-	       indentation args)
-	(apply #'format stream (concatenate 'string "~&" control-string)
-	       args))))
+(defgeneric iter-format (stream control-string &rest args)
+  (:documentation "Iteration output should be made using this function
+which respects *iteration-depth* and *output-depth*.")
+  (:method (stream control-string &rest args)
+      "Default method."
+    (let ((indentation (* 5 (1- *iteration-depth*))))
+      (if (plusp indentation)
+          (apply #'format stream (concatenate 'string "~&>~VT" control-string)
+                 indentation args)
+          (apply #'format stream (concatenate 'string "~&" control-string)
+                 args)))))
 
 (defparameter *time-observe*
   (list "   CPU" "~6,1F"
@@ -175,7 +179,7 @@ name together with the name of the inner iteration."
   "Default method.  Prints the header line for observed quantities."
   (dbg :iter "Initially: blackboard = ~A" blackboard)
   (when (output-p iter blackboard)
-    (indented-format t "Iteration ~A" (name iter))
+    (iter-format t "Iteration ~A" (name iter))
     (let ((fstr (make-array '(0) :element-type 'character
 			    :fill-pointer 0 :adjustable t)))
       (with-output-to-string (s fstr)
@@ -183,8 +187,8 @@ name together with the name of the inner iteration."
 	  (let ((title (first item)))
 	    (format s (if (functionp title) (funcall title) title))
 	    (format s "  "))))
-      (indented-format t "~A" fstr)
-      (indented-format t "~V,,,'-<~>" (length fstr)))))
+      (iter-format t "~A" fstr)
+      (iter-format t "~V,,,'-<~>" (length fstr)))))
 
 (defmethod intermediate ((iter <iteration>) blackboard)
   "Default method.  Prints observed quantities."
@@ -202,7 +206,7 @@ name together with the name of the inner iteration."
 		  (evaluator (third item)))
 	      (format stream formatter (funcall evaluator blackboard))
 	      (format stream "  "))))
-	(indented-format t fstr)
+	(iter-format t fstr)
 	(force-output)))))
 
 (defmethod terminate-p ((iter <iteration>) blackboard)
@@ -228,7 +232,9 @@ name together with the name of the inner iteration."
   "Setup a report and ensures fresh line on output."
   (with-items (&key report status step) blackboard
     (setq report (blackboard :status status :steps step)))
-  (when (output-p iter blackboard) (format t "~&")))
+  (when (output-p iter blackboard)
+    (let ((*iteration-depth* 0))
+      (iter-format t "~&"))))
 
 (defmethod iterate ((iter <iteration>) blackboard)
   "Default method for performing an iteration.  Increases indentation level
