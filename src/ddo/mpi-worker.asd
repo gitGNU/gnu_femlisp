@@ -29,8 +29,8 @@
 (in-package :cl-user)
 
 (asdf:defsystem :mpi-worker
-  :serial t
-  :version "0.2.0"
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :components (
 	       (:file "mpi-worker-save-core")
                )

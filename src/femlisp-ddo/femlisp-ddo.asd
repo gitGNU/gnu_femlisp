@@ -29,8 +29,8 @@
 (in-package :cl-user)
 
 (asdf:defsystem :femlisp-ddo
-  :serial t
-  :version "0.3.0"
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :components (
 	       (:file "packages" :depends-on ())
 	       (:file "mesh-ddo" :depends-on ("packages"))
@@ -50,6 +50,7 @@
                :ddo))
 
 (asdf:defsystem :femlisp-mpi-worker
-  :serial t
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :components ()  ; no components here, because :mpi-worker saves a core
   :depends-on (:femlisp :ddo :femlisp-ddo :mpi-worker))

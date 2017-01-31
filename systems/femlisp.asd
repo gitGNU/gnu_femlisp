@@ -46,6 +46,8 @@
     (funcall fun)))
 
 (defsystem :femlisp-basic
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :depends-on (#+(or clisp ccl) :cffi
                #+sbcl :sb-posix #+sbcl :sb-introspect
                #+allegro (:require "osi")
@@ -76,6 +78,8 @@
      (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))))))
 
 (defsystem :femlisp-parallel
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :depends-on (:femlisp-basic :bordeaux-threads :lparallel :cl-ppcre
                               #+linux :cl-cpu-affinity)
   :pathname "../src"
@@ -92,6 +96,8 @@
      ))))
 
 (defsystem :femlisp-dictionary
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :depends-on (:femlisp-basic :femlisp-parallel)
   :pathname "../src"
   :components
@@ -104,6 +110,8 @@
      ))))
 
 (defsystem :femlisp-matlisp
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :depends-on (:femlisp-basic :femlisp-parallel :femlisp-dictionary)
   :pathname "../src"
   :around-compile call-with-read-double-float-environment
@@ -144,6 +152,8 @@
      (:file "sparselu" :depends-on ("sparse-matrix"))))))
 
 (defsystem :femlisp
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :depends-on (:femlisp-basic :femlisp-parallel :femlisp-matlisp
                               :femlisp-dictionary
                               :infix :cl-ppcre :cl-gd)
@@ -395,6 +405,8 @@
   )
 
 (asdf:defsystem :femlisp-save-core
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :serial t
   :depends-on (:femlisp)
   :pathname "../src"

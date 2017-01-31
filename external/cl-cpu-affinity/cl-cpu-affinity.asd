@@ -31,6 +31,8 @@
       (error 'operation-error :operation o :component c))))
 
 (defsystem :cl-cpu-affinity
+  :author "Nikodemus Siivola (modifications by Nicolas Neuss)"
+  :license "Modified BSD"
   :depends-on (:cffi)
   :components
   ((c-so-source-file "cpu-affinity-wrapper")

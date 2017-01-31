@@ -29,5 +29,7 @@
 (in-package :cl-user)
 
 (asdf:defsystem :net.scipolis.graphs
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :components ((:file "graphs" :depends-on ()))
   :depends-on (:femlisp-basic))

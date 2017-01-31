@@ -29,8 +29,8 @@
 (in-package :cl-user)
 
 (asdf:defsystem :ddo
-  :serial t
-  :version "0.2.0"
+  :author "Nicolas Neuss"
+  :license "Modified BSD"
   :components (
 	       (:file "packages")
 	       (:file "relations" :depends-on ("packages"))
