@@ -1,0 +1,4 @@
+In this directory, Femlisp will usually place the results of calling
+the external programs "DX" and "Gnuplot".  Of course, also other kinds
+of images may be placed here.
+
