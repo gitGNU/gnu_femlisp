@@ -272,5 +272,6 @@ provides more or less the same possibilities as the commercial IDEs.
 @section Learning Common Lisp
 
 There is a very nice online book ``Practical Common Lisp'' by Peter
-Seibel (Seibel 2005) which teaches Common Lisp.  It is available
-online at @url{http://www.gigamonkeys.com/book}.
+Seibel (@cite{Seibel 2005}) which teaches Common Lisp, and is directed
+mainly to programmers already experienced in other computer languages.
+It is available online at @url{http://www.gigamonkeys.com/book}.

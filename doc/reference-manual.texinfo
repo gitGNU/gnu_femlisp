@@ -32,7 +32,7 @@
 * Package FL.DOMAINS::
 * Package FL.APPLICATION::
 * Package DDO::
-* Package DDO-FEMLISP::
+* Package FEMLISP-DDO::
 @end menu
 
 @node Package FL.UTILITIES, Package FL.MACROS, Reference manual, Reference manual
@@ -84,12 +84,6 @@ Boxes an object.
 @findex CALL-HOOKS
 Call all hooks defined for @arg{function-name} on @arg{object} and
 returns @arg{object}.
-@end deffn
-
-@anchor{fun-fl.utilities-check}
-@deffn Function CHECK @var{OBJ}
-@findex CHECK
-Checks the data structure of @arg{obj}.
 @end deffn
 
 @anchor{fun-fl.utilities-check-properties}
@@ -1162,6 +1156,13 @@ User input for demo functions.  Reads lines until
 @arg{test-p} returns t on the item read.
 @end deffn
 
+@anchor{fun-fl.demo-user-input-textfield}
+@deffn Function USER-INPUT-TEXTFIELD &OPTIONAL (@var{TEST-P} (@var{CONSTANTLY} @var{T}))
+@findex USER-INPUT-TEXTFIELD
+User textfield input for demo functions.  Reads and concatenates lines until
+an empty line is read.
+@end deffn
+
 @node Package FL.TESTS, Package FL.PORT, Package FL.DEMO, Reference manual
 @section Package FL.TESTS
 
@@ -1273,6 +1274,12 @@ Return the value of the environment variable.
 Returns the hostname.
 @end deffn
 
+@anchor{fun-fl.port-kill-process}
+@deffn Function KILL-PROCESS @var{PROCESS}
+@findex KILL-PROCESS
+Kills the given process
+@end deffn
+
 @anchor{fun-fl.port-load-foreign-library}
 @deffn Function LOAD-FOREIGN-LIBRARY @var{FILE}
 @findex LOAD-FOREIGN-LIBRARY
@@ -1316,7 +1323,7 @@ Returns the status of @arg{process}.
 @end deffn
 
 @anchor{fun-fl.port-run-program}
-@deffn Function RUN-PROGRAM @var{PROGRAM} @var{ARGS} &KEY @var{WAIT} @var{DIRECTORY} @var{INPUT} (@var{OUTPUT} @var{NIL} @var{OUTPUT-P}) @var{ERROR-OUTPUT}
+@deffn Function RUN-PROGRAM @var{PROGRAM} @var{ARGS} &KEY @var{WAIT} @var{DIRECTORY} (@var{SEARCH} @var{T}) @var{INPUT} (@var{OUTPUT} @var{NIL} @var{OUTPUT-P}) @var{ERROR-OUTPUT}
 @findex RUN-PROGRAM
 Runs @arg{program} with arguments @arg{args}.
 @end deffn
@@ -3315,6 +3322,12 @@ list.
 Returns the cells of @arg{skel} of highest dimension in form of a list.
 @end deffn
 
+@anchor{fun-fl.mesh-check}
+@deffn Function CHECK @var{OBJ} &ALLOW-OTHER-KEYS
+@findex CHECK
+Checks the data structure of @arg{obj}.
+@end deffn
+
 @anchor{fun-fl.mesh-combine-identifications}
 @deffn Function COMBINE-IDENTIFICATIONS @var{SETS}
 @findex COMBINE-IDENTIFICATIONS
@@ -3683,7 +3696,7 @@ Creates a hierarchical-mesh from the given arguments.  See @function{MAKE-MESH-F
 @end deffn
 
 @anchor{fun-fl.mesh-make-hierarchical-mesh-from-domain}
-@deffn Function MAKE-HIERARCHICAL-MESH-FROM-DOMAIN @var{DOMAIN} &KEY @var{PARAMETRIC} &ALLOW-OTHER-KEYS
+@deffn Function MAKE-HIERARCHICAL-MESH-FROM-DOMAIN @var{DOMAIN} &ALLOW-OTHER-KEYS
 @findex MAKE-HIERARCHICAL-MESH-FROM-DOMAIN
 Construct a hierarchical-mesh from a domain.
 @end deffn
@@ -3695,7 +3708,7 @@ Creates a line given its endpoints.
 @end deffn
 
 @anchor{fun-fl.mesh-make-mesh-from}
-@deffn Function MAKE-MESH-FROM @var{OBJECT} &KEY @var{PARAMETRIC} &ALLOW-OTHER-KEYS
+@deffn Function MAKE-MESH-FROM @var{OBJECT} &KEY @var{PARAMETRIC} (@var{INITIAL-MESH-REFINEMENTS} 0) &ALLOW-OTHER-KEYS
 @findex MAKE-MESH-FROM
 Makes a mesh from or for the given object.
 @end deffn
@@ -5418,6 +5431,12 @@ in a separate file @file{geomg.lisp} and package @package{FL.GEOMG}.
 Standard observe quantities for iterative solvers.
 @end defvr
 
+@anchor{var-fl.iteration-*iteration-depth*}
+@defvr Variable *ITERATION-DEPTH*
+@vindex *ITERATION-DEPTH*
+Depth of nested iteration.
+@end defvr
+
 @anchor{var-fl.iteration-*output-depth*}
 @defvr Variable *OUTPUT-DEPTH*
 @vindex *OUTPUT-DEPTH*
@@ -5776,6 +5795,13 @@ Is called after initialization and after each step.
 @deffn Function INTERVAL-METHOD @var{FUNC} @var{A} @var{B} @var{ACCURACY}
 @findex INTERVAL-METHOD
 Finds zeros of functions in 1d by the interval method.
+@end deffn
+
+@anchor{fun-fl.iteration-iter-format}
+@deffn Function ITER-FORMAT @var{STREAM} @var{CONTROL-STRING} &REST @var{ARGS}
+@findex ITER-FORMAT
+Iteration output should be made using this function
+which respects *iteration-depth* and *output-depth*.
 @end deffn
 
 @anchor{fun-fl.iteration-iterate}
@@ -6534,7 +6560,7 @@ Quits Femlisp.
 Stores the result of @arg{body} in @var{*result*}.
 @end deffn
 
-@node Package DDO, Package DDO-FEMLISP, Package FL.APPLICATION, Reference manual
+@node Package DDO, Package FEMLISP-DDO, Package FL.APPLICATION, Reference manual
 @section Package DDO
 
 This package provides distributed objects.
@@ -6585,6 +6611,13 @@ Broadcast the given commands
 Call workers sequentially, mainly for debugging purposes if separate
 output is desired.  Of course, this should only be called with commands
 which do not require synchronization!
+@end deffn
+
+@anchor{macro-ddo-ddo-capture}
+@deffn Macro DDO-CAPTURE &BODY @var{COMMANDS}
+@findex DDO-CAPTURE
+Broadcast the given commands and capture the output of all
+processors as a string result.
 @end deffn
 
 @anchor{class-ddo-ddo-container-mixin}
@@ -6674,12 +6707,18 @@ For testing purposes!  Resets all distributed-object tables.
 Synchronize distributed objects across the MPI kernel.
 @end deffn
 
-@node Package DDO-FEMLISP,  , Package DDO, Reference manual
-@section Package DDO-FEMLISP
+@node Package FEMLISP-DDO,  , Package DDO, Reference manual
+@section Package FEMLISP-DDO
 
 This package contains Femlisp parallelization stuff.
 
-@anchor{fun-ddo-femlisp-aso-make-distributed}
+@anchor{var-femlisp-ddo-*distribute-n*}
+@defvr Variable *DISTRIBUTE-N*
+@vindex *DISTRIBUTE-N*
+Number of workers to which the mesh should be distributed.
+@end defvr
+
+@anchor{fun-femlisp-ddo-aso-make-distributed}
 @deffn Function ASO-MAKE-DISTRIBUTED @var{ASO} &KEY @var{CONSISTENT-P} @var{MERGER} (@var{MERGER} (@var{FUNCTION} @var{ADDITION-MERGER})) &ALLOW-OTHER-KEYS
 @findex ASO-MAKE-DISTRIBUTED
 Turns aso into a distributed aso

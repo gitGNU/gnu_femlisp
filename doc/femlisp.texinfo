@@ -126,7 +126,7 @@ Introduction, Installation, Top, Top
 Installation
 
 * Software needed::
-* Detailed installation instructions::
+* Installation instructions::
 
 Software needed
 
@@ -135,13 +135,15 @@ Software needed
 * Numerical software::
 * Common Lisp libraries::
 
-Detailed installation instructions
+Installation instructions
 
 * SBCL installation::
 * Quicklisp::
-* Graphics::
+* Simple Femlisp installation::
+* Graphic programs::
 * Additional numerical software::
-* Femlisp Installation::
+* Advanced Femlisp installation::
+* Notes for Mac OS X and Windows::
 
 Additional numerical software
 
@@ -150,7 +152,7 @@ Additional numerical software
 * Mesh generators::
 * MPI::
 
-Femlisp Installation
+Advanced Femlisp installation
 
 * Downloading Femlisp::
 * Configuring Femlisp::
@@ -158,6 +160,11 @@ Femlisp Installation
 * Registering Femlisp::
 * Compiling Femlisp::
 * Starting Femlisp::
+
+Notes for Mac OS X and Windows
+
+* Notes for Mac OS X::
+* Notes for Windows::
 
 First steps
 
@@ -253,7 +260,7 @@ Reference manual
 * Package FL.DOMAINS::
 * Package FL.APPLICATION::
 * Package DDO::
-* Package DDO-FEMLISP::
+* Package FEMLISP-DDO::
 
 @end detailmenu
 @end menu

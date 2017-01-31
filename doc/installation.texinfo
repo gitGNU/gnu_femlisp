@@ -3,10 +3,10 @@
 
 @menu
 * Software needed::
-* Detailed installation instructions::
+* Installation instructions::
 @end menu
 
-@node Software needed, Detailed installation instructions, Installation, Installation
+@node Software needed, Installation instructions, Installation, Installation
 @section Software needed
 
 For @femlisp{} installation, you will need the following:
@@ -82,18 +82,20 @@ by Zach Beane as suggested in the following section.
 
 @c ----------------------------------------------------------------
 
-@node Detailed installation instructions,  , Software needed, Installation
-@section Detailed installation instructions
+@node Installation instructions,  , Software needed, Installation
+@section Installation instructions
 
 @menu
 * SBCL installation::
 * Quicklisp::
-* Graphics::
+* Simple Femlisp installation::
+* Graphic programs::
 * Additional numerical software::
-* Femlisp Installation::
+* Advanced Femlisp installation::
+* Notes for Mac OS X and Windows::
 @end menu
 
-@node SBCL installation, Quicklisp, Detailed installation instructions, Detailed installation instructions
+@node SBCL installation, Quicklisp, Installation instructions, Installation instructions
 @subsection SBCL installation
 
 SBCL is a well-established free Common Lisp implementation on which
@@ -116,7 +118,7 @@ Although @femlisp{} will probably work with many other CL
 implementations, the precise installation procedures can be quite
 different, and we do not want to handle this here.
 
-@node Quicklisp, Graphics, SBCL installation, Detailed installation instructions
+@node Quicklisp, Simple Femlisp installation, SBCL installation, Installation instructions
 @subsection Quicklisp
 
 In recent years, Quicklisp (see @url{http://www.quicklisp.org/}) has
@@ -125,24 +127,42 @@ sure that it works for you.
 
 Quicklisp installation is easy following the installation instructions
 from the Quicklisp homepage @cite{Quicklisp} which are essentially the
-following commands:
+following two lines in the shell:
 
 @example
   curl -O https://beta.quicklisp.org/quicklisp.lisp
   sbcl --load quicklisp.lisp  # if your CL implementation is SBCL
-  * (quicklisp-quickstart:install)
-  * (ql:add-to-init-file)
-  * (quit)
 @end example
 
-On recent Debian/GNU Linux or Ubuntu versions, Quicklisp can even be
-installed as a package using
+followed by entering the following Lisp expressions at the SBCL prompt:
 
 @example
-    sudo apt install cl-quicklisp
+ (quicklisp-quickstart:install)
+ (ql:add-to-init-file)
+ (quit)
 @end example
 
-@node Graphics, Additional numerical software, Quicklisp, Detailed installation instructions
+@node Simple Femlisp installation, Graphic programs, Quicklisp, Installation instructions
+@subsection Simple Femlisp installation
+
+Since Femlisp is available from the Quicklisp repository, installation
+is as easy as starting SBCL and entering at the SBCL prompt:
+
+@example
+ (ql:quickload :femlisp)  ; for installing/loading Femlisp
+ (fl.demo:femlisp-demo)   ; for running the demos
+@end example
+
+If you are lucky, even the graphics will already work at this point
+which you may check with the help of the demos.  If not, the following
+subsection (@ref{Graphic programs}) explains how to install suitable
+external graphic programs, and the next subsection (@ref{Additional
+numerical software}) explains how to install some additional numerical
+software.  Finally, the last subsection (@ref{Advanced Femlisp
+installation}) explains how to obtain a copy of Femlisp independent from
+Quicklisp and how to create a stand-alone Femlisp executable.
+
+@node Graphic programs, Additional numerical software, Simple Femlisp installation, Installation instructions
 @subsection Graphic programs
 
 @femlisp{} uses two graphics packages, namely Gnuplot and Data
@@ -157,7 +177,7 @@ something like the following shell command:
     sudo apt install dx dx-doc gnuplot gnuplot-doc
 @end example
 
-@node Additional numerical software, Femlisp Installation, Graphics, Detailed installation instructions
+@node Additional numerical software, Advanced Femlisp installation, Graphic programs, Installation instructions
 @subsection Additional numerical software
 
 @femlisp{} can make use of some external software described in this
@@ -227,8 +247,8 @@ On Debian/GNU Linux, OpenMPI can be installed using
     sudo apt install openmpi-bin
 @end example
 
-@node Femlisp Installation,  , Additional numerical software, Detailed installation instructions
-@subsection Femlisp Installation
+@node Advanced Femlisp installation, Notes for Mac OS X and Windows, Additional numerical software, Installation instructions
+@subsection Advanced Femlisp installation
 
 @menu
 * Downloading Femlisp::
@@ -239,12 +259,12 @@ On Debian/GNU Linux, OpenMPI can be installed using
 * Starting Femlisp::
 @end menu
 
-@node Downloading Femlisp, Configuring Femlisp, Femlisp Installation, Femlisp Installation
+@node Downloading Femlisp, Configuring Femlisp, Advanced Femlisp installation, Advanced Femlisp installation
 @subsubsection Downloading Femlisp
 
-Although Quicklisp provides some version of Femlisp, it may be
-recommendable to obtain a more recent one by cloning the Femlisp git
-repository directly using
+Although Quicklisp provides a quite recent version of Femlisp, it may be
+recommendable to obtain the bleeding edge version by cloning the Femlisp
+git repository directly using
 
 @example
 git clone git://git.savannah.nongnu.org/femlisp.git
@@ -252,7 +272,7 @@ git clone git://git.savannah.nongnu.org/femlisp.git
 
 The result of this command should be a directory called ``femlisp''.
 
-@node  Configuring Femlisp, Getting CL libraries, Downloading Femlisp, Femlisp Installation
+@node  Configuring Femlisp, Getting CL libraries, Downloading Femlisp, Advanced Femlisp installation
 @subsubsection Configuring Femlisp
 
 Move into the @femlisp{} directory and issue the command
@@ -264,7 +284,7 @@ make configure
 You will be asked some parameters and can check that the suggested
 default values fit.
 
-@node Getting CL libraries, Registering Femlisp, Configuring Femlisp, Femlisp Installation
+@node Getting CL libraries, Registering Femlisp, Configuring Femlisp, Advanced Femlisp installation
 @subsubsection Getting CL libraries
 
 Move into the @femlisp{} directory and issue the command
@@ -293,7 +313,7 @@ for SBCL):
 @end enumerate
 }
 
-@node Registering Femlisp, Compiling Femlisp, Getting CL libraries, Femlisp Installation
+@node Registering Femlisp, Compiling Femlisp, Getting CL libraries, Advanced Femlisp installation
 @subsubsection Registering Femlisp
 
 Femlisp provides several own ``system files'' which have to be
@@ -311,7 +331,12 @@ Quicklisp:
           (symbol-value (intern "*CENTRAL-REGISTRY*" (find-package :asdf))))))
 @end example
 
-@node Compiling Femlisp, Starting Femlisp, Registering Femlisp, Femlisp Installation
+Note that this code snippet assumes that the Femlisp directory is
+located directly in your home directory.  If this should not be the
+case, you should replace it by something (e.g. a double-quoted string of
+the form ``path-to-femlisp-directory/systems'').
+
+@node Compiling Femlisp, Starting Femlisp, Registering Femlisp, Advanced Femlisp installation
 @subsubsection Compiling Femlisp
 
 Move into the @femlisp{} directory and issue the command
@@ -323,9 +348,31 @@ make femlisp
 This will compile @femlisp{} and save a suitable core in the ``bin''
 subdirectory.
 
-@node Starting Femlisp,  , Compiling Femlisp, Femlisp Installation
+@node Starting Femlisp,  , Compiling Femlisp, Advanced Femlisp installation
 @subsubsection Starting Femlisp
 
 If installation was successful, @femlisp{} can be started by executing
 the script ``bin/femlisp'' and you can continue as described in chapter
 @ref{First steps}.
+
+@node Notes for Mac OS X and Windows,  , Advanced Femlisp installation, Installation instructions
+@subsection Notes for Mac OS X and Windows
+
+@menu
+* Notes for Mac OS X::
+* Notes for Windows::
+@end menu
+
+@node Notes for Mac OS X, Notes for Windows, Notes for Mac OS X and Windows, Notes for Mac OS X and Windows
+@subsubsection Notes for Mac OS X
+
+Femlisp should work fine on Mac OS X.  You will have to install Xquartz,
+and then opendx and sbcl using 'port install'.  Then you can more or
+less proceed as described above.
+
+@node Notes for Windows,  , Notes for Mac OS X, Notes for Mac OS X and Windows
+@subsubsection Notes for Windows
+
+Femlisp did work on Windows quite well, but this has not been tested for
+quite some time.
+
