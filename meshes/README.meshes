@@ -1,0 +1,3 @@
+In this directory, Femlisp places results of calling the
+external programs "triangle" and "tetgen".  Of course,
+also other kinds of meshes may be placed here.
