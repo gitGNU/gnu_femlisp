@@ -103,6 +103,11 @@ Engineering}, Lecture Notes in Computer Science 1148, Springer-Verlag,
 K. Stueben: @emph{A review of algebraic multigrid}.
 J. Comput. Appl. Math., 128:281--309, 2001.
 
+@item (TetGen)
+Hang Si: @emph{TetGen: A Quality Tetrahedral Mesh Generator and a 3D
+Delaunay Triangulator}.  See
+@url{http://wias-berlin.de/software/tetgen/}.
+
 @end table
 
 
