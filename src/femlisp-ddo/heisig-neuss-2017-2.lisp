@@ -186,7 +186,8 @@ manual GC on all workers and clear all distributed data ...")
                        ((string-equal _ "n") :n)))
                   (_ (member _ '(:y :n))))
                  :y)
-        (ddo (new-kernel))))
+        (ddo (progn (new-kernel) nil)  ; for dropping the return argument
+             )))
     (format t "Sending commands to the workers and waiting for the result...")
     (force-output t)
     (let ((messages
