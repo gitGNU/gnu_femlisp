@@ -48,9 +48,3 @@
                :uiop :trees :alexandria
                :net.scipolis.graphs
                :ddo))
-
-(asdf:defsystem :femlisp-mpi-worker
-  :author "Nicolas Neuss"
-  :license "Modified BSD"
-  :components ()  ; no components here, because :mpi-worker saves a core
-  :depends-on (:femlisp :ddo :femlisp-ddo :mpi-worker))
