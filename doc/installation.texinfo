@@ -253,8 +253,6 @@ On Debian/GNU Linux, OpenMPI can be installed using
 @menu
 * Downloading Femlisp::
 * Configuring Femlisp::
-* Getting CL libraries::
-* Registering Femlisp::
 * Compiling Femlisp::
 * Starting Femlisp::
 @end menu
@@ -262,17 +260,38 @@ On Debian/GNU Linux, OpenMPI can be installed using
 @node Downloading Femlisp, Configuring Femlisp, Advanced Femlisp installation, Advanced Femlisp installation
 @subsubsection Downloading Femlisp
 
-Although Quicklisp provides a quite recent version of Femlisp, it may be
-recommendable to obtain the bleeding edge version by cloning the Femlisp
-git repository directly using
+Although Quicklisp updates its repositories monthly, and therefore will
+usually provide a sufficiently recent version of Femlisp, it can be
+useful to obtain the bleeding edge version by cloning the Femlisp git
+repository directly.
+
+This can be done in the following way:
 
 @example
+cd quicklisp/local-projects
 git clone git://git.savannah.nongnu.org/femlisp.git
 @end example
 
-The result of this command should be a directory called ``femlisp''.
+The result of this command should be a directory called ``femlisp''
+which is located in @path{quicklisp/local-projects}.
 
-@node  Configuring Femlisp, Getting CL libraries, Downloading Femlisp, Advanced Femlisp installation
+@footnote{If you should choose another directory for downloading
+@femlisp{}, you will have to ensure that Quicklisp can find the
+necessary system definitions.  This can be achieved by appending the
+following lines to the initialization file of your CL implementation
+(@path{~/.sbclrc} for SBCL), after the lines for Quicklisp
+initialization:
+
+@example
+;; registering Femlisp systems (change path below!)
+(let ((femlisp-init "path-to-femlisp-directory/systems"))
+  (when (probe-file femlisp-init)
+    (push femlisp-init
+          (symbol-value (intern "*CENTRAL-REGISTRY*" (find-package :asdf))))))
+@end example
+}
+
+@node  Configuring Femlisp, Compiling Femlisp, Downloading Femlisp, Advanced Femlisp installation
 @subsubsection Configuring Femlisp
 
 Move into the @femlisp{} directory and issue the command
@@ -284,14 +303,17 @@ make configure
 You will be asked some parameters and can check that the suggested
 default values fit.
 
-@node Getting CL libraries, Registering Femlisp, Configuring Femlisp, Advanced Femlisp installation
-@subsubsection Getting CL libraries
+@node Compiling Femlisp, Starting Femlisp, Configuring Femlisp, Advanced Femlisp installation
+@subsubsection Compiling Femlisp
 
 Move into the @femlisp{} directory and issue the command
 
 @example
-make quickload-libraries
+make femlisp
 @end example
+
+This will compile @femlisp{} and save a suitable core in the ``bin''
+subdirectory.
 
 @footnote{
 If you should encounter the problem that you have a version of
@@ -308,45 +330,17 @@ make asdf
 and adding the following line to your CL initialization file (.sbclrc
 for SBCL):
 @example
-#-asdf3.1 (load (merge-pathnames "femlisp/external/asdf/build/asdf.lisp" (user-homedir-pathname)))
+#-asdf3.1 (load "path-to-femlisp-directory/external/asdf/build/asdf.lisp")
 @end example
 @end enumerate
 }
 
-@node Registering Femlisp, Compiling Femlisp, Getting CL libraries, Advanced Femlisp installation
-@subsubsection Registering Femlisp
+@footnote{If you want to use @femlisp{} for communicating with MPI
+processes, you may use @code{make femlisp-ddo} instead of @code{make
+femlisp}.  However, since this will make the build process depend also
+on MPI, and also increase the size of the resulting executable
+considerably, you should do this only if you really need it.}
 
-Femlisp provides several own ``system files'' which have to be
-registered with ASDF (the Common Lisp system loading facility which is
-the de-facto standard nowadays).  This can be done by appending the
-following lines to the initialization file of your CL implementation
-(~/.sbclrc for SBCL), after the lines for the initialization of
-Quicklisp:
-
-@example
-;; registering Femlisp systems (change path if necessary)
-(let ((femlisp-init (merge-pathnames "femlisp/systems/" (user-homedir-pathname))))
-  (when (probe-file femlisp-init)
-    (push femlisp-init
-          (symbol-value (intern "*CENTRAL-REGISTRY*" (find-package :asdf))))))
-@end example
-
-Note that this code snippet assumes that the Femlisp directory is
-located directly in your home directory.  If this should not be the
-case, you should replace it by something (e.g. a double-quoted string of
-the form ``path-to-femlisp-directory/systems'').
-
-@node Compiling Femlisp, Starting Femlisp, Registering Femlisp, Advanced Femlisp installation
-@subsubsection Compiling Femlisp
-
-Move into the @femlisp{} directory and issue the command
-
-@example
-make femlisp
-@end example
-
-This will compile @femlisp{} and save a suitable core in the ``bin''
-subdirectory.
 
 @node Starting Femlisp,  , Compiling Femlisp, Advanced Femlisp installation
 @subsubsection Starting Femlisp
