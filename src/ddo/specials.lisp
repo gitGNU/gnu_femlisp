@@ -41,7 +41,7 @@
   "When T show all data communicated between processors.  This is only reasonable for
 toy problems.")
 
-(defvar *communicate-with-all* nil
+(defvar *communicate-with-all* t
   "For debugging purposes, this may be set to T, for ensuring that communication
 is not blocked by a non-fitting communication pattern.")
 
