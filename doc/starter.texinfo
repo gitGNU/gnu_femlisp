@@ -14,10 +14,13 @@
 
 Start @femlisp{} and look at the demos by typing @code{(femlisp-demo)}
 (followed by @kbd{RETURN}) at the CL prompt (do not forget the
-parentheses!).@footnote{If this should not work, try setting the package
-with @code{(in-package :fl.application)}.}  You can get out of the
-demos by typing @kbd{quit} (without parentheses) at the demo prompt, and
-you can exit @femlisp{} by typing @kbd{(quit)} at the CL prompt.
+parentheses!).@footnote{If this should not work, try starting the demos
+by using @code{(fl.demo:femlisp-demo)} instead.  If this works, you
+should -after finishing the demos- use the command @code{(in-package
+:fl.application)} for switching to the application package for the
+subsequent steps.}  You can get out of the demos by typing @kbd{quit}
+(without parentheses) at the demo prompt, and you can exit @femlisp{} by
+typing @kbd{(quit)} at the CL prompt.
 
 @node Solving problems, Plotting, Demos, First steps
 @section Solving problems
