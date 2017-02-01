@@ -1,15 +1,16 @@
-;;; -*- Lisp -*-
+;;; -*- mode: lisp; fill-column: 70; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; femlisp.asd - Femlisp system definition (source files)
+;;; femlisp.asd - System definition file
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Copyright (C) 2003 Nicolas Neuss, University of Heidelberg.
+;;; Copyright (C) 2017-
+;;; Nicolas Neuss, Friedrich-Alexander-Universitaet Erlangen-Nuernberg
 ;;; All rights reserved.
 ;;; 
 ;;; Redistribution and use in source and binary forms, with or without
-;;; modification, are permitted provided that the following conditions are
-;;; met:
+;;; modification, are permitted provided that the following conditions
+;;; are met:
 ;;; 
 ;;; 1. Redistributions of source code must retain the above copyright
 ;;; notice, this list of conditions and the following disclaimer.
@@ -20,8 +21,8 @@
 ;;; 
 ;;; THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
 ;;; WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-;;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
-;;; NO EVENT SHALL THE AUTHOR, THE UNIVERSITY OF HEIDELBERG OR OTHER
+;;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+;;; IN NO EVENT SHALL THE AUTHOR, THE FAU ERLANGEN-NUERNBERG, OR OTHER
 ;;; CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 ;;; EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 ;;; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -32,126 +33,9 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defpackage :femlisp-system (:use :common-lisp :asdf))
-(in-package :femlisp-system)
+(in-package :cl-user)
 
-;;; the following is a temporary kludge because on older CL implementations
-;;; ASDF3.1 may not be available, but is needed e.g. by fiveam.
-#-asdf3.1 (let ((file (probe-file "../external/asdf/build/asdf.lisp")))
-            (when file (load file)))
-
-(defun call-with-read-double-float-environment (fun)
-  "Numerical calculations usually work with double-float numbers, because single-float numbers ususally do not have sufficient precision.  This function is used for dynamically binding the default-float-format when loading Femlisp parts which rely on this functionality for not interfering with other peoples libraries."
-  (let ((*read-default-float-format* 'double-float))
-    (funcall fun)))
-
-(defsystem :femlisp-basic
-  :author "Nicolas Neuss"
-  :license "Modified BSD"
-  :depends-on (#+(or clisp ccl) :cffi
-               #+sbcl :sb-posix #+sbcl :sb-introspect
-               #+allegro (:require "osi")
-               :closer-mop :fiveam
-               )
-  :pathname "../src"
-  :components
-  ((:module
-    "config"
-    :depends-on ()
-    :components
-    ((:file "setup")
-     (:file "femlisp-config" :depends-on ("setup"))))
-   (:module
-    "basic"
-    :depends-on ("config")
-    :components
-    ((:file "debug" :depends-on ())
-     (:file "tests" :depends-on ())
-     (:file "patches" :depends-on ())
-     (:file "macros" :depends-on ())
-     (:file "port" :depends-on ("debug"))
-     (:file "utilities-defp" :depends-on ("patches" "macros" "debug"))
-     (:file "utilities" :depends-on ("utilities-defp" "macros" "tests"))
-     (:file "amop" :depends-on ("debug" "port" "utilities"))
-     (:file "mflop" :depends-on ("debug" "utilities"))
-     (:file "general" :depends-on ("amop" "utilities-defp"))
-     (:file "demo" :depends-on ("tests" "mflop" "macros" "utilities"))))))
-
-(defsystem :femlisp-parallel
-  :author "Nicolas Neuss"
-  :license "Modified BSD"
-  :depends-on (:femlisp-basic :bordeaux-threads :lparallel :cl-ppcre
-                              #+linux :cl-cpu-affinity)
-  :pathname "../src"
-  :components
-  ((:module
-    "parallel"
-    :components
-    ((:file "parallel-defp" :depends-on ())
-     (:file "parallel" :depends-on ("parallel-defp"))
-     (:file "mutex" :depends-on ("parallel-defp"))
-     (:file "parallel-adaptions" :depends-on ("parallel"))
-     (:file "multiprocessing" :depends-on ("parallel-adaptions"))
-     ;; (:file "parcells" :depends-on ("multiprocessing"))
-     ))))
-
-(defsystem :femlisp-dictionary
-  :author "Nicolas Neuss"
-  :license "Modified BSD"
-  :depends-on (:femlisp-basic :femlisp-parallel)
-  :pathname "../src"
-  :components
-  ((:module
-    "dictionary"
-    :components
-    ((:file "dictionary-defp" :depends-on ())
-     (:file "dictionary" :depends-on ("dictionary-defp"))
-     (:file "parallel-heap" :depends-on ("dictionary"))
-     ))))
-
-(defsystem :femlisp-matlisp
-  :author "Nicolas Neuss"
-  :license "Modified BSD"
-  :depends-on (:femlisp-basic :femlisp-parallel :femlisp-dictionary)
-  :pathname "../src"
-  :around-compile call-with-read-double-float-environment
-  :components
-  ((:module
-    "alien"
-    :components
-    (;; alien should be recompiled if superlu.so or umfpack.so has changed
-     (:file "alien" :depends-on ())
-     (:file "alienc" :depends-on ("alien"))
-     (:file "lapack" :depends-on ("alien"))
-     (:file "superlu" :depends-on ("alien"))
-     (:file "umfpack" :depends-on ("alien"))))
-   (:module
-    "matlisp"
-    :depends-on ("alien")
-    :components
-    ((:file "matlisp-defp")
-     (:file "ctypes" :depends-on ("matlisp-defp"))
-     (:file "vector" :depends-on ("matlisp-defp"))
-     (:file "blas-basic" :depends-on ("vector"))
-     (:file "matrix" :depends-on ("vector"))
-     (:file "number-blas" :depends-on ("matrix" "blas-basic"))
-     (:file "array-blas" :depends-on ("matrix" "ctypes" "number-blas"))
-     (:file "store-vector" :depends-on ("matrix" "ctypes" "blas-basic"))
-     (:file "standard-matrix" :depends-on ("matrix" "store-vector"))
-     (:file "standard-matrix-blas" :depends-on ("standard-matrix"))
-     (:file "standard-matrix-lr" :depends-on ("standard-matrix-blas"))
-     (:file "compat" :depends-on ("standard-matrix"))
-     (:file "call-matlisp" :depends-on ("standard-matrix"))
-     (:file "tensor" :depends-on ("store-vector" "standard-matrix"))
-     (:file "sparse-tensor" :depends-on ("tensor"))
-     (:file "compressed" :depends-on ("store-vector" "standard-matrix"))
-     (:file "ggev" :depends-on ("standard-matrix"))
-     (:file "hegv" :depends-on ("standard-matrix"))
-     (:file "sparse-vector" :depends-on ("compat" "sparse-tensor"))
-     (:file "sparse-matrix" :depends-on ("sparse-vector" "standard-matrix-blas" "compressed"))
-     (:file "sparselu" :depends-on ("sparse-matrix"))))))
-
-(defsystem :femlisp
+(asdf:defsystem :femlisp
   :author "Nicolas Neuss"
   :license "Modified BSD"
   :depends-on (:femlisp-basic :femlisp-parallel :femlisp-matlisp
@@ -404,14 +288,4 @@
    )					; femlisp modules
   )
 
-(asdf:defsystem :femlisp-save-core
-  :author "Nicolas Neuss"
-  :license "Modified BSD"
-  :serial t
-  :depends-on (:femlisp)
-  :pathname "../src"
-  :components (
-	       (:file "save-core")
-               )
-  )
 
