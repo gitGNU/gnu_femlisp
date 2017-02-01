@@ -47,9 +47,6 @@ asdf:
 configure:
 	./configure
 
-quickload-libraries:
-	$(FEMLISP_CL) --eval "(progn (ql:quickload (list :cl-ppcre :cl-gd :fiveam :bordeaux-threads :lparallel :cffi :closer-mop)) (quit))"
-
 documentation:
 	cd doc; $(MAKE) all
 
@@ -60,13 +57,13 @@ umfpack:
 	cd interface; $(MAKE) umfpack
 
 femlisp:
-	$(FEMLISP_CL) --eval "(asdf:oos 'asdf:load-op :femlisp-save-core)"
+	$(FEMLISP_CL) --eval "(ql:quickload :femlisp-save-core)"
 
 femlisp-ddo:
-	$(FEMLISP_CL) --eval "(asdf:oos 'asdf:load-op :femlisp-ddo)"  --eval "(asdf:oos 'asdf:load-op :femlisp-save-core)"
+	$(FEMLISP_CL) --eval "(ql:quickload :femlisp-ddo)" --eval "(ql:quickload :femlisp-save-core)"
 
 mpi-worker:
-	cd ./bin; rm -f mpi-worker; $(FEMLISP_CL) --eval "(asdf:oos 'asdf:load-op :femlisp-mpi-worker)"
+	cd ./bin; rm -f mpi-worker; $(FEMLISP_CL) --eval "(ql:quickload :femlisp-mpi-worker)"
 
 mpirun:
 	cd ./bin; mpirun -np $(NP) mpi-worker --dynamic-space-size $$(( $(FEMLISP_DYNAMIC_SPACE_SIZE) / $(NP) ))
