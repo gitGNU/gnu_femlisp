@@ -1,1 +1,1 @@
-../src/femlisp-ddo/femlisp-ddo.asd
+../src/femlisp-ddo/femlisp-mpi-worker.asd
