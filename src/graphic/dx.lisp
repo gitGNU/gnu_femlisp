@@ -76,10 +76,21 @@
 
 (defun dx-input-stream ()
   (whereas ((process (ensure-dx-process)))
-    (fl.port:process-input process)))
+    (lret ((stream (fl.port:process-input process)))
+      ;; we use flexi-streams for ensuring right handling of EOL
+      (unless (typep stream 'flexi-streams:flexi-stream)
+        (setq stream (flexi-streams:make-flexi-stream
+                      stream :external-format
+                      (flexi-streams:make-external-format :utf-8)))))))
+
 (defun dx-output-stream ()
   (whereas ((process (ensure-dx-process)))
-    (fl.port:process-output process)))
+      ;; we use flexi-streams for ensuring right handling of EOL
+    (lret ((stream (fl.port:process-output process)))
+      (unless (typep stream 'flexi-streams:flexi-stream)
+        (setq stream (flexi-streams:make-flexi-stream
+                      stream :external-format
+                      (flexi-streams:make-external-format :utf-8)))))))
 
 (defun dx-close ()
   (whereas ((process *dx-process*))
