@@ -2,6 +2,9 @@
 
 * Current work:
 
+We use the flexi-streams library for ejecting correct CRLF on Windows
+when communicating with DX.
+
 * From Femlisp-2.0.0 to Femlisp-2.0.1
 
 A generic function CHECK was introduced in FL.UTILITIES.  We do not
@@ -21,7 +24,7 @@ done.
 * From Femlisp-1.1.0 to Femlisp-2.0.0
 
 Some demonstration of parallel computing can be found as Femlisp demos
-under Arcticles -> MHeisig-NNeuss-2017.
+under Arcticles -> Heisig-Neuss-2017.
 
 Interactive control of an MPI worker pool can be done via LFARM.
 
