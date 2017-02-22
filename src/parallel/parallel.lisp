@@ -26,7 +26,7 @@
                  (measure-time
                   (lambda () (replace x y)) count))))
       (format t "Measuring effective cache size (this may take some time)...~%")
-      (loop for k from 10 below 30
+      (loop for k from 10 below 20
             for previous = nil then next
             and next = (test k)
             do
