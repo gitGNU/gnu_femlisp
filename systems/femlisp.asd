@@ -38,9 +38,10 @@
 (asdf:defsystem :femlisp
   :author "Nicolas Neuss"
   :license "Modified BSD"
-  :depends-on (:femlisp-basic :femlisp-parallel :femlisp-matlisp
-                              :femlisp-dictionary
-                              :infix :cl-ppcre :cl-gd)
+  :depends-on (:femlisp-basic
+               :femlisp-parallel :femlisp-matlisp
+               :femlisp-dictionary
+               :infix :flexi-streams :cl-ppcre :cl-gd)
   :pathname "../src"
   :around-compile call-with-read-double-float-environment
   :components
