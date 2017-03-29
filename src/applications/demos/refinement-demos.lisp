@@ -52,13 +52,17 @@
 (create-refinement-demo "1-2-wedge" (ensure-simplex-product '(1 2)))
 (create-refinement-demo "2-1-wedge" (ensure-simplex-product '(2 1)))
 (create-refinement-demo "cube" (n-cube 3))
-(create-refinement-demo
- "4-cube" (n-cube 4)
-  :transformation
+
+(defparameter *skew-4D-to-3D*
   (make-instance '<linear-function>
 		 :A #m((1.0 0.0   0.0  0.0)
 		       (0.0 0.8  -0.6  0.0)
-		       (0.0 0.56  0.57 0.6))))
+		       (0.0 0.56  0.57 0.6)))
+  "A transformation for projecting regular 4D structures from a skew perspective
+into 3D space.  The result can then be viewed by a standard 3D plot program.")
+
+(create-refinement-demo "4-cube" (n-cube 4)
+                        :transformation *skew-4D-to-3D*)
 
 
 
