@@ -64,7 +64,7 @@
 
 (defparameter *blas-library*
   (or
-   ;;:none
+   ;; :none
    (probe-file #p"femlisp:interface;mkl.so")
    #+linux "libblas.so"
    #+os-macosx "libblas.dylib")
@@ -85,7 +85,7 @@ If the value is NIL, the LAPACK library is searched for in standard library path
 If the value is :none, no external LAPACK routines are used.")
 
 (defparameter *superlu-library*
-  nil ; default: (femlisp-pathname "interface/superlu.so")
+  (femlisp-pathname "interface/superlu.so")
   "Wrapper for SuperLU, if available.")
 
 (defparameter *umfpack-library*
