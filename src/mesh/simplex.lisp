@@ -311,12 +311,14 @@ and INSERT-CELL-FROM-CORNERS."
 	(error "Dimension of boundary cells does not fit."))
       (unless (or (= dim 1) (closed? (skeleton boundary)))
 	(error "Boundary is not closed.")))
-    (if mapping
-	(make-instance (simplex-class dim mapping)
-		       :boundary (coerce boundary 'cell-vec)
-		       :mapping mapping)
-	(make-instance (simplex-class dim)
-		       :boundary (coerce boundary 'cell-vec)))))
+    (lret ((simplex
+             (if mapping
+                 (make-instance (simplex-class dim mapping)
+                                :boundary (coerce boundary 'cell-vec)
+                                :mapping mapping)
+                 (make-instance (simplex-class dim)
+                                :boundary (coerce boundary 'cell-vec)))))
+      (when check (check simplex)))))
 
 (defun make-line (from-vtx to-vtx &key (check t) mapping)
   "Creates a line given its endpoints."
