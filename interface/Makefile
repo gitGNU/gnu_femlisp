@@ -39,11 +39,11 @@ AMD_LIB=#-L $(UMFPACK_LIBRARY)
 
 all: superlu umfpack
 
-superlu: $(SUPERLU_INCLUDE)/slu_ddefs.h $(SUPERLU_LIBRARY)/libsuperlu.so
+superlu:
 	gcc -c -fPIC -I$(SUPERLU_INCLUDE) superlu.c;
 	ld -shared $(SUPERLU_LIB) -lsuperlu superlu.o -o superlu.so
 
-umfpack: $(UMFPACK_INCLUDE)/umfpack.h
+umfpack:
 	gcc -I$(UMFPACK_INCLUDE) -Wall -fPIC -c umfpack.c;
 	ld -shared $(UMFPACK_LIB) $(AMD_LIB) -lumfpack -lamd -lblas -llapack umfpack.o -o umfpack.so
 
