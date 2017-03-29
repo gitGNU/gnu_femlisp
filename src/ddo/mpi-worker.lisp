@@ -62,6 +62,28 @@ hostname) and a number (the port)."
      (with-open-file (stream connection-spec)
        (worker-connect stream)))))
 
+;;; an interface suitable for the standard case when only
+;;; a single MPI worker pool is used
+
+(defvar *mpi-workers* nil
+  "NIL if no standard pool of mpi-workers is active, otherwise the
+corresponding lfarm kernel.")
+
+(defun connect-to-mpi-workers
+    (&optional (connection-spec #p"femlisp:bin;mpi-worker-connection-data"))
+  (lfarm:end-kernel)
+  (setq *mpi-workers* (worker-connect connection-spec))
+  )
+
+(defun disconnect-from-mpi-workers ()
+  ;;(ddo (fl.port::quit))
+  (lfarm:end-kernel)
+  (setq *mpi-workers* nil)
+  )
+
+;;; (disconnect-from-mpi-workers)
+;;; (connect-to-mpi-workers)
+
 (defun main ()
   (mpi-init)
   (pushnew
