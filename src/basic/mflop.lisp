@@ -93,7 +93,7 @@ Returns the time in seconds together with the repetition count."
     `(let* (,result
             (,time (measure-time (lambda () (setq ,result (progn ,@block)))
                                 1 ,real-p)))
-       (when ,active-p (format t ,message ,time)))))
+       (when ,active-p (format *debug-io* ,message ,time)))))
 
 (defun daxpy-speed (n)
   "Returns the number of daxpy-ops for vectors of size @arg{n}."
@@ -119,7 +119,6 @@ memory bandwidth available."
   (time (daxpy-speed (expt 2 26)))
   (daxpy-speed +N-long+)
   (common-lisp-speed)
-
   (measure-time-for-block ("~&Test took ~F secs~%")
     (loop repeat 1000000))
   )
