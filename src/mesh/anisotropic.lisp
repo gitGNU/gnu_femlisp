@@ -54,15 +54,15 @@
 (defun anisotropic-refinement-info (refcell types)
   (let* ((skel (skeleton refcell))
          (bdry-refined
-          (refine skel :indicator
-                  (lambda (subcell)
-                    (and (not (eql subcell refcell))
-                         (loop for side across (boundary refcell)
-                            for rule across
-                            (anisotropic-boundary-refinement-rules refcell types)
-                            thereis (induced-refinement-of-subcell-refcells
-                                     side rule subcell))))
-                  :decouple nil))
+           (refine skel :indicator
+                   (lambda (subcell)
+                     (and (not (eql subcell refcell))
+                          (loop for side across (boundary refcell)
+                                for rule across
+                                         (anisotropic-boundary-refinement-rules refcell types)
+                                  thereis (induced-refinement-of-subcell-refcells
+                                           side rule subcell))))
+                   :decouple nil))
          (product-refined (anisotropic-refinement-skeleton
                            (mapcar #'dimension (factor-simplices refcell))
                            types))
@@ -70,14 +70,14 @@
     ;; fill refp->refb
     (doskel (cell1 bdry-refined)
       (let ((cell2
-             (the t (find-cell (_ (and (eql (class-of cell1) (class-of _))
-                                       (equalp (midpoint cell1) (midpoint _))))
-                               product-refined))))
+              (the t (find-cell (_ (and (eql (class-of cell1) (class-of _))
+                                        (equalp (midpoint cell1) (midpoint _))))
+                                product-refined))))
         (setf (gethash cell2 refp->refb) cell1)))
     ;; collect direct children
     (let ((children
-           (safe-sort (find-cells (_ (not (gethash _ refp->refb))) product-refined)
-                      #'< :key #'dimension))
+            (safe-sort (find-cells (_ (not (gethash _ refp->refb))) product-refined)
+                       #'< :key #'dimension))
           (subcells (subcells refcell)))
       (map 'vector
            (lambda (child)
@@ -98,6 +98,9 @@
 (defun anisotropic-refinement-rule (refcell types &aux (refcell (reference-cell refcell)))
   "Create an anisotropic refinement rule."
   (assert (= (length (factor-simplices refcell)) (length types)))
+  (when (every #'null types)
+    (return-from anisotropic-refinement-rule
+      (copy-refinement-rule refcell)))
   (or (find-if (_ (and (anisotropic-rule-p _)
                        (equal types (slot-value _ 'types))))
                (refinement-rules refcell))
@@ -158,9 +161,12 @@ refinement."
     (anisotropic-refinement-skeleton '(1 2) '(t nil))
     (anisotropic-refinement-info (n-cube 2) '(nil t))
     (refinement-rules (n-cube 2))
+    (refinement-rules (n-simplex 2))
     (anisotropic-refinement-rule (n-simplex 2) '(t))
+    (anisotropic-refinement-rule (n-simplex 2) '(nil))
+    (copy-refinement-rule (n-simplex 2))
     
-    (get-refinement-rule (n-cube 1) :copy)
+    (get-refinement-rule (n-simplex 1) :copy)
     #+(or)
     (fl.plot:plot
      (refcell-refinement-skeleton
