@@ -70,9 +70,8 @@
 (defun superlu (m n nnz cs ri store nrhs rhs sol orientation)
   "Calls SuperLU."
   (fl.port:foreign-call
-   #'c-superlu m n nnz (vector-sap cs) (vector-sap ri)
-   (vector-sap store) nrhs (vector-sap rhs)
-   (vector-sap sol)
+   #'c-superlu m n nnz cs ri
+   store nrhs rhs sol
    orientation))
 
 ;;; Testing
