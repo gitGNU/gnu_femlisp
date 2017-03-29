@@ -204,6 +204,16 @@ something like ``libblas<version>'' or ``liblapack<version>''.  These
 packages provide shared libraries (.so suffix) which are linked to
 @femlisp{} when it is loaded.
 
+@footnote{It looks as if the developer packages ``libblas-dev'' and
+``liblapack-dev'' provide ``libblas.so'' and ``liblapack.so'' without a
+version suffix, which are the default names tried by @femlisp{}.  So
+doing
+@example
+    sudo apt install libblas-dev liblapack-dev
+@end example
+might be the easiest way to make these routines available in
+@femlisp{}.}
+
 @node Direct sparse solvers, Mesh generators, BLAS/LAPACK libraries, Additional numerical software
 @subsubsection Direct sparse solvers
 
@@ -360,13 +370,33 @@ the script ``bin/femlisp'' and you can continue as described in chapter
 @node Notes for Mac OS X, Notes for Windows, Notes for Mac OS X and Windows, Notes for Mac OS X and Windows
 @subsubsection Notes for Mac OS X
 
-Femlisp should work fine on Mac OS X.  You will have to install Xquartz,
-and then opendx and sbcl using 'port install'.  Then you can more or
-less proceed as described above.
+Femlisp should work fine on Mac OS X.  You will first have to install
+Xquartz and MacPorts.  After that, you can install opendx and sbcl using
+'port install'.  Finally, you can install Femlisp in the same way as
+described above for Linux.
 
 @node Notes for Windows,  , Notes for Mac OS X, Notes for Mac OS X and Windows
 @subsubsection Notes for Windows
 
-Femlisp did work on Windows quite well, but this has not been tested for
-quite some time.
+@femlisp{} did work on Windows quite well using Allegro CL, but this has
+not been tested for quite some time.
 
+When I tried installing @femlisp{} recently on Windows using SBCL,
+@femlisp{} itself worked, but I was not able to make the communication
+with the graphics program OpenDX work as well.
+
+Since having no immediate graphics available is a kind of show stopper,
+I would rather suggest installing a virtual machine with Linux on your
+Windows box.
+
+@footnote{Of course, if you are a Windows guru who wants to help,
+patches which make communication with OpenDX work on Windows are always
+welcome.  Note that OpenDX has to work in scripting mode as this mode is
+used by @femlisp{}.  A good start would probably be, if you could make
+the following line work in a Cygwin shell (not the standard Windows
+command shell where it works as expected):
+@example
+  dx -script
+@end example
+Ideally, this should result in a prompt ``dx>'' which you should be able
+to leave using the command ``quit''.}
