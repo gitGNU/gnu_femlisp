@@ -44,8 +44,11 @@
    "DISTRIBUTED-P" "DISTRIBUTED-CONTAINER-P"
    "DISTRIBUTED-SLOTS" "DISTRIBUTED-SLOT-NAMES" "DISTRIBUTED-SLOT-VALUES"
    "DDO-PERFORMANCE-CHECK"
-   ;; synchronize.lisp
+   ;; utils.lisp
+   "MPI-DBG" "WITH-SPLIT-MPI-DEBUG-OUTPUT"
    "ALL-PROCESSORS" "OWNERS" "NEIGHBORS-FOR" "DO-NEIGHBORS" "MASTERP"
+   "DO-PROCESSORS" "DO-NEIGHBORS" "NEIGHBORS"
+   ;; synchronize.lisp
    "ENSURE-DISTRIBUTED-CLASS" "MAKE-DISTRIBUTED-OBJECT" "MAKE-DISTRIBUTED-CONTAINER"
    "MINIMUM-ID-MERGER" "OP-MERGER"
    "INSERT-INTO-CHANGED"
@@ -58,7 +61,9 @@
 (defpackage "MPI-WORKER"
   (:use "CL" "MPI"
         "FL.MACROS" "FL.UTILITIES")
-  (:export "WORKER-CONNECT"))
+  (:export "WORKER-CONNECT"
+           "*MPI-WORKERS*"
+           "CONNECT-TO-MPI-WORKERS" "DISCONNECT-FROM-MPI-WORKERS"))
 
 (defpackage "DDO-TEST"
   (:use "COMMON-LISP"
@@ -68,9 +73,3 @@
   (:export )
   (:documentation
    "This package uses what the others provide."))
-
-(defpackage "MPI-WORKER"
-  (:use "CL" "MPI"
-        "FL.MACROS" "FL.UTILITIES")
-  (:export "WORKER-CONNECT"))
-
