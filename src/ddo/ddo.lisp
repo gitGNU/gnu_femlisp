@@ -77,19 +77,21 @@
   (mutex-wrap (make-binary-tree :red-black #'< :key #'local-id))
   "Table containing changed distributed objects.")
 
-(defun reset-distributed-objects ()
+(defun reset-distributed-objects (&optional do-it)
   "For testing purposes!  Resets all distributed-object tables."
-  (accessing-exclusively ((objects *distributed-objects*))
-    (setf objects (make-hash-table :weakness :value)))
-  (accessing-exclusively ((d *distribution*))
-    (setf d (make-number-relation 3)))
-  (accessing-exclusively ((ids *deleted-local-ids*))
-    (setf ids ()))
-  (accessing-exclusively ((objects *new-distributed-objects*))
-    (setf objects ()))
-  (accessing-exclusively ((objects *changed-distributed-objects*))
-    (setf objects (make-binary-tree :red-black #'< :key #'local-id)))
-  (values))
+  (when do-it
+    (accessing-exclusively ((objects *distributed-objects*))
+      (setf objects (make-hash-table :weakness :value)))
+    (accessing-exclusively ((d *distribution*))
+      (setf d (make-number-relation 3)))
+    (accessing-exclusively ((ids *deleted-local-ids*))
+      (setf ids ()))
+    (accessing-exclusively ((objects *new-distributed-objects*))
+      (setf objects ()))
+    (accessing-exclusively ((objects *changed-distributed-objects*))
+      (setf objects (make-binary-tree :red-black #'< :key #'local-id)))
+    (values))
+  )
 
 (defun distributed-data ()
   "Only for debugging purposes: return all distributed data in a property list"
@@ -136,8 +138,8 @@ and non-distributed objects.  Not used at the moment!"))
   "Returns a function which is called when the distributed object with
 local-id equal to @arg{local-id} is garbage-collected."
   (lambda ()
-    (accessing-exclusively ((ids *deleted-local-ids*))
-      (push local-id ids))))
+    (accessing-exclusively ((deleted-ids *deleted-local-ids*))
+      (push local-id deleted-ids))))
 
 #+(or)
 (defgeneric container (obj)
@@ -191,20 +193,21 @@ local-id equal to @arg{local-id} is garbage-collected."
 (defun make-distributed-object (object processors &optional container-or-slots)
   "Make OBJECT into a distributed object belonging to PROCESSORS.
 The change will become active only after the next synchronization!"
-  (assert (not (typep object 'ddo-mixin)))
-  (assert (member (mpi-comm-rank) processors))
-  (assert (every (rcurry #'< (mpi-comm-size)) processors))
-  (when (> (length processors) 1)
-    ;; (assert (apply #'< processors)) ; not necessary
-    (change-class object
-                  (ensure-distributed-class (class-of object))
-                  :container container-or-slots)
-    (sb-ext:finalize object (distributed-finalizer (local-id object)))
-    (accessing-exclusively ((objects *distributed-objects*)
-                            (new-objects *new-distributed-objects*))
-      ;; establish new objects as distributed objects
-      (setf (gethash (local-id object) objects) object)
-      (push (cons object processors) new-objects)))
+  (when (mpi-initialized)
+    (assert (not (typep object 'ddo-mixin)))
+    (assert (member (mpi-comm-rank) processors))
+    (assert (every (rcurry #'< (mpi-comm-size)) processors))
+    (when (> (length processors) 1)
+      ;; (assert (apply #'< processors)) ; not necessary
+      (change-class object
+                    (ensure-distributed-class (class-of object))
+                    :container container-or-slots)
+      (sb-ext:finalize object (distributed-finalizer (local-id object)))
+      (accessing-exclusively ((objects *distributed-objects*)
+                              (new-objects *new-distributed-objects*))
+        ;; establish new objects as distributed objects
+        (setf (gethash (local-id object) objects) object)
+        (push (cons object processors) new-objects))))
   object)
 
 (defun make-distributed-container (object &optional distributed-slots)
