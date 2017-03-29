@@ -65,7 +65,7 @@ driven cavity."
   (watch-velocity-at-point (make-double-vec dim 0.5)))
 
 (defun ns-driven-cavity-demo (dim order levels &key
-                              (delta 1)
+                              (delta 1) (base-level 1)
 			      (plot-mesh t) plot output (reynolds 0.0) smooth-p
 			      (watch-points (list (make-double-vec dim 0.5))))
   "Performs the driven cavity demo."
@@ -75,7 +75,7 @@ driven cavity."
       :fe-class (navier-stokes-lagrange-fe order dim delta)
       :problem
       (driven-cavity dim :reynolds reynolds :smooth-p smooth-p)
-      :base-level 0 ; (if (evenp order) 0 1)  ; the system is severely singular otherwise
+      :base-level base-level ; (if (evenp order) 0 1)  ; the system is severely singular otherwise
       :success-if (if levels
 		      `(= :nr-levels ,levels)
 		      `(> :time ,*demo-time*))
@@ -83,10 +83,9 @@ driven cavity."
       (append *stationary-fe-strategy-observe*
 	      (mapcar #'watch-velocity-at-point watch-points)))))
   (when plot
-    ;; plot components of cell solution tensor
+    ;; plot components solution tensor
     (plot (getbb *result* :solution) :component 'fl.navier-stokes::u
-	  :shape 2 :rank 1)
-    (sleep 1.0)))
+	  :shape 2 :rank 1)))
 
 ;;; (ns-driven-cavity-demo 2 3 3 :output :all :plot t :reynolds 10.0)
 ;;; (plot (getbb *result* :solution) :component 0 :depth 2)
@@ -113,10 +112,73 @@ for the Navier-Stokes equation using Taylor-Hood finite elements
 ;;;; Testing:
 
 (defun test-driven-cavity ()
+  
+  (let* ((dim 2) (reynolds 500.0)
+         (order 1) (delta 1) (levels 1)
+         (FL.NAVIER-STOKES::*ALPHA* 1.0)
+         (FL.NAVIER-STOKES::*BETA* 1.0)
+         (initial-mesh-refinements 1)
+         (problem
+           (driven-cavity dim :reynolds reynolds))
+         (mesh (let ((mesh (triangulize (make-mesh-from (domain problem)))))
+                 (loop repeat initial-mesh-refinements
+                       do (setf mesh (refine mesh)))
+                 (change-class mesh '<hierarchical-mesh>)))
+         )
+    (storing
+      (solve
+       (blackboard
+        :problem (driven-cavity dim :reynolds reynolds)
+        :mesh mesh
+        :initial-mesh-refinements initial-mesh-refinements
+        :fe-class (navier-stokes-lagrange-fe order dim delta)
+	:estimator nil
+	:indicator (make-instance '<uniform-refinement-indicator>)
+        :solver
+        (make-instance
+         '<newton>
+         :linear-solver (?1 (lu-solver) ; for testing purposes
+                            (make-instance
+                             '<linear-solver> :iteration
+                             (let ((smoother (make-instance '<vanka> :store-p nil)))
+                               (make-instance
+                                '<geometric-cs>
+                                :coarse-grid-iteration
+                                (make-instance '<multi-iteration> :nr-steps 10 :base smoother)
+                                :smoother smoother :pre-steps 1 :post-steps 1 :gamma 2))
+                             :success-if `(and (> :step 4) (> :step-reduction 0.8) (< :defnorm 1.0e-3))
+                             :failure-if `(and (> :step 4) (> :step-reduction 1.0) (> :defnorm 1.0e-3))))
+         :success-if `(and (> :step 3) (> :step-reduction 0.5) (< :defnorm 1.0e-8))
+         :failure-if '(and (> :step 3) (> :step-reduction 1.0) (> :defnorm 1.0e-8)))
+	:success-if `(>= :nr-levels ,levels)
+        :plot-mesh t :output 3 :observe
+        (append *stationary-fe-strategy-observe*
+                (mapcar #'watch-velocity-at-point
+                        (list (make-double-vec dim .5)
+                              (make-double-vec dim .25))))))))
+  ;; (sb-sprof:with-profiling
+  ;;     (:max-samples 10000)
+  ;;(sb-sprof:report :type :flat :sort-by :cumulative-samples :max 200)
+
+  #|
+  Step   CELLS      DOFS     CPU                 u1                 u2                   u1                 u2  
+----------------------------------------------------------------------------------------------------------------
+   0       8        59     0.4    -4.0037048815e-01  -2.6525593710e-01     8.3635145999e-02   1.5579218079e-01  
+   1      32       246     1.5    -3.0476559085e-01   5.1094944061e-02    -5.8428538237e-02   8.2959600910e-02  
+   2     128       905     4.6    -2.1348632736e-01   5.8511532064e-02    -7.5324554492e-02   5.7917629666e-02  
+   3     512    3.372K    14.5    -2.0909204178e-01   5.7342875478e-02    -7.3601831328e-02   5.6051287272e-02  
+   4  2.048K   12.911K    53.2    -2.0912956384e-01   5.7533872539e-02    -7.3609371646e-02   5.6040701070e-02  
+   5  8.192K   50.418K   218.7    -2.0914714004e-01   5.7541898889e-02    -7.3611195765e-02   5.6038822786e-02  
+   6  32.77K  199.157K   951.7    -2.0914916195e-01   5.7537483418e-02    -7.3610662904e-02   5.6037662013e-02  
+   7  131.1K  791.298K [8274.4]   -2.0914918457e-01   5.7536619692e-02    -7.3610611938e-02   5.6037542987e-02                                    
+  |#
+  
+  (plot (getbb *result* :solution) :component 'fl.navier-stokes::u
+                                   :shape 2 :rank 1)
   (describe (driven-cavity 2))
   (describe (domain (driven-cavity 2 :smooth-p nil)))
-  (ns-driven-cavity-demo 2 1 1 :delta 1 :output 2 :plot-mesh nil
-			 :watch-points (list #d(0.5 0.5) #d(0.25 0.25)))
+  (ns-driven-cavity-demo 2 1 3 :base-level 1 :delta 1 :output 2 :plot-mesh nil :reynolds 40.0
+                               :watch-points (list #d(0.5 0.5) #d(0.25 0.25)))
   #+(or)(dbg-on :iter)
   #+(or)
   (defmethod intermediate :after ((it fl.iteration::<linear-solver>) bb)
