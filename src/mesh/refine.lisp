@@ -1,3 +1,4 @@
+
 ;;; -*- mode: lisp; -*-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -550,7 +551,14 @@ or only the highest-dimensional cells."))
   (:documentation "Refines @arg{skel} either locally or globally depending
 on the @function{indicator}."))
 
-(defmethod refine ((skel <skeleton>) &key (indicator (constantly t)) highest (decouple t))
+(defparameter *constant-refinement-type*
+  :regular
+  "Standard refinement is regular refinement which has been implemented for
+  all cell types in @femlisp{}.")
+
+(defmethod refine ((skel <skeleton>)
+                   &key (indicator (constantly *constant-refinement-type*))
+                   highest (decouple t))
   "Refines the cells of @arg{skel} indicated by @arg{indicator}.  Returns
 two values: the first is the refined skeleton, the second is the refinement
 which is a skeleton for the old mesh referencing the refinement vectors.
