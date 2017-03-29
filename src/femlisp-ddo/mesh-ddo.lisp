@@ -15,7 +15,7 @@
           'assert-non-distributed-substance-boundary
           (lambda (table)
             ;; check that all distributed substance faces have a remote neighbor
-            (synchronize)
+            (synchronize 'fl.mesh::substance-boundary-cells)
             (dohash (cell table)
               (when (distributed-p cell)
                 (insert-into-changed cell)))
@@ -25,7 +25,7 @@
                         (assert (= (length id-value-pairs) 2) ()
                                 "Object ~A has ~D distributed neighbors"
                                 object nr-neighbors)))))
-              (synchronize))
+              (synchronize 'fl.mesh::substance-boundary-cells))
             ;; remove those distributed faces
             (dohash (cell table)
               (when (distributed-p cell)
@@ -61,23 +61,31 @@
             (loop for cell in part do
               (loop for subcell across (subcells cell) do
                 (pushnew k (gethash subcell distribution)))))
-    ;; perform actual distribution
-    (doskel (cell mesh)
-      (let ((procs (gethash cell distribution)))
-        ;; identified cells are distributed to the same processors
-        (when (identified-p cell mesh)
-          (setf procs (reduce #'union (identified-cells cell mesh)
-                              :key (rcurry #'gethash distribution)
-                              :initial-value ())))
-        (if (member (mpi:mpi-comm-rank) procs)
-            (unless (single? procs)
-              (dbg :partition-mesh "Distributing ~A to ~A" cell procs)
-              (ddo:ensure-distributed-class (class-of cell))
-              (ddo:make-distributed-object cell procs))
-            (remhash cell (etable mesh (dimension cell)))))))
+    ;; We do the same loop again for ensuring a correct order of the
+    ;; identified cells.  In this loop we generate the distributed-objects
+    ;; and drop those objects which are present only on other processors
+    (loop for part in (partition-graph nr-workers)
+          and k from 0 do
+            (loop for cell in part do
+              (loop for subcell across (subcells cell) do
+                (unless (distributed-p subcell)
+                  (let ((procs (reduce #'union (identified-cells subcell mesh)
+                                       :key (rcurry #'gethash distribution)
+                                       :initial-value ())))
+                    (cond
+                      ((member (mpi-comm-rank) procs)
+                       (unless (single? procs)
+                         (mpi-dbg :partition-mesh "Distributing ~A to ~A" subcell procs)
+                         (ddo:ensure-distributed-class (class-of subcell))
+                         (ddo:make-distributed-object subcell procs)))
+                      (t (mpi-dbg :partition-mesh "Removing ~A" subcell)
+                         (remhash subcell (etable mesh (dimension subcell)))))))))))
+  (check mesh)
   ;; propagate changes
-  (synchronize)
+  (synchronize 'distribute-mesh)
   (setf (get-property mesh :distributed-p) t)
+  ;; return a reasonable value
+  mesh
   )
 
 (defvar *distribute-n* nil
@@ -122,5 +130,5 @@
                             (make-distributed-object child procs))
                           (children cell skel))))))
         (dbg :ddo-refine "Synchronizing")
-        (synchronize)))))
+        (synchronize 'fl.mesh::do-refinement!)))))
 

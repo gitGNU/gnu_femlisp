@@ -59,24 +59,8 @@
 
 (in-package :fl.konwihr-parallel)
 
-(defvar *mpi-workers* nil)
 (defvar *mpi-konwihr-initialized* nil)
 (defvar *mpi-konwihr-speed* nil)
-
-(defun connect-to-mpi-workers
-    (&optional (connection-spec #p"femlisp:bin;mpi-worker-connection-data"))
-  (lfarm:end-kernel)
-  (setq *mpi-workers* (worker-connect connection-spec))
-  )
-
-(defun disconnect-from-mpi-workers ()
-  ;;(ddo (fl.port::quit))
-  (lfarm:end-kernel)
-  (setq *mpi-workers* nil)
-  )
-
-;;; (disconnect-from-mpi-workers)
-;;; (connect-to-mpi-workers)
 
 (defun konwihr-paper-max-levels-mpi ()
   (unless *mpi-workers*
@@ -145,7 +129,7 @@ once for all demos, so please wait..."
     (format t "You must initialize an MPI worker pool before running this demo.")
     (return-from distributed-memory-demo))
   (let ((nr-workers (lfarm:kernel-worker-count))
-        (allowed-worker-numbers '(2 3 4 6 8 12 16 24 48)))
+        (allowed-worker-numbers '(1 2 3 4 6 8 12 16 24 48)))
     (unless (member nr-workers allowed-worker-numbers)
       (format t "For this demo we expect the number of MPI workers to
 be an element of the set {~{~A~^,~}} for achieving an optimal load
@@ -174,7 +158,7 @@ manual GC on all workers and clear all distributed data ...")
          (query (format nil "Levels (1-~D): " (or max-levels 4)))
          (levels (user-input query #'parse-integer (_ (<= 1 _ max-levels))))
          (initial-mesh-refinements
-           (if (member nr-workers '(2 3 6)) 0 1)))
+           (if (member nr-workers '(1 2 3 6)) 0 1)))
     ;; stop multithreading on workers
     (ddo (end-kernel))
     ;; and allow it in some situations on request...
@@ -252,3 +236,36 @@ from the worker pool using this 'demo'."
 (mpi-worker-connect-demo)
 (distributed-memory-demo)
 |#
+
+(defun test-heisig-neuss-2017-2 ()
+  (disconnect-from-mpi-workers)
+  (connect-to-mpi-workers)
+  (ddo (dbg-on :distribute :communication :synchronize-timing :log-times :partition-mesh))
+  (ddo ddo::*communicate-with-all*)
+  (ddo ddo::*check-distribution-p*)
+  (ddo (setq ddo::*check-distribution-p* t))
+  (ddo (setq ddo::*communicate-with-all* nil))
+  (ddo (reset-distributed-objects t))
+  (ddo (sb-ext:gc :full t))
+  (ddo (distributed-data))
+  (ddo (new-local-id))
+  (ddo (ql:quickload :femlisp-ddo))
+  (let ((mesh (make-mesh-from (n-cube-domain 2) :initial-mesh-refinements 4)))
+    (plot (femlisp-ddo::distribute-mesh mesh 2)))
+  (ddo (accessing-exclusively ((distribution ddo::*distribution*))
+         (R-select distribution '_ 12 338)))
+  (ddo
+   (with-split-mpi-debug-output
+     (fl.parallel::end-kernel)
+     (let ((*distribute-n* 48))
+       (heisig-neuss-2017-demo
+        (elasticity-inlay-cell-problem (n-cell-with-ball-hole 3))
+        :order 5 :levels 1 :output 2 :distributed-p t
+        :initial-mesh-refinements 1))))
+  (destructuring-bind (send receive)
+      (analyze-mpi-debug-output)
+    (declare (ignore send))
+    (loop for k below (lfarm:kernel-worker-count) collect (funcall receive 15 k)))
+  
+  (ddo (synchronize))
+  )
