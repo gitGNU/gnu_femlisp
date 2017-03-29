@@ -109,6 +109,27 @@ special case of general elliptic systems."))
   (isotropic-diffusion-coefficient
    dim (loop for i below dim collect viscosity)))
 
+;;; a start for streamline diffusion - not working at the moment!
+
+(defvar *streamline-diffusion* 0.0
+  "Streamline diffusion adds a certain velocity-dependent amount of
+numerical viscosity which depends on the size of the element and the size
+of convection.")
+
+(defun navier-stokes-streamline-diffusion-coefficient (dim)
+  (make-instance
+   '<coefficient>
+   :name 'FL.ELLSYS::A
+   :demands '(:Dphi :fe-parameters (:solution . 0))
+   :eval (lambda (&key Dphi solution &allow-other-keys)
+           (let* ((velocities
+                    (apply #'join :vertical
+                           (take dim (coerce (first solution) 'list))))
+                  (sd (* *streamline-diffusion*
+                         (norm (m* Dphi velocities)))))
+             (diagonal-sparse-tensor
+              (scal sd (eye dim)) dim)))))
+
 (defun navier-stokes-pressure-and-continuity-coefficient (dim)
   (constant-coefficient
    'FL.ELLSYS::C
@@ -167,6 +188,20 @@ Please define the problem using @macro{create-problem}.")))
                               (diagonal-sparse-tensor
                                (scal (apply eval args) (eye dim)) dim)))
      (navier-stokes-pressure-and-continuity-coefficient dim))))
+
+(defmethod make-coefficients-for
+    ((problem fl.navier-stokes::<navier-stokes-problem>)
+     (coeff (eql 'H-DEPENDENT-VISCOSITY)) patch args eval)
+    (let ((dim (dimension (domain problem))))
+      (list
+       (make-instance
+        '<coefficient>
+        :name 'FL.ELLSYS::A
+        :demands '(:Dphi)
+        :eval (lambda (&key Dphi &allow-other-keys)
+                (let ((h (/ (norm Dphi) (sqrt dim))))
+                  (diagonal-sparse-tensor
+                   (scal (funcall eval h) (eye dim)) dim)))))))
 
 (defmethod make-coefficients-for
     ((problem fl.navier-stokes::<navier-stokes-problem>)
@@ -252,7 +287,8 @@ Please define the problem using @macro{create-problem}.")))
       (setf (aref values 0) #m(1.0)))
     (constant-coefficient 'CONSTRAINT flags values)))
 
-(defun driven-cavity (dim &key (viscosity 1.0) (reynolds 0.0) smooth-p)
+(defun driven-cavity (dim &key (viscosity 1.0) (reynolds 0.0)
+                            smooth-p h-dependent-viscosity)
   (let ((domain (n-cube-domain dim)))
     (?1 (create-problem '<navier-stokes-problem>
             (:domain domain :components `((u ,dim) p) :multiplicity 1)
@@ -261,13 +297,16 @@ Please define the problem using @macro{create-problem}.")))
               (:d-dimensional
                (list*
                 (coeff VISCOSITY () viscosity)
+                (when h-dependent-viscosity
+                  (coeff H-DEPENDENT-VISCOSITY ()
+                    h-dependent-viscosity))
                 (unless (zerop reynolds)
                   (list (coeff REYNOLDS () reynolds)))))
               ((and :d-1-dimensional :top)
                (if smooth-p
-                   (coeff FORCE () #m((1.0) (0.0) (0.0)))
+                   (coeff FORCE () (ensure-matlisp (unit-vector (1+ dim) 0)))
                    (coeff PRESCRIBED-VELOCITY ()
-                     #m((1.0) (0.0)))))
+                     (ensure-matlisp (unit-vector dim 0)))))
               (:origin
                (constraint-coefficient (1+ dim) 1))
               (:external-boundary
