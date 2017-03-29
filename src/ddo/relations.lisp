@@ -255,7 +255,10 @@ and also the number of fixed and variable positions."
     (loop for k below 10 do
       (insert k tree)
       (insert k tree))
+    (trees:delete -1 tree)
     (trees:delete 3 tree)
+    (trees:delete 3 tree)
+    (trees:delete 10 tree)
     (pprint-tree tree)
     (for-each-in-range #'print tree :from 5 :to 0 :direction :backward))
 
