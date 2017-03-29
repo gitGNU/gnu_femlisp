@@ -16,7 +16,7 @@
 
 (defun calculate-effective-cachesize ()
   "Calculates effective cachesize in bytes."
-  (let ((l 30))
+  (let ((l 27))
     (flet ((test (k)
                (let* ((n (expt 2 k))
                       (count (expt 2 (- l k)))
@@ -26,26 +26,28 @@
                  (measure-time
                   (lambda () (replace x y)) count))))
       (format t "Measuring effective cache size (this may take some time)...~%")
-      (loop for k from 10 below 20
+      (loop for k from 10 below 22
             for previous = nil then next
             and next = (test k)
             do
                (format t "~2D ~A~%" k next)
+               (force-output)
                (when (and previous (> next (* 1.2 previous)))
                  (loop-finish))
             finally (return (expt 2 (+ k 3)))))))
 
 (defun get-cachesize ()
-  (if (get-cpuinfo)
-      (let* ((size (second (assoc "cache size" (get-cpuinfo) :test #'string=)))
-             (sep-pos (position #\Space size))
-             (number (parse-integer (subseq size 0 sep-pos)))
-             (unit (subseq size (1+ sep-pos))))
-        (* number
-           (stringcase unit
-             ("KB" 1024)
-             (t (error "Unknown unit: ~A" unit)))))
-      (calculate-effective-cachesize)))
+  (aif (aand (get-cpuinfo)
+             (assoc "cache size" it :test #'string=))
+       (let* ((size (second it))
+              (sep-pos (position #\Space size))
+              (number (parse-integer (subseq size 0 sep-pos)))
+              (unit (subseq size (1+ sep-pos))))
+         (* number
+            (stringcase unit
+              ("KB" 1024)
+              (t (error "Unknown unit: ~A" unit)))))
+    (calculate-effective-cachesize)))
 
 (defvar *cachesize* (get-cachesize))
 
