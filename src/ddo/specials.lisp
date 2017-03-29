@@ -57,6 +57,9 @@ is not blocked by a non-fitting communication pattern.")
 (defvar *report-ranks* t
   "List of ranks for which reports are shown.  T means all ranks.")
 
+(defvar *check-distribution-p* nil
+  "If set, the distribution is checked at the beginning of each synchronization.")
+
 ;;; data types and flags for the first communication
 
 (defvar +ulong+ '(unsigned-byte 64))
