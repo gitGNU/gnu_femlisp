@@ -81,8 +81,8 @@
   (declare (ignore blackboard))
   (make-instance
    '<newton>
-   :success-if `(and (> :step 1) (> :step-reduction 0.5))
-   :failure-if '(and (> :step 1) (> :step-reduction 1.0) (> :defnorm 1.0e-5))))
+   :success-if '(and (> :step 1) (> :step-reduction 0.9) (< :defnorm 1.0e-9))
+   :failure-if '(and (> :step 1) (> :step-reduction 1.0) (> :defnorm 1.0e-9))))
 
 
 ;;;; Testing
