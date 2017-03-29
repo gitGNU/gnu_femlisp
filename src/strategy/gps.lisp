@@ -87,26 +87,28 @@
 (defmethod select-linear-solver ((problem fl.navier-stokes::<navier-stokes-problem>) blackboard)
   (declare (ignore blackboard))
   (make-instance
-   '<safe-linear-solver> :iteration
+   '<safe-linear-solver>
+   :iteration
    (let ((smoother
-          (make-instance
-           '<vanka>
-           :ordering
-           (flet ((coords (key)
-                    (midpoint (representative key))))
-             (let ((comparison (compare-lexicographically :direction '(:up :up))))
-               (lambda (p1 p2)
-                 (funcall comparison (coords p1) (coords p2))))))))
+           (make-instance
+            '<vanka>
+            :ordering
+            (flet ((coords (key)
+                     (midpoint (representative key))))
+              (let ((comparison (compare-lexicographically :direction '(:up :up))))
+                (lambda (p1 p2)
+                  (funcall comparison (coords p1) (coords p2))))))))
      (geometric-cs
       :coarse-grid-iteration
-      ;(make-instance '<lu>) #+(or)
+                                        ;(make-instance '<lu>) #+(or)
       (make-instance '<multi-iteration> :nr-steps 1 :base smoother)
       :smoother smoother :pre-steps 1 :post-steps 1 :gamma 1))
      :success-if `(or (zerop :defnorm)
-                      ;(and (>= :step 10) (> :step-reduction 0.9) (< :defnorm 1.0e-8))
-                      (>= :step 10))
-   :failure-if `(and (> :step 10) (> :step-reduction 0.9))
+                      (and (>= :step 10) (> :step-reduction 0.98) (< :defnorm 1.0e-8))
+                      (>= :step 100))
+   :failure-if `(and (> :step 10) (> :step-reduction 0.98))
    ))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Choice of problem-dependent error estimator
