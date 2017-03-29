@@ -83,8 +83,11 @@ transfers the data.")
                (loop for proc in processors do
                  (unless (= proc (mpi-comm-rank))
                    (push id (aref place proc))))))
-    (let ((new-to (vec-of-lists)) (changed-to (vec-of-lists)) (deleted-to (vec-of-lists))
-          (first-comm-to (vec-of-lists)) (first-comm-from (vec-of-lists)))
+    (let ((new-to (vec-of-lists))
+          (changed-to (vec-of-lists))
+          (deleted-to (vec-of-lists))
+          (first-comm-to (vec-of-lists))
+          (first-comm-from (vec-of-lists)))
       ;; new objects
       (loop for (object . processors) in new-objects do
         (distribute (local-id object) new-to processors))
@@ -99,53 +102,74 @@ transfers the data.")
       ;; empty communication is therefore possible/necessary
       ;; and communication occuring is indicated by
       ;; (aref first-comm-for proc) being non-nil
-      (do-neighbors (proc)
+      (do-processors (proc)
         (unless (= proc (mpi-comm-rank))
           (let ((new (aref new-to proc))
                 (changed (aref changed-to proc))
                 (deleted (aref deleted-to proc)))
-          (when (or new changed deleted
-                    (R-some distribution '_ proc '_)
-                    *communicate-with-all*)
-            (setf (aref first-comm-to proc)
-                  (mapcar (rcurry #'coerce +ulong-vec+)
-                          (list new changed deleted)))))))
+            (when (or changed deleted)
+              (assert (R-some distribution '_ proc '_)))
+            (when (or new changed deleted
+                      (R-some distribution '_ proc '_)
+                      *communicate-with-all*)
+              (setf (aref first-comm-to proc)
+                    (mapcar (rcurry #'coerce +ulong-vec+)
+                            (list new changed deleted)))))))
       (assert (not (aref first-comm-to (mpi-comm-rank)))
               () "Should not communicate with myself")
       (mpi-dbg :distribute "Starting first communication")
       ;; parallel communication
       (let* ((comm-data
-             (loop for proc in (neighbors)
-                   when (aref first-comm-to proc)
-                     collect (list :send proc (aref first-comm-to proc))
-                     and collect (list :receive proc)))
-           (comm-result (exchange comm-data :tag 1
-                                            :encode #'first-comm-encode
-                                            :cleanup #'static-vectors:free-static-vector
-                                            :decode #'first-comm-decode)))
-      (mpi-dbg (and *debug-show-data* :distribute) "Received ~A" comm-result)
-      (loop for (from nil object) in comm-result
-            do (setf (aref first-comm-from from)
-                     object)))
-    (mpi-dbg :distribute "Finished first communication")
-    ;; all communication was successful, we can handle it:
-    ;;
-    ;; change distribution topology by inserting new and removing deleted objects
-    (do-neighbors (proc)
-      (awhen (aref first-comm-from proc)
-        (destructuring-bind (distant-new distant-changed distant-deleted) it
-          ;; distant-changed can be ignored (it is only relevant for the second step)
-          (declare (ignore distant-changed))
-          ;; insert new
-          (let ((new (aref new-to proc)))
-            (assert (= (length new) (length distant-new)))
-            (loop for local-id in new
-                  and distant-id across distant-new do
-                    (R-insert distribution local-id proc distant-id)))
-          ;; drop deleted
-          (loop for distant-id across distant-deleted do
-            (R-remove distribution '_ proc distant-id))
-          )))
+               (loop for proc in (all-processors)
+                     when (aref first-comm-to proc)
+                       collect (list :send proc (aref first-comm-to proc))
+                       and collect (list :receive proc)))
+             (comm-result (exchange comm-data :tag 1
+                                              :encode #'first-comm-encode
+                                              :cleanup #'static-vectors:free-static-vector
+                                              :decode #'first-comm-decode)))
+        (mpi-dbg (and *debug-show-data* :distribute) "Received ~A" comm-result)
+        (loop for (from nil object) in comm-result
+              do (setf (aref first-comm-from from)
+                       object)))
+      (mpi-dbg :distribute "Finished first communication")
+      ;; all communication was successful, we can handle it:
+      ;;
+      ;; change distribution topology by inserting new references and
+      ;; removing references to objects garbage-collected on other
+      ;; processors
+      (do-processors (proc)
+        (awhen (aref first-comm-from proc)
+          (destructuring-bind (distant-new distant-changed distant-deleted) it
+            ;; insert new
+            (let ((new (aref new-to proc)))
+              (assert (= (length new) (length distant-new)))
+              (loop for local-id in new
+                    and distant-id across distant-new do
+                      (R-insert distribution local-id proc distant-id)))
+            ;; only the length of distant-changed is checked at this
+            ;; place to be the same as changed, because this should be
+            ;; the case at the moment
+            (let ((changed (aref changed-to proc)))
+              (assert (= (length changed) (length distant-changed)))
+              (when *check-distribution-p*
+                (map nil (lambda (local-id distant-id)
+                           (assert (R-select distribution local-id proc distant-id)
+                                   ()
+                                   "Change-entry not found on rank ~D: local-id=~D proc=~D distant-id=~D"
+                                   (mpi-comm-rank) local-id proc distant-id))
+                     changed distant-changed)))
+            ;; drop deleted
+            (loop for distant-id across distant-deleted do
+              (when *check-distribution-p*
+                (assert (R-select distribution '_ proc distant-id)
+                        ()
+                        "Delete-entry not found on rank ~D: proc=~D distant-id=~D"
+                        (mpi-comm-rank) proc distant-id))
+              (R-remove distribution '_ proc distant-id))
+            )))
+      ;; deletion should be handled
+      
       ;; we pass all messages obtained in this first communication, because
       ;; we need part of it for interpreting the second communication
       first-comm-from)))
@@ -238,7 +262,7 @@ conspack library, but only work for slots with double vector data.")
     ;; communicate
     (let ((comm-result
             (apply #'exchange
-                   (loop for proc in (neighbors)
+                   (loop for proc in (all-processors)
                          when (aand (aref first-comm-from proc)
                                     (destructuring-bind (new changed deleted) it
                                       (declare (ignore deleted))
@@ -267,7 +291,7 @@ conspack library, but only work for slots with double vector data.")
         (push (cons (mpi-comm-rank)
                     (distributed-slot-values object))
               (gethash (local-id object) change-table ())))
-      (do-neighbors (proc)
+      (do-processors (proc)
         (let ((comm-from (aref second-comm-from proc)))
           (loop for (distant-id . slot-values) in comm-from
                 for local-id = (caar (R-select distribution '_ proc distant-id))
@@ -303,21 +327,30 @@ conspack library, but only work for slots with double vector data.")
                                   (changed-objects *changed-distributed-objects*)
                                   (deleted-ids *deleted-local-ids*)
                                   (distribution *distribution*))
+            ;; a check for debugging purposes
+            (when *check-distribution-p*
+              (multiple-value-bind (consistent-p connections)
+                  (distribution-consistency-check)
+                (unless consistent-p
+                  (let (*print-pretty*)
+                    (error "Bad connections:~%~A"
+                           (connection-string connections))))))
             ;;
             ;; first communication
             ;;
             (let ((first-comm-from
                     (first-communication new-objects changed-objects deleted-ids
                                          distribution)))
-              ;; the deleted local-ids have been communicated and should be handled
-              ;; in the neighbors, so we clear the distribution data here, too
+              ;; the deleted local-ids have been communicated and
+              ;; references should have been removed in the neighbors,
+              ;; so we clear the distribution data here, too
               (loop for id = (pop deleted-ids)
                     while id do (R-remove distribution id '_ '_))
               (mpi-dbg :distribute "Terminated first communication")
       
               (second-communication new-objects changed-objects distribution
-                                    first-comm-from))
-            (mpi-dbg :distribute "Terminated second communication")
+                                    first-comm-from)
+              (mpi-dbg :distribute "Terminated second communication"))
     
             ;; finally we can clear also the new/changed objects tables
             (setf new-objects ()
