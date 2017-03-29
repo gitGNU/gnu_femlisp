@@ -85,7 +85,7 @@ If the value is NIL, the LAPACK library is searched for in standard library path
 If the value is :none, no external LAPACK routines are used.")
 
 (defparameter *superlu-library*
-  (femlisp-pathname "interface/superlu.so")
+  (probe-file (femlisp-pathname "interface/superlu.so"))
   "Wrapper for SuperLU, if available.")
 
 (defparameter *umfpack-library*
