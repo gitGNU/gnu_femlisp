@@ -236,8 +236,10 @@ with respect to the graph given by @arg{mat}."
   "Converts the sparse matrix @arg{A} to CCS format.  @arg{row-keys} and
 @arg{col-keys} may denote a submatrix, @arg{col-ranges} and
 @arg{row-ranges} may be used for extracting even subblocks of the entries.
-This is a rather difficult routine, which might suggest switching to CCS
-completely."
+
+This is a rather complicated routine which has not yet been parallelized.
+Theoretically, this might be a bottleneck for some applications, but,
+practically, an appropriate case has not yet appeared."
   (ensure row-keys keys) (ensure col-keys keys)
   (unless row-keys
     (setq row-keys (coerce (row-keys A) 'vector))
@@ -247,6 +249,7 @@ completely."
   (ensure row-ranges ranges) (ensure col-ranges ranges)
   (let ((row-numbering (numbering row-keys))
 	row-sizes col-sizes row-offsets col-offsets)
+    ;; we ensure that row-sizes and col-sizes are set to their correct values
     (flet ((setup (keys ranges key->size)
 	     (let ((sizes (if ranges
 			      (vector-map #'(lambda (x) (- (cdr x) (car x))) ranges)

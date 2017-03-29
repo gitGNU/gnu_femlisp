@@ -333,7 +333,7 @@ SuperLU.")
             (error "External direct solver did not succeed."))
 	  vec))
       (gesv! (compressed->matlisp mat) vec)))
-  
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Test direct solvers on the CM scheme
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

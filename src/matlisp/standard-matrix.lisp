@@ -230,7 +230,7 @@ whenever possible."
   "Maximum number of columns and/or rows to print. NIL: no elements, T: all
 elements.")
 
-(defvar *print-matrix-pretty* nil
+(defvar *print-matrix-pretty* t
   "T means that a newline is printed after each row.")
 
 (defvar *print-matrix-element-format* nil
@@ -277,6 +277,9 @@ stream @arg{stream}."))
   matrix)
 
 (defmethod print-object ((matrix standard-matrix) stream)
+  (print-matrix matrix stream))
+
+(defmethod display ((matrix standard-matrix) &key (stream t) &allow-other-keys)
   (print-matrix matrix stream))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
