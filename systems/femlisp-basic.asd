@@ -35,6 +35,15 @@
 
 (in-package :cl-user)
 
+(defun call-with-read-double-float-environment (fun)
+  "Numerical calculations usually work with double-float numbers, because
+single-float numbers ususally do not have sufficient precision.  This
+function is used for dynamically binding the default-float-format when
+loading Femlisp parts which rely on this functionality for not interfering
+with other peoples libraries."
+  (let ((*read-default-float-format* 'double-float))
+    (funcall fun)))
+
 (asdf:defsystem :femlisp-basic
   :author "Nicolas Neuss"
   :license "Modified BSD"
