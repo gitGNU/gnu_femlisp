@@ -179,6 +179,17 @@ for `homogenization-2d'."
 
 (defun femlisp-demo (&optional (demo *demo-root*))
   "Shows all demos below the given demo root."
+  (unless (eql *read-default-float-format* 'double-float)
+    (warn "At the moment there are problems with Femlisp running
+with the value of *read-default-float-format* not being
+'double-float, which have not been fully explored.  Please execute:
+  (setq *read-default-float-format* 'double-float)
+and try again.
+
+Note that it might even make sense to put this line into your
+startup file, because double precision is what numerical
+algorithms and other programs need anyhow.")
+    (return-from femlisp-demo))
   (catch 'quit (show-demo demo))
   (values))
 
